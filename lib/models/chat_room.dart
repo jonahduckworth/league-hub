@@ -1,0 +1,58 @@
+enum ChatRoomType { league, event, direct }
+
+class ChatRoom {
+  final String id;
+  final String orgId;
+  final String name;
+  final ChatRoomType type;
+  final String? leagueId;
+  final List<String> participants;
+  final DateTime createdAt;
+  final bool isArchived;
+  final String? lastMessage;
+  final DateTime? lastMessageAt;
+
+  ChatRoom({
+    required this.id,
+    required this.orgId,
+    required this.name,
+    required this.type,
+    this.leagueId,
+    required this.participants,
+    required this.createdAt,
+    required this.isArchived,
+    this.lastMessage,
+    this.lastMessageAt,
+  });
+
+  factory ChatRoom.fromJson(Map<String, dynamic> json) => ChatRoom(
+        id: json['id'] as String,
+        orgId: json['orgId'] as String,
+        name: json['name'] as String,
+        type: ChatRoomType.values.firstWhere(
+          (e) => e.name == json['type'],
+          orElse: () => ChatRoomType.league,
+        ),
+        leagueId: json['leagueId'] as String?,
+        participants: List<String>.from(json['participants'] as List? ?? []),
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        isArchived: json['isArchived'] as bool? ?? false,
+        lastMessage: json['lastMessage'] as String?,
+        lastMessageAt: json['lastMessageAt'] != null
+            ? DateTime.parse(json['lastMessageAt'] as String)
+            : null,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'orgId': orgId,
+        'name': name,
+        'type': type.name,
+        'leagueId': leagueId,
+        'participants': participants,
+        'createdAt': createdAt.toIso8601String(),
+        'isArchived': isArchived,
+        'lastMessage': lastMessage,
+        'lastMessageAt': lastMessageAt?.toIso8601String(),
+      };
+}
