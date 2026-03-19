@@ -97,6 +97,14 @@ final documentsProvider = StreamProvider<List<Document>>((ref) {
       );
 });
 
+/// Stream of a single document by ID.
+final documentProvider =
+    StreamProvider.family<Document?, String>((ref, docId) {
+  final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+  if (orgId == null) return Stream.value(null);
+  return ref.watch(firestoreServiceProvider).getDocumentById(orgId, docId);
+});
+
 /// All announcements for the current org, pinned first then newest.
 final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;

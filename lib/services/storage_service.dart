@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
 
 class StorageService {
@@ -22,16 +23,46 @@ class StorageService {
   }
 
   Future<String> uploadBytes({
-    required List<int> bytes,
+    required Uint8List bytes,
     required String path,
     required String contentType,
   }) async {
     final ref = _storage.ref().child(path);
-    await ref.putData(
-      bytes as dynamic,
-      SettableMetadata(contentType: contentType),
-    );
+    await ref.putData(bytes, SettableMetadata(contentType: contentType));
     return await ref.getDownloadURL();
+  }
+
+  /// Uploads a document file to organizations/{orgId}/documents/{docId}/{filename}.
+  /// Returns the download URL.
+  Future<String> uploadDocument(
+    String orgId,
+    String docId,
+    Uint8List bytes,
+    String filename,
+    String contentType, {
+    void Function(double)? onProgress,
+  }) async {
+    final path = 'organizations/$orgId/documents/$docId/$filename';
+    final ref = _storage.ref().child(path);
+    final task = ref.putData(bytes, SettableMetadata(contentType: contentType));
+    if (onProgress != null) {
+      task.snapshotEvents.listen((snapshot) {
+        if (snapshot.totalBytes > 0) {
+          onProgress(snapshot.bytesTransferred / snapshot.totalBytes);
+        }
+      });
+    }
+    await task;
+    return await ref.getDownloadURL();
+  }
+
+  /// Deletes a document file from Storage. Silently ignores if not found.
+  Future<void> deleteDocumentFile(
+      String orgId, String docId, String filename) async {
+    final path = 'organizations/$orgId/documents/$docId/$filename';
+    try {
+      await _storage.ref().child(path).delete();
+    } catch (_) {}
   }
 
   Future<void> deleteFile(String path) async {

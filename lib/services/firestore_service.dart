@@ -39,16 +39,21 @@ class FirestoreService {
 
   /// Recursively converts Firestore Timestamp objects to ISO strings so models
   /// can parse them without importing cloud_firestore.
+  dynamic _convertValue(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate().toIso8601String();
+    }
+    if (value is Map<String, dynamic>) {
+      return _convertTimestamps(value);
+    }
+    if (value is List) {
+      return value.map(_convertValue).toList();
+    }
+    return value;
+  }
+
   Map<String, dynamic> _convertTimestamps(Map<String, dynamic> data) {
-    return data.map((key, value) {
-      if (value is Timestamp) {
-        return MapEntry(key, value.toDate().toIso8601String());
-      }
-      if (value is Map<String, dynamic>) {
-        return MapEntry(key, _convertTimestamps(value));
-      }
-      return MapEntry(key, value);
-    });
+    return data.map((key, value) => MapEntry(key, _convertValue(value)));
   }
 
   // --- Organizations ---
@@ -360,29 +365,96 @@ class FirestoreService {
 
   // --- Documents ---
 
+  CollectionReference _documentsRef(String orgId) => _db
+      .collection(AppConstants.orgsCollection)
+      .doc(orgId)
+      .collection('documents');
+
+  String newDocumentId(String orgId) => _documentsRef(orgId).doc().id;
+
+  Document _docFromSnap(DocumentSnapshot d, String orgId) => Document.fromJson(
+      {'id': d.id, 'orgId': orgId, ..._convertTimestamps(d.data() as Map<String, dynamic>)});
+
+  /// Stream of all documents for an org, client-side filtered by leagueId/category.
   Stream<List<Document>> documentsStream(String orgId,
       {String? leagueId, String? category}) {
-    Query query = _db
-        .collection(AppConstants.documentsCollection)
-        .where('orgId', isEqualTo: orgId);
-    if (leagueId != null) query = query.where('leagueId', isEqualTo: leagueId);
-    if (category != null && category != 'All') {
-      query = query.where('category', isEqualTo: category);
-    }
-    return query
+    return _documentsRef(orgId)
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => Document.fromJson(
-                {'id': d.id, ...d.data() as Map<String, dynamic>}))
-            .toList());
+        .map((snap) {
+      var docs = snap.docs.map((d) => _docFromSnap(d, orgId)).toList();
+      if (leagueId != null) {
+        docs = docs.where((d) => d.leagueId == leagueId).toList();
+      }
+      if (category != null) {
+        docs = docs.where((d) => d.category == category).toList();
+      }
+      return docs;
+    });
   }
 
-  Future<void> uploadDocument(Document doc) async {
-    await _db
-        .collection(AppConstants.documentsCollection)
-        .doc(doc.id)
-        .set(doc.toJson());
+  Stream<List<Document>> getDocuments(String orgId) =>
+      documentsStream(orgId);
+
+  Stream<List<Document>> getDocumentsByLeague(String orgId, String leagueId) =>
+      documentsStream(orgId, leagueId: leagueId);
+
+  Stream<List<Document>> getDocumentsByCategory(
+          String orgId, String category) =>
+      documentsStream(orgId, category: category);
+
+  Stream<Document?> getDocumentById(String orgId, String docId) {
+    return _documentsRef(orgId).doc(docId).snapshots().map((snap) {
+      if (!snap.exists) return null;
+      return _docFromSnap(snap, orgId);
+    });
+  }
+
+  Future<String> createDocument(String orgId, Map<String, dynamic> docData,
+      {String? docId}) async {
+    final ref = docId != null
+        ? _documentsRef(orgId).doc(docId)
+        : _documentsRef(orgId).doc();
+    await ref.set({
+      ...docData,
+      'orgId': orgId,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  }
+
+  Future<void> updateDocument(
+      String orgId, String docId, Map<String, dynamic> data) async {
+    await _documentsRef(orgId).doc(docId).update({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteDocument(String orgId, String docId) async {
+    await _documentsRef(orgId).doc(docId).delete();
+  }
+
+  Future<void> addDocumentVersion(
+      String orgId, String docId, Map<String, dynamic> versionData) async {
+    await _db.runTransaction((transaction) async {
+      final docRef = _documentsRef(orgId).doc(docId);
+      final snap = await transaction.get(docRef);
+      final data = snap.data() as Map<String, dynamic>? ?? {};
+      final currentVersions =
+          List<Map<String, dynamic>>.from(data['versions'] as List? ?? []);
+      final newVersion = {
+        ...versionData,
+        'version': currentVersions.length + 1,
+      };
+      transaction.update(docRef, {
+        'versions': [...currentVersions, newVersion],
+        'fileUrl': versionData['url'],
+        'fileSize': versionData['fileSize'],
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
   }
 
   // --- Announcements ---

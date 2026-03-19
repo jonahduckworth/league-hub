@@ -3,26 +3,35 @@ class DocumentVersion {
   final int version;
   final DateTime uploadedAt;
   final String uploadedBy;
+  final String uploadedByName;
+  final int fileSize;
 
   DocumentVersion({
     required this.fileUrl,
     required this.version,
     required this.uploadedAt,
     required this.uploadedBy,
+    required this.uploadedByName,
+    required this.fileSize,
   });
 
-  factory DocumentVersion.fromJson(Map<String, dynamic> json) => DocumentVersion(
-        fileUrl: json['fileUrl'] as String,
-        version: json['version'] as int,
+  factory DocumentVersion.fromJson(Map<String, dynamic> json) =>
+      DocumentVersion(
+        fileUrl: (json['url'] ?? json['fileUrl'] ?? '') as String,
+        version: (json['version'] as num?)?.toInt() ?? 1,
         uploadedAt: DateTime.parse(json['uploadedAt'] as String),
-        uploadedBy: json['uploadedBy'] as String,
+        uploadedBy: json['uploadedBy'] as String? ?? '',
+        uploadedByName: json['uploadedByName'] as String? ?? '',
+        fileSize: (json['fileSize'] as num?)?.toInt() ?? 0,
       );
 
   Map<String, dynamic> toJson() => {
-        'fileUrl': fileUrl,
+        'url': fileUrl,
         'version': version,
         'uploadedAt': uploadedAt.toIso8601String(),
         'uploadedBy': uploadedBy,
+        'uploadedByName': uploadedByName,
+        'fileSize': fileSize,
       };
 }
 
@@ -61,16 +70,16 @@ class Document {
 
   factory Document.fromJson(Map<String, dynamic> json) => Document(
         id: json['id'] as String,
-        orgId: json['orgId'] as String,
+        orgId: json['orgId'] as String? ?? '',
         leagueId: json['leagueId'] as String?,
         hubId: json['hubId'] as String?,
         name: json['name'] as String,
         fileUrl: json['fileUrl'] as String,
         fileType: json['fileType'] as String,
-        fileSize: json['fileSize'] as int,
+        fileSize: (json['fileSize'] as num?)?.toInt() ?? 0,
         category: json['category'] as String,
         uploadedBy: json['uploadedBy'] as String,
-        uploadedByName: json['uploadedByName'] as String,
+        uploadedByName: json['uploadedByName'] as String? ?? '',
         versions: (json['versions'] as List? ?? [])
             .map((v) => DocumentVersion.fromJson(v as Map<String, dynamic>))
             .toList(),
@@ -79,7 +88,6 @@ class Document {
       );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
         'orgId': orgId,
         'leagueId': leagueId,
         'hubId': hubId,

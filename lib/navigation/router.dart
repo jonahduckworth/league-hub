@@ -14,6 +14,8 @@ import '../screens/admin/user_management_screen.dart';
 import '../screens/admin/user_detail_screen.dart';
 import '../screens/create_announcement_screen.dart';
 import '../screens/announcement_detail_screen.dart';
+import '../screens/upload_document_screen.dart';
+import '../screens/document_detail_screen.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 class _AuthNotifier extends ChangeNotifier {
@@ -91,6 +93,17 @@ final router = GoRouter(
       path: '/chat/:roomId',
       builder: (context, state) => ChatConversationScreen(
         roomId: state.pathParameters['roomId']!,
+      ),
+    ),
+    // Document routes — outside ShellRoute (no bottom nav)
+    GoRoute(
+      path: '/documents/upload',
+      builder: (context, state) => const UploadDocumentScreen(),
+    ),
+    GoRoute(
+      path: '/documents/:id',
+      builder: (context, state) => DocumentDetailScreen(
+        docId: state.pathParameters['id']!,
       ),
     ),
     // Announcement routes — outside ShellRoute (no bottom nav)
