@@ -199,7 +199,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 16),
               Center(
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () => context.push('/accept-invite'),
                   child: const Text('Accept Invitation'),
                 ),
               ),

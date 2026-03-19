@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/organization.dart';
 import '../models/league.dart';
@@ -8,6 +10,7 @@ import '../models/chat_room.dart';
 import '../models/message.dart';
 import '../models/document.dart';
 import '../models/announcement.dart';
+import '../models/invitation.dart';
 import '../core/constants.dart';
 
 class FirestoreService {
@@ -162,6 +165,28 @@ class FirestoreService {
         .doc(user.id)
         .set(user.toJson(), SetOptions(merge: true));
   }
+
+  Stream<List<AppUser>> getOrgUsers(String orgId) {
+    return _db
+        .collection(AppConstants.usersCollection)
+        .where('orgId', isEqualTo: orgId)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => AppUser.fromJson(
+                {'id': d.id, ..._convertTimestamps(d.data())}))
+            .toList());
+  }
+
+  Future<AppUser?> getUserById(String uid) => getUser(uid);
+
+  Future<void> updateUserFields(String uid, Map<String, dynamic> data) =>
+      _db.collection(AppConstants.usersCollection).doc(uid).update(data);
+
+  Future<void> deactivateUser(String uid) =>
+      updateUserFields(uid, {'isActive': false});
+
+  Future<void> reactivateUser(String uid) =>
+      updateUserFields(uid, {'isActive': true});
 
   // --- Chat Rooms ---
 
@@ -339,5 +364,83 @@ class FirestoreService {
         .collection(AppConstants.announcementsCollection)
         .doc(announcement.id)
         .set(announcement.toJson());
+  }
+
+  // --- Invitations ---
+
+  CollectionReference _invitationsRef(String orgId) => _db
+      .collection(AppConstants.orgsCollection)
+      .doc(orgId)
+      .collection('invitations');
+
+  String _generateToken() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  Future<String> createInvitation(String orgId, Invitation invitation) async {
+    final ref = _invitationsRef(orgId).doc();
+    final token = _generateToken();
+    final data = invitation.toJson()
+      ..['token'] = token
+      ..['orgId'] = orgId;
+    await ref.set(data);
+    return token;
+  }
+
+  Stream<List<Invitation>> getInvitations(String orgId) {
+    return _invitationsRef(orgId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => Invitation.fromJson(
+                {'id': d.id, ..._convertTimestamps(d.data() as Map<String, dynamic>)}))
+            .toList());
+  }
+
+  Future<Invitation?> getInvitationByToken(String token) async {
+    final snap = await _db
+        .collectionGroup('invitations')
+        .where('token', isEqualTo: token)
+        .where('status', isEqualTo: 'pending')
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    final doc = snap.docs.first;
+    return Invitation.fromJson(
+        {'id': doc.id, ..._convertTimestamps(doc.data())});
+  }
+
+  Future<void> acceptInvitation(String orgId, String inviteId) =>
+      _invitationsRef(orgId)
+          .doc(inviteId)
+          .update({'status': InvitationStatus.accepted.name});
+
+  // --- All Hubs Flat ---
+
+  Future<List<Hub>> getAllHubsFlat(String orgId) async {
+    final leagueSnap = await _leaguesRef(orgId).get();
+    final hubs = <Hub>[];
+    for (final leagueDoc in leagueSnap.docs) {
+      final hubSnap = await _hubsRef(orgId, leagueDoc.id).get();
+      for (final hubDoc in hubSnap.docs) {
+        hubs.add(Hub.fromJson({
+          'id': hubDoc.id,
+          ..._convertTimestamps(hubDoc.data() as Map<String, dynamic>)
+        }));
+      }
+    }
+    return hubs;
+  }
+
+  Future<int> getActiveUserCount(String orgId) async {
+    final snap = await _db
+        .collection(AppConstants.usersCollection)
+        .where('orgId', isEqualTo: orgId)
+        .where('isActive', isEqualTo: true)
+        .count()
+        .get();
+    return snap.count ?? 0;
   }
 }

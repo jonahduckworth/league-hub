@@ -9,6 +9,9 @@ import '../screens/documents_screen.dart';
 import '../screens/announcements_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/org_creation_screen.dart';
+import '../screens/accept_invitation_screen.dart';
+import '../screens/admin/user_management_screen.dart';
+import '../screens/admin/user_detail_screen.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 class _AuthNotifier extends ChangeNotifier {
@@ -27,8 +30,9 @@ final router = GoRouter(
     final location = state.matchedLocation;
     final isOnLogin = location == '/login';
     final isOnCreateOrg = location == '/create-org';
+    final isOnAcceptInvite = location == '/accept-invite';
 
-    if (!isLoggedIn && !isOnLogin && !isOnCreateOrg) return '/login';
+    if (!isLoggedIn && !isOnLogin && !isOnCreateOrg && !isOnAcceptInvite) return '/login';
     if (isLoggedIn && isOnLogin) return '/';
     return null;
   },
@@ -40,6 +44,10 @@ final router = GoRouter(
     GoRoute(
       path: '/create-org',
       builder: (context, state) => const OrgCreationScreen(),
+    ),
+    GoRoute(
+      path: '/accept-invite',
+      builder: (context, state) => const AcceptInvitationScreen(),
     ),
     ShellRoute(
       builder: (context, state, child) =>
@@ -64,6 +72,16 @@ final router = GoRouter(
         GoRoute(
           path: '/settings',
           builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/settings/users',
+          builder: (context, state) => const UserManagementScreen(),
+        ),
+        GoRoute(
+          path: '/settings/users/:userId',
+          builder: (context, state) => UserDetailScreen(
+            userId: state.pathParameters['userId']!,
+          ),
         ),
       ],
     ),

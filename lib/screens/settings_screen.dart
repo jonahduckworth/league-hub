@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
+import '../providers/data_providers.dart';
 import '../providers/mock_data.dart';
 import '../widgets/avatar_widget.dart';
 import 'admin/manage_leagues_screen.dart';
@@ -15,6 +16,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(currentUserProvider);
     final user = userAsync.valueOrNull ?? mockCurrentUser;
+    final pendingInviteCount = ref.watch(pendingInviteCountProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -37,7 +39,12 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              _SettingsItem(icon: Icons.people, title: 'User Management', onTap: () {}),
+              _SettingsItem(
+                icon: Icons.people,
+                title: 'User Management',
+                badge: pendingInviteCount > 0 ? pendingInviteCount : null,
+                onTap: () => context.push('/settings/users'),
+              ),
               _SettingsItem(icon: Icons.admin_panel_settings, title: 'Roles & Permissions', onTap: () {}),
               _SettingsItem(icon: Icons.palette, title: 'Branding & Appearance', onTap: () {}),
               _SettingsItem(icon: Icons.apps, title: 'App Icon', onTap: () {}),
@@ -215,9 +222,13 @@ class _SettingsItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final VoidCallback onTap;
+  final int? badge;
 
   const _SettingsItem(
-      {required this.icon, required this.title, required this.onTap});
+      {required this.icon,
+      required this.title,
+      required this.onTap,
+      this.badge});
 
   @override
   Widget build(BuildContext context) {
@@ -225,8 +236,29 @@ class _SettingsItem extends StatelessWidget {
       leading: Icon(icon, color: AppColors.primary, size: 22),
       title: Text(title,
           style: const TextStyle(fontSize: 15, color: AppColors.text)),
-      trailing:
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (badge != null)
+            Container(
+              margin: const EdgeInsets.only(right: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.danger,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$badge',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
           const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
+        ],
+      ),
       onTap: onTap,
     );
   }

@@ -8,6 +8,8 @@ import '../models/message.dart';
 import '../models/document.dart';
 import '../models/announcement.dart';
 import '../models/organization.dart';
+import '../models/app_user.dart';
+import '../models/invitation.dart';
 import 'auth_provider.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) => FirestoreService());
@@ -100,4 +102,29 @@ final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).announcementsStream(orgId, leagueId: leagueId);
+});
+
+// --- User Management ---
+
+final orgUsersProvider = StreamProvider<List<AppUser>>((ref) {
+  final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+  if (orgId == null) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getOrgUsers(orgId);
+});
+
+final invitationsProvider = StreamProvider<List<Invitation>>((ref) {
+  final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+  if (orgId == null) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).getInvitations(orgId);
+});
+
+final pendingInviteCountProvider = Provider<int>((ref) {
+  final invitations = ref.watch(invitationsProvider).valueOrNull ?? [];
+  return invitations.where((i) => i.status == InvitationStatus.pending).length;
+});
+
+final activeUserCountProvider = FutureProvider<int>((ref) async {
+  final org = await ref.watch(organizationProvider.future);
+  if (org == null) return 0;
+  return ref.read(firestoreServiceProvider).getActiveUserCount(org.id);
 });

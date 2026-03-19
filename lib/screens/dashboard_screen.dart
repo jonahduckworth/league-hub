@@ -28,6 +28,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final leaguesAsync = ref.watch(leaguesProvider);
     final hubCountAsync = ref.watch(hubCountProvider);
     final teamCountAsync = ref.watch(teamCountProvider);
+    final memberCountAsync = ref.watch(activeUserCountProvider);
 
     final orgName = orgAsync.valueOrNull?.name ?? 'League Hub';
     final userName = userAsync.valueOrNull?.displayName ?? '';
@@ -35,6 +36,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final hubCount = hubCountAsync.valueOrNull ?? 0;
     final teamCount = teamCountAsync.valueOrNull ?? 0;
     final leagueCount = leagues.length;
+    final memberCount = memberCountAsync.valueOrNull ?? 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -97,7 +99,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 _buildStatsRow(
                     hubCount: hubCount,
                     teamCount: teamCount,
-                    leagueCount: leagueCount),
+                    leagueCount: leagueCount,
+                    memberCount: memberCount),
                 const SizedBox(height: 24),
                 _buildAnnouncementsSection(),
                 const SizedBox(height: 24),
@@ -114,33 +117,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildStatsRow(
       {required int hubCount,
       required int teamCount,
-      required int leagueCount}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-              child: _StatCard(
-                  title: 'Active Hubs',
-                  value: '$hubCount',
-                  icon: Icons.location_city,
-                  color: AppColors.primary)),
-          const SizedBox(width: 12),
-          Expanded(
-              child: _StatCard(
-                  title: 'Total Teams',
-                  value: '$teamCount',
-                  icon: Icons.groups,
-                  color: AppColors.accent)),
-          const SizedBox(width: 12),
-          Expanded(
-              child: _StatCard(
-                  title: 'Leagues',
-                  value: '$leagueCount',
-                  icon: Icons.emoji_events,
-                  color: AppColors.success)),
-        ],
-      ),
+      required int leagueCount,
+      required int memberCount}) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                  child: _StatCard(
+                      title: 'Active Hubs',
+                      value: '$hubCount',
+                      icon: Icons.location_city,
+                      color: AppColors.primary)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _StatCard(
+                      title: 'Total Teams',
+                      value: '$teamCount',
+                      icon: Icons.groups,
+                      color: AppColors.accent)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                  child: _StatCard(
+                      title: 'Leagues',
+                      value: '$leagueCount',
+                      icon: Icons.emoji_events,
+                      color: AppColors.success)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _StatCard(
+                      title: 'Members',
+                      value: '$memberCount',
+                      icon: Icons.people,
+                      color: const Color(0xFF7C3AED))),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/app_user.dart';
+import '../models/invitation.dart';
 import '../core/constants.dart';
 
 class AuthService {
@@ -61,5 +62,38 @@ class AuthService {
 
   Future<void> sendPasswordResetEmail(String email) async {
     await _auth.sendPasswordResetEmail(email: email);
+  }
+
+  Future<void> createAccountFromInvite(
+    String email,
+    String password,
+    String displayName,
+    Invitation invitation,
+  ) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    await credential.user!.updateDisplayName(displayName);
+    final uid = credential.user!.uid;
+    final role = UserRole.values.firstWhere(
+      (e) => e.name == invitation.role,
+      orElse: () => UserRole.staff,
+    );
+    final user = AppUser(
+      id: uid,
+      email: email,
+      displayName: displayName,
+      role: role,
+      orgId: invitation.orgId,
+      hubIds: invitation.hubIds,
+      teamIds: invitation.teamIds,
+      createdAt: DateTime.now(),
+      isActive: true,
+    );
+    await _db
+        .collection(AppConstants.usersCollection)
+        .doc(uid)
+        .set(user.toJson());
   }
 }
