@@ -4,6 +4,8 @@ import '../models/league.dart';
 import '../models/chat_room.dart';
 import '../models/document.dart';
 import '../models/announcement.dart';
+import '../models/organization.dart';
+import 'auth_provider.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) => FirestoreService());
 
@@ -12,6 +14,12 @@ final selectedCategoryProvider = StateProvider<String>((ref) => 'All');
 
 // Mock org id for demo - replace with actual user's orgId after auth
 const mockOrgId = 'demo-org-1';
+
+final organizationProvider = FutureProvider<Organization?>((ref) async {
+  final appUser = await ref.watch(currentUserProvider.future);
+  if (appUser?.orgId == null) return null;
+  return ref.read(firestoreServiceProvider).getOrganization(appUser!.orgId!);
+});
 
 final leaguesProvider = StreamProvider<List<League>>((ref) {
   return ref.watch(firestoreServiceProvider).leaguesStream(mockOrgId);

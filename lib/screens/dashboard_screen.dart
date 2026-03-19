@@ -1,24 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/announcement.dart';
 import '../models/chat_room.dart';
+import '../providers/auth_provider.dart';
+import '../providers/data_providers.dart';
 import '../providers/mock_data.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/avatar_widget.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String? _selectedLeagueId;
 
   @override
   Widget build(BuildContext context) {
+    final userAsync = ref.watch(currentUserProvider);
+    final orgAsync = ref.watch(organizationProvider);
+
+    final orgName = orgAsync.valueOrNull?.name ?? 'League Hub';
+    final userName = userAsync.valueOrNull?.displayName ?? '';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
@@ -29,12 +38,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             backgroundColor: AppColors.primary,
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-              title: const Column(
+              title: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Metro Sports Alliance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text('League Hub', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                  Text(
+                    orgName,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  ),
+                  Text(
+                    userName.isNotEmpty ? 'Hi, $userName' : 'League Hub',
+                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  ),
                 ],
               ),
               background: Container(
@@ -48,8 +66,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             actions: [
-              IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white), onPressed: () {}),
-              IconButton(icon: const Icon(Icons.search, color: Colors.white), onPressed: () {}),
+              IconButton(
+                  icon: const Icon(Icons.notifications_outlined,
+                      color: Colors.white),
+                  onPressed: () {}),
+              IconButton(
+                  icon: const Icon(Icons.search, color: Colors.white),
+                  onPressed: () {}),
             ],
           ),
           SliverToBoxAdapter(
@@ -78,15 +101,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStatsRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Expanded(child: _StatCard(title: 'Active Hubs', value: '8', icon: Icons.location_city, color: AppColors.primary)),
-          const SizedBox(width: 12),
-          Expanded(child: _StatCard(title: 'Total Teams', value: '47', icon: Icons.groups, color: AppColors.accent)),
-          const SizedBox(width: 12),
-          Expanded(child: _StatCard(title: 'Leagues', value: '3', icon: Icons.emoji_events, color: AppColors.success)),
+          Expanded(
+              child: _StatCard(
+                  title: 'Active Hubs',
+                  value: '8',
+                  icon: Icons.location_city,
+                  color: AppColors.primary)),
+          SizedBox(width: 12),
+          Expanded(
+              child: _StatCard(
+                  title: 'Total Teams',
+                  value: '47',
+                  icon: Icons.groups,
+                  color: AppColors.accent)),
+          SizedBox(width: 12),
+          Expanded(
+              child: _StatCard(
+                  title: 'Leagues',
+                  value: '3',
+                  icon: Icons.emoji_events,
+                  color: AppColors.success)),
         ],
       ),
     );
@@ -101,12 +139,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Announcements', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.text)),
+              const Text('Announcements',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.text)),
               TextButton(onPressed: () {}, child: const Text('See All')),
             ],
           ),
         ),
-        ...mockAnnouncements.take(2).map((a) => _AnnouncementCard(announcement: a)),
+        ...mockAnnouncements
+            .take(2)
+            .map((a) => _AnnouncementCard(announcement: a)),
       ],
     );
   }
@@ -120,7 +164,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Active Chats', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.text)),
+              const Text('Active Chats',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.text)),
               TextButton(onPressed: () {}, child: const Text('See All')),
             ],
           ),
@@ -137,7 +185,11 @@ class _StatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
 
-  const _StatCard({required this.title, required this.value, required this.icon, required this.color});
+  const _StatCard(
+      {required this.title,
+      required this.value,
+      required this.icon,
+      required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -160,9 +212,13 @@ class _StatCard extends StatelessWidget {
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: 12),
-          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 24, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(title, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary)),
         ],
       ),
     );
@@ -191,7 +247,8 @@ class _AnnouncementCard extends StatelessWidget {
               if (announcement.isPinned)
                 Container(
                   margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppColors.warning.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(4),
@@ -201,32 +258,53 @@ class _AnnouncementCard extends StatelessWidget {
                     children: [
                       Icon(Icons.push_pin, size: 12, color: AppColors.warning),
                       SizedBox(width: 4),
-                      Text('Pinned', style: TextStyle(fontSize: 11, color: AppColors.warning, fontWeight: FontWeight.w600)),
+                      Text('Pinned',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.warning,
+                              fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(announcement.scopeLabel, style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                child: Text(announcement.scopeLabel,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600)),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(announcement.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text)),
+          Text(announcement.title,
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.text)),
           const SizedBox(height: 4),
-          Text(announcement.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          Text(announcement.body,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary)),
           const SizedBox(height: 8),
           Row(
             children: [
               AvatarWidget(name: announcement.authorName, size: 20),
               const SizedBox(width: 6),
-              Text(announcement.authorName, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              Text(announcement.authorName,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary)),
               const Spacer(),
-              Text(AppUtils.formatDateTime(announcement.createdAt), style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              Text(AppUtils.formatDateTime(announcement.createdAt),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textMuted)),
             ],
           ),
         ],
@@ -255,12 +333,20 @@ class _ChatCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: chatRoom.type == ChatRoomType.direct ? AppColors.accent.withOpacity(0.15) : AppColors.primary.withOpacity(0.1),
+              color: chatRoom.type == ChatRoomType.direct
+                  ? AppColors.accent.withOpacity(0.15)
+                  : AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              chatRoom.type == ChatRoomType.direct ? Icons.person : chatRoom.type == ChatRoomType.event ? Icons.event : Icons.forum,
-              color: chatRoom.type == ChatRoomType.direct ? AppColors.accent : AppColors.primary,
+              chatRoom.type == ChatRoomType.direct
+                  ? Icons.person
+                  : chatRoom.type == ChatRoomType.event
+                      ? Icons.event
+                      : Icons.forum,
+              color: chatRoom.type == ChatRoomType.direct
+                  ? AppColors.accent
+                  : AppColors.primary,
               size: 22,
             ),
           ),
@@ -269,14 +355,24 @@ class _ChatCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(chatRoom.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.text)),
+                Text(chatRoom.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: AppColors.text)),
                 const SizedBox(height: 2),
-                Text(chatRoom.lastMessage ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                Text(chatRoom.lastMessage ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 13, color: AppColors.textSecondary)),
               ],
             ),
           ),
           if (chatRoom.lastMessageAt != null)
-            Text(AppUtils.formatDateTime(chatRoom.lastMessageAt!), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            Text(AppUtils.formatDateTime(chatRoom.lastMessageAt!),
+                style:
+                    const TextStyle(fontSize: 11, color: AppColors.textMuted)),
         ],
       ),
     );

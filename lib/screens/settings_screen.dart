@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../models/app_user.dart';
+import '../providers/auth_provider.dart';
 import '../providers/mock_data.dart';
 import '../widgets/avatar_widget.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final user = mockCurrentUser;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(currentUserProvider);
+    final user = userAsync.valueOrNull ?? mockCurrentUser;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Settings')),
@@ -45,12 +50,19 @@ class SettingsScreen extends StatelessWidget {
             ),
             child: ListTile(
               leading: const Icon(Icons.logout, color: AppColors.danger),
-              title: const Text('Sign Out', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600)),
-              onTap: () {},
+              title: const Text('Sign Out',
+                  style: TextStyle(
+                      color: AppColors.danger, fontWeight: FontWeight.w600)),
+              onTap: () async {
+                await ref.read(authServiceProvider).signOut();
+                if (context.mounted) context.go('/login');
+              },
             ),
           ),
           const SizedBox(height: 24),
-          const Center(child: Text('League Hub v1.0.0', style: TextStyle(fontSize: 12, color: AppColors.textMuted))),
+          const Center(
+              child: Text('League Hub v1.0.0',
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted))),
         ],
       ),
     );
@@ -75,35 +87,52 @@ class _ProfileCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          AvatarWidget(name: user.displayName, size: 60, backgroundColor: Colors.white.withOpacity(0.3)),
+          AvatarWidget(
+              name: user.displayName,
+              size: 60,
+              backgroundColor: Colors.white.withOpacity(0.3)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(user.displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                Text(user.displayName,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white)),
                 const SizedBox(height: 4),
-                Text(user.email, style: const TextStyle(fontSize: 13, color: Colors.white70)),
+                Text(user.email,
+                    style:
+                        const TextStyle(fontSize: 13, color: Colors.white70)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     _RoleBadge(label: user.roleLabel),
                     const SizedBox(width: 8),
-                    if (user.role == UserRole.platformOwner)
+                    if (user.role == UserRole.platformOwner ||
+                        user.role == UserRole.superAdmin)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: AppColors.warning,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text('Owner', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                        child: const Text('Owner',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold)),
                       ),
                   ],
                 ),
               ],
             ),
           ),
-          IconButton(icon: const Icon(Icons.edit_outlined, color: Colors.white), onPressed: () {}),
+          IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Colors.white),
+              onPressed: () {}),
         ],
       ),
     );
@@ -123,7 +152,9 @@ class _RoleBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.white.withOpacity(0.4)),
       ),
-      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+      child: Text(label,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -140,7 +171,12 @@ class _SettingsSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(title.toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.8)),
+          child: Text(title.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.8)),
         ),
         Container(
           decoration: BoxDecoration(
@@ -170,14 +206,17 @@ class _SettingsItem extends StatelessWidget {
   final String title;
   final VoidCallback onTap;
 
-  const _SettingsItem({required this.icon, required this.title, required this.onTap});
+  const _SettingsItem(
+      {required this.icon, required this.title, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon, color: AppColors.primary, size: 22),
-      title: Text(title, style: const TextStyle(fontSize: 15, color: AppColors.text)),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
+      title: Text(title,
+          style: const TextStyle(fontSize: 15, color: AppColors.text)),
+      trailing:
+          const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
       onTap: onTap,
     );
   }
