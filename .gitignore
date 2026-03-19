@@ -23,8 +23,10 @@ migrate_working_dir/
 # is commented out by default.
 #.vscode/
 
-# Firebase
+# Firebase — sensitive config files with API keys
 lib/firebase_options.dart
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
 
 # Flutter/Dart/Pub related
 **/doc/api/
