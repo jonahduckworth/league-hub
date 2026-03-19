@@ -97,6 +97,23 @@ class _OrgCreationScreenState extends ConsumerState<OrgCreationScreen> {
           .doc(uid)
           .set(user.toJson());
 
+      // Create a default General chat room for the org
+      await db
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.chatRoomsCollection)
+          .add({
+        'orgId': orgId,
+        'name': 'General',
+        'type': 'league',
+        'leagueId': null,
+        'participants': [uid],
+        'isArchived': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastMessage': null,
+        'lastMessageAt': FieldValue.serverTimestamp(),
+      });
+
       setState(() => _step = 1);
     } on FirebaseAuthException catch (e) {
       _showError(_authErrorMessage(e.code));

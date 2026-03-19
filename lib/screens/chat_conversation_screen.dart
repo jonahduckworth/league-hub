@@ -1,26 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../models/message.dart';
-import '../providers/mock_data.dart';
+import '../providers/auth_provider.dart';
+import '../providers/data_providers.dart';
 import '../widgets/chat_bubble.dart';
 
-class ChatConversationScreen extends StatefulWidget {
+class ChatConversationScreen extends ConsumerStatefulWidget {
   final String roomId;
 
   const ChatConversationScreen({super.key, required this.roomId});
 
   @override
-  State<ChatConversationScreen> createState() => _ChatConversationScreenState();
+  ConsumerState<ChatConversationScreen> createState() =>
+      _ChatConversationScreenState();
 }
 
-class _ChatConversationScreenState extends State<ChatConversationScreen> {
+class _ChatConversationScreenState
+    extends ConsumerState<ChatConversationScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
-
-  String get roomName {
-    final room = mockChatRooms.firstWhere((r) => r.id == widget.roomId, orElse: () => mockChatRooms.first);
-    return room.name;
-  }
+  bool _isSending = false;
 
   @override
   void dispose() {
@@ -29,37 +30,140 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     super.dispose();
   }
 
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty || _isSending) return;
+
+    final orgId = ref.read(organizationProvider).valueOrNull?.id;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (orgId == null || currentUser == null) return;
+
+    setState(() => _isSending = true);
+    _messageController.clear();
+
+    try {
+      await ref.read(firestoreServiceProvider).sendMessage(
+            orgId,
+            widget.roomId,
+            senderId: currentUser.id,
+            senderName: currentUser.displayName,
+            text: text,
+          );
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final roomAsync = ref.watch(chatRoomProvider(widget.roomId));
+    final messagesAsync = ref.watch(messagesProvider(widget.roomId));
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+
+    // Auto-scroll when new messages arrive.
+    ref.listen<AsyncValue<List<Message>>>(
+      messagesProvider(widget.roomId),
+      (prev, next) {
+        final prevCount = prev?.valueOrNull?.length ?? 0;
+        final nextCount = next.valueOrNull?.length ?? 0;
+        if (nextCount > prevCount) {
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _scrollToBottom());
+        }
+      },
+    );
+
+    final room = roomAsync.valueOrNull;
+    final roomName = room?.name ?? 'Chat';
+    final participantCount = room?.participants.length ?? 0;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(roomName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const Text('8 members', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            Text(roomName,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            if (participantCount > 0)
+              Text('$participantCount member${participantCount == 1 ? '' : 's'}',
+                  style: const TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.phone_outlined), onPressed: () {}),
           IconButton(icon: const Icon(Icons.info_outlined), onPressed: () {}),
         ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              itemCount: mockMessages.length,
-              itemBuilder: (context, index) {
-                final message = mockMessages[index];
-                final isSelf = message.senderId == 'currentUser';
-                if (message.mediaUrl != null) {
-                  return _YouTubePreviewBubble(message: message, isSelf: isSelf);
+            child: messagesAsync.when(
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) =>
+                  Center(child: Text('Error loading messages: $e')),
+              data: (messages) {
+                if (messages.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.chat_bubble_outline,
+                            size: 56, color: AppColors.textMuted),
+                        SizedBox(height: 16),
+                        Text(
+                          'No messages yet',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Be the first to say something!',
+                          style: TextStyle(
+                              fontSize: 14, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  );
                 }
-                return ChatBubble(message: message, isSelf: isSelf);
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    final isSelf = message.senderId == currentUser?.id;
+                    return ChatBubble(message: message, isSelf: isSelf);
+                  },
+                );
               },
             ),
           ),
@@ -80,91 +184,47 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       ),
       child: Row(
         children: [
-          IconButton(icon: const Icon(Icons.attach_file, color: AppColors.textSecondary), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.image_outlined, color: AppColors.textSecondary), onPressed: () {}),
           Expanded(
             child: TextField(
               controller: _messageController,
               decoration: InputDecoration(
                 hintText: 'Type a message...',
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: AppColors.border)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: AppColors.border)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: AppColors.primary)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(color: AppColors.border)),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(color: AppColors.border)),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(color: AppColors.primary)),
                 filled: true,
                 fillColor: AppColors.background,
               ),
               maxLines: null,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _sendMessage(),
             ),
           ),
           const SizedBox(width: 8),
           Container(
-            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+                color: AppColors.primary, shape: BoxShape.circle),
             child: IconButton(
-              icon: const Icon(Icons.send, color: Colors.white, size: 20),
-              onPressed: () {
-                _messageController.clear();
-              },
+              icon: _isSending
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send, color: Colors.white, size: 20),
+              onPressed: _isSending ? null : _sendMessage,
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _YouTubePreviewBubble extends StatelessWidget {
-  final Message message;
-  final bool isSelf;
-  const _YouTubePreviewBubble({required this.message, required this.isSelf});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(left: isSelf ? 60 : 12, right: isSelf ? 12 : 60, top: 4, bottom: 4),
-      child: Align(
-        alignment: isSelf ? Alignment.centerRight : Alignment.centerLeft,
-        child: Column(
-          crossAxisAlignment: isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            if (message.text != null && message.text!.isNotEmpty)
-              ChatBubble(message: message, isSelf: isSelf),
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 160,
-                    decoration: const BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.play_circle_filled, color: Colors.white, size: 48),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('YouTube Video', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(height: 4),
-                        Text(message.mediaUrl ?? '', style: const TextStyle(fontSize: 12, color: AppColors.accent), overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

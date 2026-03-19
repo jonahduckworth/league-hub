@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/announcement.dart';
@@ -156,6 +157,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildChatsSection() {
+    final chatRooms = ref.watch(chatRoomsProvider).valueOrNull ?? [];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -169,11 +171,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppColors.text)),
-              TextButton(onPressed: () {}, child: const Text('See All')),
+              TextButton(
+                onPressed: () => context.go('/chat'),
+                child: const Text('See All'),
+              ),
             ],
           ),
         ),
-        ...mockChatRooms.take(3).map((c) => _ChatCard(chatRoom: c)),
+        if (chatRooms.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Text(
+              'No chat rooms yet. Go to Messages to create one.',
+              style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+            ),
+          )
+        else
+          ...chatRooms.take(3).map((c) => _ChatCard(chatRoom: c)),
       ],
     );
   }
@@ -319,7 +333,9 @@ class _ChatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: () => context.push('/chat/${chatRoom.id}'),
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -375,6 +391,7 @@ class _ChatCard extends StatelessWidget {
                     const TextStyle(fontSize: 11, color: AppColors.textMuted)),
         ],
       ),
+    ),
     );
   }
 }
