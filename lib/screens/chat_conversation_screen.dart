@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/message.dart';
 import '../providers/auth_provider.dart';
@@ -109,14 +110,18 @@ class _ChatConversationScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(roomName,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold)),
             if (participantCount > 0)
-              Text('$participantCount member${participantCount == 1 ? '' : 's'}',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70)),
+              Text(
+                  '$participantCount member${participantCount == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                      fontSize: 12, color: Colors.white70)),
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.info_outlined), onPressed: () {}),
+          IconButton(
+              icon: const Icon(Icons.info_outlined), onPressed: () {}),
         ],
       ),
       body: Column(
@@ -154,15 +159,14 @@ class _ChatConversationScreenState
                   );
                 }
 
+                // Build a flat list of widgets: date dividers + bubbles.
+                final items = _buildMessageItems(messages, currentUser?.id);
+
                 return ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final isSelf = message.senderId == currentUser?.id;
-                    return ChatBubble(message: message, isSelf: isSelf);
-                  },
+                  itemCount: items.length,
+                  itemBuilder: (context, index) => items[index],
                 );
               },
             ),
@@ -171,6 +175,31 @@ class _ChatConversationScreenState
         ],
       ),
     );
+  }
+
+  /// Interleaves date-divider widgets between messages that span different days.
+  List<Widget> _buildMessageItems(
+      List<Message> messages, String? currentUserId) {
+    final List<Widget> items = [];
+    DateTime? lastDate;
+
+    for (final message in messages) {
+      final msgDate = DateTime(
+        message.createdAt.year,
+        message.createdAt.month,
+        message.createdAt.day,
+      );
+
+      if (lastDate == null || msgDate != lastDate) {
+        items.add(_DateDivider(date: message.createdAt));
+        lastDate = msgDate;
+      }
+
+      final isSelf = message.senderId == currentUserId;
+      items.add(ChatBubble(message: message, isSelf: isSelf));
+    }
+
+    return items;
   }
 
   Widget _buildInputBar() {
@@ -193,13 +222,16 @@ class _ChatConversationScreenState
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide: const BorderSide(color: AppColors.border)),
+                    borderSide:
+                        const BorderSide(color: AppColors.border)),
                 enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide: const BorderSide(color: AppColors.border)),
+                    borderSide:
+                        const BorderSide(color: AppColors.border)),
                 focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide: const BorderSide(color: AppColors.primary)),
+                    borderSide:
+                        const BorderSide(color: AppColors.primary)),
                 filled: true,
                 fillColor: AppColors.background,
               ),
@@ -224,6 +256,56 @@ class _ChatConversationScreenState
               onPressed: _isSending ? null : _sendMessage,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Date divider widget
+// ---------------------------------------------------------------------------
+
+class _DateDivider extends StatelessWidget {
+  final DateTime date;
+  const _DateDivider({required this.date});
+
+  String _label() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final d = DateTime(date.year, date.month, date.day);
+    if (d == today) return 'Today';
+    if (d == yesterday) return 'Yesterday';
+    return DateFormat('MMMM d, yyyy').format(date);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          const Expanded(
+              child: Divider(color: AppColors.border, endIndent: 12)),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.border,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              _label(),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          const Expanded(
+              child: Divider(color: AppColors.border, indent: 12)),
         ],
       ),
     );

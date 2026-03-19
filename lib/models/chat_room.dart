@@ -11,6 +11,7 @@ class ChatRoom {
   final bool isArchived;
   final String? lastMessage;
   final DateTime? lastMessageAt;
+  final String? lastMessageBy;
 
   ChatRoom({
     required this.id,
@@ -23,6 +24,7 @@ class ChatRoom {
     required this.isArchived,
     this.lastMessage,
     this.lastMessageAt,
+    this.lastMessageBy,
   });
 
   factory ChatRoom.fromJson(Map<String, dynamic> json) => ChatRoom(
@@ -41,6 +43,7 @@ class ChatRoom {
         lastMessageAt: json['lastMessageAt'] != null
             ? DateTime.parse(json['lastMessageAt'] as String)
             : null,
+        lastMessageBy: json['lastMessageBy'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -54,5 +57,6 @@ class ChatRoom {
         'isArchived': isArchived,
         'lastMessage': lastMessage,
         'lastMessageAt': lastMessageAt?.toIso8601String(),
+        'lastMessageBy': lastMessageBy,
       };
 }

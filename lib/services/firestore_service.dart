@@ -196,6 +196,7 @@ class FirestoreService {
     String name,
     ChatRoomType type, {
     String? leagueId,
+    List<String> participants = const [],
   }) async {
     final ref = _chatRoomsRef(orgId).doc();
     await ref.set({
@@ -203,13 +204,48 @@ class FirestoreService {
       'name': name,
       'type': type.name,
       'leagueId': leagueId,
-      'participants': [],
+      'participants': participants,
       'isArchived': false,
       'createdAt': FieldValue.serverTimestamp(),
       'lastMessage': null,
       'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastMessageBy': null,
     });
     return ref.id;
+  }
+
+  /// Archives a chat room (soft delete).
+  Future<void> archiveChatRoom(String orgId, String roomId) =>
+      _chatRoomsRef(orgId).doc(roomId).update({'isArchived': true});
+
+  /// Auto-creates a "General" chat room for each league that doesn't already have one.
+  Future<void> createLeagueChatRooms(
+      String orgId, List<Map<String, String>> leagues) async {
+    for (final league in leagues) {
+      final leagueId = league['id']!;
+      final leagueName = league['name']!;
+      // Check if a General room already exists for this league.
+      final existing = await _chatRoomsRef(orgId)
+          .where('type', isEqualTo: 'league')
+          .where('leagueId', isEqualTo: leagueId)
+          .limit(1)
+          .get();
+      if (existing.docs.isNotEmpty) continue;
+
+      final ref = _chatRoomsRef(orgId).doc();
+      await ref.set({
+        'orgId': orgId,
+        'name': '$leagueName – General',
+        'type': 'league',
+        'leagueId': leagueId,
+        'participants': [],
+        'isArchived': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastMessage': null,
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastMessageBy': null,
+      });
+    }
   }
 
   /// Stream of all non-archived chat rooms for [orgId], sorted by most recent message.
@@ -242,9 +278,10 @@ class FirestoreService {
   }
 
   /// Finds an existing DM room between two users or creates one.
-  Future<ChatRoom> getOrCreateDirectMessage(
-      String orgId, String userId1, String userId2) async {
-    final participants = ([userId1, userId2]..sort());
+  /// [name1] and [name2] are the display names of uid1 and uid2 respectively.
+  Future<ChatRoom> getOrCreateDMRoom(
+      String orgId, String uid1, String uid2, String name1, String name2) async {
+    final participants = ([uid1, uid2]..sort());
     final query = await _chatRoomsRef(orgId)
         .where('type', isEqualTo: 'direct')
         .where('participants', isEqualTo: participants)
@@ -258,15 +295,19 @@ class FirestoreService {
     }
 
     final roomRef = _chatRoomsRef(orgId).doc();
+    // Store both names so either participant can reconstruct the other's name.
+    final roomName = '$name1 & $name2';
     await roomRef.set({
       'orgId': orgId,
-      'name': 'Direct Message',
+      'name': roomName,
       'type': 'direct',
       'participants': participants,
+      'participantNames': {uid1: name1, uid2: name2},
       'isArchived': false,
       'createdAt': FieldValue.serverTimestamp(),
       'lastMessage': null,
       'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastMessageBy': null,
     });
     final roomDoc = await roomRef.get();
     return ChatRoom.fromJson(
@@ -275,10 +316,11 @@ class FirestoreService {
 
   // --- Messages ---
 
-  /// Stream of messages in a room, oldest first.
+  /// Stream of messages in a room, oldest first (capped at 100 most recent).
   Stream<List<Message>> getMessages(String orgId, String roomId) {
     return _messagesRef(orgId, roomId)
         .orderBy('createdAt', descending: false)
+        .limitToLast(100)
         .snapshots()
         .map((snap) => snap.docs
             .map((d) => Message.fromJson(
@@ -310,6 +352,7 @@ class FirestoreService {
     batch.update(roomRef, {
       'lastMessage': text,
       'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastMessageBy': senderName,
     });
 
     await batch.commit();

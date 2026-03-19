@@ -285,6 +285,7 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
       });
 
       // 4. Create leagues → hubs → teams as subcollections
+      final createdLeagues = <Map<String, String>>[];
       for (int li = 0; li < _leagues.length; li++) {
         final league = _leagues[li];
         final leagueRef = orgRef.collection('leagues').doc();
@@ -297,6 +298,7 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
           'description': null,
           'createdAt': now,
         });
+        createdLeagues.add({'id': leagueId, 'name': league.name});
 
         final hubs = _hubsByLeague[li] ?? [];
         for (int hi = 0; hi < hubs.length; hi++) {
@@ -327,6 +329,23 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
             });
           }
         }
+      }
+
+      // 5. Auto-create a General chat room for each league.
+      for (final league in createdLeagues) {
+        final chatRef = db.collection('organizations').doc(orgId).collection('chatRooms').doc();
+        await chatRef.set({
+          'orgId': orgId,
+          'name': '${league['name']} – General',
+          'type': 'league',
+          'leagueId': league['id'],
+          'participants': [],
+          'isArchived': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastMessage': null,
+          'lastMessageAt': FieldValue.serverTimestamp(),
+          'lastMessageBy': null,
+        });
       }
 
       if (mounted) context.go('/');
