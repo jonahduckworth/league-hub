@@ -11,7 +11,7 @@ class Announcement {
   final String authorId;
   final String authorName;
   final String authorRole;
-  final List<String> attachments;
+  final List<Map<String, dynamic>> attachments;
   final bool isPinned;
   final DateTime createdAt;
 
@@ -45,9 +45,14 @@ class Announcement {
         authorId: json['authorId'] as String,
         authorName: json['authorName'] as String,
         authorRole: json['authorRole'] as String,
-        attachments: List<String>.from(json['attachments'] as List? ?? []),
+        attachments: (json['attachments'] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            [],
         isPinned: json['isPinned'] as bool? ?? false,
-        createdAt: DateTime.parse(json['createdAt'] as String),
+        createdAt: json['createdAt'] != null
+            ? DateTime.parse(json['createdAt'] as String)
+            : DateTime.now(),
       );
 
   Map<String, dynamic> toJson() => {

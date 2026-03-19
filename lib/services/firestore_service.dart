@@ -387,26 +387,68 @@ class FirestoreService {
 
   // --- Announcements ---
 
-  Stream<List<Announcement>> announcementsStream(String orgId,
-      {String? leagueId}) {
-    Query query = _db
-        .collection(AppConstants.announcementsCollection)
-        .where('orgId', isEqualTo: orgId);
-    if (leagueId != null) query = query.where('leagueId', isEqualTo: leagueId);
-    return query
+  CollectionReference _announcementsRef(String orgId) => _db
+      .collection(AppConstants.orgsCollection)
+      .doc(orgId)
+      .collection('announcements');
+
+  /// Stream of all announcements for an org, pinned first then newest.
+  Stream<List<Announcement>> getAnnouncements(String orgId) {
+    return _announcementsRef(orgId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => Announcement.fromJson(
-                {'id': d.id, ...d.data() as Map<String, dynamic>}))
-            .toList());
+        .map((snap) {
+      final list = snap.docs
+          .map((d) => Announcement.fromJson(
+              {'id': d.id, ..._convertTimestamps(d.data() as Map<String, dynamic>)}))
+          .toList();
+      // Sort pinned first, then by date descending.
+      list.sort((a, b) {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return b.createdAt.compareTo(a.createdAt);
+      });
+      return list;
+    });
   }
 
-  Future<void> createAnnouncement(Announcement announcement) async {
-    await _db
-        .collection(AppConstants.announcementsCollection)
-        .doc(announcement.id)
-        .set(announcement.toJson());
+  /// Stream of announcements filtered to orgWide OR a specific league.
+  Stream<List<Announcement>> getAnnouncementsByLeague(
+      String orgId, String leagueId) {
+    return getAnnouncements(orgId).map((list) => list
+        .where((a) =>
+            a.scope == AnnouncementScope.orgWide || a.leagueId == leagueId)
+        .toList());
+  }
+
+  /// Creates a new announcement using serverTimestamp. Returns the new doc ID.
+  Future<String> createAnnouncement(
+      String orgId, Map<String, dynamic> data) async {
+    final ref = _announcementsRef(orgId).doc();
+    await ref.set({
+      ...data,
+      'orgId': orgId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    // TODO(FCM): Trigger push notification to org members here via Cloud Function or FCM direct send.
+    return ref.id;
+  }
+
+  Future<void> updateAnnouncement(
+      String orgId, String announcementId, Map<String, dynamic> data) async {
+    await _announcementsRef(orgId).doc(announcementId).update(data);
+  }
+
+  Future<void> deleteAnnouncement(
+      String orgId, String announcementId) async {
+    await _announcementsRef(orgId).doc(announcementId).delete();
+  }
+
+  Future<void> togglePin(
+      String orgId, String announcementId, bool isPinned) async {
+    await _announcementsRef(orgId)
+        .doc(announcementId)
+        .update({'isPinned': isPinned});
   }
 
   // --- Invitations ---

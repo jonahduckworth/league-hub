@@ -7,7 +7,6 @@ import '../models/announcement.dart';
 import '../models/chat_room.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
-import '../providers/mock_data.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/avatar_widget.dart';
 
@@ -167,6 +166,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildAnnouncementsSection() {
+    final announcements =
+        ref.watch(announcementsProvider).valueOrNull ?? [];
+    final recent = announcements.take(3).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -180,13 +183,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppColors.text)),
-              TextButton(onPressed: () {}, child: const Text('See All')),
+              TextButton(
+                onPressed: () => context.go('/announcements'),
+                child: const Text('See All'),
+              ),
             ],
           ),
         ),
-        ...mockAnnouncements
-            .take(2)
-            .map((a) => _AnnouncementCard(announcement: a)),
+        if (recent.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Text(
+              'No announcements yet.',
+              style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+            ),
+          )
+        else
+          ...recent.map((a) => _AnnouncementCard(announcement: a)),
       ],
     );
   }
@@ -280,7 +293,9 @@ class _AnnouncementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: () => context.push('/announcements/${announcement.id}'),
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -357,6 +372,7 @@ class _AnnouncementCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }

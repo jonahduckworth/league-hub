@@ -97,11 +97,11 @@ final documentsProvider = StreamProvider<List<Document>>((ref) {
       );
 });
 
+/// All announcements for the current org, pinned first then newest.
 final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
-  final leagueId = ref.watch(selectedLeagueProvider);
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).announcementsStream(orgId, leagueId: leagueId);
+  return ref.watch(firestoreServiceProvider).getAnnouncements(orgId);
 });
 
 // --- User Management ---

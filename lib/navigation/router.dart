@@ -12,6 +12,8 @@ import '../screens/org_creation_screen.dart';
 import '../screens/accept_invitation_screen.dart';
 import '../screens/admin/user_management_screen.dart';
 import '../screens/admin/user_detail_screen.dart';
+import '../screens/create_announcement_screen.dart';
+import '../screens/announcement_detail_screen.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 class _AuthNotifier extends ChangeNotifier {
@@ -89,6 +91,23 @@ final router = GoRouter(
       path: '/chat/:roomId',
       builder: (context, state) => ChatConversationScreen(
         roomId: state.pathParameters['roomId']!,
+      ),
+    ),
+    // Announcement routes — outside ShellRoute (no bottom nav)
+    GoRoute(
+      path: '/announcements/create',
+      builder: (context, state) => const CreateAnnouncementScreen(),
+    ),
+    GoRoute(
+      path: '/announcements/:id/edit',
+      builder: (context, state) => CreateAnnouncementScreen(
+        announcementId: state.pathParameters['id']!,
+      ),
+    ),
+    GoRoute(
+      path: '/announcements/:id',
+      builder: (context, state) => AnnouncementDetailScreen(
+        announcementId: state.pathParameters['id']!,
       ),
     ),
   ],
