@@ -39,4 +39,21 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_macos_build_settings(target)
   end
+
+  # Patch FirebaseAuth to remove kSecUseDataProtectionKeychain so that
+  # macOS integration tests work without a provisioning profile entitlement.
+  # This patch must be reapplied after every `pod install`.
+  [
+    'Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/Storage/AuthKeychainServices.swift',
+    'Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/SystemService/AuthStoredUserManager.swift',
+  ].each do |relative_path|
+    file = File.join(File.dirname(__FILE__), relative_path)
+    next unless File.exist?(file)
+    content = File.read(file)
+    patched = content.gsub(
+      /^\s*query\[kSecUseDataProtectionKeychain as String\] = true\n/,
+      ''
+    )
+    File.write(file, patched) if patched != content
+  end
 end
