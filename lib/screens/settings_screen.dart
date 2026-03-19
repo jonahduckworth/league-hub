@@ -6,6 +6,7 @@ import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/mock_data.dart';
 import '../widgets/avatar_widget.dart';
+import 'admin/manage_leagues_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -26,7 +27,16 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsSection(
             title: 'Organization',
             items: [
-              _SettingsItem(icon: Icons.location_city, title: 'Manage Leagues & Hubs', onTap: () {}),
+              _SettingsItem(
+                icon: Icons.location_city,
+                title: 'Manage Leagues & Hubs',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ManageLeaguesScreen(),
+                  ),
+                ),
+              ),
               _SettingsItem(icon: Icons.people, title: 'User Management', onTap: () {}),
               _SettingsItem(icon: Icons.admin_panel_settings, title: 'Roles & Permissions', onTap: () {}),
               _SettingsItem(icon: Icons.palette, title: 'Branding & Appearance', onTap: () {}),

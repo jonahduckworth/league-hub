@@ -25,9 +25,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
     final orgAsync = ref.watch(organizationProvider);
+    final leaguesAsync = ref.watch(leaguesProvider);
+    final hubCountAsync = ref.watch(hubCountProvider);
+    final teamCountAsync = ref.watch(teamCountProvider);
 
     final orgName = orgAsync.valueOrNull?.name ?? 'League Hub';
     final userName = userAsync.valueOrNull?.displayName ?? '';
+    final leagues = leaguesAsync.valueOrNull ?? [];
+    final hubCount = hubCountAsync.valueOrNull ?? 0;
+    final teamCount = teamCountAsync.valueOrNull ?? 0;
+    final leagueCount = leagues.length;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -82,12 +89,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               children: [
                 const SizedBox(height: 16),
                 LeagueFilter(
-                  leagues: mockLeagues,
+                  leagues: leagues,
                   selectedLeagueId: _selectedLeagueId,
                   onSelected: (id) => setState(() => _selectedLeagueId = id),
                 ),
                 const SizedBox(height: 20),
-                _buildStatsRow(),
+                _buildStatsRow(
+                    hubCount: hubCount,
+                    teamCount: teamCount,
+                    leagueCount: leagueCount),
                 const SizedBox(height: 24),
                 _buildAnnouncementsSection(),
                 const SizedBox(height: 24),
@@ -101,29 +111,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildStatsRow() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
+  Widget _buildStatsRow(
+      {required int hubCount,
+      required int teamCount,
+      required int leagueCount}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           Expanded(
               child: _StatCard(
                   title: 'Active Hubs',
-                  value: '8',
+                  value: '$hubCount',
                   icon: Icons.location_city,
                   color: AppColors.primary)),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
               child: _StatCard(
                   title: 'Total Teams',
-                  value: '47',
+                  value: '$teamCount',
                   icon: Icons.groups,
                   color: AppColors.accent)),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
               child: _StatCard(
                   title: 'Leagues',
-                  value: '3',
+                  value: '$leagueCount',
                   icon: Icons.emoji_events,
                   color: AppColors.success)),
         ],

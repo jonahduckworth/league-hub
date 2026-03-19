@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/firestore_service.dart';
 import '../models/league.dart';
+import '../models/hub.dart';
+import '../models/team.dart';
 import '../models/chat_room.dart';
 import '../models/message.dart';
 import '../models/document.dart';
@@ -22,7 +24,43 @@ final organizationProvider = FutureProvider<Organization?>((ref) async {
 final leaguesProvider = StreamProvider<List<League>>((ref) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).leaguesStream(orgId);
+  return ref.read(firestoreServiceProvider).getLeagues(orgId);
+});
+
+// --- Hubs (per league) ---
+
+final hubsProvider =
+    StreamProvider.family<List<Hub>, String>((ref, leagueId) {
+  final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+  if (orgId == null) return Stream.value([]);
+  return ref.read(firestoreServiceProvider).getHubs(orgId, leagueId);
+});
+
+// --- Teams (per hub) ---
+
+typedef TeamsParams = ({String leagueId, String hubId});
+
+final teamsProvider =
+    StreamProvider.family<List<Team>, TeamsParams>((ref, params) {
+  final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+  if (orgId == null) return Stream.value([]);
+  return ref
+      .read(firestoreServiceProvider)
+      .getTeams(orgId, params.leagueId, params.hubId);
+});
+
+// --- Counts ---
+
+final hubCountProvider = FutureProvider<int>((ref) async {
+  final org = await ref.watch(organizationProvider.future);
+  if (org == null) return 0;
+  return ref.read(firestoreServiceProvider).getAllHubsCount(org.id);
+});
+
+final teamCountProvider = FutureProvider<int>((ref) async {
+  final org = await ref.watch(organizationProvider.future);
+  if (org == null) return 0;
+  return ref.read(firestoreServiceProvider).getAllTeamsCount(org.id);
 });
 
 final chatRoomsProvider = StreamProvider<List<ChatRoom>>((ref) {
