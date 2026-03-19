@@ -23,11 +23,9 @@ class AppTheme {
         seedColor: AppColors.primary,
         primary: AppColors.primary,
         secondary: AppColors.accent,
-        background: AppColors.background,
         surface: AppColors.card,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onBackground: AppColors.text,
         onSurface: AppColors.text,
       ),
       scaffoldBackgroundColor: AppColors.background,
@@ -37,7 +35,7 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.card,
         elevation: 1,
         shape: RoundedRectangleBorder(
