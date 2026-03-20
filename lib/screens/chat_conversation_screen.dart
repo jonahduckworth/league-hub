@@ -121,7 +121,8 @@ class _ChatConversationScreenState
         ),
         actions: [
           IconButton(
-              icon: const Icon(Icons.info_outlined), onPressed: () {}),
+              icon: const Icon(Icons.info_outlined),
+              onPressed: () => context.push('/chat/${widget.roomId}/info')),
         ],
       ),
       body: Column(

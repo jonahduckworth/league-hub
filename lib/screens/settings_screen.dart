@@ -8,6 +8,7 @@ import '../providers/data_providers.dart';
 import '../providers/mock_data.dart';
 import '../widgets/avatar_widget.dart';
 import 'admin/manage_leagues_screen.dart';
+import 'settings/edit_profile_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -45,17 +46,17 @@ class SettingsScreen extends ConsumerWidget {
                 badge: pendingInviteCount > 0 ? pendingInviteCount : null,
                 onTap: () => context.push('/settings/users'),
               ),
-              _SettingsItem(icon: Icons.admin_panel_settings, title: 'Roles & Permissions', onTap: () {}),
-              _SettingsItem(icon: Icons.palette, title: 'Branding & Appearance', onTap: () {}),
-              _SettingsItem(icon: Icons.apps, title: 'App Icon', onTap: () {}),
+              _SettingsItem(icon: Icons.admin_panel_settings, title: 'Roles & Permissions', onTap: () => context.push('/settings/roles')),
+              _SettingsItem(icon: Icons.palette, title: 'Branding & Appearance', onTap: () => context.push('/settings/branding')),
+              _SettingsItem(icon: Icons.apps, title: 'App Icon', onTap: () => context.push('/settings/app-icon')),
             ],
           ),
           const SizedBox(height: 16),
           _SettingsSection(
             title: 'Preferences',
             items: [
-              _SettingsItem(icon: Icons.notifications_outlined, title: 'Notifications', onTap: () {}),
-              _SettingsItem(icon: Icons.lock_outlined, title: 'Privacy & Security', onTap: () {}),
+              _SettingsItem(icon: Icons.notifications_outlined, title: 'Notifications', onTap: () => context.push('/settings/notifications')),
+              _SettingsItem(icon: Icons.lock_outlined, title: 'Privacy & Security', onTap: () => context.push('/settings/privacy')),
             ],
           ),
           const SizedBox(height: 16),
@@ -149,7 +150,12 @@ class _ProfileCard extends StatelessWidget {
           ),
           IconButton(
               icon: const Icon(Icons.edit_outlined, color: Colors.white),
-              onPressed: () {}),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const EditProfileScreen(),
+                ),
+              )),
         ],
       ),
     );

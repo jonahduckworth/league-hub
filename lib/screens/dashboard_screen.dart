@@ -78,10 +78,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               IconButton(
                   icon: const Icon(Icons.notifications_outlined,
                       color: Colors.white),
-                  onPressed: () {}),
+                  onPressed: () => context.push('/settings/notifications')),
               IconButton(
                   icon: const Icon(Icons.search, color: Colors.white),
-                  onPressed: () {}),
+                  onPressed: () => _showSearchSheet(context)),
             ],
           ),
           SliverToBoxAdapter(
@@ -109,6 +109,95 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSearchSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search announcements, chats, documents...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+              ),
+              onSubmitted: (query) {
+                Navigator.pop(ctx);
+                if (query.trim().isNotEmpty) {
+                  // Navigate to the relevant tab based on best guess
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Searching for "$query"...'),
+                      backgroundColor: AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                _SearchChip(
+                  label: 'Announcements',
+                  icon: Icons.campaign,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.go('/announcements');
+                  },
+                ),
+                const SizedBox(width: 8),
+                _SearchChip(
+                  label: 'Chats',
+                  icon: Icons.chat,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.go('/chat');
+                  },
+                ),
+                const SizedBox(width: 8),
+                _SearchChip(
+                  label: 'Documents',
+                  icon: Icons.description,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.go('/documents');
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
@@ -373,6 +462,45 @@ class _AnnouncementCard extends StatelessWidget {
           ),
         ],
       ),
+      ),
+    );
+  }
+}
+
+class _SearchChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _SearchChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
       ),
     );
   }

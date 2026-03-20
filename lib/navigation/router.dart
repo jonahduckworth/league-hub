@@ -16,6 +16,13 @@ import '../screens/create_announcement_screen.dart';
 import '../screens/announcement_detail_screen.dart';
 import '../screens/upload_document_screen.dart';
 import '../screens/document_detail_screen.dart';
+import '../screens/settings/edit_profile_screen.dart';
+import '../screens/settings/roles_permissions_screen.dart';
+import '../screens/settings/branding_screen.dart';
+import '../screens/settings/app_icon_screen.dart';
+import '../screens/settings/notifications_screen.dart';
+import '../screens/settings/privacy_security_screen.dart';
+import '../screens/settings/chat_room_info_screen.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 class _AuthNotifier extends ChangeNotifier {
@@ -87,11 +94,41 @@ final router = GoRouter(
             userId: state.pathParameters['userId']!,
           ),
         ),
+        GoRoute(
+          path: '/settings/profile',
+          builder: (context, state) => const EditProfileScreen(),
+        ),
+        GoRoute(
+          path: '/settings/roles',
+          builder: (context, state) => const RolesPermissionsScreen(),
+        ),
+        GoRoute(
+          path: '/settings/branding',
+          builder: (context, state) => const BrandingScreen(),
+        ),
+        GoRoute(
+          path: '/settings/app-icon',
+          builder: (context, state) => const AppIconScreen(),
+        ),
+        GoRoute(
+          path: '/settings/notifications',
+          builder: (context, state) => const NotificationsScreen(),
+        ),
+        GoRoute(
+          path: '/settings/privacy',
+          builder: (context, state) => const PrivacySecurityScreen(),
+        ),
       ],
     ),
     GoRoute(
       path: '/chat/:roomId',
       builder: (context, state) => ChatConversationScreen(
+        roomId: state.pathParameters['roomId']!,
+      ),
+    ),
+    GoRoute(
+      path: '/chat/:roomId/info',
+      builder: (context, state) => ChatRoomInfoScreen(
         roomId: state.pathParameters['roomId']!,
       ),
     ),

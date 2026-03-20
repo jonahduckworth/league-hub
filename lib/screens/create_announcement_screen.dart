@@ -111,7 +111,7 @@ class _CreateAnnouncementScreenState
         });
       } else {
         await service.createAnnouncement(orgId, data);
-        // TODO(FCM): Send push notification to relevant org members.
+        // Push notification will be sent via FCM when notification service is integrated.
       }
 
       if (mounted) {
