@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
@@ -7,6 +10,8 @@ import 'firebase_options.dart';
 import 'navigation/router.dart';
 import 'providers/auth_provider.dart';
 import 'services/messaging_service.dart';
+import 'widgets/connectivity_banner.dart';
+import 'widgets/error_boundary.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,15 +20,41 @@ void main() async {
   // Register the top-level background handler before runApp.
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  runApp(
-    ProviderScope(
-      overrides: [
-        messagingServiceProvider.overrideWithValue(
-          MessagingService(router: router),
+  // ---------- Global error handling ----------
+
+  // Replace the default red-screen error widget with a friendlier fallback.
+  ErrorWidget.builder = appErrorWidget;
+
+  // Catch Flutter framework errors (layout, build, painting).
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exceptionAsString()}');
+  };
+
+  // Catch async errors that escape the Flutter framework (Dart zone / isolate).
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('PlatformError: $error\n$stack');
+    return true; // Prevents the runtime from terminating the app.
+  };
+
+  // ---------- Run app inside an error zone ----------
+
+  runZonedGuarded(
+    () {
+      runApp(
+        ProviderScope(
+          overrides: [
+            messagingServiceProvider.overrideWithValue(
+              MessagingService(router: router),
+            ),
+          ],
+          child: const LeagueHubApp(),
         ),
-      ],
-      child: const LeagueHubApp(),
-    ),
+      );
+    },
+    (error, stack) {
+      debugPrint('ZoneError: $error\n$stack');
+    },
   );
 }
 
@@ -58,6 +89,14 @@ class _LeagueHubAppState extends ConsumerState<LeagueHubApp> {
       theme: AppTheme.lightTheme,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        // Wrap every route in the connectivity banner and error boundary.
+        return ConnectivityBanner(
+          child: ErrorBoundary(
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
     );
   }
 }

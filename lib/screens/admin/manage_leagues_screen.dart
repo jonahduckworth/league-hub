@@ -47,7 +47,7 @@ class ManageLeaguesScreen extends ConsumerWidget {
                   children: [
                     Icon(Icons.emoji_events_outlined,
                         size: 64,
-                        color: AppColors.textMuted.withOpacity(0.5)),
+                        color: AppColors.textMuted.withValues(alpha: 0.5)),
                     const SizedBox(height: 16),
                     const Text('No leagues yet',
                         style: TextStyle(
@@ -223,7 +223,7 @@ class _LeagueTile extends ConsumerWidget {
           leading: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(league.abbreviation,
@@ -745,7 +745,7 @@ class _TeamRow extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
-        color: AppColors.danger.withOpacity(0.1),
+        color: AppColors.danger.withValues(alpha: 0.1),
         child: const Icon(Icons.delete_outline, color: AppColors.danger),
       ),
       confirmDismiss: (_) => showDialog<bool>(
@@ -770,7 +770,7 @@ class _TeamRow extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
           border: Border(
-              top: BorderSide(color: AppColors.border.withOpacity(0.5))),
+              top: BorderSide(color: AppColors.border.withValues(alpha: 0.5))),
         ),
         child: Row(
           children: [

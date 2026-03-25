@@ -106,7 +106,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.campaign_outlined,
-              size: 64, color: AppColors.textMuted.withOpacity(0.5)),
+              size: 64, color: AppColors.textMuted.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           const Text('No announcements yet',
               style:
@@ -217,7 +217,7 @@ class _AnnouncementCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: announcement.isPinned
-                ? AppColors.warning.withOpacity(0.5)
+                ? AppColors.warning.withValues(alpha: 0.5)
                 : AppColors.border,
             width: announcement.isPinned ? 1.5 : 1,
           ),
@@ -230,7 +230,7 @@ class _AnnouncementCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withOpacity(0.08),
+                  color: AppColors.warning.withValues(alpha: 0.08),
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
@@ -347,9 +347,9 @@ class _ScopeTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: _color.withOpacity(0.1),
+        color: _color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _color.withOpacity(0.3)),
+        border: Border.all(color: _color.withValues(alpha: 0.3)),
       ),
       child: Text(_label,
           style: TextStyle(

@@ -15,6 +15,7 @@ void main() {
   group('NotificationsScreen', () {
     testWidgets('renders notification categories', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Notifications'), findsOneWidget);
@@ -24,6 +25,7 @@ void main() {
 
     testWidgets('shows all notification toggles', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Announcements'), findsOneWidget);
@@ -36,6 +38,7 @@ void main() {
 
     testWidgets('shows delivery options', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Sound'), findsOneWidget);
@@ -45,6 +48,7 @@ void main() {
 
     testWidgets('all toggles default to on', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
       await tester.pumpAndSettle();
 
       // All 9 Switch.adaptive widgets should be on (true)
@@ -56,11 +60,13 @@ void main() {
 
     testWidgets('tapping a toggle changes its state', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
       await tester.pumpAndSettle();
 
       // Find and tap the first Switch
       final firstSwitch = find.byType(Switch).first;
       await tester.tap(firstSwitch);
+      await tester.pump();
       await tester.pumpAndSettle();
 
       // At least one Switch should now be off
@@ -70,14 +76,20 @@ void main() {
 
     testWidgets('shows FCM info note', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Push notifications require FCM setup'),
+      // Scroll to bottom of ListView to ensure FCM note is built
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Notification preferences sync with FCM topics'),
           findsOneWidget);
     });
 
     testWidgets('shows subtitles for each notification type', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('New and pinned announcements'), findsOneWidget);
@@ -87,6 +99,7 @@ void main() {
 
     testWidgets('renders 9 switches total', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.byType(Switch), findsNWidgets(9));

@@ -309,19 +309,16 @@ class FirestoreService {
   Future<ChatRoom> getOrCreateDMRoom(
       String orgId, String uid1, String uid2, String name1, String name2) async {
     final participants = ([uid1, uid2]..sort());
-    final query = await _chatRoomsRef(orgId)
-        .where('type', isEqualTo: 'direct')
-        .where('participants', isEqualTo: participants)
-        .limit(1)
-        .get();
+    // Use a deterministic document ID so lookups are a simple get, not a query.
+    final dmId = 'dm_${participants[0]}_${participants[1]}';
+    final roomRef = _chatRoomsRef(orgId).doc(dmId);
 
-    if (query.docs.isNotEmpty) {
-      final doc = query.docs.first;
+    final existing = await roomRef.get();
+    if (existing.exists) {
       return ChatRoom.fromJson(
-          {'id': doc.id, ..._convertTimestamps(doc.data() as Map<String, dynamic>)});
+          {'id': existing.id, ..._convertTimestamps(existing.data() as Map<String, dynamic>)});
     }
 
-    final roomRef = _chatRoomsRef(orgId).doc();
     // Store both names so either participant can reconstruct the other's name.
     final roomName = '$name1 & $name2';
     await roomRef.set({
@@ -390,11 +387,6 @@ class FirestoreService {
   /// Marks all messages in [roomId] as read by [userId].
   Future<void> markMessagesAsRead(
       String orgId, String roomId, String userId) async {
-    final snap = await _messagesRef(orgId, roomId)
-        .where('readBy', whereNotIn: [
-          [userId]
-        ])
-        .get();
     // Firestore whereNotIn on arrays doesn't work well, so fetch recent
     // messages and update those missing the userId in readBy.
     final recent = await _messagesRef(orgId, roomId)
@@ -432,6 +424,120 @@ class FirestoreService {
       }
       return unread;
     });
+  }
+
+  // --- Typing Indicators ---
+
+  /// Sets a typing indicator for [userId] in [roomId]. The document is
+  /// automatically considered stale after ~5 seconds on the client side.
+  Future<void> setTyping(
+      String orgId, String roomId, String userId, String userName) async {
+    await _chatRoomsRef(orgId)
+        .doc(roomId)
+        .collection('typing')
+        .doc(userId)
+        .set({
+      'userName': userName,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Removes the typing indicator for [userId] in [roomId].
+  Future<void> clearTyping(
+      String orgId, String roomId, String userId) async {
+    await _chatRoomsRef(orgId)
+        .doc(roomId)
+        .collection('typing')
+        .doc(userId)
+        .delete();
+  }
+
+  /// Returns a stream of user names currently typing in [roomId],
+  /// excluding [currentUserId].
+  Stream<List<String>> typingUsersStream(
+      String orgId, String roomId, String currentUserId) {
+    return _chatRoomsRef(orgId)
+        .doc(roomId)
+        .collection('typing')
+        .snapshots()
+        .map((snap) {
+      final cutoff =
+          DateTime.now().subtract(const Duration(seconds: 5));
+      return snap.docs
+          .where((d) {
+            if (d.id == currentUserId) return false;
+            final ts = d.data()['timestamp'];
+            if (ts == null) return true;
+            final time = (ts as Timestamp).toDate();
+            return time.isAfter(cutoff);
+          })
+          .map((d) => d.data()['userName'] as String? ?? 'Someone')
+          .toList();
+    });
+  }
+
+  // --- Message Editing & Deletion ---
+
+  /// Updates the text of a message. Only the sender should call this.
+  Future<void> updateMessage(
+      String orgId, String roomId, String messageId, String newText) async {
+    await _messagesRef(orgId, roomId).doc(messageId).update({
+      'text': newText,
+      'editedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Soft-deletes a message by clearing its text and marking it deleted.
+  Future<void> deleteMessage(
+      String orgId, String roomId, String messageId) async {
+    await _messagesRef(orgId, roomId).doc(messageId).update({
+      'text': null,
+      'mediaUrl': null,
+      'deleted': true,
+      'deletedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // --- Media Messages ---
+
+  /// Sends a message with a media attachment.
+  Future<void> sendMediaMessage(
+    String orgId,
+    String roomId, {
+    required String senderId,
+    required String senderName,
+    required String mediaUrl,
+    required String mediaType,
+    String? caption,
+  }) async {
+    final batch = _db.batch();
+
+    final msgRef = _messagesRef(orgId, roomId).doc();
+    batch.set(msgRef, {
+      'chatRoomId': roomId,
+      'senderId': senderId,
+      'senderName': senderName,
+      'text': caption,
+      'mediaUrl': mediaUrl,
+      'mediaType': mediaType,
+      'createdAt': FieldValue.serverTimestamp(),
+      'readBy': [senderId],
+    });
+
+    final preview = mediaType.startsWith('image')
+        ? '📷 Photo'
+        : mediaType.startsWith('video')
+            ? '🎥 Video'
+            : '📎 File';
+
+    final roomRef = _chatRoomsRef(orgId).doc(roomId);
+    batch.update(roomRef, {
+      'lastMessage': caption ?? preview,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastMessageBy': senderName,
+    });
+
+    await batch.commit();
   }
 
   // --- Documents ---

@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Flutter (iOS Simulator)",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": ["run", "-d", "ios"],
+      "port": null
+    },
+    {
+      "name": "Flutter (Android Emulator)",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": ["run", "-d", "android"],
+      "port": null
+    },
+    {
+      "name": "Flutter (Web)",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": ["run", "-d", "web-server", "--web-port", "4040"],
+      "port": 4040
+    }
+  ]
+}

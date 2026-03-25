@@ -17,28 +17,34 @@ void main() {
       email: 'user@example.com',
       displayName: 'Test User',
       role: UserRole.staff,
-      organizationId: 'org-1',
+      orgId: 'org-1',
+      hubIds: [],
+      teamIds: [],
+      createdAt: DateTime(2024),
       isActive: true,
     );
 
     final testOrg = Organization(
       id: 'org-1',
       name: 'Test Organization',
-      createdBy: 'user-1',
+      primaryColor: '#1A3A5C',
+      secondaryColor: '#2E75B6',
+      accentColor: '#4DA3FF',
       createdAt: DateTime.now(),
+      ownerId: 'user-1',
     );
 
     final testLeagues = [
       League(
         id: 'league-1',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Spring League',
         abbreviation: 'SL',
         createdAt: DateTime.now(),
       ),
       League(
         id: 'league-2',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Fall League',
         abbreviation: 'FL',
         createdAt: DateTime.now(),
@@ -48,31 +54,37 @@ void main() {
     final testChatRooms = [
       ChatRoom(
         id: 'chat-1',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Spring League Hub',
         type: ChatRoomType.league,
         leagueId: 'league-1',
         participants: ['user-1', 'user-2'],
+        createdAt: DateTime.now(),
+        isArchived: false,
         lastMessage: 'Great game this weekend!',
         lastMessageBy: 'user-2',
         lastMessageAt: DateTime.now().subtract(Duration(hours: 1)),
       ),
       ChatRoom(
         id: 'chat-2',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Tournament Bracket',
         type: ChatRoomType.event,
         participants: ['user-1', 'user-2', 'user-3'],
+        createdAt: DateTime.now(),
+        isArchived: false,
         lastMessage: 'Bracket updates available',
         lastMessageBy: 'user-1',
         lastMessageAt: DateTime.now().subtract(Duration(minutes: 30)),
       ),
       ChatRoom(
         id: 'chat-3',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Direct Message',
         type: ChatRoomType.direct,
         participants: ['user-1', 'user-2'],
+        createdAt: DateTime.now(),
+        isArchived: false,
         lastMessage: 'See you tomorrow',
         lastMessageBy: 'user-2',
         lastMessageAt: DateTime.now().subtract(Duration(minutes: 15)),
@@ -88,22 +100,25 @@ void main() {
     }) {
       return ProviderScope(
         overrides: [
-          currentUserProvider.override(
-            (ref) => AsyncValue.data(user ?? testUser),
+          currentUserProvider.overrideWith(
+            (ref) => user ?? testUser,
           ),
-          organizationProvider.override(
-            (ref) => AsyncValue.data(org ?? testOrg),
+          organizationProvider.overrideWith(
+            (ref) => org ?? testOrg,
           ),
-          leaguesProvider.override(
-            (ref) => AsyncValue.data(leagues ?? testLeagues),
+          leaguesProvider.overrideWith(
+            (ref) => Stream.value(leagues ?? testLeagues),
           ),
-          chatRoomsProvider.override(
-            (ref) => AsyncValue.data(chatRooms ?? testChatRooms),
+          chatRoomsProvider.overrideWith(
+            (ref) => Stream.value(chatRooms ?? testChatRooms),
           ),
-          orgUsersProvider.override(
-            (ref) => AsyncValue.data(
+          orgUsersProvider.overrideWith(
+            (ref) => Stream.value(
               orgUsers ?? [testUser],
             ),
+          ),
+          unreadCountProvider.overrideWith(
+            (ref, roomId) => Stream.value(0),
           ),
         ],
         child: MaterialApp(
@@ -121,16 +136,19 @@ void main() {
     group('Screen Rendering', () {
       testWidgets('renders without crashing', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
         expect(find.byType(ChatListScreen), findsOneWidget);
       });
 
       testWidgets('displays title Messages', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
         expect(find.text('Messages'), findsOneWidget);
       });
 
       testWidgets('has search field', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
         expect(find.byIcon(Icons.search), findsOneWidget);
         expect(find.text('Search conversations...'), findsOneWidget);
       });
@@ -140,6 +158,7 @@ void main() {
       testWidgets('shows FAB when organization is available',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
         expect(find.byIcon(Icons.add), findsOneWidget);
       });
 
@@ -150,11 +169,15 @@ void main() {
           email: 'staff@example.com',
           displayName: 'Staff User',
           role: UserRole.staff,
-          organizationId: 'org-1',
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2024),
           isActive: true,
         );
 
         await tester.pumpWidget(createTestWidget(user: staffUser));
+        await tester.pumpAndSettle();
         expect(find.byIcon(Icons.add), findsOneWidget);
       });
 
@@ -163,8 +186,20 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              organizationProvider.override(
-                (ref) => const AsyncValue.data(null),
+              organizationProvider.overrideWith(
+                (ref) => null,
+              ),
+              chatRoomsProvider.overrideWith(
+                (ref) => Stream.value(<ChatRoom>[]),
+              ),
+              leaguesProvider.overrideWith(
+                (ref) => Stream.value(<League>[]),
+              ),
+              currentUserProvider.overrideWith(
+                (ref) => testUser,
+              ),
+              unreadCountProvider.overrideWith(
+                (ref, roomId) => Stream.value(0),
               ),
             ],
             child: MaterialApp(
@@ -178,6 +213,7 @@ void main() {
             ),
           ),
         );
+        await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.add), findsNothing);
       });
@@ -186,6 +222,7 @@ void main() {
     group('Chat Room List Rendering', () {
       testWidgets('displays all chat rooms', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         expect(find.text('Spring League Hub'), findsOneWidget);
         expect(find.text('Tournament Bracket'), findsOneWidget);
@@ -195,6 +232,7 @@ void main() {
       testWidgets('shows league rooms section header',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         expect(find.text('League Rooms'), findsOneWidget);
       });
@@ -202,6 +240,7 @@ void main() {
       testWidgets('shows events and tournaments section header',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         expect(find.text('Events & Tournaments'), findsOneWidget);
       });
@@ -209,6 +248,7 @@ void main() {
       testWidgets('shows direct messages section header',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         expect(find.text('Direct Messages'), findsOneWidget);
       });
@@ -216,6 +256,7 @@ void main() {
       testWidgets('displays room count in section headers',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         // Each section should show count
         expect(find.text('1'), findsWidgets); // Count for each section
@@ -223,14 +264,16 @@ void main() {
 
       testWidgets('shows last message preview', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
-        expect(find.text('Great game this weekend!'), findsOneWidget);
-        expect(find.text('Bracket updates available'), findsOneWidget);
+        expect(find.textContaining('Great game this weekend!'), findsOneWidget);
+        expect(find.textContaining('Bracket updates available'), findsOneWidget);
       });
 
       testWidgets('displays correct icons for room types',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.forum), findsOneWidget); // League room
         expect(find.byIcon(Icons.event), findsOneWidget); // Event room
@@ -242,6 +285,7 @@ void main() {
       testWidgets('shows empty state when no chat rooms',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(chatRooms: []));
+        await tester.pumpAndSettle();
 
         expect(find.text('No chat rooms yet'), findsOneWidget);
         expect(find.text('Tap + to start a conversation'), findsOneWidget);
@@ -251,6 +295,7 @@ void main() {
       testWidgets('empty state message is centered',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(chatRooms: []));
+        await tester.pumpAndSettle();
 
         expect(find.byType(Center), findsWidgets);
       });
@@ -259,6 +304,7 @@ void main() {
     group('League Filter', () {
       testWidgets('displays league filter', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         // League filter should be present
         expect(find.byType(ListView), findsWidgets);
@@ -266,6 +312,7 @@ void main() {
 
       testWidgets('handles empty leagues list', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(leagues: []));
+        await tester.pumpAndSettle();
 
         // Should still render properly
         expect(find.byType(ChatListScreen), findsOneWidget);
@@ -275,6 +322,7 @@ void main() {
     group('Search Functionality', () {
       testWidgets('search field accepts input', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         final searchField = find.byType(TextField);
         await tester.enterText(searchField, 'Spring');
@@ -287,6 +335,7 @@ void main() {
       testWidgets('search filters chat rooms by name',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         final searchField = find.byType(TextField);
         await tester.enterText(searchField, 'Tournament');
@@ -298,6 +347,7 @@ void main() {
 
       testWidgets('search is case insensitive', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         final searchField = find.byType(TextField);
         await tester.enterText(searchField, 'spring');
@@ -309,6 +359,7 @@ void main() {
 
       testWidgets('clearing search shows all rooms', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         final searchField = find.byType(TextField);
 
@@ -329,6 +380,7 @@ void main() {
       testWidgets('no results message when search finds nothing',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         final searchField = find.byType(TextField);
         await tester.enterText(searchField, 'NonexistentRoom');
@@ -345,16 +397,19 @@ void main() {
         final onlyDirectRooms = [
           ChatRoom(
             id: 'chat-1',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             name: 'Direct Chat',
             type: ChatRoomType.direct,
             participants: ['user-1', 'user-2'],
+            createdAt: DateTime.now(),
+            isArchived: false,
           ),
         ];
 
         await tester.pumpWidget(
           createTestWidget(chatRooms: onlyDirectRooms),
         );
+        await tester.pumpAndSettle();
 
         // Should only show Direct Messages section
         expect(find.text('Direct Messages'), findsOneWidget);
@@ -365,6 +420,7 @@ void main() {
       testWidgets('sections appear in correct order',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         // Get positions of section headers
         final leagueRooms = find.text('League Rooms');
@@ -381,6 +437,7 @@ void main() {
       testWidgets('displays last message timestamp',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         // Timestamps should be displayed for rooms with last message
         expect(find.byType(Text), findsWidgets);
@@ -391,14 +448,17 @@ void main() {
         final roomsWithoutMessages = [
           ChatRoom(
             id: 'chat-1',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             name: 'Empty Room',
             type: ChatRoomType.league,
             participants: ['user-1'],
+            createdAt: DateTime.now(),
+            isArchived: false,
           ),
         ];
 
         await tester.pumpWidget(createTestWidget(chatRooms: roomsWithoutMessages));
+        await tester.pumpAndSettle();
 
         expect(find.text('Empty Room'), findsOneWidget);
       });
@@ -407,6 +467,7 @@ void main() {
     group('Chat Room Tile Display', () {
       testWidgets('tile displays room name', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         expect(find.text('Spring League Hub'), findsOneWidget);
       });
@@ -416,28 +477,33 @@ void main() {
         final emptyRoom = [
           ChatRoom(
             id: 'chat-1',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             name: 'Empty Room',
             type: ChatRoomType.league,
             participants: ['user-1'],
+            createdAt: DateTime.now(),
+            isArchived: false,
           ),
         ];
 
         await tester.pumpWidget(createTestWidget(chatRooms: emptyRoom));
+        await tester.pumpAndSettle();
 
         expect(find.text('No messages yet'), findsOneWidget);
       });
 
       testWidgets('tile with message shows preview', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
-        expect(find.text('Great game this weekend!'), findsOneWidget);
+        expect(find.textContaining('Great game this weekend!'), findsOneWidget);
       });
     });
 
     group('Navigation', () {
       testWidgets('chat room tiles are tappable', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         expect(find.byType(ListTile), findsWidgets);
       });
@@ -449,6 +515,7 @@ void main() {
         // This would require more complex testing with navigation/routing
         // Basic structure test:
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         expect(find.byType(ChatListScreen), findsOneWidget);
       });
@@ -456,6 +523,7 @@ void main() {
       testWidgets('direct messages appear regardless of league filter',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
         // Direct message room should always be visible
         expect(find.text('Direct Message'), findsOneWidget);
@@ -468,22 +536,26 @@ void main() {
         final multipleLeagueRooms = [
           ChatRoom(
             id: 'chat-1',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             name: 'Spring League',
             type: ChatRoomType.league,
             leagueId: 'league-1',
             participants: ['user-1'],
+            createdAt: DateTime.now(),
+            isArchived: false,
             lastMessage: 'Message 1',
             lastMessageBy: 'user-1',
             lastMessageAt: DateTime.now(),
           ),
           ChatRoom(
             id: 'chat-2',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             name: 'Fall League',
             type: ChatRoomType.league,
             leagueId: 'league-2',
             participants: ['user-1'],
+            createdAt: DateTime.now(),
+            isArchived: false,
             lastMessage: 'Message 2',
             lastMessageBy: 'user-1',
             lastMessageAt: DateTime.now(),
@@ -491,6 +563,7 @@ void main() {
         ];
 
         await tester.pumpWidget(createTestWidget(chatRooms: multipleLeagueRooms));
+        await tester.pumpAndSettle();
 
         expect(find.text('Spring League'), findsOneWidget);
         expect(find.text('Fall League'), findsOneWidget);

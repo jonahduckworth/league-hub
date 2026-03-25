@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../models/app_user.dart';
-import '../services/permission_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../providers/mock_data.dart';
@@ -122,7 +121,7 @@ class _ProfileCard extends StatelessWidget {
           AvatarWidget(
               name: user.displayName,
               size: 60,
-              backgroundColor: Colors.white.withOpacity(0.3)),
+              backgroundColor: Colors.white.withValues(alpha: 0.3)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -185,9 +184,9 @@ class _RoleBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withOpacity(0.4)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
       ),
       child: Text(label,
           style: const TextStyle(

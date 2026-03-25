@@ -355,55 +355,77 @@ class _UploadDocumentScreenState
           // Category
           _SectionLabel('Category'),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _category,
-            decoration: _inputDecoration('Select category'),
-            items: _categories
-                .map((c) =>
-                    DropdownMenuItem(value: c, child: Text(c)))
-                .toList(),
-            onChanged: _isUploading
-                ? null
-                : (v) => setState(() => _category = v ?? _category),
+          InputDecorator(
+            decoration: _inputDecoration(''),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _category,
+                isExpanded: true,
+                isDense: true,
+                items: _categories
+                    .map((c) =>
+                        DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
+                onChanged: _isUploading
+                    ? null
+                    : (v) => setState(() => _category = v ?? _category),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
 
           // League (optional)
           _SectionLabel('League (Optional)'),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String?>(
-            value: _selectedLeagueId,
-            decoration: _inputDecoration('No specific league'),
-            items: [
-              const DropdownMenuItem<String?>(
-                  value: null, child: Text('No specific league')),
-              ...leagues.map((l) => DropdownMenuItem<String?>(
-                  value: l.id, child: Text(l.name))),
-            ],
-            onChanged: _isUploading
-                ? null
-                : (v) => setState(() {
-                      _selectedLeagueId = v;
-                      _selectedHubId = null;
-                    }),
+          InputDecorator(
+            decoration: _inputDecoration(
+                _selectedLeagueId == null ? 'No specific league' : ''),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: _selectedLeagueId,
+                isExpanded: true,
+                isDense: true,
+                hint: const Text('No specific league'),
+                items: [
+                  const DropdownMenuItem<String?>(
+                      value: null, child: Text('No specific league')),
+                  ...leagues.map((l) => DropdownMenuItem<String?>(
+                      value: l.id, child: Text(l.name))),
+                ],
+                onChanged: _isUploading
+                    ? null
+                    : (v) => setState(() {
+                          _selectedLeagueId = v;
+                          _selectedHubId = null;
+                        }),
+              ),
+            ),
           ),
 
           if (_selectedLeagueId != null && hubs.isNotEmpty) ...[
             const SizedBox(height: 16),
             _SectionLabel('Hub (Optional)'),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String?>(
-              value: _selectedHubId,
-              decoration: _inputDecoration('No specific hub'),
-              items: [
-                const DropdownMenuItem<String?>(
-                    value: null, child: Text('No specific hub')),
-                ...hubs.map((h) => DropdownMenuItem<String?>(
-                    value: h.id, child: Text(h.name))),
-              ],
-              onChanged: _isUploading
-                  ? null
-                  : (v) => setState(() => _selectedHubId = v),
+            InputDecorator(
+              decoration: _inputDecoration(
+                  _selectedHubId == null ? 'No specific hub' : ''),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: _selectedHubId,
+                  isExpanded: true,
+                  isDense: true,
+                  hint: const Text('No specific hub'),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                        value: null, child: Text('No specific hub')),
+                    ...hubs.map((h) => DropdownMenuItem<String?>(
+                        value: h.id, child: Text(h.name))),
+                  ],
+                  onChanged: _isUploading
+                      ? null
+                      : (v) => setState(() => _selectedHubId = v),
+                ),
+              ),
             ),
           ],
 

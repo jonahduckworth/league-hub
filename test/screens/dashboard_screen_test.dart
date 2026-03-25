@@ -18,28 +18,34 @@ void main() {
       email: 'user@example.com',
       displayName: 'Test User',
       role: UserRole.staff,
-      organizationId: 'org-1',
+      orgId: 'org-1',
+      hubIds: [],
+      teamIds: [],
+      createdAt: DateTime(2024),
       isActive: true,
     );
 
     final testOrg = Organization(
       id: 'org-1',
       name: 'Test Organization',
-      createdBy: 'user-1',
+      primaryColor: '#1A3A5C',
+      secondaryColor: '#2E75B6',
+      accentColor: '#4DA3FF',
       createdAt: DateTime.now(),
+      ownerId: 'user-1',
     );
 
     final testLeagues = [
       League(
         id: 'league-1',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Spring League',
         abbreviation: 'SL',
         createdAt: DateTime.now(),
       ),
       League(
         id: 'league-2',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Fall League',
         abbreviation: 'FL',
         createdAt: DateTime.now(),
@@ -49,19 +55,20 @@ void main() {
     final testAnnouncements = [
       Announcement(
         id: 'ann-1',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         title: 'Welcome Announcement',
         body: 'Welcome to the league hub platform',
         authorId: 'user-1',
         authorName: 'Test User',
         authorRole: 'Staff',
         scope: AnnouncementScope.orgWide,
+        attachments: [],
         isPinned: true,
         createdAt: DateTime.now().subtract(Duration(days: 1)),
       ),
       Announcement(
         id: 'ann-2',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         title: 'Schedule Update',
         body: 'The schedule has been updated for this week',
         authorId: 'user-1',
@@ -69,6 +76,7 @@ void main() {
         authorRole: 'Staff',
         scope: AnnouncementScope.league,
         leagueId: 'league-1',
+        attachments: [],
         isPinned: false,
         createdAt: DateTime.now().subtract(Duration(hours: 2)),
       ),
@@ -77,21 +85,25 @@ void main() {
     final testChatRooms = [
       ChatRoom(
         id: 'chat-1',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'General Discussion',
         type: ChatRoomType.league,
         leagueId: 'league-1',
         participants: ['user-1', 'user-2'],
+        createdAt: DateTime.now(),
+        isArchived: false,
         lastMessage: 'See you at the game!',
         lastMessageBy: 'user-2',
         lastMessageAt: DateTime.now().subtract(Duration(hours: 1)),
       ),
       ChatRoom(
         id: 'chat-2',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Tournament Bracket',
         type: ChatRoomType.event,
         participants: ['user-1', 'user-2', 'user-3'],
+        createdAt: DateTime.now(),
+        isArchived: false,
         lastMessage: 'Bracket updates available',
         lastMessageBy: 'user-1',
         lastMessageAt: DateTime.now().subtract(Duration(minutes: 30)),
@@ -110,30 +122,31 @@ void main() {
     }) {
       return ProviderScope(
         overrides: [
-          currentUserProvider.override(
-            (ref) => AsyncValue.data(user ?? testUser),
+          currentUserProvider.overrideWith(
+            (ref) => user ?? testUser,
           ),
-          organizationProvider.override(
-            (ref) => AsyncValue.data(org ?? testOrg),
+          organizationProvider.overrideWith(
+            (ref) => org ?? testOrg,
           ),
-          leaguesProvider.override(
-            (ref) => AsyncValue.data(leagues ?? testLeagues),
+          leaguesProvider.overrideWith(
+            (ref) => Stream.value(leagues ?? testLeagues),
           ),
-          announcementsProvider.override(
-            (ref) => AsyncValue.data(announcements ?? testAnnouncements),
+          announcementsProvider.overrideWith(
+            (ref) => Stream.value(announcements ?? testAnnouncements),
           ),
-          chatRoomsProvider.override(
-            (ref) => AsyncValue.data(chatRooms ?? testChatRooms),
+          chatRoomsProvider.overrideWith(
+            (ref) => Stream.value(chatRooms ?? testChatRooms),
           ),
-          hubCountProvider.override(
-            (ref) => AsyncValue.data(hubCount),
+          hubCountProvider.overrideWith(
+            (ref) => hubCount,
           ),
-          teamCountProvider.override(
-            (ref) => AsyncValue.data(teamCount),
+          teamCountProvider.overrideWith(
+            (ref) => teamCount,
           ),
-          activeUserCountProvider.override(
-            (ref) => AsyncValue.data(memberCount),
+          activeUserCountProvider.overrideWith(
+            (ref) => memberCount,
           ),
+          unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
         ],
         child: MaterialApp(
           home: DashboardScreen(),
@@ -150,6 +163,8 @@ void main() {
     group('Stat Cards', () {
       testWidgets('displays all stat cards', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Check for stat titles
         expect(find.text('Active Hubs'), findsOneWidget);
@@ -164,6 +179,8 @@ void main() {
           teamCount: 20,
           memberCount: 100,
         ));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('5'), findsWidgets); // Active Hubs
         expect(find.text('20'), findsWidgets); // Total Teams
@@ -178,12 +195,16 @@ void main() {
           memberCount: 0,
           leagues: [],
         ));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('0'), findsWidgets);
       });
 
       testWidgets('stat cards have proper icons', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.location_city), findsOneWidget); // Hubs
         expect(find.byIcon(Icons.groups), findsOneWidget); // Teams
@@ -199,22 +220,31 @@ void main() {
           org: Organization(
             id: 'org-1',
             name: 'Custom Org Name',
-            createdBy: 'user-1',
+            primaryColor: '#1A3A5C',
+            secondaryColor: '#2E75B6',
+            accentColor: '#4DA3FF',
             createdAt: DateTime.now(),
+            ownerId: 'user-1',
           ),
         ));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Custom Org Name'), findsOneWidget);
       });
 
       testWidgets('displays greeting with user name', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Hi, Test User'), findsOneWidget);
       });
 
       testWidgets('has notification button', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(
           find.byIcon(Icons.notifications_outlined),
@@ -224,6 +254,8 @@ void main() {
 
       testWidgets('has search button', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.search), findsOneWidget);
       });
@@ -233,6 +265,8 @@ void main() {
       testWidgets('displays league filter with options',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Filter should be present
         expect(find.byType(ListView), findsWidgets);
@@ -240,6 +274,8 @@ void main() {
 
       testWidgets('handles empty leagues list', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(leagues: []));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Should still render without crashing
         expect(find.byType(DashboardScreen), findsOneWidget);
@@ -250,6 +286,8 @@ void main() {
       testWidgets('displays announcements section header',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Announcements'), findsOneWidget);
         expect(find.text('See All'), findsWidgets); // One for announcements
@@ -257,6 +295,8 @@ void main() {
 
       testWidgets('displays recent announcements', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Welcome Announcement'), findsOneWidget);
         expect(find.text('Schedule Update'), findsOneWidget);
@@ -264,6 +304,8 @@ void main() {
 
       testWidgets('shows pinned indicator', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Pinned'), findsOneWidget);
         expect(find.byIcon(Icons.push_pin), findsOneWidget);
@@ -271,6 +313,8 @@ void main() {
 
       testWidgets('displays scope tags', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Org-Wide'), findsOneWidget);
         expect(find.text('SL'), findsOneWidget); // League abbreviation
@@ -279,6 +323,8 @@ void main() {
       testWidgets('shows empty state when no announcements',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(announcements: []));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('No announcements yet.'), findsOneWidget);
       });
@@ -288,19 +334,22 @@ void main() {
           5,
           (i) => Announcement(
             id: 'ann-$i',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             title: 'Announcement $i',
             body: 'Body $i',
             authorId: 'user-1',
             authorName: 'Test User',
             authorRole: 'Staff',
             scope: AnnouncementScope.orgWide,
+            attachments: [],
             isPinned: false,
             createdAt: DateTime.now().subtract(Duration(hours: i)),
           ),
         );
 
         await tester.pumpWidget(createTestWidget(announcements: manyAnnouncements));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Should only show first 3
         expect(find.text('Announcement 0'), findsOneWidget);
@@ -315,12 +364,16 @@ void main() {
       testWidgets('displays active chats section header',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Active Chats'), findsOneWidget);
       });
 
       testWidgets('displays recent chat rooms', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('General Discussion'), findsOneWidget);
         expect(find.text('Tournament Bracket'), findsOneWidget);
@@ -328,6 +381,8 @@ void main() {
 
       testWidgets('shows chat room types with icons', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.forum), findsOneWidget); // League room
         expect(find.byIcon(Icons.event), findsOneWidget); // Event room
@@ -336,6 +391,8 @@ void main() {
       testWidgets('shows empty state when no chats',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(chatRooms: []));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(
           find.text('No chat rooms yet. Go to Messages to create one.'),
@@ -348,10 +405,12 @@ void main() {
           5,
           (i) => ChatRoom(
             id: 'chat-$i',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             name: 'Chat Room $i',
             type: ChatRoomType.league,
             participants: ['user-1'],
+            createdAt: DateTime.now(),
+            isArchived: false,
             lastMessage: 'Message $i',
             lastMessageBy: 'user-1',
             lastMessageAt: DateTime.now().subtract(Duration(hours: i)),
@@ -359,6 +418,8 @@ void main() {
         );
 
         await tester.pumpWidget(createTestWidget(chatRooms: manyChatRooms));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Should only show first 3
         expect(find.text('Chat Room 0'), findsOneWidget);
@@ -370,13 +431,17 @@ void main() {
 
       testWidgets('displays last message preview', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
-        expect(find.text('See you at the game!'), findsOneWidget);
-        expect(find.text('Bracket updates available'), findsOneWidget);
+        expect(find.textContaining('See you at the game!'), findsOneWidget);
+        expect(find.textContaining('Bracket updates available'), findsOneWidget);
       });
 
       testWidgets('shows timestamp of last message', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Should find timestamps (exact format depends on formatDateTime)
         expect(find.byType(Text), findsWidgets);
@@ -389,8 +454,8 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              currentUserProvider.override(
-                (ref) => const AsyncValue.loading(),
+              currentUserProvider.overrideWith(
+                (ref) => throw UnimplementedError(),
               ),
             ],
             child: MaterialApp(
@@ -404,6 +469,7 @@ void main() {
             ),
           ),
         );
+        await tester.pumpAndSettle();
 
         // Screen should still render with defaults
         expect(find.byType(DashboardScreen), findsOneWidget);
@@ -415,24 +481,25 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              currentUserProvider.override(
-                (ref) => const AsyncValue.data(null),
+              currentUserProvider.overrideWith(
+                (ref) => null,
               ),
-              organizationProvider.override(
-                (ref) => const AsyncValue.data(null),
+              organizationProvider.overrideWith(
+                (ref) => null,
               ),
-              leaguesProvider.override(
-                (ref) => const AsyncValue.data(null),
+              leaguesProvider.overrideWith(
+                (ref) => Stream.value(<League>[]),
               ),
-              hubCountProvider.override(
-                (ref) => const AsyncValue.data(0),
+              hubCountProvider.overrideWith(
+                (ref) => 0,
               ),
-              teamCountProvider.override(
-                (ref) => const AsyncValue.data(0),
+              teamCountProvider.overrideWith(
+                (ref) => 0,
               ),
-              activeUserCountProvider.override(
-                (ref) => const AsyncValue.data(0),
+              activeUserCountProvider.overrideWith(
+                (ref) => 0,
               ),
+              unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
             ],
             child: MaterialApp(
               home: DashboardScreen(),
@@ -445,6 +512,7 @@ void main() {
             ),
           ),
         );
+        await tester.pumpAndSettle();
 
         // Should display with default org name
         expect(find.text('League Hub'), findsWidgets);
@@ -455,6 +523,8 @@ void main() {
     group('Content Spacing and Layout', () {
       testWidgets('sections are properly spaced', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Screen should be scrollable with proper spacing
         expect(find.byType(CustomScrollView), findsOneWidget);
@@ -462,6 +532,8 @@ void main() {
 
       testWidgets('has proper padding on content', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Stats and section content should be properly padded
         expect(find.byType(Padding), findsWidgets);

@@ -143,7 +143,7 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: _iconOptions[_selectedIndex].color.withOpacity(0.3),
+                  color: _iconOptions[_selectedIndex].color.withValues(alpha: 0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -198,7 +198,7 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: option.color.withOpacity(0.4),
+                                    color: option.color.withValues(alpha: 0.4),
                                     blurRadius: 12,
                                     offset: const Offset(0, 4),
                                   ),

@@ -54,8 +54,8 @@ class ChatRoomInfoScreen extends ConsumerWidget {
                   height: 72,
                   decoration: BoxDecoration(
                     color: room.type == ChatRoomType.direct
-                        ? AppColors.accent.withOpacity(0.15)
-                        : AppColors.primary.withOpacity(0.1),
+                        ? AppColors.accent.withValues(alpha: 0.15)
+                        : AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Icon(
@@ -77,7 +77,7 @@ class ChatRoomInfoScreen extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -144,7 +144,7 @@ class ChatRoomInfoScreen extends ConsumerWidget {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primary.withOpacity(0.1),
+                                      color: AppColors.primary.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: const Text('You',

@@ -16,9 +16,9 @@ void main() {
     }) {
       return ProviderScope(
         overrides: [
-          currentUserProvider.override((ref) => AsyncValue.data(user)),
-          pendingInviteCountProvider.override(
-            (ref) => AsyncValue.data(pendingInviteCount),
+          currentUserProvider.overrideWith((ref) => user),
+          pendingInviteCountProvider.overrideWithValue(
+            pendingInviteCount,
           ),
         ],
         child: MaterialApp(
@@ -41,7 +41,10 @@ void main() {
         email: 'staff@example.com',
         displayName: 'Staff Member',
         role: UserRole.staff,
-        organizationId: 'org-1',
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
         isActive: true,
       );
 
@@ -94,7 +97,10 @@ void main() {
         email: 'admin@example.com',
         displayName: 'Manager Admin',
         role: UserRole.managerAdmin,
-        organizationId: 'org-1',
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
         isActive: true,
       );
 
@@ -130,7 +136,10 @@ void main() {
         email: 'super@example.com',
         displayName: 'Super Admin',
         role: UserRole.superAdmin,
-        organizationId: 'org-1',
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
         isActive: true,
       );
 
@@ -162,7 +171,10 @@ void main() {
         email: 'owner@example.com',
         displayName: 'Platform Owner',
         role: UserRole.platformOwner,
-        organizationId: 'org-1',
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
         isActive: true,
       );
 
@@ -193,7 +205,10 @@ void main() {
         email: 'test@example.com',
         displayName: 'Test User',
         role: UserRole.staff,
-        organizationId: 'org-1',
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
         isActive: true,
       );
 
@@ -228,7 +243,10 @@ void main() {
         email: 'test@example.com',
         displayName: 'Test User',
         role: UserRole.staff,
-        organizationId: 'org-1',
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
         isActive: true,
       );
 
@@ -247,7 +265,10 @@ void main() {
         email: 'admin@example.com',
         displayName: 'Manager Admin',
         role: UserRole.managerAdmin,
-        organizationId: 'org-1',
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
         isActive: true,
       );
 
@@ -283,7 +304,10 @@ void main() {
           email: 'staff@example.com',
           displayName: 'Staff Member',
           role: UserRole.staff,
-          organizationId: 'org-1',
+          orgId: 'org-1',
+          createdAt: DateTime(2024),
+          hubIds: [],
+          teamIds: [],
           isActive: true,
         );
 
@@ -305,7 +329,10 @@ void main() {
         email: 'test@example.com',
         displayName: 'Test User',
         role: UserRole.staff,
-        organizationId: 'org-1',
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
         isActive: true,
       );
 
@@ -322,7 +349,10 @@ void main() {
         email: 'test@example.com',
         displayName: 'Test User',
         role: UserRole.superAdmin,
-        organizationId: 'org-1',
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
         isActive: true,
       );
 

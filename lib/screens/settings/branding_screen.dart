@@ -45,7 +45,7 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
   }
 
   String _colorToHex(Color color) {
-    return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
+    return '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
   }
 
   Future<void> _save() async {
@@ -293,7 +293,7 @@ class _ColorPickerTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '#${color.value.toRadixString(16).substring(2).toUpperCase()}',
+            '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
             style:
                 const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
@@ -348,7 +348,7 @@ class _ColorPickerTile extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: presets.map((c) {
-              final isSelected = c.value == current.value;
+              final isSelected = c.toARGB32() == current.toARGB32();
               return GestureDetector(
                 onTap: () {
                   onChanged(c);
@@ -366,7 +366,7 @@ class _ColorPickerTile extends StatelessWidget {
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                                color: c.withOpacity(0.5),
+                                color: c.withValues(alpha: 0.5),
                                 blurRadius: 8,
                                 spreadRadius: 2)
                           ]

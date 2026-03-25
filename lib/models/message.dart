@@ -36,6 +36,8 @@ class Message {
   final String? mediaType;
   final LinkPreview? linkPreview;
   final DateTime createdAt;
+  final DateTime? editedAt;
+  final bool deleted;
   final List<String> readBy;
 
   Message({
@@ -48,6 +50,8 @@ class Message {
     this.mediaType,
     this.linkPreview,
     required this.createdAt,
+    this.editedAt,
+    this.deleted = false,
     required this.readBy,
   });
 
@@ -63,6 +67,10 @@ class Message {
             ? LinkPreview.fromJson(json['linkPreview'] as Map<String, dynamic>)
             : null,
         createdAt: DateTime.parse(json['createdAt'] as String),
+        editedAt: json['editedAt'] != null
+            ? DateTime.parse(json['editedAt'] as String)
+            : null,
+        deleted: json['deleted'] as bool? ?? false,
         readBy: List<String>.from(json['readBy'] as List? ?? []),
       );
 
@@ -76,6 +84,8 @@ class Message {
         'mediaType': mediaType,
         'linkPreview': linkPreview?.toJson(),
         'createdAt': createdAt.toIso8601String(),
+        if (editedAt != null) 'editedAt': editedAt!.toIso8601String(),
+        'deleted': deleted,
         'readBy': readBy,
       };
 }

@@ -6,12 +6,33 @@ import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/models/document.dart';
 import 'package:league_hub/models/organization.dart';
+import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/services/firestore_service.dart';
-import 'package:league_hub/services/permission_service.dart';
 
-// Manual mocks
-class MockFirestoreService extends Mock implements FirestoreService {}
+// Manual mock with proper null-safe return values via noSuchMethod overrides.
+class MockFirestoreService extends Mock implements FirestoreService {
+  @override
+  Stream<List<ChatRoom>> getChatRooms(String orgId) =>
+      (super.noSuchMethod(Invocation.method(#getChatRooms, [orgId]),
+              returnValue: Stream<List<ChatRoom>>.value([]))
+          as Stream<List<ChatRoom>>);
+
+  @override
+  Stream<List<Document>> documentsStream(String orgId,
+          {String? leagueId, String? category}) =>
+      (super.noSuchMethod(
+              Invocation.method(#documentsStream, [orgId],
+                  {#leagueId: leagueId, #category: category}),
+              returnValue: Stream<List<Document>>.value([]))
+          as Stream<List<Document>>);
+
+  @override
+  Stream<List<Announcement>> getAnnouncements(String orgId) =>
+      (super.noSuchMethod(Invocation.method(#getAnnouncements, [orgId]),
+              returnValue: Stream<List<Announcement>>.value([]))
+          as Stream<List<Announcement>>);
+}
 
 void main() {
   group('Scoped Providers Tests', () {
@@ -22,8 +43,12 @@ void main() {
       mockFs = MockFirestoreService();
     });
 
+    tearDown(() {
+      resetMockitoState();
+    });
+
     group('chatRoomsProvider filtering', () {
-      test('staff user: only sees DMs they are in', () {
+      test('staff user: only sees DMs they are in', () async {
         final staffUser = AppUser(
           id: 'staff1',
           email: 'staff@example.com',
@@ -73,23 +98,19 @@ void main() {
         container = ProviderContainer(
           overrides: [
             firestoreServiceProvider.overrideWithValue(mockFs),
-            currentUserProvider.overrideWithValue(
-              AsyncValue.data(staffUser),
-            ),
-            organizationProvider.overrideWithValue(
-              AsyncValue.data(testOrg),
-            ),
+            currentUserProvider.overrideWith((ref) => staffUser),
+            organizationProvider.overrideWith((ref) => testOrg),
           ],
         );
 
-        final result = container.read(chatRoomsProvider).valueOrNull ?? [];
+        final result = await container.read(chatRoomsProvider.future);
 
         // Staff should see: DM (is participant) + league room (visible to all)
         expect(result, hasLength(2));
         expect(result.map((r) => r.id), containsAll(['dm1', 'league1']));
       });
 
-      test('staff user: does not see DMs they are not in', () {
+      test('staff user: does not see DMs they are not in', () async {
         final staffUser = AppUser(
           id: 'staff1',
           email: 'staff@example.com',
@@ -128,22 +149,18 @@ void main() {
         container = ProviderContainer(
           overrides: [
             firestoreServiceProvider.overrideWithValue(mockFs),
-            currentUserProvider.overrideWithValue(
-              AsyncValue.data(staffUser),
-            ),
-            organizationProvider.overrideWithValue(
-              AsyncValue.data(testOrg),
-            ),
+            currentUserProvider.overrideWith((ref) => staffUser),
+            organizationProvider.overrideWith((ref) => testOrg),
           ],
         );
 
-        final result = container.read(chatRoomsProvider).valueOrNull ?? [];
+        final result = await container.read(chatRoomsProvider.future);
 
         // Staff should not see DM they are not in
         expect(result, isEmpty);
       });
 
-      test('superAdmin: sees all rooms', () {
+      test('superAdmin: sees all rooms', () async {
         final superAdmin = AppUser(
           id: 'admin1',
           email: 'admin@example.com',
@@ -193,16 +210,12 @@ void main() {
         container = ProviderContainer(
           overrides: [
             firestoreServiceProvider.overrideWithValue(mockFs),
-            currentUserProvider.overrideWithValue(
-              AsyncValue.data(superAdmin),
-            ),
-            organizationProvider.overrideWithValue(
-              AsyncValue.data(testOrg),
-            ),
+            currentUserProvider.overrideWith((ref) => superAdmin),
+            organizationProvider.overrideWith((ref) => testOrg),
           ],
         );
 
-        final result = container.read(chatRoomsProvider).valueOrNull ?? [];
+        final result = await container.read(chatRoomsProvider.future);
 
         // SuperAdmin sees all
         expect(result, hasLength(2));
@@ -210,7 +223,7 @@ void main() {
     });
 
     group('documentsProvider filtering', () {
-      test('staff user: only sees docs in their hubs', () {
+      test('staff user: only sees docs in their hubs', () async {
         final staffUser = AppUser(
           id: 'staff1',
           email: 'staff@example.com',
@@ -265,29 +278,25 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        when(mockFs.documentsStream('org1', leagueId: null, category: null))
+        when(mockFs.documentsStream('org1'))
             .thenAnswer((_) => Stream.value([docInHub, docInOtherHub]));
 
         container = ProviderContainer(
           overrides: [
             firestoreServiceProvider.overrideWithValue(mockFs),
-            currentUserProvider.overrideWithValue(
-              AsyncValue.data(staffUser),
-            ),
-            organizationProvider.overrideWithValue(
-              AsyncValue.data(testOrg),
-            ),
+            currentUserProvider.overrideWith((ref) => staffUser),
+            organizationProvider.overrideWith((ref) => testOrg),
           ],
         );
 
-        final result = container.read(documentsProvider).valueOrNull ?? [];
+        final result = await container.read(documentsProvider.future);
 
         // Staff should only see doc in h1
         expect(result, hasLength(1));
         expect(result.first.id, 'doc1');
       });
 
-      test('superAdmin: sees all docs', () {
+      test('superAdmin: sees all docs', () async {
         final superAdmin = AppUser(
           id: 'admin1',
           email: 'admin@example.com',
@@ -342,22 +351,18 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        when(mockFs.documentsStream('org1', leagueId: null, category: null))
+        when(mockFs.documentsStream('org1'))
             .thenAnswer((_) => Stream.value([doc1, doc2]));
 
         container = ProviderContainer(
           overrides: [
             firestoreServiceProvider.overrideWithValue(mockFs),
-            currentUserProvider.overrideWithValue(
-              AsyncValue.data(superAdmin),
-            ),
-            organizationProvider.overrideWithValue(
-              AsyncValue.data(testOrg),
-            ),
+            currentUserProvider.overrideWith((ref) => superAdmin),
+            organizationProvider.overrideWith((ref) => testOrg),
           ],
         );
 
-        final result = container.read(documentsProvider).valueOrNull ?? [];
+        final result = await container.read(documentsProvider.future);
 
         // SuperAdmin sees all
         expect(result, hasLength(2));
@@ -365,7 +370,7 @@ void main() {
     });
 
     group('announcementsProvider filtering', () {
-      test('staff user: sees org-wide and hub-scoped announcements in their hubs', () {
+      test('staff user: sees org-wide and hub-scoped announcements in their hubs', () async {
         final staffUser = AppUser(
           id: 'staff1',
           email: 'staff@example.com',
@@ -438,23 +443,19 @@ void main() {
         container = ProviderContainer(
           overrides: [
             firestoreServiceProvider.overrideWithValue(mockFs),
-            currentUserProvider.overrideWithValue(
-              AsyncValue.data(staffUser),
-            ),
-            organizationProvider.overrideWithValue(
-              AsyncValue.data(testOrg),
-            ),
+            currentUserProvider.overrideWith((ref) => staffUser),
+            organizationProvider.overrideWith((ref) => testOrg),
           ],
         );
 
-        final result = container.read(announcementsProvider).valueOrNull ?? [];
+        final result = await container.read(announcementsProvider.future);
 
         // Staff should see org-wide + hub announcement in h1
         expect(result, hasLength(2));
         expect(result.map((a) => a.id), containsAll(['ann1', 'ann2']));
       });
 
-      test('superAdmin: sees all announcements', () {
+      test('superAdmin: sees all announcements', () async {
         final superAdmin = AppUser(
           id: 'admin1',
           email: 'admin@example.com',
@@ -511,16 +512,12 @@ void main() {
         container = ProviderContainer(
           overrides: [
             firestoreServiceProvider.overrideWithValue(mockFs),
-            currentUserProvider.overrideWithValue(
-              AsyncValue.data(superAdmin),
-            ),
-            organizationProvider.overrideWithValue(
-              AsyncValue.data(testOrg),
-            ),
+            currentUserProvider.overrideWith((ref) => superAdmin),
+            organizationProvider.overrideWith((ref) => testOrg),
           ],
         );
 
-        final result = container.read(announcementsProvider).valueOrNull ?? [];
+        final result = await container.read(announcementsProvider.future);
 
         // SuperAdmin sees all
         expect(result, hasLength(2));

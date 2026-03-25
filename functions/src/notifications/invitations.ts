@@ -1,6 +1,5 @@
 import { onDocumentCreated as onFirestoreCreated } from "firebase-functions/v2/firestore";
 import { db, sendNotification } from "../helpers";
-import * as admin from "firebase-admin";
 
 /**
  * Triggers when a new invitation is created.

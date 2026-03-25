@@ -34,6 +34,7 @@ void main() {
           currentUserProvider.overrideWith((ref) async => _testUser()),
         ],
       ));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Privacy & Security'), findsOneWidget);
@@ -48,6 +49,7 @@ void main() {
           currentUserProvider.overrideWith((ref) async => _testUser()),
         ],
       ));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Change Password'), findsOneWidget);
@@ -60,6 +62,7 @@ void main() {
           currentUserProvider.overrideWith((ref) async => _testUser()),
         ],
       ));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('test@example.com'), findsOneWidget);
@@ -71,6 +74,7 @@ void main() {
           currentUserProvider.overrideWith((ref) async => _testUser()),
         ],
       ));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Active Sessions'), findsOneWidget);
@@ -84,6 +88,7 @@ void main() {
           currentUserProvider.overrideWith((ref) async => _testUser()),
         ],
       ));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Sign Out All Devices'), findsOneWidget);
@@ -95,6 +100,7 @@ void main() {
           currentUserProvider.overrideWith((ref) async => _testUser()),
         ],
       ));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Export My Data'), findsOneWidget);
@@ -107,9 +113,11 @@ void main() {
           currentUserProvider.overrideWith((ref) async => _testUser()),
         ],
       ));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Change Password'));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Current Password'), findsOneWidget);
@@ -123,12 +131,14 @@ void main() {
           currentUserProvider.overrideWith((ref) async => _testUser()),
         ],
       ));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Sign Out All Devices'));
+      await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('This will sign you out from all other devices.'),
+      expect(find.textContaining('This will sign you out from all other devices'),
           findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
     });
@@ -140,9 +150,11 @@ void main() {
           currentUserProvider.overrideWith((ref) async => _testUser()),
         ],
       ));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Delete Account'));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.textContaining('This action is permanent'), findsOneWidget);

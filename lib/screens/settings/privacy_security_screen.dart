@@ -64,7 +64,7 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.1),
+                    color: AppColors.success.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text('Active',
@@ -361,12 +361,30 @@ class PrivacySecurityScreen extends ConsumerWidget {
   }
 
   void _confirmDeleteAccount(BuildContext context, WidgetRef ref) {
+    final passwordCtrl = TextEditingController();
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Account'),
-        content: const Text(
-            'This action is permanent and cannot be undone. All your data will be deleted. Are you sure?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'This action is permanent and cannot be undone. All your data will be deleted.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Enter your password to confirm',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -375,18 +393,60 @@ class PrivacySecurityScreen extends ConsumerWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () async {
+              if (passwordCtrl.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter your password'),
+                    backgroundColor: AppColors.danger,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
               try {
-                final user = FirebaseAuth.instance.currentUser;
-                await user?.delete();
+                final firebaseUser = FirebaseAuth.instance.currentUser;
+                if (firebaseUser != null && firebaseUser.email != null) {
+                  // Re-authenticate before destructive operation.
+                  final cred = EmailAuthProvider.credential(
+                    email: firebaseUser.email!,
+                    password: passwordCtrl.text,
+                  );
+                  await firebaseUser.reauthenticateWithCredential(cred);
+
+                  // Remove FCM token so push notifications stop.
+                  final appUser =
+                      ref.read(currentUserProvider).valueOrNull;
+                  if (appUser != null) {
+                    await ref
+                        .read(messagingServiceProvider)
+                        .removeToken(appUser.id);
+                  }
+
+                  // Delete the Firebase Auth account.
+                  await firebaseUser.delete();
+                }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) context.go('/login');
+              } on FirebaseAuthException catch (e) {
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  final msg = e.code == 'wrong-password'
+                      ? 'Incorrect password. Please try again.'
+                      : 'Failed to delete account: ${e.message}';
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(msg),
+                      backgroundColor: AppColors.danger,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
               } catch (e) {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(
-                          'Failed to delete account. You may need to re-authenticate: $e'),
+                      content: Text('Failed to delete account: $e'),
                       backgroundColor: AppColors.danger,
                       behavior: SnackBarBehavior.floating,
                     ),

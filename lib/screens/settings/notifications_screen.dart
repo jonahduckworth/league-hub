@@ -136,14 +136,14 @@ class NotificationsScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.05),
+              color: AppColors.primary.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
             ),
             child: Row(
               children: [
                 Icon(Icons.info_outline,
-                    color: AppColors.primary.withOpacity(0.6), size: 20),
+                    color: AppColors.primary.withValues(alpha: 0.6), size: 20),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
@@ -213,7 +213,7 @@ class _ToggleTile extends StatelessWidget {
       trailing: Switch.adaptive(
         value: value,
         onChanged: (_) => onChanged(),
-        activeColor: AppColors.primary,
+        activeTrackColor: AppColors.primary,
       ),
     );
   }

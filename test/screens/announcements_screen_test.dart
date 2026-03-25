@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,7 +18,10 @@ void main() {
       email: 'user@example.com',
       displayName: 'Test User',
       role: UserRole.staff,
-      organizationId: 'org-1',
+      orgId: 'org-1',
+      hubIds: [],
+      teamIds: [],
+      createdAt: DateTime(2024),
       isActive: true,
     );
 
@@ -25,21 +30,24 @@ void main() {
       email: 'admin@example.com',
       displayName: 'Admin User',
       role: UserRole.superAdmin,
-      organizationId: 'org-1',
+      orgId: 'org-1',
+      hubIds: [],
+      teamIds: [],
+      createdAt: DateTime(2024),
       isActive: true,
     );
 
     final testLeagues = [
       League(
         id: 'league-1',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Spring League',
         abbreviation: 'SL',
         createdAt: DateTime.now(),
       ),
       League(
         id: 'league-2',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         name: 'Fall League',
         abbreviation: 'FL',
         createdAt: DateTime.now(),
@@ -49,19 +57,20 @@ void main() {
     final testAnnouncements = [
       Announcement(
         id: 'ann-1',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         title: 'Welcome to League Hub',
         body: 'Welcome to our new league management platform',
         authorId: 'admin-1',
         authorName: 'Admin User',
         authorRole: 'Super Admin',
         scope: AnnouncementScope.orgWide,
+        attachments: [],
         isPinned: true,
         createdAt: DateTime.now().subtract(Duration(days: 5)),
       ),
       Announcement(
         id: 'ann-2',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         title: 'Spring Tournament Dates',
         body: 'The spring tournament will be held from March 15 to April 20',
         authorId: 'admin-1',
@@ -69,12 +78,13 @@ void main() {
         authorRole: 'Super Admin',
         scope: AnnouncementScope.league,
         leagueId: 'league-1',
+        attachments: [],
         isPinned: false,
         createdAt: DateTime.now().subtract(Duration(days: 2)),
       ),
       Announcement(
         id: 'ann-3',
-        organizationId: 'org-1',
+        orgId: 'org-1',
         title: 'Schedule Update',
         body: 'Weekly schedule has been updated',
         authorId: 'admin-1',
@@ -82,6 +92,7 @@ void main() {
         authorRole: 'Super Admin',
         scope: AnnouncementScope.league,
         leagueId: 'league-2',
+        attachments: [],
         isPinned: false,
         createdAt: DateTime.now().subtract(Duration(hours: 1)),
       ),
@@ -94,14 +105,14 @@ void main() {
     }) {
       return ProviderScope(
         overrides: [
-          currentUserProvider.override(
-            (ref) => AsyncValue.data(user ?? testUser),
+          currentUserProvider.overrideWith(
+            (ref) => user ?? testUser,
           ),
-          announcementsProvider.override(
-            (ref) => AsyncValue.data(announcements ?? testAnnouncements),
+          announcementsProvider.overrideWith(
+            (ref) => Stream.value(announcements ?? testAnnouncements),
           ),
-          leaguesProvider.override(
-            (ref) => AsyncValue.data(leagues ?? testLeagues),
+          leaguesProvider.overrideWith(
+            (ref) => Stream.value(leagues ?? testLeagues),
           ),
         ],
         child: MaterialApp(
@@ -119,16 +130,22 @@ void main() {
     group('Screen Rendering', () {
       testWidgets('renders without crashing', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
         expect(find.byType(AnnouncementsScreen), findsOneWidget);
       });
 
       testWidgets('displays title Announcements', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
         expect(find.text('Announcements'), findsOneWidget);
       });
 
       testWidgets('has refresh indicator', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
         expect(find.byType(RefreshIndicator), findsOneWidget);
       });
     });
@@ -136,6 +153,8 @@ void main() {
     group('FAB Visibility', () {
       testWidgets('shows FAB for superAdmin', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: adminUser));
+        await tester.pump();
+        await tester.pumpAndSettle();
         expect(find.byIcon(Icons.add), findsOneWidget);
       });
 
@@ -145,11 +164,16 @@ void main() {
           email: 'manager@example.com',
           displayName: 'Manager Admin',
           role: UserRole.managerAdmin,
-          organizationId: 'org-1',
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2024),
           isActive: true,
         );
 
         await tester.pumpWidget(createTestWidget(user: managerAdmin));
+        await tester.pump();
+        await tester.pumpAndSettle();
         expect(find.byIcon(Icons.add), findsOneWidget);
       });
 
@@ -159,16 +183,23 @@ void main() {
           email: 'owner@example.com',
           displayName: 'Platform Owner',
           role: UserRole.platformOwner,
-          organizationId: 'org-1',
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2024),
           isActive: true,
         );
 
         await tester.pumpWidget(createTestWidget(user: platformOwner));
+        await tester.pump();
+        await tester.pumpAndSettle();
         expect(find.byIcon(Icons.add), findsOneWidget);
       });
 
       testWidgets('hides FAB for staff user', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: testUser));
+        await tester.pump();
+        await tester.pumpAndSettle();
         expect(find.byIcon(Icons.add), findsNothing);
       });
     });
@@ -176,6 +207,8 @@ void main() {
     group('Announcement List Rendering', () {
       testWidgets('displays all announcements', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Welcome to League Hub'), findsOneWidget);
         expect(find.text('Spring Tournament Dates'), findsOneWidget);
@@ -184,6 +217,8 @@ void main() {
 
       testWidgets('displays announcement titles', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Welcome to League Hub'), findsOneWidget);
       });
@@ -191,6 +226,8 @@ void main() {
       testWidgets('displays announcement bodies (truncated)',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(
           find.text('Welcome to our new league management platform'),
@@ -200,6 +237,8 @@ void main() {
 
       testWidgets('displays author information', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Admin User'), findsWidgets);
         expect(find.text('Super Admin'), findsWidgets);
@@ -210,6 +249,8 @@ void main() {
       testWidgets('pinned announcement shows indicator',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Pinned Announcement'), findsOneWidget);
         expect(find.byIcon(Icons.push_pin), findsOneWidget);
@@ -219,6 +260,8 @@ void main() {
           (WidgetTester tester) async {
         // List should be ordered with pinned first
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // The pinned announcement should be first
         expect(find.text('Welcome to League Hub'), findsOneWidget);
@@ -227,6 +270,8 @@ void main() {
       testWidgets('pinned announcement has special styling',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Pinned announcement has special border
         expect(find.byIcon(Icons.push_pin), findsOneWidget);
@@ -235,6 +280,8 @@ void main() {
       testWidgets('non-pinned announcements do not show indicator',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Only one pinned announcement
         expect(find.text('Pinned Announcement'), findsOneWidget);
@@ -245,6 +292,8 @@ void main() {
       testWidgets('displays organization-wide scope tag',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Org-Wide'), findsOneWidget);
       });
@@ -252,14 +301,18 @@ void main() {
       testWidgets('displays league scope tag with abbreviation',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
-        expect(find.text('SL'), findsOneWidget); // Spring League
-        expect(find.text('FL'), findsOneWidget); // Fall League
+        expect(find.text('SL'), findsWidgets); // Spring League (may appear in filter + tag)
+        expect(find.text('FL'), findsWidgets); // Fall League (may appear in filter + tag)
       });
 
       testWidgets('scope tags have different colors',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Should find scope tags
         expect(find.byType(Container), findsWidgets);
@@ -269,6 +322,8 @@ void main() {
     group('League Filter', () {
       testWidgets('displays league filter', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Filter should be present
         expect(find.byType(ListView), findsWidgets);
@@ -277,6 +332,8 @@ void main() {
       testWidgets('filters announcements by league',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Default should show all
         expect(find.text('Welcome to League Hub'), findsOneWidget);
@@ -287,6 +344,8 @@ void main() {
       testWidgets('org-wide announcements always visible',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Even when filtering by league, org-wide announcements appear
         expect(find.text('Welcome to League Hub'), findsOneWidget);
@@ -294,6 +353,8 @@ void main() {
 
       testWidgets('handles empty leagues list', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(leagues: []));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Should still render announcements
         expect(find.byType(AnnouncementsScreen), findsOneWidget);
@@ -304,6 +365,8 @@ void main() {
       testWidgets('shows empty state when no announcements',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(announcements: []));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('No announcements yet'), findsOneWidget);
         expect(find.text('Check back later for updates.'), findsOneWidget);
@@ -312,6 +375,8 @@ void main() {
 
       testWidgets('empty state is centered', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(announcements: []));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.byType(Center), findsWidgets);
       });
@@ -320,11 +385,15 @@ void main() {
     group('Loading State', () {
       testWidgets('shows loading indicator while fetching',
           (WidgetTester tester) async {
+        // Use a stream that never emits to keep the provider in loading state
+        final controller = StreamController<List<Announcement>>();
+        addTearDown(() => controller.close());
+
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              announcementsProvider.override(
-                (ref) => const AsyncValue.loading(),
+              announcementsProvider.overrideWith(
+                (ref) => controller.stream,
               ),
             ],
             child: MaterialApp(
@@ -338,6 +407,7 @@ void main() {
             ),
           ),
         );
+        await tester.pump();
 
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
       });
@@ -347,6 +417,8 @@ void main() {
       testWidgets('card displays creation timestamp',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Timestamps should be displayed
         expect(find.byType(Text), findsWidgets);
@@ -354,6 +426,8 @@ void main() {
 
       testWidgets('card displays author avatar', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Avatar should be present
         expect(find.byType(Container), findsWidgets);
@@ -362,6 +436,8 @@ void main() {
       testWidgets('card displays full author information',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Admin User'), findsWidgets);
         expect(find.text('Super Admin'), findsWidgets);
@@ -370,6 +446,8 @@ void main() {
       testWidgets('card text is properly formatted',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Title should be bold/large
         // Body should be smaller
@@ -381,6 +459,8 @@ void main() {
       testWidgets('staff user cannot see long press menu',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: testUser));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Staff users should not be able to long press
         // (but we can at least verify the card is there)
@@ -390,6 +470,8 @@ void main() {
       testWidgets('admin user can interact with announcements',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: adminUser));
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Admin user should have FAB for creating
         expect(find.byIcon(Icons.add), findsOneWidget);
@@ -400,6 +482,8 @@ void main() {
       testWidgets('pinned announcements appear first',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Get positions of announcements in order
         final welcomeText = find.text('Welcome to League Hub');
@@ -415,37 +499,40 @@ void main() {
         final orderedAnnouncements = [
           Announcement(
             id: 'ann-1',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             title: 'Pinned Announcement',
             body: 'This is pinned',
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Super Admin',
             scope: AnnouncementScope.orgWide,
+            attachments: [],
             isPinned: true,
             createdAt: DateTime.now().subtract(Duration(days: 5)),
           ),
           Announcement(
             id: 'ann-2',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             title: 'Recent Announcement',
             body: 'This is recent',
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Super Admin',
             scope: AnnouncementScope.orgWide,
+            attachments: [],
             isPinned: false,
             createdAt: DateTime.now().subtract(Duration(hours: 1)),
           ),
           Announcement(
             id: 'ann-3',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             title: 'Older Announcement',
             body: 'This is older',
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Super Admin',
             scope: AnnouncementScope.orgWide,
+            attachments: [],
             isPinned: false,
             createdAt: DateTime.now().subtract(Duration(days: 10)),
           ),
@@ -454,9 +541,11 @@ void main() {
         await tester.pumpWidget(
           createTestWidget(announcements: orderedAnnouncements),
         );
+        await tester.pump();
+        await tester.pumpAndSettle();
 
-        // Pinned should be first
-        expect(find.text('Pinned Announcement'), findsOneWidget);
+        // Pinned should be first (text may appear in both badge and title)
+        expect(find.text('Pinned Announcement'), findsWidgets);
       });
     });
 
@@ -466,25 +555,27 @@ void main() {
         final multipleOrgWide = [
           Announcement(
             id: 'ann-1',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             title: 'Announcement 1',
             body: 'Body 1',
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Super Admin',
             scope: AnnouncementScope.orgWide,
+            attachments: [],
             isPinned: false,
             createdAt: DateTime.now(),
           ),
           Announcement(
             id: 'ann-2',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             title: 'Announcement 2',
             body: 'Body 2',
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Super Admin',
             scope: AnnouncementScope.orgWide,
+            attachments: [],
             isPinned: false,
             createdAt: DateTime.now().subtract(Duration(hours: 1)),
           ),
@@ -493,6 +584,8 @@ void main() {
         await tester.pumpWidget(
           createTestWidget(announcements: multipleOrgWide),
         );
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('Announcement 1'), findsOneWidget);
         expect(find.text('Announcement 2'), findsOneWidget);
@@ -503,7 +596,7 @@ void main() {
         final multipleLeagueAnn = [
           Announcement(
             id: 'ann-1',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             title: 'League Announcement 1',
             body: 'Body 1',
             authorId: 'admin-1',
@@ -511,12 +604,13 @@ void main() {
             authorRole: 'Super Admin',
             scope: AnnouncementScope.league,
             leagueId: 'league-1',
+            attachments: [],
             isPinned: false,
             createdAt: DateTime.now(),
           ),
           Announcement(
             id: 'ann-2',
-            organizationId: 'org-1',
+            orgId: 'org-1',
             title: 'League Announcement 2',
             body: 'Body 2',
             authorId: 'admin-1',
@@ -524,6 +618,7 @@ void main() {
             authorRole: 'Super Admin',
             scope: AnnouncementScope.league,
             leagueId: 'league-1',
+            attachments: [],
             isPinned: false,
             createdAt: DateTime.now().subtract(Duration(hours: 1)),
           ),
@@ -532,6 +627,8 @@ void main() {
         await tester.pumpWidget(
           createTestWidget(announcements: multipleLeagueAnn),
         );
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.text('League Announcement 1'), findsOneWidget);
         expect(find.text('League Announcement 2'), findsOneWidget);
@@ -543,6 +640,8 @@ void main() {
       testWidgets('pinned announcement has different styling',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Pinned announcement should have special header
         expect(find.text('Pinned Announcement'), findsOneWidget);
@@ -551,6 +650,8 @@ void main() {
       testWidgets('announcement cards are properly spaced',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Cards should have proper margins/padding
         expect(find.byType(Container), findsWidgets);
@@ -562,7 +663,7 @@ void main() {
           (WidgetTester tester) async {
         final orphanedAnn = Announcement(
           id: 'ann-1',
-          organizationId: 'org-1',
+          orgId: 'org-1',
           title: 'Orphaned Announcement',
           body: 'Body',
           authorId: 'admin-1',
@@ -570,6 +671,7 @@ void main() {
           authorRole: 'Super Admin',
           scope: AnnouncementScope.league,
           leagueId: 'unknown-league-id',
+          attachments: [],
           isPinned: false,
           createdAt: DateTime.now(),
         );
@@ -580,6 +682,8 @@ void main() {
             leagues: [], // No leagues available
           ),
         );
+        await tester.pump();
+        await tester.pumpAndSettle();
 
         // Should show something for the league
         expect(find.text('Orphaned Announcement'), findsOneWidget);

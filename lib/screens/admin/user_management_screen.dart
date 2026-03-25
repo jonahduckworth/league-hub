@@ -105,7 +105,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                       children: [
                         Icon(Icons.people_outline,
                             size: 64,
-                            color: AppColors.textMuted.withOpacity(0.5)),
+                            color: AppColors.textMuted.withValues(alpha: 0.5)),
                         const SizedBox(height: 12),
                         const Text('No users found',
                             style: TextStyle(
@@ -173,7 +173,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
               label: Text(label),
               selected: selected,
               onSelected: (_) => setState(() => _roleFilter = label),
-              selectedColor: AppColors.primary.withOpacity(0.15),
+              selectedColor: AppColors.primary.withValues(alpha: 0.15),
               checkmarkColor: AppColors.primary,
               labelStyle: TextStyle(
                 color: selected ? AppColors.primary : AppColors.textSecondary,
@@ -237,7 +237,7 @@ class _UserCard extends ConsumerWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: user.isActive ? AppColors.border : AppColors.danger.withOpacity(0.3),
+            color: user.isActive ? AppColors.border : AppColors.danger.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
@@ -248,7 +248,7 @@ class _UserCard extends ConsumerWidget {
                   name: user.displayName,
                   imageUrl: user.avatarUrl,
                   size: 48,
-                  backgroundColor: _roleColor(user.role).withOpacity(0.15),
+                  backgroundColor: _roleColor(user.role).withValues(alpha: 0.15),
                 ),
                 if (!user.isActive)
                   Positioned(
@@ -368,9 +368,9 @@ class _RoleBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(label,
           style: TextStyle(
@@ -755,20 +755,26 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
       ),
       child: Column(
         children: [
-          _RoleOption(
-            label: 'Manager Admin',
-            description: 'Can manage hubs, teams, and staff',
-            value: 'managerAdmin',
+          RadioGroup<String>(
             groupValue: _selectedRole,
-            onChanged: (v) => setState(() => _selectedRole = v!),
-          ),
-          const Divider(height: 1),
-          _RoleOption(
-            label: 'Staff',
-            description: 'Can view and interact with assigned hubs',
-            value: 'staff',
-            groupValue: _selectedRole,
-            onChanged: (v) => setState(() => _selectedRole = v!),
+            onChanged: (v) => setState(() {
+              if (v != null) _selectedRole = v;
+            }),
+            child: Column(
+              children: [
+                _RoleOption(
+                  label: 'Manager Admin',
+                  description: 'Can manage hubs, teams, and staff',
+                  value: 'managerAdmin',
+                ),
+                const Divider(height: 1),
+                _RoleOption(
+                  label: 'Staff',
+                  description: 'Can view and interact with assigned hubs',
+                  value: 'staff',
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -850,15 +856,11 @@ class _RoleOption extends StatelessWidget {
   final String label;
   final String description;
   final String value;
-  final String groupValue;
-  final ValueChanged<String?> onChanged;
 
   const _RoleOption({
     required this.label,
     required this.description,
     required this.value,
-    required this.groupValue,
-    required this.onChanged,
   });
 
   @override
@@ -869,8 +871,6 @@ class _RoleOption extends StatelessWidget {
       subtitle: Text(description,
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       value: value,
-      groupValue: groupValue,
-      onChanged: onChanged,
       activeColor: AppColors.primary,
     );
   }

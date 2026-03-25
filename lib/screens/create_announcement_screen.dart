@@ -78,8 +78,10 @@ class _CreateAnnouncementScreenState
     // Manager Admin can only post for league/hub scope, not org-wide.
     if (currentUser.role == UserRole.managerAdmin &&
         _scope == AnnouncementScope.orgWide) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Manager Admins cannot post org-wide announcements.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Manager Admins cannot post org-wide announcements.')));
+      }
       return;
     }
 
@@ -186,31 +188,47 @@ class _CreateAnnouncementScreenState
               const SizedBox(height: 12),
               _SectionLabel('League'),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _selectedLeagueId,
-                decoration: _inputDecoration('Select league'),
-                items: leagues
-                    .map((l) => DropdownMenuItem(
-                        value: l.id, child: Text(l.name)))
-                    .toList(),
-                onChanged: (v) => setState(() {
-                  _selectedLeagueId = v;
-                  _selectedHubId = null;
-                }),
+              InputDecorator(
+                decoration: _inputDecoration(
+                    _selectedLeagueId == null ? 'Select league' : ''),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedLeagueId,
+                    isExpanded: true,
+                    isDense: true,
+                    hint: const Text('Select league'),
+                    items: leagues
+                        .map((l) => DropdownMenuItem(
+                            value: l.id, child: Text(l.name)))
+                        .toList(),
+                    onChanged: (v) => setState(() {
+                      _selectedLeagueId = v;
+                      _selectedHubId = null;
+                    }),
+                  ),
+                ),
               ),
             ],
             if (_scope == AnnouncementScope.hub) ...[
               const SizedBox(height: 12),
               _SectionLabel('Hub'),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _selectedHubId,
-                decoration: _inputDecoration('Select hub'),
-                items: hubs
-                    .map((h) => DropdownMenuItem(
-                        value: h.id, child: Text(h.name)))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedHubId = v),
+              InputDecorator(
+                decoration: _inputDecoration(
+                    _selectedHubId == null ? 'Select hub' : ''),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedHubId,
+                    isExpanded: true,
+                    isDense: true,
+                    hint: const Text('Select hub'),
+                    items: hubs
+                        .map((h) => DropdownMenuItem(
+                            value: h.id, child: Text(h.name)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _selectedHubId = v),
+                  ),
+                ),
               ),
             ],
             const SizedBox(height: 20),
@@ -254,7 +272,7 @@ class _CreateAnnouncementScreenState
                     style:
                         TextStyle(fontSize: 12, color: AppColors.textMuted)),
                 value: _isPinned,
-                activeColor: AppColors.warning,
+                activeTrackColor: AppColors.warning,
                 onChanged: (v) => setState(() => _isPinned = v),
               ),
             ),

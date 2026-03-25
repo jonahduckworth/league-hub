@@ -224,7 +224,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
             name: user.displayName,
             imageUrl: user.avatarUrl,
             size: 64,
-            backgroundColor: Colors.white.withOpacity(0.3),
+            backgroundColor: Colors.white.withValues(alpha: 0.3),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -245,14 +245,14 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                   children: [
                     _StatusBadge(
                         label: user.roleLabel,
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         textColor: Colors.white),
                     const SizedBox(width: 8),
                     _StatusBadge(
                         label: user.isActive ? 'Active' : 'Inactive',
                         color: user.isActive
-                            ? AppColors.success.withOpacity(0.3)
-                            : AppColors.danger.withOpacity(0.3),
+                            ? AppColors.success.withValues(alpha: 0.3)
+                            : AppColors.danger.withValues(alpha: 0.3),
                         textColor: Colors.white),
                   ],
                 ),
@@ -274,25 +274,25 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   }
 
   Widget _buildRolePicker() {
-    return Column(
-      children: [
-        RadioListTile<UserRole>(
-          dense: true,
-          title: const Text('Manager Admin'),
-          value: UserRole.managerAdmin,
-          groupValue: _editRole,
-          activeColor: AppColors.primary,
-          onChanged: (v) => setState(() => _editRole = v),
-        ),
-        RadioListTile<UserRole>(
-          dense: true,
-          title: const Text('Staff'),
-          value: UserRole.staff,
-          groupValue: _editRole,
-          activeColor: AppColors.primary,
-          onChanged: (v) => setState(() => _editRole = v),
-        ),
-      ],
+    return RadioGroup<UserRole>(
+      groupValue: _editRole,
+      onChanged: (v) => setState(() => _editRole = v),
+      child: Column(
+        children: [
+          RadioListTile<UserRole>(
+            dense: true,
+            title: const Text('Manager Admin'),
+            value: UserRole.managerAdmin,
+            activeColor: AppColors.primary,
+          ),
+          RadioListTile<UserRole>(
+            dense: true,
+            title: const Text('Staff'),
+            value: UserRole.staff,
+            activeColor: AppColors.primary,
+          ),
+        ],
+      ),
     );
   }
 

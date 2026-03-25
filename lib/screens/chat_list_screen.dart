@@ -81,7 +81,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.event_outlined, color: AppColors.primary),
@@ -99,7 +99,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.1),
+                    color: AppColors.accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.person_outlined, color: AppColors.accent),
@@ -207,7 +207,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                                 onSelected: (_) => setSheetState(
                                     () => selectedLeagueId = l.id),
                                 selectedColor:
-                                    AppColors.primary.withOpacity(0.15),
+                                    AppColors.primary.withValues(alpha: 0.15),
                                 labelStyle: TextStyle(
                                   color: selectedLeagueId == l.id
                                       ? AppColors.primary
@@ -438,7 +438,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                       children: [
                         Icon(Icons.forum_outlined,
                             size: 56,
-                            color: AppColors.textMuted.withOpacity(0.5)),
+                            color: AppColors.textMuted.withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
                         const Text(
                           'No chat rooms yet',
@@ -535,18 +535,19 @@ class _SectionHeader extends StatelessWidget {
 // Chat room list tile
 // ---------------------------------------------------------------------------
 
-class _ChatRoomTile extends StatelessWidget {
+class _ChatRoomTile extends ConsumerWidget {
   final ChatRoom room;
   const _ChatRoomTile({required this.room});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final hasMessage = room.lastMessage != null && room.lastMessage!.isNotEmpty;
     final preview = hasMessage
         ? (room.lastMessageBy != null
             ? '${room.lastMessageBy}: ${room.lastMessage}'
             : room.lastMessage!)
         : null;
+    final unreadCount = ref.watch(unreadCountProvider(room.id)).valueOrNull ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -563,8 +564,8 @@ class _ChatRoomTile extends StatelessWidget {
           height: 46,
           decoration: BoxDecoration(
             color: room.type == ChatRoomType.direct
-                ? AppColors.accent.withOpacity(0.12)
-                : AppColors.primary.withOpacity(0.1),
+                ? AppColors.accent.withValues(alpha: 0.12)
+                : AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
@@ -580,26 +581,59 @@ class _ChatRoomTile extends StatelessWidget {
           ),
         ),
         title: Text(room.name,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            style: TextStyle(
+                fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 14)),
         subtitle: Text(
           preview ?? 'No messages yet',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 13,
-            color: hasMessage
-                ? AppColors.textSecondary
-                : AppColors.textMuted,
+            fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
+            color: unreadCount > 0
+                ? AppColors.text
+                : hasMessage
+                    ? AppColors.textSecondary
+                    : AppColors.textMuted,
             fontStyle: hasMessage ? FontStyle.normal : FontStyle.italic,
           ),
         ),
-        trailing: room.lastMessageAt != null
-            ? Text(
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (room.lastMessageAt != null)
+              Text(
                 AppUtils.formatDateTime(room.lastMessageAt!),
-                style: const TextStyle(
-                    fontSize: 11, color: AppColors.textMuted),
-              )
-            : null,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: unreadCount > 0
+                      ? AppColors.primary
+                      : AppColors.textMuted,
+                ),
+              ),
+            if (unreadCount > 0) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  unreadCount > 99 ? '99+' : '$unreadCount',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
         onTap: () => context.push('/chat/${room.id}'),
       ),
     );

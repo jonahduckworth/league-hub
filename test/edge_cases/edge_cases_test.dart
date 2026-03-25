@@ -1,4 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math' show log;
+
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
@@ -7,7 +8,6 @@ import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/organization.dart';
-import 'package:league_hub/models/team.dart';
 import 'package:league_hub/services/firestore_service.dart';
 
 void main() {
@@ -56,14 +56,16 @@ void main() {
       final fetchedInvite = await fs.getInvitationByToken(token, expiryDays: 7);
       expect(fetchedInvite, isNull);
 
-      // Verify status updated to expired
-      final inviteDoc = await fakeDb
+      // Verify status updated to expired — invitation has auto-generated ID,
+      // query by token instead of hardcoded ID
+      final inviteSnap = await fakeDb
           .collection('organizations')
           .doc(orgId)
           .collection('invitations')
-          .doc('inv1')
+          .where('token', isEqualTo: token)
           .get();
-      expect(inviteDoc['status'], 'expired');
+      expect(inviteSnap.docs, isNotEmpty);
+      expect(inviteSnap.docs.first['status'], 'expired');
     });
 
     test('2. Duplicate invitation to same email: both stored', () async {
@@ -137,10 +139,7 @@ void main() {
       await fs.createLeague(orgId, league);
 
       // Cascade delete should not error
-      expect(
-        () => fs.deleteLeagueCascade(orgId, leagueId),
-        returnsNormally,
-      );
+      await fs.deleteLeagueCascade(orgId, leagueId);
 
       // Verify league deleted
       final leagues = await fs.getLeagues(orgId).first;
@@ -183,10 +182,7 @@ void main() {
       await fs.createHub(orgId, leagueId, hub);
 
       // Cascade delete should not error
-      expect(
-        () => fs.deleteHubCascade(orgId, leagueId, hubId),
-        returnsNormally,
-      );
+      await fs.deleteHubCascade(orgId, leagueId, hubId);
 
       // Verify hub deleted
       final hubs = await fs.getHubs(orgId, leagueId).first;
@@ -218,6 +214,7 @@ void main() {
     test('6. sendMessage with empty text: still stored', () async {
       final orgId = 'org6';
       final userId = 'user6';
+      // ignore: unused_local_variable
       final roomId = 'room6';
 
       // Create organization
@@ -390,7 +387,7 @@ void main() {
 String _formatFileSize(int bytes) {
   if (bytes == 0) return '0 B';
   const sizes = ['B', 'KB', 'MB', 'GB'];
-  final i = (bytes.toDouble().log / (1024).toDouble()).floor();
+  final i = (log(bytes.toDouble()) / log(1024.0)).floor();
   return '${(bytes / (1 << (i * 10))).toStringAsFixed(2)} ${sizes[i]}';
 }
 

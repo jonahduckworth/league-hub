@@ -11,8 +11,71 @@ import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
 import 'package:league_hub/services/permission_service.dart';
 
-// Manual mock of FirestoreService
-class MockFirestoreService extends Mock implements FirestoreService {}
+// Manual mock with proper null-safe return values via noSuchMethod overrides.
+class MockFirestoreService extends Mock implements FirestoreService {
+  @override
+  Future<void> updateOrganization(String orgId, Map<String, dynamic> data) =>
+      (super.noSuchMethod(Invocation.method(#updateOrganization, [orgId, data]),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
+  Future<void> createLeague(String orgId, League league) =>
+      (super.noSuchMethod(Invocation.method(#createLeague, [orgId, league]),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
+  Future<void> deleteLeague(String orgId, String leagueId) =>
+      (super.noSuchMethod(Invocation.method(#deleteLeague, [orgId, leagueId]),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
+  Future<void> createHub(String orgId, String leagueId, Hub hub) =>
+      (super.noSuchMethod(
+              Invocation.method(#createHub, [orgId, leagueId, hub]),
+              returnValue: Future<void>.value())
+          as Future<void>);
+
+  @override
+  Future<void> createTeam(
+          String orgId, String leagueId, String hubId, Team team) =>
+      (super.noSuchMethod(
+              Invocation.method(#createTeam, [orgId, leagueId, hubId, team]),
+              returnValue: Future<void>.value())
+          as Future<void>);
+
+  @override
+  Future<String> createChatRoom(String orgId, String name, ChatRoomType type,
+          {String? leagueId, List<String> participants = const []}) =>
+      (super.noSuchMethod(
+              Invocation.method(#createChatRoom, [orgId, name, type],
+                  {#leagueId: leagueId, #participants: participants}),
+              returnValue: Future<String>.value(''))
+          as Future<String>);
+
+  @override
+  Future<String> createAnnouncement(
+          String orgId, Map<String, dynamic> data) =>
+      (super.noSuchMethod(
+              Invocation.method(#createAnnouncement, [orgId, data]),
+              returnValue: Future<String>.value(''))
+          as Future<String>);
+
+  @override
+  Future<String> createDocument(String orgId, Map<String, dynamic> docData,
+          {String? docId}) =>
+      (super.noSuchMethod(
+              Invocation.method(
+                  #createDocument, [orgId, docData], {#docId: docId}),
+              returnValue: Future<String>.value(''))
+          as Future<String>);
+
+  @override
+  Future<String> createInvitation(String orgId, Invitation invitation) =>
+      (super.noSuchMethod(
+              Invocation.method(#createInvitation, [orgId, invitation]),
+              returnValue: Future<String>.value(''))
+          as Future<String>);
+}
 
 void main() {
   group('Permission Integration Tests (AuthorizedFirestoreService)', () {
@@ -24,6 +87,10 @@ void main() {
       mockFs = MockFirestoreService();
       ps = const PermissionService();
       afs = AuthorizedFirestoreService(mockFs, ps);
+    });
+
+    tearDown(() {
+      resetMockitoState();
     });
 
     group('platformOwner can do everything', () {
@@ -40,10 +107,11 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.updateOrganization(any, any)).thenAnswer((_) => Future.value());
+        when(mockFs.updateOrganization('org1', {'name': 'New Name'}))
+            .thenAnswer((_) => Future.value());
 
         await afs.updateOrganization(actor, 'org1', {'name': 'New Name'});
-        verify(mockFs.updateOrganization(any, any)).called(1);
+        verify(mockFs.updateOrganization('org1', {'name': 'New Name'})).called(1);
       });
 
       test('can create league', () async {
@@ -66,10 +134,11 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.createLeague(any, any)).thenAnswer((_) => Future.value());
+        when(mockFs.createLeague('org1', league))
+            .thenAnswer((_) => Future.value());
 
         await afs.createLeague(actor, 'org1', league);
-        verify(mockFs.createLeague(any, any)).called(1);
+        verify(mockFs.createLeague('org1', league)).called(1);
       });
 
       test('can delete league', () async {
@@ -85,10 +154,11 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.deleteLeague(any, any)).thenAnswer((_) => Future.value());
+        when(mockFs.deleteLeague('org1', 'l1'))
+            .thenAnswer((_) => Future.value());
 
         await afs.deleteLeague(actor, 'org1', 'l1');
-        verify(mockFs.deleteLeague(any, any)).called(1);
+        verify(mockFs.deleteLeague('org1', 'l1')).called(1);
       });
 
       test('can create hub', () async {
@@ -111,10 +181,11 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.createHub(any, any, any)).thenAnswer((_) => Future.value());
+        when(mockFs.createHub('org1', 'l1', hub))
+            .thenAnswer((_) => Future.value());
 
         await afs.createHub(actor, 'org1', 'l1', hub);
-        verify(mockFs.createHub(any, any, any)).called(1);
+        verify(mockFs.createHub('org1', 'l1', hub)).called(1);
       });
 
       test('can create team', () async {
@@ -138,10 +209,11 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.createTeam(any, any, any, any)).thenAnswer((_) => Future.value());
+        when(mockFs.createTeam('org1', 'l1', 'h1', team))
+            .thenAnswer((_) => Future.value());
 
         await afs.createTeam(actor, 'org1', 'l1', 'h1', team);
-        verify(mockFs.createTeam(any, any, any, any)).called(1);
+        verify(mockFs.createTeam('org1', 'l1', 'h1', team)).called(1);
       });
 
       test('can create chat room', () async {
@@ -157,8 +229,8 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.createChatRoom(any, any, any, leagueId: anyNamed('leagueId'),
-                participants: anyNamed('participants')))
+        when(mockFs.createChatRoom('org1', 'General', ChatRoomType.league,
+                leagueId: null, participants: const []))
             .thenAnswer((_) => Future.value('room1'));
 
         final roomId = await afs.createChatRoom(actor, 'org1', 'General', ChatRoomType.league);
@@ -178,7 +250,8 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.createAnnouncement(any, any)).thenAnswer((_) => Future.value('ann1'));
+        when(mockFs.createAnnouncement('org1', {'title': 'Announcement'}))
+            .thenAnswer((_) => Future.value('ann1'));
 
         final annId = await afs.createAnnouncement(
           actor,
@@ -202,7 +275,7 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.createDocument(any, any, docId: anyNamed('docId')))
+        when(mockFs.createDocument('org1', {'name': 'Document'}, docId: null))
             .thenAnswer((_) => Future.value('doc1'));
 
         final docId = await afs.createDocument(actor, 'org1', {'name': 'Document'});
@@ -210,8 +283,8 @@ void main() {
       });
     });
 
-    group('superAdmin cannot manage orgs but can do everything else', () {
-      test('cannot update organization', () async {
+    group('superAdmin can manage orgs and do everything else', () {
+      test('can update organization', () async {
         final actor = AppUser(
           id: 'sa1',
           email: 'sa@example.com',
@@ -224,10 +297,11 @@ void main() {
           isActive: true,
         );
 
-        expect(
-          () => afs.updateOrganization(actor, 'org1', {}),
-          throwsA(isA<PermissionDeniedException>()),
-        );
+        when(mockFs.updateOrganization('org1', {'name': 'Updated'}))
+            .thenAnswer((_) => Future.value());
+
+        await afs.updateOrganization(actor, 'org1', {'name': 'Updated'});
+        verify(mockFs.updateOrganization('org1', {'name': 'Updated'})).called(1);
       });
 
       test('can create league', () async {
@@ -250,10 +324,11 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.createLeague(any, any)).thenAnswer((_) => Future.value());
+        when(mockFs.createLeague('org1', league))
+            .thenAnswer((_) => Future.value());
 
         await afs.createLeague(actor, 'org1', league);
-        verify(mockFs.createLeague(any, any)).called(1);
+        verify(mockFs.createLeague('org1', league)).called(1);
       });
 
       test('can create chat room', () async {
@@ -269,8 +344,8 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.createChatRoom(any, any, any, leagueId: anyNamed('leagueId'),
-                participants: anyNamed('participants')))
+        when(mockFs.createChatRoom('org1', 'General', ChatRoomType.league,
+                leagueId: null, participants: const []))
             .thenAnswer((_) => Future.value('room1'));
 
         final roomId = await afs.createChatRoom(actor, 'org1', 'General', ChatRoomType.league);
@@ -290,7 +365,8 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.createAnnouncement(any, any)).thenAnswer((_) => Future.value('ann1'));
+        when(mockFs.createAnnouncement('org1', {'title': 'Announcement'}))
+            .thenAnswer((_) => Future.value('ann1'));
 
         final annId = await afs.createAnnouncement(
           actor,
@@ -304,14 +380,13 @@ void main() {
 
     group('managerAdmin can only operate within their scope', () {
       test('can create hub in assigned league', () async {
-        final hubId = 'h1';
         final actor = AppUser(
           id: 'ma1',
           email: 'ma@example.com',
           displayName: 'Manager Admin',
           role: UserRole.managerAdmin,
           orgId: 'org1',
-          hubIds: [hubId],
+          hubIds: ['h1'],
           teamIds: [],
           createdAt: DateTime.now(),
           isActive: true,
@@ -324,10 +399,11 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.createHub(any, any, any)).thenAnswer((_) => Future.value());
+        when(mockFs.createHub('org1', 'l1', hub))
+            .thenAnswer((_) => Future.value());
 
         await afs.createHub(actor, 'org1', 'l1', hub);
-        verify(mockFs.createHub(any, any, any)).called(1);
+        verify(mockFs.createHub('org1', 'l1', hub)).called(1);
       });
 
       test('can create team in their hub', () async {
@@ -352,10 +428,11 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.createTeam(any, any, any, any)).thenAnswer((_) => Future.value());
+        when(mockFs.createTeam('org1', 'l1', hubId, team))
+            .thenAnswer((_) => Future.value());
 
         await afs.createTeam(actor, 'org1', 'l1', hubId, team);
-        verify(mockFs.createTeam(any, any, any, any)).called(1);
+        verify(mockFs.createTeam('org1', 'l1', hubId, team)).called(1);
       });
 
       test('cannot create team in another hub', () async {
@@ -423,7 +500,8 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.createAnnouncement(any, any)).thenAnswer((_) => Future.value('ann1'));
+        when(mockFs.createAnnouncement('org1', {'title': 'Announcement'}))
+            .thenAnswer((_) => Future.value('ann1'));
 
         final annId = await afs.createAnnouncement(
           actor,

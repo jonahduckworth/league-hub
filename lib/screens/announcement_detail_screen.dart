@@ -82,10 +82,10 @@ class AnnouncementDetailScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withOpacity(0.08),
+                  color: AppColors.warning.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                   border:
-                      Border.all(color: AppColors.warning.withOpacity(0.3)),
+                      Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   children: [
@@ -247,9 +247,9 @@ class _ScopeTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: _color.withOpacity(0.1),
+        color: _color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _color.withOpacity(0.3)),
+        border: Border.all(color: _color.withValues(alpha: 0.3)),
       ),
       child: Text(_label,
           style: TextStyle(

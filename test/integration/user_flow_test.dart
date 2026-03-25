@@ -1,11 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
-import 'package:league_hub/models/document.dart';
 import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/league.dart';
@@ -193,13 +191,13 @@ void main() {
         expect(fetchedInvite.hubIds, contains(hubId));
 
         // Create account from invite
-        final cred = await auth.createAccountFromInvite(
+        await auth.createAccountFromInvite(
           'staff@example.com',
           'password123',
           'Staff Member',
           fetchedInvite,
         );
-        final uid = cred.user!.uid;
+        final uid = fakeAuth.currentUser!.uid;
 
         // Verify user doc
         final user = await fs.getUser(uid);
@@ -208,13 +206,13 @@ void main() {
         expect(user.orgId, orgId);
         expect(user.hubIds, [hubId]);
 
-        // Accept invitation
-        await fs.acceptInvitation(orgId, 'inv1');
+        // Accept invitation using the fetched invitation's ID
+        await fs.acceptInvitation(orgId, fetchedInvite.id);
         final acceptedInvite = await fakeDb
             .collection('organizations')
             .doc(orgId)
             .collection('invitations')
-            .doc('inv1')
+            .doc(fetchedInvite.id)
             .get();
         expect(acceptedInvite['status'], 'accepted');
       });
@@ -312,8 +310,11 @@ void main() {
         final docId = await fs.createDocument(orgId, docData);
         expect(docId, isNotEmpty);
 
-        // Verify in stream
-        final docs = await fs.getDocuments(orgId).first;
+        // Verify in stream - use a short timeout to wait for snapshot
+        final docStream = fs.getDocuments(orgId);
+        final docs = await docStream
+            .timeout(const Duration(seconds: 5))
+            .firstWhere((list) => list.isNotEmpty);
         expect(docs, hasLength(1));
         expect(docs.first.name, 'Rules.pdf');
         expect(docs.first.versions, isEmpty);
@@ -327,8 +328,11 @@ void main() {
           'uploadedByName': 'User',
         });
 
-        // Verify versions grew
-        final updatedDoc = await fs.getDocumentById(orgId, docId).first;
+        // Verify versions grew - wait for snapshot with version
+        final docByIdStream = fs.getDocumentById(orgId, docId);
+        final updatedDoc = await docByIdStream
+            .timeout(const Duration(seconds: 5))
+            .firstWhere((doc) => doc != null && doc.versions.isNotEmpty);
         expect(updatedDoc, isNotNull);
         expect(updatedDoc!.versions, hasLength(1));
         expect(updatedDoc.versions.first.version, 1);

@@ -260,8 +260,8 @@ class PermissionService {
   bool canEditAnnouncement(AppUser user, {required String authorId}) {
     if (!isActiveUser(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
-    // Author can edit their own announcement.
-    return user.id == authorId;
+    // Only managerAdmin can edit their own announcement.
+    return isAtLeast(user.role, UserRole.managerAdmin) && user.id == authorId;
   }
 
   bool canDeleteAnnouncement(AppUser user) =>
