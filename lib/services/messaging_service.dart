@@ -91,9 +91,28 @@ class MessagingService {
 
   /// Registers the current FCM token in the user's Firestore document.
   Future<void> _registerToken(String userId) async {
-    final token = await _messaging.getToken();
-    if (token != null) {
-      await _saveToken(userId, token);
+    try {
+      // On iOS, we need to wait for the APNS token before requesting the FCM
+      // token. Simulators don't support APNS, so this may return null.
+      if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        final apnsToken = await _messaging.getAPNSToken();
+        if (apnsToken == null) {
+          debugPrint(
+            'MessagingService: APNS token not available '
+            '(expected on simulators). Skipping FCM registration.',
+          );
+          return;
+        }
+      }
+
+      final token = await _messaging.getToken();
+      if (token != null) {
+        await _saveToken(userId, token);
+      }
+    } catch (e) {
+      // Don't crash the app if push registration fails (e.g. on simulators).
+      debugPrint('MessagingService: Failed to register FCM token: $e');
     }
 
     // Listen for token refreshes.
