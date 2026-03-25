@@ -90,6 +90,15 @@ class FirestoreService {
   Future<void> deleteLeague(String orgId, String leagueId) =>
       _leaguesRef(orgId).doc(leagueId).delete();
 
+  /// Cascade-delete: removes a league and all its hubs and teams.
+  Future<void> deleteLeagueCascade(String orgId, String leagueId) async {
+    final hubs = await getHubs(orgId, leagueId).first;
+    for (final hub in hubs) {
+      await deleteHubCascade(orgId, leagueId, hub.id);
+    }
+    await deleteLeague(orgId, leagueId);
+  }
+
   // --- Hubs (subcollection) ---
 
   Stream<List<Hub>> getHubs(String orgId, String leagueId) =>
@@ -105,6 +114,16 @@ class FirestoreService {
 
   Future<void> deleteHub(String orgId, String leagueId, String hubId) =>
       _hubsRef(orgId, leagueId).doc(hubId).delete();
+
+  /// Cascade-delete: removes a hub and all its teams.
+  Future<void> deleteHubCascade(
+      String orgId, String leagueId, String hubId) async {
+    final teams = await getTeams(orgId, leagueId, hubId).first;
+    for (final team in teams) {
+      await deleteTeam(orgId, leagueId, hubId, team.id);
+    }
+    await deleteHub(orgId, leagueId, hubId);
+  }
 
   // --- Teams (subcollection) ---
 
@@ -366,6 +385,55 @@ class FirestoreService {
     await batch.commit();
   }
 
+  // --- Read Receipts ---
+
+  /// Marks all messages in [roomId] as read by [userId].
+  Future<void> markMessagesAsRead(
+      String orgId, String roomId, String userId) async {
+    final snap = await _messagesRef(orgId, roomId)
+        .where('readBy', whereNotIn: [
+          [userId]
+        ])
+        .get();
+    // Firestore whereNotIn on arrays doesn't work well, so fetch recent
+    // messages and update those missing the userId in readBy.
+    final recent = await _messagesRef(orgId, roomId)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .get();
+    final batch = _db.batch();
+    int count = 0;
+    for (final doc in recent.docs) {
+      final readBy = List<String>.from(
+          (doc.data() as Map<String, dynamic>)['readBy'] as List? ?? []);
+      if (!readBy.contains(userId)) {
+        batch.update(doc.reference, {
+          'readBy': FieldValue.arrayUnion([userId]),
+        });
+        count++;
+      }
+    }
+    if (count > 0) await batch.commit();
+  }
+
+  /// Returns a stream of the count of unread messages in [roomId] for [userId].
+  Stream<int> unreadCountStream(
+      String orgId, String roomId, String userId) {
+    return _messagesRef(orgId, roomId)
+        .orderBy('createdAt', descending: true)
+        .limit(100)
+        .snapshots()
+        .map((snap) {
+      int unread = 0;
+      for (final doc in snap.docs) {
+        final readBy = List<String>.from(
+            (doc.data() as Map<String, dynamic>)['readBy'] as List? ?? []);
+        if (!readBy.contains(userId)) unread++;
+      }
+      return unread;
+    });
+  }
+
   // --- Documents ---
 
   CollectionReference _documentsRef(String orgId) => _db
@@ -559,7 +627,10 @@ class FirestoreService {
             .toList());
   }
 
-  Future<Invitation?> getInvitationByToken(String token) async {
+  /// Finds a pending invitation by token. Returns null if not found or expired.
+  /// Invitations expire after [expiryDays] days (default 7).
+  Future<Invitation?> getInvitationByToken(String token,
+      {int expiryDays = 7}) async {
     final snap = await _db
         .collectionGroup('invitations')
         .where('token', isEqualTo: token)
@@ -568,8 +639,18 @@ class FirestoreService {
         .get();
     if (snap.docs.isEmpty) return null;
     final doc = snap.docs.first;
-    return Invitation.fromJson(
+    final invitation = Invitation.fromJson(
         {'id': doc.id, ..._convertTimestamps(doc.data())});
+
+    // Check expiry.
+    final expiry = invitation.createdAt.add(Duration(days: expiryDays));
+    if (DateTime.now().isAfter(expiry)) {
+      // Mark as expired in Firestore.
+      await doc.reference.update({'status': InvitationStatus.expired.name});
+      return null;
+    }
+
+    return invitation;
   }
 
   Future<void> acceptInvitation(String orgId, String inviteId) =>

@@ -54,17 +54,7 @@ void main() {
       await auth.signOut();
     });
 
-    test('signs in with correct credentials', () async {
-      final credential =
-          await auth.signInWithEmail('carol@example.com', 'password123');
-
-      expect(credential.user, isNotNull);
-      expect(credential.user!.email, 'carol@example.com');
-      expect(auth.currentUser, isNotNull);
-    });
-
-    test('auto-creates Firestore user doc on first sign-in if missing',
-        () async {
+    test('signInWithEmail creates user doc if not exists', () async {
       final credential =
           await auth.signInWithEmail('carol@example.com', 'password123');
       final uid = credential.user!.uid;
@@ -73,6 +63,24 @@ void main() {
       expect(appUser, isNotNull);
       expect(appUser!.email, 'carol@example.com');
     });
+
+    test('signInWithEmail does NOT overwrite existing user doc', () async {
+      // First sign-in creates the doc
+      final credential =
+          await auth.signInWithEmail('carol@example.com', 'password123');
+      final uid = credential.user!.uid;
+
+      // Manually update the Firestore doc
+      await firestore.updateUserFields(uid, {'displayName': 'Carol Updated'});
+
+      // Sign out and sign in again
+      await auth.signOut();
+      await auth.signInWithEmail('carol@example.com', 'password123');
+
+      // Verify the updated displayName is preserved
+      final appUser = await firestore.getUser(uid);
+      expect(appUser!.displayName, 'Carol Updated');
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -80,7 +88,7 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('signOut', () {
-    test('clears currentUser after sign-out', () async {
+    test('signOut calls Firebase signOut', () async {
       await auth.createAccount('dave@example.com', 'password123', 'Dave');
       expect(auth.currentUser, isNotNull);
 
@@ -158,19 +166,88 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('getCurrentAppUser', () {
-    test('returns null when no user is signed in', () async {
+    test('getCurrentAppUser returns null when not logged in', () async {
       final result = await auth.getCurrentAppUser();
       expect(result, isNull);
     });
 
-    test('returns AppUser after sign-in with existing Firestore doc', () async {
+    test('getCurrentAppUser returns AppUser when logged in and doc exists',
+        () async {
       await auth.createAccount('grace@example.com', 'password123', 'Grace');
       await auth.signInWithEmail('grace@example.com', 'password123');
 
-      // Ensure Firestore doc exists (signInWithEmail creates it if missing).
       final appUser = await auth.getCurrentAppUser();
       expect(appUser, isNotNull);
       expect(appUser!.email, 'grace@example.com');
+    });
+
+    test('getCurrentAppUser returns null when logged in but no doc', () async {
+      // Create and sign in
+      await auth.createAccount('helen@example.com', 'password123', 'Helen');
+      await auth.signInWithEmail('helen@example.com', 'password123');
+
+      // Manually delete the Firestore doc
+      final uid = auth.currentUser!.uid;
+      await fakeFirestore.collection('users').doc(uid).delete();
+
+      // Now getting the app user should return null
+      final appUser = await auth.getCurrentAppUser();
+      expect(appUser, isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // sendPasswordResetEmail
+  // ---------------------------------------------------------------------------
+
+  group('sendPasswordResetEmail', () {
+    test('sendPasswordResetEmail calls Firebase method', () async {
+      // This test just verifies the method is callable without error
+      await auth.sendPasswordResetEmail('test@example.com');
+      // If no exception is thrown, the test passes
+      expect(true, true);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // createAccountFromInvite
+  // ---------------------------------------------------------------------------
+
+  group('createAccountFromInvite', () {
+    test(
+        'createAccountFromInvite creates auth user AND Firestore user doc with invitation data',
+        () async {
+      const orgId = 'invite-org';
+      final invitation = Invitation(
+        id: 'inv-1',
+        orgId: orgId,
+        email: 'eve@example.com',
+        displayName: 'Eve',
+        role: 'managerAdmin',
+        hubIds: ['hub-a', 'hub-b'],
+        teamIds: ['team-x'],
+        invitedBy: 'admin-1',
+        invitedByName: 'Admin',
+        createdAt: DateTime.now(),
+        status: InvitationStatus.pending,
+        token: 'abc123',
+      );
+
+      await auth.createAccountFromInvite(
+        'eve@example.com',
+        'password123',
+        'Eve',
+        invitation,
+      );
+
+      final uid = auth.currentUser!.uid;
+      final appUser = await firestore.getUser(uid);
+      expect(appUser, isNotNull);
+      expect(appUser!.email, 'eve@example.com');
+      expect(appUser.orgId, orgId);
+      expect(appUser.hubIds, ['hub-a', 'hub-b']);
+      expect(appUser.teamIds, ['team-x']);
+      expect(appUser.role.name, 'managerAdmin');
     });
   });
 }

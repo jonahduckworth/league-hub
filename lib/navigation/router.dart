@@ -1,6 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../models/app_user.dart';
+import '../services/permission_service.dart';
+import '../core/constants.dart';
 import '../screens/login_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/chat_list_screen.dart';
@@ -23,6 +27,7 @@ import '../screens/settings/app_icon_screen.dart';
 import '../screens/settings/notifications_screen.dart';
 import '../screens/settings/privacy_security_screen.dart';
 import '../screens/settings/chat_room_info_screen.dart';
+import '../screens/unauthorized_screen.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 class _AuthNotifier extends ChangeNotifier {
@@ -32,6 +37,36 @@ class _AuthNotifier extends ChangeNotifier {
 }
 
 final _authNotifier = _AuthNotifier();
+
+/// Cache of the current AppUser for route-level permission checks.
+/// Updated on each redirect. This avoids an async Firestore lookup in the
+/// synchronous redirect callback by using a fire-and-forget pattern: the
+/// first load redirects to '/' which triggers a refresh.
+AppUser? _cachedAppUser;
+
+const _permissionService = PermissionService();
+
+/// Call this from the app's auth state listener (or splash screen) to prime
+/// the user cache before navigation begins.
+Future<void> primeRouterUser() async {
+  final firebaseUser = FirebaseAuth.instance.currentUser;
+  if (firebaseUser == null) {
+    _cachedAppUser = null;
+    return;
+  }
+  final doc = await FirebaseFirestore.instance
+      .collection(AppConstants.usersCollection)
+      .doc(firebaseUser.uid)
+      .get();
+  if (doc.exists) {
+    _cachedAppUser = AppUser.fromJson({'id': doc.id, ...doc.data()!});
+  }
+}
+
+/// Clears the cached user on sign-out.
+void clearRouterUser() {
+  _cachedAppUser = null;
+}
 
 final router = GoRouter(
   initialLocation: '/',
@@ -43,8 +78,27 @@ final router = GoRouter(
     final isOnCreateOrg = location == '/create-org';
     final isOnAcceptInvite = location == '/accept-invite';
 
-    if (!isLoggedIn && !isOnLogin && !isOnCreateOrg && !isOnAcceptInvite) return '/login';
+    // --- Authentication gate ---
+    if (!isLoggedIn && !isOnLogin && !isOnCreateOrg && !isOnAcceptInvite) {
+      return '/login';
+    }
     if (isLoggedIn && isOnLogin) return '/';
+
+    // --- Role-based gate ---
+    // Skip permission check for auth / onboarding routes.
+    if (isOnLogin || isOnCreateOrg || isOnAcceptInvite) return null;
+
+    final user = _cachedAppUser;
+    if (user == null) {
+      // User doc hasn't loaded yet — let them through to '/' which will
+      // trigger a provider load and re-evaluate on the next navigation.
+      return null;
+    }
+
+    if (!_permissionService.canAccessRoute(user, location)) {
+      return '/unauthorized';
+    }
+
     return null;
   },
   routes: [
@@ -59,6 +113,10 @@ final router = GoRouter(
     GoRoute(
       path: '/accept-invite',
       builder: (context, state) => const AcceptInvitationScreen(),
+    ),
+    GoRoute(
+      path: '/unauthorized',
+      builder: (context, state) => const UnauthorizedScreen(),
     ),
     ShellRoute(
       builder: (context, state, child) =>

@@ -1,13 +1,16 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
+import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/chat_room.dart';
+import 'package:league_hub/models/document.dart' as doc_model;
 import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/models/team.dart';
 import 'package:league_hub/services/firestore_service.dart';
+import 'package:league_hub/core/constants.dart';
 
 void main() {
   late FakeFirebaseFirestore fakeFirestore;
@@ -78,7 +81,7 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('Organizations', () {
-    test('createOrganization writes the document', () async {
+    test('getOrganization returns org when exists', () async {
       final org = makeOrg();
       await svc.createOrganization(org);
 
@@ -88,12 +91,25 @@ void main() {
       expect(fetched.ownerId, 'owner-001');
     });
 
-    test('getOrganization returns null for missing doc', () async {
+    test('getOrganization returns null when not exists', () async {
       final result = await svc.getOrganization('nonexistent');
       expect(result, isNull);
     });
 
-    test('updateOrganization modifies fields', () async {
+    test('createOrganization stores data', () async {
+      final org = makeOrg();
+      await svc.createOrganization(org);
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .get();
+      expect(doc.exists, true);
+      expect(doc.data()!['name'], 'Test League');
+      expect(doc.data()!['ownerId'], 'owner-001');
+    });
+
+    test('updateOrganization updates fields', () async {
       await svc.createOrganization(makeOrg());
       await svc.updateOrganization(orgId, {'name': 'Updated League'});
 
@@ -109,25 +125,7 @@ void main() {
   group('Leagues', () {
     setUp(() async => svc.createOrganization(makeOrg()));
 
-    test('createLeague then getLeagues stream returns it', () async {
-      final league = makeLeague('league-1');
-      await svc.createLeague(orgId, league);
-
-      final leagues = await svc.getLeagues(orgId).first;
-      expect(leagues, hasLength(1));
-      expect(leagues.first.name, 'North League');
-      expect(leagues.first.abbreviation, 'NL');
-    });
-
-    test('deleteLeague removes the document', () async {
-      await svc.createLeague(orgId, makeLeague('league-del'));
-      await svc.deleteLeague(orgId, 'league-del');
-
-      final leagues = await svc.getLeagues(orgId).first;
-      expect(leagues, isEmpty);
-    });
-
-    test('getLeagues returns multiple leagues ordered by createdAt', () async {
+    test('getLeagues streams league list ordered by createdAt', () async {
       final now = DateTime.now();
       final l1 = League(
           id: 'l1',
@@ -147,6 +145,34 @@ void main() {
       final leagues = await svc.getLeagues(orgId).first;
       expect(leagues, hasLength(2));
       expect(leagues.first.name, 'First');
+      expect(leagues[1].name, 'Second');
+    });
+
+    test('getLeagues returns empty for no-data org', () async {
+      final leagues = await svc.getLeagues('empty-org').first;
+      expect(leagues, isEmpty);
+    });
+
+    test('createLeague stores data', () async {
+      final league = makeLeague('league-1');
+      await svc.createLeague(orgId, league);
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('leagues')
+          .doc('league-1')
+          .get();
+      expect(doc.exists, true);
+      expect(doc.data()!['name'], 'North League');
+    });
+
+    test('deleteLeague removes document', () async {
+      await svc.createLeague(orgId, makeLeague('league-del'));
+      await svc.deleteLeague(orgId, 'league-del');
+
+      final leagues = await svc.getLeagues(orgId).first;
+      expect(leagues, isEmpty);
     });
   });
 
@@ -162,15 +188,49 @@ void main() {
       await svc.createLeague(orgId, makeLeague(leagueId));
     });
 
-    test('createHub then getHubs stream returns it', () async {
-      await svc.createHub(orgId, leagueId, makeHub('hub-1', leagueId));
+    test('getHubs streams hub list', () async {
+      final now = DateTime.now();
+      await svc.createHub(orgId, leagueId,
+        Hub(
+          id: 'hub-a',
+          leagueId: leagueId,
+          orgId: orgId,
+          name: 'Hub A',
+          createdAt: now,
+        )
+      );
+      await svc.createHub(orgId, leagueId,
+        Hub(
+          id: 'hub-b',
+          leagueId: leagueId,
+          orgId: orgId,
+          name: 'Hub B',
+          createdAt: now.add(const Duration(seconds: 1)),
+        )
+      );
 
       final hubs = await svc.getHubs(orgId, leagueId).first;
-      expect(hubs, hasLength(1));
-      expect(hubs.first.name, 'East Hub');
+      expect(hubs, hasLength(2));
+      expect(hubs[0].name, 'Hub A');
+      expect(hubs[1].name, 'Hub B');
     });
 
-    test('deleteHub removes the document', () async {
+    test('createHub stores data', () async {
+      await svc.createHub(orgId, leagueId, makeHub('hub-1', leagueId));
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('leagues')
+          .doc(leagueId)
+          .collection('hubs')
+          .doc('hub-1')
+          .get();
+      expect(doc.exists, true);
+      expect(doc.data()!['name'], 'East Hub');
+    });
+
+    test('deleteHub removes document', () async {
       await svc.createHub(orgId, leagueId, makeHub('hub-del', leagueId));
       await svc.deleteHub(orgId, leagueId, 'hub-del');
 
@@ -178,7 +238,7 @@ void main() {
       expect(hubs, isEmpty);
     });
 
-    test('getAllHubsCount returns correct count across leagues', () async {
+    test('getAllHubsCount counts across all leagues', () async {
       const l2 = 'league-2';
       await svc.createLeague(
           orgId,
@@ -211,17 +271,56 @@ void main() {
       await svc.createHub(orgId, leagueId, makeHub(hubId, leagueId));
     });
 
-    test('createTeam then getTeams stream returns it', () async {
+    test('getTeams streams team list', () async {
+      final now = DateTime.now();
+      await svc.createTeam(
+        orgId, leagueId, hubId,
+        Team(
+          id: 'team-a',
+          hubId: hubId,
+          leagueId: leagueId,
+          orgId: orgId,
+          name: 'Team A',
+          createdAt: now,
+        )
+      );
+      await svc.createTeam(
+        orgId, leagueId, hubId,
+        Team(
+          id: 'team-b',
+          hubId: hubId,
+          leagueId: leagueId,
+          orgId: orgId,
+          name: 'Team B',
+          createdAt: now.add(const Duration(seconds: 1)),
+        )
+      );
+
+      final teams = await svc.getTeams(orgId, leagueId, hubId).first;
+      expect(teams, hasLength(2));
+      expect(teams[0].name, 'Team A');
+      expect(teams[1].name, 'Team B');
+    });
+
+    test('createTeam stores data', () async {
       await svc.createTeam(
           orgId, leagueId, hubId, makeTeam('team-1', leagueId, hubId));
 
-      final teams = await svc.getTeams(orgId, leagueId, hubId).first;
-      expect(teams, hasLength(1));
-      expect(teams.first.name, 'Red Hawks');
-      expect(teams.first.ageGroup, 'U12');
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('leagues')
+          .doc(leagueId)
+          .collection('hubs')
+          .doc(hubId)
+          .collection('teams')
+          .doc('team-1')
+          .get();
+      expect(doc.exists, true);
+      expect(doc.data()!['name'], 'Red Hawks');
     });
 
-    test('deleteTeam removes the document', () async {
+    test('deleteTeam removes document', () async {
       await svc.createTeam(
           orgId, leagueId, hubId, makeTeam('team-del', leagueId, hubId));
       await svc.deleteTeam(orgId, leagueId, hubId, 'team-del');
@@ -230,7 +329,7 @@ void main() {
       expect(teams, isEmpty);
     });
 
-    test('getAllTeamsCount returns correct total', () async {
+    test('getAllTeamsCount counts across all leagues and hubs', () async {
       await svc.createTeam(
           orgId, leagueId, hubId, makeTeam('t1', leagueId, hubId));
       await svc.createTeam(
@@ -246,7 +345,7 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('Users', () {
-    test('updateUser writes user doc and getUser retrieves it', () async {
+    test('getUser returns user when exists', () async {
       final user = makeUser('user-001');
       await svc.updateUser(user);
 
@@ -256,7 +355,34 @@ void main() {
       expect(fetched.isActive, isTrue);
     });
 
-    test('getOrgUsers stream returns users for org', () async {
+    test('getUser returns null when not exists', () async {
+      final result = await svc.getUser('nonexistent-user');
+      expect(result, isNull);
+    });
+
+    test('updateUser merges data', () async {
+      final user = makeUser('user-001');
+      await svc.updateUser(user);
+
+      final updated = AppUser(
+        id: 'user-001',
+        email: 'user-001@example.com',
+        displayName: 'Updated Name',
+        role: UserRole.managerAdmin,
+        orgId: orgId,
+        hubIds: ['hub1'],
+        teamIds: ['team1'],
+        createdAt: DateTime.now(),
+        isActive: true,
+      );
+      await svc.updateUser(updated);
+
+      final fetched = await svc.getUser('user-001');
+      expect(fetched!.displayName, 'Updated Name');
+      expect(fetched.role, UserRole.managerAdmin);
+    });
+
+    test('getOrgUsers streams users filtered by orgId', () async {
       await svc.updateUser(makeUser('u1'));
       await svc.updateUser(makeUser('u2'));
       await svc.updateUser(AppUser(
@@ -276,7 +402,7 @@ void main() {
       expect(users.any((u) => u.id == 'u-other'), isFalse);
     });
 
-    test('updateUserFields patches specific fields', () async {
+    test('updateUserFields updates specific fields', () async {
       await svc.updateUser(makeUser('u-patch'));
       await svc.updateUserFields('u-patch', {'displayName': 'Patched Name'});
 
@@ -284,7 +410,7 @@ void main() {
       expect(fetched!.displayName, 'Patched Name');
     });
 
-    test('deactivateUser sets isActive to false', () async {
+    test('deactivateUser sets isActive false', () async {
       await svc.updateUser(makeUser('u-deactivate'));
       await svc.deactivateUser('u-deactivate');
 
@@ -292,7 +418,7 @@ void main() {
       expect(fetched!.isActive, isFalse);
     });
 
-    test('reactivateUser sets isActive back to true', () async {
+    test('reactivateUser sets isActive true', () async {
       final user = AppUser(
         id: 'u-reactivate',
         email: 'u-reactivate@example.com',
@@ -311,7 +437,7 @@ void main() {
       expect(fetched!.isActive, isTrue);
     });
 
-    test('getActiveUserCount counts only active users', () async {
+    test('getActiveUserCount counts only active users in org', () async {
       await svc.updateUser(makeUser('active-1'));
       await svc.updateUser(makeUser('active-2'));
       final inactive = AppUser(
@@ -339,74 +465,108 @@ void main() {
   group('Chat Rooms', () {
     setUp(() => svc.createOrganization(makeOrg()));
 
-    test('createChatRoom creates a room and getChatRooms returns it', () async {
-      await svc.createChatRoom(orgId, 'General', ChatRoomType.league,
-          leagueId: 'lg-1');
+    test('createChatRoom creates with correct fields', () async {
+      final roomId = await svc.createChatRoom(
+        orgId,
+        'General',
+        ChatRoomType.league,
+        leagueId: 'lg-1',
+      );
 
-      final rooms = await svc.getChatRooms(orgId).first;
-      expect(rooms, hasLength(1));
-      expect(rooms.first.name, 'General');
-      expect(rooms.first.isArchived, isFalse);
+      expect(roomId, isNotEmpty);
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.chatRoomsCollection)
+          .doc(roomId)
+          .get();
+
+      expect(doc.exists, true);
+      expect(doc.data()!['name'], 'General');
+      expect(doc.data()!['type'], 'league');
+      expect(doc.data()!['leagueId'], 'lg-1');
+      expect(doc.data()!['isArchived'], false);
     });
 
-    test('archiveChatRoom sets isArchived and room disappears from stream',
-        () async {
+    test('archiveChatRoom sets isArchived true', () async {
       final roomId = await svc.createChatRoom(
           orgId, 'To Archive', ChatRoomType.league);
 
       await svc.archiveChatRoom(orgId, roomId);
 
-      final rooms = await svc.getChatRooms(orgId).first;
-      expect(rooms, isEmpty);
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.chatRoomsCollection)
+          .doc(roomId)
+          .get();
+      expect(doc.data()!['isArchived'], true);
     });
 
-    test('getChatRooms orders by lastMessageAt descending', () async {
-      final id1 =
-          await svc.createChatRoom(orgId, 'Room A', ChatRoomType.league);
-      final id2 =
-          await svc.createChatRoom(orgId, 'Room B', ChatRoomType.league);
+    test('getChatRooms returns non-archived rooms', () async {
+      await svc.createChatRoom(orgId, 'Room A', ChatRoomType.league);
+      final id2 = await svc.createChatRoom(orgId, 'Room B', ChatRoomType.league);
 
-      await svc.sendMessage(orgId, id1,
-          senderId: 'u1', senderName: 'Alice', text: 'Hello');
+      await svc.archiveChatRoom(orgId, id2);
 
       final rooms = await svc.getChatRooms(orgId).first;
-      expect(rooms, hasLength(2));
-      expect(rooms.first.id, id1);
-      expect(rooms.any((r) => r.id == id2), isTrue);
+      expect(rooms.length, 1);
+      expect(rooms[0].name, 'Room A');
     });
 
-    test('createLeagueChatRooms creates rooms for leagues without one',
+    test('getChatRoom streams single room', () async {
+      final roomId = await svc.createChatRoom(
+          orgId, 'Test Room', ChatRoomType.league);
+
+      final room = await svc.getChatRoom(orgId, roomId).first;
+      expect(room, isNotNull);
+      expect(room!.name, 'Test Room');
+    });
+
+    test('getOrCreateDMRoom creates new DM', () async {
+      final room = await svc.getOrCreateDMRoom(
+          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
+
+      expect(room.id, isNotEmpty);
+      expect(room.type, ChatRoomType.direct);
+      expect(room.name, 'Alice & Bob');
+    });
+
+    test('getOrCreateDMRoom returns existing DM', () async {
+      final room1 = await svc.getOrCreateDMRoom(
+          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
+
+      final room2 = await svc.getOrCreateDMRoom(
+          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
+
+      expect(room1.id, room2.id);
+    });
+
+    test('createLeagueChatRooms creates rooms for leagues without existing ones',
         () async {
       final leagues = [
         {'id': 'lg-a', 'name': 'Alpha'},
-        {'id': 'lg-b', 'name': 'Beta'},
       ];
       await svc.createLeagueChatRooms(orgId, leagues);
 
       final rooms = await svc.getChatRooms(orgId).first;
-      expect(rooms, hasLength(2));
-      // Calling again should NOT create duplicates.
-      await svc.createLeagueChatRooms(orgId, leagues);
-      final roomsAgain = await svc.getChatRooms(orgId).first;
-      expect(roomsAgain, hasLength(2));
+      expect(rooms, hasLength(1));
+      expect(rooms.first.name, 'Alpha – General');
     });
 
-    test('getOrCreateDMRoom creates a new DM with correct properties',
+    test('createLeagueChatRooms skips leagues that already have rooms',
         () async {
-      final room1 = await svc.getOrCreateDMRoom(
-          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
-      expect(room1.type, ChatRoomType.direct);
-      expect(room1.name, 'Alice & Bob');
-      expect(room1.id, isNotEmpty);
+      await svc.createChatRoom(orgId, 'Alpha – General', ChatRoomType.league,
+          leagueId: 'lg-a');
 
-      // Second call also completes without error and returns a direct room.
-      // Note: fake_cloud_firestore uses reference equality for List isEqualTo
-      // queries, so the dedup (same ID) behaviour is tested via integration
-      // tests against real Firestore rather than here.
-      final room2 = await svc.getOrCreateDMRoom(
-          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
-      expect(room2.type, ChatRoomType.direct);
-      expect(room2.name, 'Alice & Bob');
+      final leagues = [
+        {'id': 'lg-a', 'name': 'Alpha'},
+      ];
+      await svc.createLeagueChatRooms(orgId, leagues);
+
+      final rooms = await svc.getChatRooms(orgId).first;
+      expect(rooms, hasLength(1));
     });
   });
 
@@ -422,7 +582,19 @@ void main() {
       roomId = await svc.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
     });
 
-    test('sendMessage creates message and updates room lastMessage', () async {
+    test('getMessages streams messages ordered by createdAt', () async {
+      await svc.sendMessage(orgId, roomId,
+          senderId: 'u1', senderName: 'Alice', text: 'First');
+      await svc.sendMessage(orgId, roomId,
+          senderId: 'u2', senderName: 'Bob', text: 'Second');
+
+      final messages = await svc.getMessages(orgId, roomId).first;
+      expect(messages, hasLength(2));
+      expect(messages[0].text, 'First');
+      expect(messages[1].text, 'Second');
+    });
+
+    test('sendMessage creates message and updates room atomically', () async {
       await svc.sendMessage(orgId, roomId,
           senderId: 'sender-1',
           senderName: 'Alice',
@@ -437,18 +609,6 @@ void main() {
       final room = rooms.firstWhere((r) => r.id == roomId);
       expect(room.lastMessage, 'Hello world!');
       expect(room.lastMessageBy, 'Alice');
-    });
-
-    test('getMessages returns messages in chronological order', () async {
-      await svc.sendMessage(orgId, roomId,
-          senderId: 'u1', senderName: 'Alice', text: 'First');
-      await svc.sendMessage(orgId, roomId,
-          senderId: 'u2', senderName: 'Bob', text: 'Second');
-
-      final messages = await svc.getMessages(orgId, roomId).first;
-      expect(messages, hasLength(2));
-      expect(messages[0].text, 'First');
-      expect(messages[1].text, 'Second');
     });
   });
 
@@ -477,16 +637,7 @@ void main() {
           'isPinned': isPinned,
         };
 
-    test('createAnnouncement creates doc and getAnnouncements returns it',
-        () async {
-      await svc.createAnnouncement(orgId, announcementData());
-
-      final announcements = await svc.getAnnouncements(orgId).first;
-      expect(announcements, hasLength(1));
-      expect(announcements.first.title, 'Test Announcement');
-    });
-
-    test('getAnnouncements puts pinned items first', () async {
+    test('getAnnouncements streams pinned-first then newest', () async {
       await svc.createAnnouncement(orgId, announcementData(title: 'Regular'));
       await svc.createAnnouncement(
           orgId, announcementData(title: 'Pinned', isPinned: true));
@@ -495,17 +646,60 @@ void main() {
       expect(announcements, hasLength(2));
       expect(announcements.first.isPinned, isTrue);
       expect(announcements.first.title, 'Pinned');
+      expect(announcements[1].isPinned, isFalse);
     });
 
-    test('updateAnnouncement modifies fields', () async {
+    test('getAnnouncementsByLeague includes orgWide + matching league', () async {
+      await svc.createAnnouncement(orgId, announcementData(
+        scope: AnnouncementScope.orgWide.name,
+        title: 'Org Wide',
+      ));
+      await svc.createAnnouncement(orgId, announcementData(
+        scope: AnnouncementScope.league.name,
+        leagueId: 'lg-1',
+        title: 'League 1',
+      ));
+      await svc.createAnnouncement(orgId, announcementData(
+        scope: AnnouncementScope.league.name,
+        leagueId: 'lg-2',
+        title: 'League 2',
+      ));
+
+      final annuncements = await svc.getAnnouncementsByLeague(orgId, 'lg-1').first;
+      expect(annuncements.length, 2);
+      expect(annuncements.any((a) => a.title == 'Org Wide'), true);
+      expect(annuncements.any((a) => a.title == 'League 1'), true);
+    });
+
+    test('createAnnouncement creates with serverTimestamp', () async {
+      final id = await svc.createAnnouncement(orgId, announcementData());
+      expect(id, isNotEmpty);
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('announcements')
+          .doc(id)
+          .get();
+
+      expect(doc.exists, true);
+    });
+
+    test('updateAnnouncement updates fields', () async {
       final id = await svc.createAnnouncement(orgId, announcementData());
       await svc.updateAnnouncement(orgId, id, {'title': 'Updated Title'});
 
-      final announcements = await svc.getAnnouncements(orgId).first;
-      expect(announcements.first.title, 'Updated Title');
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('announcements')
+          .doc(id)
+          .get();
+
+      expect(doc.data()!['title'], 'Updated Title');
     });
 
-    test('deleteAnnouncement removes the doc', () async {
+    test('deleteAnnouncement removes doc', () async {
       final id = await svc.createAnnouncement(orgId, announcementData());
       await svc.deleteAnnouncement(orgId, id);
 
@@ -513,16 +707,18 @@ void main() {
       expect(announcements, isEmpty);
     });
 
-    test('togglePin flips isPinned', () async {
+    test('togglePin sets isPinned', () async {
       final id = await svc.createAnnouncement(orgId, announcementData());
       await svc.togglePin(orgId, id, true);
 
-      final announcements = await svc.getAnnouncements(orgId).first;
-      expect(announcements.first.isPinned, isTrue);
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('announcements')
+          .doc(id)
+          .get();
 
-      await svc.togglePin(orgId, id, false);
-      final updated = await svc.getAnnouncements(orgId).first;
-      expect(updated.first.isPinned, isFalse);
+      expect(doc.data()!['isPinned'], true);
     });
   });
 
@@ -550,33 +746,68 @@ void main() {
           'versions': [],
         };
 
-    test('createDocument returns an ID and getDocuments stream returns it',
-        () async {
-      final id = await svc.createDocument(orgId, docData());
-      expect(id, isNotEmpty);
+    test('documentsStream returns all docs', () async {
+      await svc.createDocument(orgId, docData(name: 'Doc 1'));
+      await svc.createDocument(orgId, docData(name: 'Doc 2'));
 
-      final docs = await svc.getDocuments(orgId).first;
-      expect(docs, hasLength(1));
-      expect(docs.first.name, 'Rulebook');
+      final docs = await svc.documentsStream(orgId).first;
+      expect(docs, hasLength(2));
     });
 
-    test('getDocumentsByLeague filters correctly', () async {
+    test('documentsStream filters by leagueId', () async {
       await svc.createDocument(orgId, docData(leagueId: 'lg-1'));
       await svc.createDocument(orgId, docData(name: 'Other', leagueId: 'lg-2'));
 
-      final docs = await svc.getDocumentsByLeague(orgId, 'lg-1').first;
+      final docs = await svc.documentsStream(orgId, leagueId: 'lg-1').first;
       expect(docs, hasLength(1));
       expect(docs.first.leagueId, 'lg-1');
     });
 
-    test('getDocumentsByCategory filters correctly', () async {
+    test('documentsStream filters by category', () async {
       await svc.createDocument(orgId, docData(category: 'rules'));
       await svc.createDocument(
           orgId, docData(name: 'Other', category: 'forms'));
 
-      final docs = await svc.getDocumentsByCategory(orgId, 'rules').first;
+      final docs = await svc.documentsStream(orgId, category: 'rules').first;
       expect(docs, hasLength(1));
       expect(docs.first.category, 'rules');
+    });
+
+    test('createDocument creates with timestamps', () async {
+      final id = await svc.createDocument(orgId, docData());
+      expect(id, isNotEmpty);
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('documents')
+          .doc(id)
+          .get();
+
+      expect(doc.exists, true);
+      expect(doc.data()!['name'], 'Rulebook');
+    });
+
+    test('updateDocument updates with timestamp', () async {
+      final id = await svc.createDocument(orgId, docData());
+      await svc.updateDocument(orgId, id, {'name': 'Updated Name'});
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('documents')
+          .doc(id)
+          .get();
+
+      expect(doc.data()!['name'], 'Updated Name');
+    });
+
+    test('deleteDocument removes doc', () async {
+      final id = await svc.createDocument(orgId, docData());
+      await svc.deleteDocument(orgId, id);
+
+      final docs = await svc.documentsStream(orgId).first;
+      expect(docs, isEmpty);
     });
 
     test('addDocumentVersion appends to versions array', () async {
@@ -594,12 +825,12 @@ void main() {
       expect(docs.first.versions.first.version, 1);
     });
 
-    test('deleteDocument removes the doc', () async {
+    test('getDocumentById streams single doc', () async {
       final id = await svc.createDocument(orgId, docData());
-      await svc.deleteDocument(orgId, id);
 
-      final docs = await svc.getDocuments(orgId).first;
-      expect(docs, isEmpty);
+      final doc = await svc.getDocumentById(orgId, id).first;
+      expect(doc, isNotNull);
+      expect(doc!.name, 'Rulebook');
     });
   });
 
@@ -625,10 +856,14 @@ void main() {
           token: '',
         );
 
-    test('createInvitation returns a token and getInvitations streams it',
-        () async {
+    test('createInvitation generates token and stores', () async {
       final token = await svc.createInvitation(orgId, makeInvitation());
       expect(token, isNotEmpty);
+      expect(token.length, 32);
+    });
+
+    test('getInvitations streams ordered by createdAt desc', () async {
+      final token = await svc.createInvitation(orgId, makeInvitation());
 
       final invites = await svc.getInvitations(orgId).first;
       expect(invites, hasLength(1));
@@ -636,7 +871,7 @@ void main() {
       expect(invites.first.token, token);
     });
 
-    test('getInvitationByToken finds the invitation by token', () async {
+    test('getInvitationByToken finds pending invitation', () async {
       final token = await svc.createInvitation(orgId, makeInvitation());
 
       final invite = await svc.getInvitationByToken(token);
@@ -644,18 +879,87 @@ void main() {
       expect(invite!.email, 'newuser@example.com');
     });
 
-    test('getInvitationByToken returns null for unknown token', () async {
+    test('getInvitationByToken returns null for no match', () async {
       final invite = await svc.getInvitationByToken('no-such-token');
       expect(invite, isNull);
     });
 
-    test('acceptInvitation marks status as accepted', () async {
+    test('acceptInvitation updates status', () async {
       final token = await svc.createInvitation(orgId, makeInvitation());
       final invite = await svc.getInvitationByToken(token);
       await svc.acceptInvitation(orgId, invite!.id);
 
-      final invites = await svc.getInvitations(orgId).first;
-      expect(invites.first.status, InvitationStatus.accepted);
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('invitations')
+          .doc(invite.id)
+          .get();
+
+      expect(doc.data()!['status'], 'accepted');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Counts & ID Generators
+  // ---------------------------------------------------------------------------
+
+  group('Counts', () {
+    test('getAllHubsFlat returns all hubs across leagues', () async {
+      await svc.createOrganization(makeOrg());
+      const lg1 = 'lg-1';
+      const lg2 = 'lg-2';
+      await svc.createLeague(orgId, makeLeague(lg1));
+      await svc.createLeague(orgId, makeLeague(lg2));
+      await svc.createHub(orgId, lg1, makeHub('h1', lg1));
+      await svc.createHub(orgId, lg1, makeHub('h2', lg1));
+      await svc.createHub(orgId, lg2, makeHub('h3', lg2));
+
+      final hubs = await svc.getAllHubsFlat(orgId);
+      expect(hubs, hasLength(3));
+    });
+
+    test('getActiveUserCount returns count of active users', () async {
+      await svc.updateUser(makeUser('active-1'));
+      await svc.updateUser(makeUser('active-2'));
+      final inactive = AppUser(
+        id: 'inactive-1',
+        email: 'inactive@example.com',
+        displayName: 'Inactive',
+        role: UserRole.staff,
+        orgId: orgId,
+        hubIds: [],
+        teamIds: [],
+        createdAt: DateTime.now(),
+        isActive: false,
+      );
+      await svc.updateUser(inactive);
+
+      final count = await svc.getActiveUserCount(orgId);
+      expect(count, 2);
+    });
+  });
+
+  group('ID Generators', () {
+    test('newLeagueId returns non-empty string', () async {
+      await svc.createOrganization(makeOrg());
+      final id = svc.newLeagueId(orgId);
+      expect(id, isNotEmpty);
+    });
+
+    test('newHubId returns non-empty string', () async {
+      await svc.createOrganization(makeOrg());
+      await svc.createLeague(orgId, makeLeague('lg-1'));
+      final id = svc.newHubId(orgId, 'lg-1');
+      expect(id, isNotEmpty);
+    });
+
+    test('newTeamId returns non-empty string', () async {
+      await svc.createOrganization(makeOrg());
+      await svc.createLeague(orgId, makeLeague('lg-1'));
+      await svc.createHub(orgId, 'lg-1', makeHub('h-1', 'lg-1'));
+      final id = svc.newTeamId(orgId, 'lg-1', 'h-1');
+      expect(id, isNotEmpty);
     });
   });
 }

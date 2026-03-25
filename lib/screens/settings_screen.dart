@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../models/app_user.dart';
+import '../services/permission_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../providers/mock_data.dart';
@@ -18,6 +19,8 @@ class SettingsScreen extends ConsumerWidget {
     final userAsync = ref.watch(currentUserProvider);
     final user = userAsync.valueOrNull ?? mockCurrentUser;
     final pendingInviteCount = ref.watch(pendingInviteCountProvider);
+    final ps = ref.read(permissionServiceProvider);
+    final visibleTiles = ps.visibleSettingsTiles(user);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -27,31 +30,38 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           _ProfileCard(user: user),
           const SizedBox(height: 24),
-          _SettingsSection(
-            title: 'Organization',
-            items: [
-              _SettingsItem(
-                icon: Icons.location_city,
-                title: 'Manage Leagues & Hubs',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ManageLeaguesScreen(),
+          if (visibleTiles.any((t) => ['leagues', 'users', 'roles', 'branding', 'app-icon'].contains(t)))
+            _SettingsSection(
+              title: 'Organization',
+              items: [
+                if (visibleTiles.contains('leagues'))
+                  _SettingsItem(
+                    icon: Icons.location_city,
+                    title: 'Manage Leagues & Hubs',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ManageLeaguesScreen(),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              _SettingsItem(
-                icon: Icons.people,
-                title: 'User Management',
-                badge: pendingInviteCount > 0 ? pendingInviteCount : null,
-                onTap: () => context.push('/settings/users'),
-              ),
-              _SettingsItem(icon: Icons.admin_panel_settings, title: 'Roles & Permissions', onTap: () => context.push('/settings/roles')),
-              _SettingsItem(icon: Icons.palette, title: 'Branding & Appearance', onTap: () => context.push('/settings/branding')),
-              _SettingsItem(icon: Icons.apps, title: 'App Icon', onTap: () => context.push('/settings/app-icon')),
-            ],
-          ),
-          const SizedBox(height: 16),
+                if (visibleTiles.contains('users'))
+                  _SettingsItem(
+                    icon: Icons.people,
+                    title: 'User Management',
+                    badge: pendingInviteCount > 0 ? pendingInviteCount : null,
+                    onTap: () => context.push('/settings/users'),
+                  ),
+                if (visibleTiles.contains('roles'))
+                  _SettingsItem(icon: Icons.admin_panel_settings, title: 'Roles & Permissions', onTap: () => context.push('/settings/roles')),
+                if (visibleTiles.contains('branding'))
+                  _SettingsItem(icon: Icons.palette, title: 'Branding & Appearance', onTap: () => context.push('/settings/branding')),
+                if (visibleTiles.contains('app-icon'))
+                  _SettingsItem(icon: Icons.apps, title: 'App Icon', onTap: () => context.push('/settings/app-icon')),
+              ],
+            ),
+          if (visibleTiles.any((t) => ['leagues', 'users', 'roles', 'branding', 'app-icon'].contains(t)))
+            const SizedBox(height: 16),
           _SettingsSection(
             title: 'Preferences',
             items: [
@@ -72,6 +82,10 @@ class SettingsScreen extends ConsumerWidget {
                   style: TextStyle(
                       color: AppColors.danger, fontWeight: FontWeight.w600)),
               onTap: () async {
+                final user = ref.read(currentUserProvider).valueOrNull;
+                if (user != null) {
+                  await ref.read(messagingServiceProvider).removeToken(user.id);
+                }
                 await ref.read(authServiceProvider).signOut();
                 if (context.mounted) context.go('/login');
               },

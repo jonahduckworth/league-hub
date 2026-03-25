@@ -4,15 +4,16 @@ import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 
-/// Local state provider for notification preferences.
-/// In production these would be persisted to Firestore per-user.
-final _notificationPrefsProvider =
-    StateNotifierProvider<_NotificationPrefsNotifier, Map<String, bool>>(
-  (ref) => _NotificationPrefsNotifier(),
+/// Notification preferences with FCM topic sync.
+final notificationPrefsProvider =
+    StateNotifierProvider<NotificationPrefsNotifier, Map<String, bool>>(
+  (ref) => NotificationPrefsNotifier(ref),
 );
 
-class _NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
-  _NotificationPrefsNotifier()
+class NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
+  final Ref _ref;
+
+  NotificationPrefsNotifier(this._ref)
       : super({
           'announcements': true,
           'chat_messages': true,
@@ -27,6 +28,12 @@ class _NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
 
   void toggle(String key) {
     state = {...state, key: !(state[key] ?? true)};
+
+    // Sync push notification topic subscriptions.
+    final orgId = _ref.read(organizationProvider).valueOrNull?.id;
+    if (orgId != null) {
+      _ref.read(messagingServiceProvider).syncPreferences(orgId, state);
+    }
   }
 }
 
@@ -35,8 +42,8 @@ class NotificationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prefs = ref.watch(_notificationPrefsProvider);
-    final notifier = ref.read(_notificationPrefsProvider.notifier);
+    final prefs = ref.watch(notificationPrefsProvider);
+    final notifier = ref.read(notificationPrefsProvider.notifier);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -140,7 +147,7 @@ class NotificationsScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    'Push notifications require FCM setup. Preferences are saved locally until FCM integration is complete.',
+                    'Notification preferences sync with FCM topics. Changes take effect immediately for new notifications.',
                     style: TextStyle(
                         fontSize: 12, color: AppColors.textSecondary),
                   ),
