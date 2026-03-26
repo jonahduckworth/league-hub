@@ -343,6 +343,17 @@ class PermissionService {
   /// All active users can send messages.
   bool canSendMessage(AppUser user) => isActiveUser(user);
 
+  /// A user can edit their own messages.
+  bool canUpdateMessage(AppUser user, {required String senderId}) =>
+      isActiveUser(user) && user.id == senderId;
+
+  /// A user can delete their own messages, or superAdmin+ can delete any.
+  bool canDeleteMessage(AppUser user, {required String senderId}) {
+    if (!isActiveUser(user)) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    return user.id == senderId;
+  }
+
   /// Returns true if [user] should see [room] based on type and assignments.
   bool canViewChatRoom(AppUser user, ChatRoom room) {
     if (!isActiveUser(user)) return false;

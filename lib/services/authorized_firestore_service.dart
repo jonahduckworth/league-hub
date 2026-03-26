@@ -133,6 +133,14 @@ class AuthorizedFirestoreService {
     return _fs.deleteTeam(orgId, leagueId, hubId, teamId);
   }
 
+  Future<void> updateTeamFields(AppUser actor, String orgId, String leagueId,
+      String hubId, String teamId, Map<String, dynamic> data) {
+    if (!_ps.canCreateTeam(actor, hubId: hubId)) {
+      _deny('updateTeamFields', actor);
+    }
+    return _fs.updateTeamFields(orgId, leagueId, hubId, teamId, data);
+  }
+
   // -------------------------------------------------------------------------
   // Users
   // -------------------------------------------------------------------------
@@ -197,6 +205,53 @@ class AuthorizedFirestoreService {
       senderName: actor.displayName,
       text: text,
     );
+  }
+
+  /// Sends a media message, enforcing that senderId matches actor.id.
+  Future<void> sendMediaMessage(
+    AppUser actor,
+    String orgId,
+    String roomId, {
+    required String mediaUrl,
+    required String mediaType,
+    String? caption,
+  }) {
+    if (!_ps.canSendMessage(actor)) _deny('sendMediaMessage', actor);
+    return _fs.sendMediaMessage(orgId, roomId,
+        senderId: actor.id,
+        senderName: actor.displayName,
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+        caption: caption);
+  }
+
+  /// Updates a message — only the original sender may edit.
+  Future<void> updateMessage(
+    AppUser actor,
+    String orgId,
+    String roomId,
+    String messageId,
+    String newText, {
+    required String senderId,
+  }) {
+    if (!_ps.canUpdateMessage(actor, senderId: senderId)) {
+      _deny('updateMessage', actor);
+    }
+    return _fs.updateMessage(orgId, roomId, messageId, newText);
+  }
+
+  /// Deletes a message — sender or superAdmin+ may delete.
+  Future<void> deleteMessage(
+    AppUser actor,
+    String orgId,
+    String roomId,
+    String messageId, {
+    required String senderId,
+  }) {
+    if (!_ps.canDeleteMessage(actor, senderId: senderId)) {
+      _deny('deleteMessage', actor);
+    }
+    return _fs.deleteMessage(orgId, roomId, messageId);
   }
 
   // -------------------------------------------------------------------------

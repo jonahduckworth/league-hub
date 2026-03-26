@@ -113,5 +113,86 @@ void main() {
       expect(restored.division, original.division);
       expect(restored.createdAt, original.createdAt);
     });
+
+    group('new fields: chatRoomId and memberIds', () {
+      test('fromJson parses chatRoomId and memberIds', () {
+        final json = {
+          'id': 'team1',
+          'hubId': 'hub1',
+          'leagueId': 'league1',
+          'orgId': 'org1',
+          'name': 'Hawks',
+          'chatRoomId': 'chat-team1',
+          'memberIds': ['u1', 'u2', 'u3'],
+          'createdAt': testDateStr,
+        };
+
+        final team = Team.fromJson(json);
+        expect(team.chatRoomId, 'chat-team1');
+        expect(team.memberIds, ['u1', 'u2', 'u3']);
+      });
+
+      test('chatRoomId defaults to null when missing', () {
+        final json = {
+          'id': 'team1',
+          'hubId': 'hub1',
+          'leagueId': 'league1',
+          'orgId': 'org1',
+          'name': 'Hawks',
+          'createdAt': testDateStr,
+        };
+
+        final team = Team.fromJson(json);
+        expect(team.chatRoomId, isNull);
+      });
+
+      test('memberIds defaults to empty list when missing', () {
+        final json = {
+          'id': 'team1',
+          'hubId': 'hub1',
+          'leagueId': 'league1',
+          'orgId': 'org1',
+          'name': 'Hawks',
+          'createdAt': testDateStr,
+        };
+
+        final team = Team.fromJson(json);
+        expect(team.memberIds, isEmpty);
+      });
+
+      test('toJson includes chatRoomId and memberIds', () {
+        final team = Team(
+          id: 'team1',
+          hubId: 'hub1',
+          leagueId: 'league1',
+          orgId: 'org1',
+          name: 'Hawks',
+          chatRoomId: 'chat-team1',
+          memberIds: ['u1', 'u2'],
+          createdAt: testDate,
+        );
+
+        final json = team.toJson();
+        expect(json['chatRoomId'], 'chat-team1');
+        expect(json['memberIds'], ['u1', 'u2']);
+      });
+
+      test('roundtrip preserves chatRoomId and memberIds', () {
+        final original = Team(
+          id: 'team1',
+          hubId: 'hub1',
+          leagueId: 'league1',
+          orgId: 'org1',
+          name: 'Hawks',
+          chatRoomId: 'chat-team1',
+          memberIds: ['u1', 'u2'],
+          createdAt: testDate,
+        );
+
+        final restored = Team.fromJson(original.toJson());
+        expect(restored.chatRoomId, original.chatRoomId);
+        expect(restored.memberIds, original.memberIds);
+      });
+    });
   });
 }

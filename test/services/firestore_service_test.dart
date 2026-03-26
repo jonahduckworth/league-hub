@@ -961,4 +961,105 @@ void main() {
       expect(id, isNotEmpty);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // deriveLeagueIdsFromHubs
+  // ---------------------------------------------------------------------------
+
+  group('deriveLeagueIdsFromHubs', () {
+    setUp(() async {
+      await svc.createOrganization(makeOrg());
+      await svc.createLeague(orgId, makeLeague('l1'));
+      await svc.createLeague(orgId, League(
+        id: 'l2', orgId: orgId, name: 'South', abbreviation: 'SL',
+        createdAt: DateTime.now(),
+      ));
+      await svc.createHub(orgId, 'l1', makeHub('h1', 'l1'));
+      await svc.createHub(orgId, 'l1', Hub(
+        id: 'h2', leagueId: 'l1', orgId: orgId, name: 'West',
+        createdAt: DateTime.now(),
+      ));
+      await svc.createHub(orgId, 'l2', Hub(
+        id: 'h3', leagueId: 'l2', orgId: orgId, name: 'South Hub',
+        createdAt: DateTime.now(),
+      ));
+    });
+
+    test('empty hubIds returns empty list', () async {
+      final result = await svc.deriveLeagueIdsFromHubs(orgId, []);
+      expect(result, isEmpty);
+    });
+
+    test('single hub returns its league', () async {
+      final result = await svc.deriveLeagueIdsFromHubs(orgId, ['h1']);
+      expect(result, ['l1']);
+    });
+
+    test('multiple hubs in same league return single league', () async {
+      final result = await svc.deriveLeagueIdsFromHubs(orgId, ['h1', 'h2']);
+      expect(result, hasLength(1));
+      expect(result, contains('l1'));
+    });
+
+    test('hubs across different leagues return multiple leagues', () async {
+      final result = await svc.deriveLeagueIdsFromHubs(orgId, ['h1', 'h3']);
+      expect(result, hasLength(2));
+      expect(result, containsAll(['l1', 'l2']));
+    });
+
+    test('non-existent hub IDs are silently ignored', () async {
+      final result =
+          await svc.deriveLeagueIdsFromHubs(orgId, ['h1', 'nonexistent']);
+      expect(result, hasLength(1));
+      expect(result, contains('l1'));
+    });
+
+    test('all non-existent hub IDs return empty', () async {
+      final result =
+          await svc.deriveLeagueIdsFromHubs(orgId, ['fake1', 'fake2']);
+      expect(result, isEmpty);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // updateTeamFields
+  // ---------------------------------------------------------------------------
+
+  group('updateTeamFields', () {
+    setUp(() async {
+      await svc.createOrganization(makeOrg());
+      await svc.createLeague(orgId, makeLeague('l1'));
+      await svc.createHub(orgId, 'l1', makeHub('h1', 'l1'));
+      await svc.createTeam(orgId, 'l1', 'h1', makeTeam('t1', 'l1', 'h1'));
+    });
+
+    test('updates memberIds field', () async {
+      await svc.updateTeamFields(
+          orgId, 'l1', 'h1', 't1', {'memberIds': ['u1', 'u2']});
+
+      final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
+      final team = teams.firstWhere((t) => t.id == 't1');
+      expect(team.memberIds, ['u1', 'u2']);
+    });
+
+    test('merge preserves existing fields', () async {
+      await svc.updateTeamFields(
+          orgId, 'l1', 'h1', 't1', {'memberIds': ['u1']});
+
+      final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
+      final team = teams.firstWhere((t) => t.id == 't1');
+      // Original fields should still be there
+      expect(team.name, 'Red Hawks');
+      expect(team.memberIds, ['u1']);
+    });
+
+    test('can update chatRoomId', () async {
+      await svc.updateTeamFields(
+          orgId, 'l1', 'h1', 't1', {'chatRoomId': 'chat-t1'});
+
+      final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
+      final team = teams.firstWhere((t) => t.id == 't1');
+      expect(team.chatRoomId, 'chat-t1');
+    });
+  });
 }

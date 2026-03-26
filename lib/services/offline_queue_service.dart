@@ -230,6 +230,45 @@ class OfflineQueueService {
         );
         break;
 
+      case 'sendMediaMessage':
+        await _firestoreService.sendMediaMessage(
+          p['orgId'] as String,
+          p['roomId'] as String,
+          senderId: p['senderId'] as String,
+          senderName: p['senderName'] as String,
+          mediaUrl: p['mediaUrl'] as String,
+          mediaType: p['mediaType'] as String,
+          caption: p['caption'] as String?,
+        );
+        break;
+
+      case 'updateMessage':
+        await _firestoreService.updateMessage(
+          p['orgId'] as String,
+          p['roomId'] as String,
+          p['messageId'] as String,
+          p['newText'] as String,
+        );
+        break;
+
+      case 'deleteMessage':
+        await _firestoreService.deleteMessage(
+          p['orgId'] as String,
+          p['roomId'] as String,
+          p['messageId'] as String,
+        );
+        break;
+
+      case 'updateTeamFields':
+        await _firestoreService.updateTeamFields(
+          p['orgId'] as String,
+          p['leagueId'] as String,
+          p['hubId'] as String,
+          p['teamId'] as String,
+          Map<String, dynamic>.from(p['data'] as Map),
+        );
+        break;
+
       default:
         debugPrint('OfflineQueueService: Unknown method ${mutation.method}');
     }

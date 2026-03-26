@@ -6,6 +6,7 @@ import '../../models/app_user.dart';
 import '../../models/team.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
+import '../../services/authorized_firestore_service.dart';
 import '../../services/permission_service.dart';
 
 /// Displays team details, roster management, and a link to the team chat room.
@@ -284,14 +285,27 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (currentUser == null) return;
     try {
-      final fs = ref.read(firestoreServiceProvider);
+      final authFs = ref.read(authorizedFirestoreServiceProvider);
       final newMembers = [...team.memberIds, userId];
-      await fs.updateTeamFields(
-          orgId, team.leagueId, team.hubId, team.id, {'memberIds': newMembers});
+      await authFs.updateTeamFields(
+          currentUser, orgId, team.leagueId, team.hubId, team.id,
+          {'memberIds': newMembers});
       // Also update the user's teamIds.
-      await fs.updateUserFields(userId, {
-        'teamIds': [...(await _getUserTeamIds(userId)), team.id],
-      });
+      final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
+      final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
+      if (targetUser != null) {
+        await authFs.updateUserFields(currentUser, targetUser, {
+          'teamIds': [...targetUser.teamIds, team.id],
+        });
+      }
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('You do not have permission to manage this team'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -304,16 +318,30 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
   }
 
   Future<void> _removeMember(Team team, String userId, String orgId) async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
     try {
-      final fs = ref.read(firestoreServiceProvider);
+      final authFs = ref.read(authorizedFirestoreServiceProvider);
       final newMembers = team.memberIds.where((id) => id != userId).toList();
-      await fs.updateTeamFields(
-          orgId, team.leagueId, team.hubId, team.id, {'memberIds': newMembers});
+      await authFs.updateTeamFields(
+          currentUser, orgId, team.leagueId, team.hubId, team.id,
+          {'memberIds': newMembers});
       // Also update the user's teamIds.
-      final currentTeamIds = await _getUserTeamIds(userId);
-      await fs.updateUserFields(userId, {
-        'teamIds': currentTeamIds.where((id) => id != team.id).toList(),
-      });
+      final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
+      final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
+      if (targetUser != null) {
+        await authFs.updateUserFields(currentUser, targetUser, {
+          'teamIds': targetUser.teamIds.where((id) => id != team.id).toList(),
+        });
+      }
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('You do not have permission to manage this team'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -325,11 +353,6 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     }
   }
 
-  Future<List<String>> _getUserTeamIds(String userId) async {
-    final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
-    final user = allUsers.where((u) => u.id == userId).firstOrNull;
-    return user?.teamIds ?? [];
-  }
 }
 
 class _SectionCard extends StatelessWidget {

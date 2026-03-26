@@ -73,6 +73,49 @@ class MockFirestoreService extends Mock implements FirestoreService {
           as Future<void>);
 
   @override
+  Future<void> updateTeamFields(String orgId, String leagueId, String hubId,
+          String teamId, Map<String, dynamic> data) =>
+      (super.noSuchMethod(
+              Invocation.method(
+                  #updateTeamFields, [orgId, leagueId, hubId, teamId, data]),
+              returnValue: Future<void>.value())
+          as Future<void>);
+
+  @override
+  Future<void> sendMediaMessage(String orgId, String roomId,
+          {required String senderId,
+          required String senderName,
+          required String mediaUrl,
+          required String mediaType,
+          String? caption}) =>
+      (super.noSuchMethod(
+              Invocation.method(#sendMediaMessage, [orgId, roomId], {
+                #senderId: senderId,
+                #senderName: senderName,
+                #mediaUrl: mediaUrl,
+                #mediaType: mediaType,
+                #caption: caption,
+              }),
+              returnValue: Future<void>.value())
+          as Future<void>);
+
+  @override
+  Future<void> updateMessage(
+          String orgId, String roomId, String messageId, String newText) =>
+      (super.noSuchMethod(
+              Invocation.method(
+                  #updateMessage, [orgId, roomId, messageId, newText]),
+              returnValue: Future<void>.value())
+          as Future<void>);
+
+  @override
+  Future<void> deleteMessage(String orgId, String roomId, String messageId) =>
+      (super.noSuchMethod(
+              Invocation.method(#deleteMessage, [orgId, roomId, messageId]),
+              returnValue: Future<void>.value())
+          as Future<void>);
+
+  @override
   Future<void> deactivateUser(String uid) =>
       (super.noSuchMethod(Invocation.method(#deactivateUser, [uid]),
           returnValue: Future<void>.value()) as Future<void>);
@@ -1556,6 +1599,145 @@ void main() {
           expect(e.toString(), contains('staff'));
           expect(e.toString(), contains('createHub'));
         }
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // updateTeamFields
+    // -------------------------------------------------------------------
+
+    group('updateTeamFields', () {
+      test('superAdmin can update team fields', () async {
+        final sa = makeUser(id: 'sa', role: UserRole.superAdmin);
+        when(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': ['u1']}))
+            .thenAnswer((_) async {});
+        await afs.updateTeamFields(sa, 'org1', 'l1', 'h1', 't1', {'memberIds': ['u1']});
+        verify(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': ['u1']})).called(1);
+      });
+
+      test('managerAdmin can update team in own hub', () async {
+        final ma = makeUser(id: 'ma', role: UserRole.managerAdmin, hubIds: ['h1']);
+        when(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': []}))
+            .thenAnswer((_) async {});
+        await afs.updateTeamFields(ma, 'org1', 'l1', 'h1', 't1', {'memberIds': []});
+        verify(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': []})).called(1);
+      });
+
+      test('managerAdmin cannot update team in other hub', () {
+        final ma = makeUser(id: 'ma', role: UserRole.managerAdmin, hubIds: ['h2']);
+        expect(
+          () => afs.updateTeamFields(ma, 'org1', 'l1', 'h1', 't1', {}),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+      });
+
+      test('staff cannot update team fields', () {
+        final staff = makeUser(id: 's', role: UserRole.staff);
+        expect(
+          () => afs.updateTeamFields(staff, 'org1', 'l1', 'h1', 't1', {}),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // sendMediaMessage
+    // -------------------------------------------------------------------
+
+    group('sendMediaMessage', () {
+      test('active user can send media', () async {
+        final user = makeUser(id: 'u1', role: UserRole.staff);
+        when(mockFs.sendMediaMessage('org1', 'room1',
+            senderId: 'u1',
+            senderName: 'User u1',
+            mediaUrl: 'https://example.com/img.jpg',
+            mediaType: 'image/jpeg',
+            caption: null)).thenAnswer((_) async {});
+        await afs.sendMediaMessage(user, 'org1', 'room1',
+            mediaUrl: 'https://example.com/img.jpg', mediaType: 'image/jpeg');
+        verify(mockFs.sendMediaMessage('org1', 'room1',
+            senderId: 'u1',
+            senderName: 'User u1',
+            mediaUrl: 'https://example.com/img.jpg',
+            mediaType: 'image/jpeg',
+            caption: null)).called(1);
+      });
+
+      test('inactive user cannot send media', () {
+        final user = makeUser(id: 'u1', role: UserRole.staff, isActive: false);
+        expect(
+          () => afs.sendMediaMessage(user, 'org1', 'room1',
+              mediaUrl: 'url', mediaType: 'image/png'),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // updateMessage
+    // -------------------------------------------------------------------
+
+    group('updateMessage', () {
+      test('sender can update own message', () async {
+        final user = makeUser(id: 'u1', role: UserRole.staff);
+        when(mockFs.updateMessage('org1', 'room1', 'msg1', 'edited'))
+            .thenAnswer((_) async {});
+        await afs.updateMessage(user, 'org1', 'room1', 'msg1', 'edited', senderId: 'u1');
+        verify(mockFs.updateMessage('org1', 'room1', 'msg1', 'edited')).called(1);
+      });
+
+      test('other user cannot update someone else message', () {
+        final user = makeUser(id: 'u2', role: UserRole.staff);
+        expect(
+          () => afs.updateMessage(user, 'org1', 'room1', 'msg1', 'edited', senderId: 'u1'),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+      });
+
+      test('superAdmin cannot update someone else message', () {
+        final admin = makeUser(id: 'admin', role: UserRole.superAdmin);
+        expect(
+          () => afs.updateMessage(admin, 'org1', 'room1', 'msg1', 'edited', senderId: 'u1'),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // deleteMessage
+    // -------------------------------------------------------------------
+
+    group('deleteMessage', () {
+      test('sender can delete own message', () async {
+        final user = makeUser(id: 'u1', role: UserRole.staff);
+        when(mockFs.deleteMessage('org1', 'room1', 'msg1'))
+            .thenAnswer((_) async {});
+        await afs.deleteMessage(user, 'org1', 'room1', 'msg1', senderId: 'u1');
+        verify(mockFs.deleteMessage('org1', 'room1', 'msg1')).called(1);
+      });
+
+      test('superAdmin can delete any message', () async {
+        final admin = makeUser(id: 'admin', role: UserRole.superAdmin);
+        when(mockFs.deleteMessage('org1', 'room1', 'msg1'))
+            .thenAnswer((_) async {});
+        await afs.deleteMessage(admin, 'org1', 'room1', 'msg1', senderId: 'u1');
+        verify(mockFs.deleteMessage('org1', 'room1', 'msg1')).called(1);
+      });
+
+      test('staff cannot delete other user message', () {
+        final user = makeUser(id: 'u2', role: UserRole.staff);
+        expect(
+          () => afs.deleteMessage(user, 'org1', 'room1', 'msg1', senderId: 'u1'),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+      });
+
+      test('inactive user cannot delete any message', () {
+        final user = makeUser(id: 'u1', role: UserRole.staff, isActive: false);
+        expect(
+          () => afs.deleteMessage(user, 'org1', 'room1', 'msg1', senderId: 'u1'),
+          throwsA(isA<PermissionDeniedException>()),
+        );
       });
     });
   });

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/app_user.dart';
 import '../models/invitation.dart';
 import '../core/constants.dart';
+import 'firestore_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth;
@@ -84,6 +85,15 @@ class AuthService {
       (e) => e.name == invitation.role,
       orElse: () => UserRole.staff,
     );
+    // Derive leagueIds from hub assignments so the user can see
+    // league-scoped content immediately.
+    List<String> leagueIds = [];
+    if (invitation.hubIds.isNotEmpty) {
+      final fs = FirestoreService(firestore: _db);
+      leagueIds =
+          await fs.deriveLeagueIdsFromHubs(invitation.orgId, invitation.hubIds);
+    }
+
     final user = AppUser(
       id: uid,
       email: email,
@@ -91,6 +101,7 @@ class AuthService {
       role: role,
       orgId: invitation.orgId,
       hubIds: invitation.hubIds,
+      leagueIds: leagueIds,
       teamIds: invitation.teamIds,
       createdAt: DateTime.now(),
       isActive: true,

@@ -228,6 +228,36 @@ void main() {
           .get();
       expect(doc.data()!['isPinned'], isTrue);
     });
+
+    test('update announcement title', () async {
+      final id = await authFs.createAnnouncement(
+        admin,
+        'org1',
+        {
+          'title': 'Original Title',
+          'body': 'Content',
+          'scope': 'orgWide',
+          'authorId': admin.id,
+          'authorName': admin.displayName,
+          'authorRole': admin.role.name,
+          'isPinned': false,
+          'attachments': [],
+          'createdAt': DateTime.now().toIso8601String(),
+        },
+        scope: AnnouncementScope.orgWide,
+      );
+
+      await authFs.updateAnnouncement(admin, 'org1', id,
+          {'title': 'Updated Title'}, authorId: admin.id);
+
+      final doc = await fakeDb
+          .collection('organizations')
+          .doc('org1')
+          .collection('announcements')
+          .doc(id)
+          .get();
+      expect(doc.data()!['title'], 'Updated Title');
+    });
   });
 
   // =========================================================================

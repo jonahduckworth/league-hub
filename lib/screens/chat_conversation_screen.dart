@@ -135,13 +135,13 @@ class _ChatConversationScreenState
 
     try {
       if (_editingMessageId != null) {
-        // For updateMessage: add inline sender permission check
-        // Keep on raw FirestoreService since no authorized wrapper exists
-        await ref.read(firestoreServiceProvider).updateMessage(
+        await ref.read(authorizedFirestoreServiceProvider).updateMessage(
+              currentUser,
               orgId,
               widget.roomId,
               _editingMessageId!,
               text,
+              senderId: currentUser.id,
             );
         setState(() => _editingMessageId = null);
       } else {
@@ -218,8 +218,15 @@ class _ChatConversationScreenState
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (orgId == null || currentUser == null) return;
 
-    // Check if user is the message sender (inline permission check)
-    if (message.senderId != currentUser.id) {
+    try {
+      await ref.read(authorizedFirestoreServiceProvider).deleteMessage(
+            currentUser,
+            orgId,
+            widget.roomId,
+            message.id,
+            senderId: message.senderId,
+          );
+    } on PermissionDeniedException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -229,13 +236,6 @@ class _ChatConversationScreenState
           ),
         );
       }
-      return;
-    }
-
-    try {
-      await ref
-          .read(firestoreServiceProvider)
-          .deleteMessage(orgId, widget.roomId, message.id);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -278,14 +278,12 @@ class _ChatConversationScreenState
         path: storagePath,
       );
 
-      await ref.read(firestoreServiceProvider).sendMediaMessage(
+      await ref.read(authorizedFirestoreServiceProvider).sendMediaMessage(
+            currentUser,
             orgId,
             widget.roomId,
-            senderId: currentUser.id,
-            senderName: currentUser.displayName,
             mediaUrl: downloadUrl,
             mediaType: 'image/${picked.name.split('.').last}',
-            caption: null,
           );
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _scrollToBottom());
