@@ -524,5 +524,181 @@ void main() {
         expect(result, hasLength(2));
       });
     });
+
+    // -----------------------------------------------------------------
+    // League-scoped filtering with leagueIds
+    // -----------------------------------------------------------------
+
+    group('league-scoped filtering', () {
+      final testOrg = Organization(
+        id: 'org1',
+        name: 'Test Org',
+        primaryColor: '#1A3A5C',
+        secondaryColor: '#2E75B6',
+        accentColor: '#4DA3FF',
+        createdAt: DateTime.now(),
+        ownerId: 'owner1',
+      );
+
+      test('staff with leagueIds sees league-scoped chat room', () async {
+        final staffUser = AppUser(
+          id: 'staff1',
+          email: 'staff@example.com',
+          displayName: 'Staff',
+          role: UserRole.staff,
+          orgId: 'org1',
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+          teamIds: [],
+          createdAt: DateTime.now(),
+          isActive: true,
+        );
+
+        final leagueRoom = ChatRoom(
+          id: 'lr1',
+          orgId: 'org1',
+          name: 'League 1 Chat',
+          type: ChatRoomType.league,
+          leagueId: 'l1',
+          participants: [],
+          createdAt: DateTime.now(),
+          isArchived: false,
+        );
+
+        final otherLeagueRoom = ChatRoom(
+          id: 'lr2',
+          orgId: 'org1',
+          name: 'League 2 Chat',
+          type: ChatRoomType.league,
+          leagueId: 'l2',
+          participants: [],
+          createdAt: DateTime.now(),
+          isArchived: false,
+        );
+
+        when(mockFs.getChatRooms('org1'))
+            .thenAnswer((_) => Stream.value([leagueRoom, otherLeagueRoom]));
+
+        container = ProviderContainer(
+          overrides: [
+            firestoreServiceProvider.overrideWithValue(mockFs),
+            currentUserProvider.overrideWith((ref) => staffUser),
+            organizationProvider.overrideWith((ref) => testOrg),
+          ],
+        );
+
+        final result = await container.read(chatRoomsProvider.future);
+        expect(result, hasLength(1));
+        expect(result.first.id, 'lr1');
+      });
+
+      test('staff without leagueIds sees no league-scoped announcements',
+          () async {
+        final staffUser = AppUser(
+          id: 'staff1',
+          email: 'staff@example.com',
+          displayName: 'Staff',
+          role: UserRole.staff,
+          orgId: 'org1',
+          hubIds: ['h1'],
+          leagueIds: [],
+          teamIds: [],
+          createdAt: DateTime.now(),
+          isActive: true,
+        );
+
+        final leagueAnn = Announcement(
+          id: 'ann1',
+          orgId: 'org1',
+          title: 'League News',
+          body: 'Content',
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
+          authorId: 'admin',
+          authorName: 'Admin',
+          authorRole: 'superAdmin',
+          isPinned: false,
+          createdAt: DateTime.now(),
+          attachments: [],
+        );
+
+        when(mockFs.getAnnouncements('org1'))
+            .thenAnswer((_) => Stream.value([leagueAnn]));
+
+        container = ProviderContainer(
+          overrides: [
+            firestoreServiceProvider.overrideWithValue(mockFs),
+            currentUserProvider.overrideWith((ref) => staffUser),
+            organizationProvider.overrideWith((ref) => testOrg),
+          ],
+        );
+
+        final result = await container.read(announcementsProvider.future);
+        expect(result, isEmpty);
+      });
+
+      test('staff with matching leagueIds sees league-scoped documents',
+          () async {
+        final staffUser = AppUser(
+          id: 'staff1',
+          email: 'staff@example.com',
+          displayName: 'Staff',
+          role: UserRole.staff,
+          orgId: 'org1',
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+          teamIds: [],
+          createdAt: DateTime.now(),
+          isActive: true,
+        );
+
+        final leagueDoc = Document(
+          id: 'doc1',
+          orgId: 'org1',
+          leagueId: 'l1',
+          name: 'League Rules',
+          fileUrl: 'https://example.com/rules.pdf',
+          fileType: 'pdf',
+          fileSize: 1024,
+          category: 'Rules',
+          uploadedBy: 'admin',
+          uploadedByName: 'Admin',
+          versions: [],
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        final otherLeagueDoc = Document(
+          id: 'doc2',
+          orgId: 'org1',
+          leagueId: 'l2',
+          name: 'Other League Rules',
+          fileUrl: 'https://example.com/rules2.pdf',
+          fileType: 'pdf',
+          fileSize: 1024,
+          category: 'Rules',
+          uploadedBy: 'admin',
+          uploadedByName: 'Admin',
+          versions: [],
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        when(mockFs.documentsStream('org1'))
+            .thenAnswer((_) => Stream.value([leagueDoc, otherLeagueDoc]));
+
+        container = ProviderContainer(
+          overrides: [
+            firestoreServiceProvider.overrideWithValue(mockFs),
+            currentUserProvider.overrideWith((ref) => staffUser),
+            organizationProvider.overrideWith((ref) => testOrg),
+          ],
+        );
+
+        final result = await container.read(documentsProvider.future);
+        expect(result, hasLength(1));
+        expect(result.first.id, 'doc1');
+      });
+    });
   });
 }

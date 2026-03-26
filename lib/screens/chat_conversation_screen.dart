@@ -64,12 +64,12 @@ class _ChatConversationScreenState
 
   Future<void> _markAsRead() async {
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
-    final userId = ref.read(currentUserProvider).valueOrNull?.id;
-    if (orgId == null || userId == null) return;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (orgId == null || currentUser == null) return;
     try {
       await ref
-          .read(firestoreServiceProvider)
-          .markMessagesAsRead(orgId, widget.roomId, userId);
+          .read(authorizedFirestoreServiceProvider)
+          .markMessagesAsRead(currentUser, orgId, widget.roomId);
     } catch (_) {}
   }
 
@@ -84,8 +84,8 @@ class _ChatConversationScreenState
 
     if (_messageController.text.isNotEmpty) {
       ref
-          .read(firestoreServiceProvider)
-          .setTyping(orgId, widget.roomId, user.id, user.displayName);
+          .read(authorizedFirestoreServiceProvider)
+          .setTyping(user, orgId, widget.roomId);
       _typingTimer?.cancel();
       _typingTimer = Timer(const Duration(seconds: 4), _clearTyping);
     } else {

@@ -207,6 +207,24 @@ class AuthorizedFirestoreService {
     );
   }
 
+  /// Marks messages as read — requires active user.
+  Future<void> markMessagesAsRead(
+      AppUser actor, String orgId, String roomId) {
+    if (!_ps.canSendMessage(actor)) _deny('markMessagesAsRead', actor);
+    return _fs.markMessagesAsRead(orgId, roomId, actor.id);
+  }
+
+  /// Sets the typing indicator — requires active user.
+  Future<void> setTyping(AppUser actor, String orgId, String roomId) {
+    if (!_ps.canSendMessage(actor)) _deny('setTyping', actor);
+    return _fs.setTyping(orgId, roomId, actor.id, actor.displayName);
+  }
+
+  /// Clears the typing indicator.
+  Future<void> clearTyping(AppUser actor, String orgId, String roomId) {
+    return _fs.clearTyping(orgId, roomId, actor.id);
+  }
+
   /// Sends a media message, enforcing that senderId matches actor.id.
   Future<void> sendMediaMessage(
     AppUser actor,

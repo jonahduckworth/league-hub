@@ -1,7 +1,10 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/invitation.dart';
+import 'package:league_hub/models/league.dart';
+import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/services/auth_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
 
@@ -135,6 +138,108 @@ void main() {
       expect(appUser.hubIds, ['hub-a', 'hub-b']);
       expect(appUser.teamIds, ['team-x']);
       expect(appUser.role.name, 'managerAdmin');
+      // Hub IDs don't map to real hubs, so leagueIds should be empty.
+      expect(appUser.leagueIds, isEmpty);
+    });
+
+    test('derives leagueIds from hubIds when hubs exist', () async {
+      const orgId = 'league-org';
+
+      // Seed org, league, and hub in Firestore.
+      await firestore.createOrganization(Organization(
+        id: orgId,
+        name: 'League Org',
+        primaryColor: '#000',
+        secondaryColor: '#111',
+        accentColor: '#222',
+        createdAt: DateTime.now(),
+        ownerId: 'admin',
+      ));
+      await firestore.createLeague(
+          orgId,
+          League(
+            id: 'lg1',
+            orgId: orgId,
+            name: 'North',
+            abbreviation: 'N',
+            createdAt: DateTime.now(),
+          ));
+      await firestore.createHub(
+          orgId,
+          'lg1',
+          Hub(
+            id: 'hub-x',
+            leagueId: 'lg1',
+            orgId: orgId,
+            name: 'Hub X',
+            createdAt: DateTime.now(),
+          ));
+
+      // Sign out any prior user first.
+      await auth.signOut();
+      // Reset auth for fresh user.
+      mockAuth = MockFirebaseAuth();
+      auth = AuthService(auth: mockAuth, firestore: fakeFirestore);
+
+      final invitation = Invitation(
+        id: 'inv-2',
+        orgId: orgId,
+        email: 'frank@example.com',
+        displayName: 'Frank',
+        role: 'staff',
+        hubIds: ['hub-x'],
+        teamIds: [],
+        invitedBy: 'admin',
+        invitedByName: 'Admin',
+        createdAt: DateTime.now(),
+        status: InvitationStatus.pending,
+        token: 'xyz789',
+      );
+
+      await auth.createAccountFromInvite(
+        'frank@example.com',
+        'password123',
+        'Frank',
+        invitation,
+      );
+
+      final uid = auth.currentUser!.uid;
+      final appUser = await firestore.getUser(uid);
+      expect(appUser, isNotNull);
+      expect(appUser!.hubIds, ['hub-x']);
+      expect(appUser.leagueIds, ['lg1']);
+    });
+
+    test('leagueIds empty when invitation has no hubIds', () async {
+      await auth.signOut();
+      mockAuth = MockFirebaseAuth();
+      auth = AuthService(auth: mockAuth, firestore: fakeFirestore);
+
+      final invitation = Invitation(
+        id: 'inv-3',
+        orgId: 'org1',
+        email: 'nohubs@example.com',
+        displayName: 'No Hubs',
+        role: 'staff',
+        hubIds: [],
+        teamIds: [],
+        invitedBy: 'admin',
+        invitedByName: 'Admin',
+        createdAt: DateTime.now(),
+        status: InvitationStatus.pending,
+        token: 'token3',
+      );
+
+      await auth.createAccountFromInvite(
+        'nohubs@example.com',
+        'password123',
+        'No Hubs',
+        invitation,
+      );
+
+      final uid = auth.currentUser!.uid;
+      final appUser = await firestore.getUser(uid);
+      expect(appUser!.leagueIds, isEmpty);
     });
   });
 
