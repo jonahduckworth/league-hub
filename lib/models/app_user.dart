@@ -8,6 +8,7 @@ class AppUser {
   final UserRole role;
   final String? orgId;
   final List<String> hubIds;
+  final List<String> leagueIds;
   final List<String> teamIds;
   final DateTime createdAt;
   final bool isActive;
@@ -20,6 +21,7 @@ class AppUser {
     required this.role,
     this.orgId,
     required this.hubIds,
+    this.leagueIds = const [],
     required this.teamIds,
     required this.createdAt,
     required this.isActive,
@@ -36,6 +38,7 @@ class AppUser {
         ),
         orgId: json['orgId'] as String?,
         hubIds: List<String>.from(json['hubIds'] as List? ?? []),
+        leagueIds: List<String>.from(json['leagueIds'] as List? ?? []),
         teamIds: List<String>.from(json['teamIds'] as List? ?? []),
         createdAt: DateTime.parse(json['createdAt'] as String),
         isActive: json['isActive'] as bool? ?? true,
@@ -49,6 +52,7 @@ class AppUser {
         'role': role.name,
         'orgId': orgId,
         'hubIds': hubIds,
+        'leagueIds': leagueIds,
         'teamIds': teamIds,
         'createdAt': createdAt.toIso8601String(),
         'isActive': isActive,

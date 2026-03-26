@@ -7,6 +7,7 @@ import '../models/app_user.dart';
 import '../models/chat_room.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/authorized_firestore_service.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/league_filter.dart';
 
@@ -231,20 +232,32 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                   if (name.isEmpty) return;
                   final currentUser =
                       ref.read(currentUserProvider).valueOrNull;
-                  final roomId = await ref
-                      .read(firestoreServiceProvider)
-                      .createChatRoom(
-                        orgId,
-                        name,
-                        ChatRoomType.event,
-                        leagueId: selectedLeagueId,
-                        participants: currentUser != null
-                            ? [currentUser.id]
-                            : [],
+                  if (currentUser == null) return;
+                  try {
+                    final roomId = await ref
+                        .read(authorizedFirestoreServiceProvider)
+                        .createChatRoom(
+                          currentUser,
+                          orgId,
+                          name,
+                          ChatRoomType.event,
+                          leagueId: selectedLeagueId,
+                          participants: [currentUser.id],
+                        );
+                    if (ctx.mounted) {
+                      ctx.pop();
+                      if (mounted) context.push('/chat/$roomId');
+                    }
+                  } on PermissionDeniedException {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('You do not have permission to create chat rooms'),
+                          backgroundColor: AppColors.danger,
+                          behavior: SnackBarBehavior.floating,
+                        ),
                       );
-                  if (ctx.mounted) {
-                    ctx.pop();
-                    if (mounted) context.push('/chat/$roomId');
+                    }
                   }
                 },
                 child: const Text('Create Room'),

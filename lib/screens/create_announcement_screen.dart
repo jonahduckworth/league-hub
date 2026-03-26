@@ -7,6 +7,7 @@ import '../models/app_user.dart';
 import '../models/hub.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/authorized_firestore_service.dart';
 
 class CreateAnnouncementScreen extends ConsumerStatefulWidget {
   /// Pass an existing announcement ID when editing.
@@ -88,7 +89,7 @@ class _CreateAnnouncementScreenState
     setState(() => _isLoading = true);
 
     try {
-      final service = ref.read(firestoreServiceProvider);
+      final authorizedService = ref.read(authorizedFirestoreServiceProvider);
       final data = {
         'title': _titleCtrl.text.trim(),
         'body': _bodyCtrl.text.trim(),
@@ -103,16 +104,28 @@ class _CreateAnnouncementScreenState
       };
 
       if (_isEditing) {
-        await service.updateAnnouncement(orgId, widget.announcementId!, {
-          'title': data['title'],
-          'body': data['body'],
-          'scope': data['scope'],
-          'leagueId': data['leagueId'],
-          'hubId': data['hubId'],
-          'isPinned': data['isPinned'],
-        });
+        await authorizedService.updateAnnouncement(
+          currentUser,
+          orgId,
+          widget.announcementId!,
+          {
+            'title': data['title'],
+            'body': data['body'],
+            'scope': data['scope'],
+            'leagueId': data['leagueId'],
+            'hubId': data['hubId'],
+            'isPinned': data['isPinned'],
+          },
+          authorId: currentUser.id,
+        );
       } else {
-        await service.createAnnouncement(orgId, data);
+        await authorizedService.createAnnouncement(
+          currentUser,
+          orgId,
+          data,
+          scope: _scope,
+          hubId: _scope == AnnouncementScope.hub ? _selectedHubId : null,
+        );
         // Push notification will be sent via FCM when notification service is integrated.
       }
 
@@ -124,6 +137,14 @@ class _CreateAnnouncementScreenState
           backgroundColor: AppColors.success,
         ));
         context.pop();
+      }
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Permission denied. You cannot create or edit announcements.'),
+          backgroundColor: AppColors.danger,
+        ));
       }
     } catch (e) {
       if (mounted) {

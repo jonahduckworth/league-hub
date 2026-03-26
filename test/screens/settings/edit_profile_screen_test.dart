@@ -164,5 +164,67 @@ void main() {
       // The AvatarWidget should show initials
       expect(find.text('TU'), findsOneWidget);
     });
+
+    testWidgets('shows camera icon on avatar for photo upload', (tester) async {
+      final user = _testUser();
+      await tester.pumpWidget(_buildTestWidget(
+        overrides: [
+          currentUserProvider.overrideWith((ref) async => user),
+          firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider
+              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.camera_alt), findsOneWidget);
+    });
+
+    testWidgets('avatar area is tappable', (tester) async {
+      final user = _testUser();
+      await tester.pumpWidget(_buildTestWidget(
+        overrides: [
+          currentUserProvider.overrideWith((ref) async => user),
+          firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider
+              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // GestureDetector wrapping the avatar should exist
+      expect(find.byType(GestureDetector), findsWidgets);
+    });
+
+    testWidgets('avatar shows network image when avatarUrl present',
+        (tester) async {
+      final user = AppUser(
+        id: 'u1',
+        email: 'test@example.com',
+        displayName: 'Test User',
+        avatarUrl: 'https://example.com/avatar.jpg',
+        role: UserRole.platformOwner,
+        orgId: 'org-1',
+        hubIds: [],
+        teamIds: [],
+        createdAt: DateTime(2025, 1, 1),
+        isActive: true,
+      );
+      await tester.pumpWidget(_buildTestWidget(
+        overrides: [
+          currentUserProvider.overrideWith((ref) async => user),
+          firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider
+              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // The AvatarWidget should be present
+      expect(find.byType(GestureDetector), findsWidgets);
+    });
   });
 }

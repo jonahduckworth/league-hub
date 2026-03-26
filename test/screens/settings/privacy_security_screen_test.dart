@@ -138,9 +138,9 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('This will sign you out from all other devices'),
+      expect(find.textContaining('server-side setup'),
           findsOneWidget);
-      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('OK'), findsOneWidget);
     });
 
     testWidgets('tapping Delete Account shows confirmation dialog',

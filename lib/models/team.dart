@@ -6,6 +6,8 @@ class Team {
   final String name;
   final String? ageGroup;
   final String? division;
+  final String? chatRoomId;
+  final List<String> memberIds;
   final DateTime createdAt;
 
   Team({
@@ -16,6 +18,8 @@ class Team {
     required this.name,
     this.ageGroup,
     this.division,
+    this.chatRoomId,
+    this.memberIds = const [],
     required this.createdAt,
   });
 
@@ -27,6 +31,8 @@ class Team {
         name: json['name'] as String,
         ageGroup: json['ageGroup'] as String?,
         division: json['division'] as String?,
+        chatRoomId: json['chatRoomId'] as String?,
+        memberIds: List<String>.from(json['memberIds'] as List? ?? []),
         createdAt: DateTime.parse(json['createdAt'] as String),
       );
 
@@ -38,6 +44,8 @@ class Team {
         'name': name,
         'ageGroup': ageGroup,
         'division': division,
+        'chatRoomId': chatRoomId,
+        'memberIds': memberIds,
         'createdAt': createdAt.toIso8601String(),
       };
 }

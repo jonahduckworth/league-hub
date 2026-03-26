@@ -7,6 +7,8 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
+// Placeholder — real tests are in test/screens/ and test/services/
+
 void main() {
   testWidgets('placeholder smoke test', (WidgetTester tester) async {
     expect(true, isTrue);

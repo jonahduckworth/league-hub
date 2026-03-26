@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../models/invitation.dart';
 import '../providers/auth_provider.dart';
+import '../providers/data_providers.dart';
 import '../services/firestore_service.dart';
+import '../services/authorized_firestore_service.dart';
 
 class AcceptInvitationScreen extends ConsumerStatefulWidget {
   const AcceptInvitationScreen({super.key});
@@ -112,11 +114,17 @@ class _AcceptInvitationScreenState
         invite,
       );
 
-      // Mark invitation as accepted
-      final firestoreSvc = FirestoreService();
-      await firestoreSvc.acceptInvitation(invite.orgId, invite.id);
+      // Mark invitation as accepted using authorized service
+      final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
+      await authorizedSvc.acceptInvitation(
+        invite.orgId,
+        invite.id,
+        invitedAt: invite.createdAt,
+      );
 
       if (mounted) context.go('/');
+    } on PermissionDeniedException catch (e) {
+      _showError('Permission denied: $e');
     } on FirebaseAuthException catch (e) {
       _showError(_authError(e.code));
     } catch (e) {

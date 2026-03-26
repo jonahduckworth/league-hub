@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/firestore_service.dart';
 import '../services/authorized_firestore_service.dart';
-import '../services/permission_service.dart';
+
+import 'permission_provider.dart';
+export 'permission_provider.dart';
 import '../models/league.dart';
 import '../models/hub.dart';
 import '../models/team.dart';
@@ -15,9 +17,6 @@ import '../models/invitation.dart';
 import 'auth_provider.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) => FirestoreService());
-
-final permissionServiceProvider =
-    Provider<PermissionService>((ref) => const PermissionService());
 
 /// Authorized wrapper — use this for all write operations.
 final authorizedFirestoreServiceProvider =
@@ -79,7 +78,8 @@ final teamCountProvider = FutureProvider<int>((ref) async {
 
 /// Chat rooms, scope-filtered by the current user's role and hub assignments.
 /// superAdmin+ sees all rooms. managerAdmin/staff see DMs they're in, plus
-/// league/event rooms (further scoping by league→hub can be added later).
+/// league rooms for leagues they belong to (via denormalized leagueIds on
+/// AppUser) and event rooms for the entire org.
 final chatRoomsProvider = StreamProvider<List<ChatRoom>>((ref) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);

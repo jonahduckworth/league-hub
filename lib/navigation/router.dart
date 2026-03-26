@@ -27,6 +27,8 @@ import '../screens/settings/app_icon_screen.dart';
 import '../screens/settings/notifications_screen.dart';
 import '../screens/settings/privacy_security_screen.dart';
 import '../screens/settings/chat_room_info_screen.dart';
+import '../screens/admin/manage_leagues_screen.dart';
+import '../screens/admin/team_detail_screen.dart';
 import '../screens/unauthorized_screen.dart';
 import '../widgets/bottom_nav_bar.dart';
 
@@ -176,7 +178,19 @@ final router = GoRouter(
           path: '/settings/privacy',
           builder: (context, state) => const PrivacySecurityScreen(),
         ),
+        GoRoute(
+          path: '/settings/leagues',
+          builder: (context, state) => const ManageLeaguesScreen(),
+        ),
       ],
+    ),
+    GoRoute(
+      path: '/teams/:teamId',
+      builder: (context, state) => TeamDetailScreen(
+        teamId: state.pathParameters['teamId']!,
+        leagueId: state.uri.queryParameters['leagueId'] ?? '',
+        hubId: state.uri.queryParameters['hubId'] ?? '',
+      ),
     ),
     GoRoute(
       path: '/chat/:roomId',

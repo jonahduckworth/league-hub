@@ -4,10 +4,22 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 
 /// A banner that slides in from the top when the device loses connectivity
-/// and slides out when it reconnects.
+/// and slides out when it reconnects. Optionally shows a pending mutation count.
 class ConnectivityBanner extends StatefulWidget {
   final Widget child;
-  const ConnectivityBanner({super.key, required this.child});
+
+  /// Optional stream that emits the number of pending offline mutations.
+  final Stream<int>? pendingCountStream;
+
+  /// Initial pending count (for when the widget is first built).
+  final int initialPendingCount;
+
+  const ConnectivityBanner({
+    super.key,
+    required this.child,
+    this.pendingCountStream,
+    this.initialPendingCount = 0,
+  });
 
   @override
   State<ConnectivityBanner> createState() => _ConnectivityBannerState();
@@ -18,12 +30,15 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
   late final StreamSubscription<List<ConnectivityResult>> _subscription;
   late final AnimationController _animController;
   late final Animation<Offset> _slideAnimation;
+  StreamSubscription<int>? _pendingSub;
   bool _isOffline = false;
   bool _wasOffline = false;
+  int _pendingCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _pendingCount = widget.initialPendingCount;
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -40,6 +55,10 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
         Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
     // Check initial state.
     Connectivity().checkConnectivity().then(_onConnectivityChanged);
+
+    _pendingSub = widget.pendingCountStream?.listen((count) {
+      if (mounted) setState(() => _pendingCount = count);
+    });
   }
 
   void _onConnectivityChanged(List<ConnectivityResult> results) {
@@ -68,8 +87,20 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
   @override
   void dispose() {
     _subscription.cancel();
+    _pendingSub?.cancel();
     _animController.dispose();
     super.dispose();
+  }
+
+  String get _bannerText {
+    if (_isOffline) {
+      if (_pendingCount > 0) {
+        final s = _pendingCount == 1 ? '' : 's';
+        return 'No internet connection — $_pendingCount change$s pending';
+      }
+      return 'No internet connection';
+    }
+    return 'Back online';
   }
 
   @override
@@ -99,9 +130,7 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    _isOffline
-                        ? 'No internet connection'
-                        : 'Back online',
+                    _bannerText,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,

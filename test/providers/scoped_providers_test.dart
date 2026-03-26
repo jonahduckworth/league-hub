@@ -56,6 +56,7 @@ void main() {
           role: UserRole.staff,
           orgId: 'org1',
           hubIds: ['h1'],
+          leagueIds: ['l1'],
           teamIds: [],
           createdAt: DateTime.now(),
           isActive: true,

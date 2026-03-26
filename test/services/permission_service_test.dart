@@ -16,6 +16,7 @@ void main() {
     UserRole role = UserRole.staff,
     String? orgId = 'org1',
     List<String> hubIds = const [],
+    List<String> leagueIds = const [],
     List<String> teamIds = const [],
     bool isActive = true,
   }) =>
@@ -26,6 +27,7 @@ void main() {
         role: role,
         orgId: orgId,
         hubIds: hubIds,
+        leagueIds: leagueIds,
         teamIds: teamIds,
         createdAt: DateTime(2024),
         isActive: isActive,
@@ -49,14 +51,14 @@ void main() {
       );
 
   // Shorthand
-  AppUser owner({bool isActive = true, List<String> hubIds = const []}) =>
-      makeUser(id: 'owner', role: UserRole.platformOwner, isActive: isActive, hubIds: hubIds);
-  AppUser superAdmin({bool isActive = true, List<String> hubIds = const []}) =>
-      makeUser(id: 'sa', role: UserRole.superAdmin, isActive: isActive, hubIds: hubIds);
-  AppUser manager({bool isActive = true, List<String> hubIds = const []}) =>
-      makeUser(id: 'ma', role: UserRole.managerAdmin, isActive: isActive, hubIds: hubIds);
-  AppUser staff({bool isActive = true, List<String> hubIds = const []}) =>
-      makeUser(id: 'staff', role: UserRole.staff, isActive: isActive, hubIds: hubIds);
+  AppUser owner({bool isActive = true, List<String> hubIds = const [], List<String> leagueIds = const []}) =>
+      makeUser(id: 'owner', role: UserRole.platformOwner, isActive: isActive, hubIds: hubIds, leagueIds: leagueIds);
+  AppUser superAdmin({bool isActive = true, List<String> hubIds = const [], List<String> leagueIds = const []}) =>
+      makeUser(id: 'sa', role: UserRole.superAdmin, isActive: isActive, hubIds: hubIds, leagueIds: leagueIds);
+  AppUser manager({bool isActive = true, List<String> hubIds = const [], List<String> leagueIds = const []}) =>
+      makeUser(id: 'ma', role: UserRole.managerAdmin, isActive: isActive, hubIds: hubIds, leagueIds: leagueIds);
+  AppUser staff({bool isActive = true, List<String> hubIds = const [], List<String> leagueIds = const []}) =>
+      makeUser(id: 'staff', role: UserRole.staff, isActive: isActive, hubIds: hubIds, leagueIds: leagueIds);
 
   // -------------------------------------------------------------------------
   // Hierarchy helpers
@@ -568,9 +570,14 @@ void main() {
             scope: AnnouncementScope.hub, hubId: 'h2'), isFalse);
       });
 
-      test('league-scoped visible to all in org', () {
-        expect(service.canViewAnnouncement(staff(),
+      test('league-scoped visible to user in that league', () {
+        expect(service.canViewAnnouncement(staff(leagueIds: ['l1']),
             scope: AnnouncementScope.league, leagueId: 'l1'), isTrue);
+      });
+
+      test('league-scoped NOT visible to user outside that league', () {
+        expect(service.canViewAnnouncement(staff(leagueIds: ['l2']),
+            scope: AnnouncementScope.league, leagueId: 'l1'), isFalse);
       });
 
       test('inactive user cannot view', () {
@@ -636,8 +643,12 @@ void main() {
         expect(service.canViewDocument(s, hubId: 'h2'), isFalse);
       });
 
-      test('league-scoped doc visible to everyone', () {
-        expect(service.canViewDocument(staff(), leagueId: 'l1'), isTrue);
+      test('league-scoped doc visible to user in that league', () {
+        expect(service.canViewDocument(staff(leagueIds: ['l1']), leagueId: 'l1'), isTrue);
+      });
+
+      test('league-scoped doc NOT visible to user outside that league', () {
+        expect(service.canViewDocument(staff(leagueIds: ['l2']), leagueId: 'l1'), isFalse);
       });
 
       test('unscoped doc visible to everyone', () {

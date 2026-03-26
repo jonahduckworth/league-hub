@@ -104,12 +104,18 @@ class PrivacySecurityScreen extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right,
                     color: AppColors.textMuted, size: 20),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          'Data export request submitted. You will receive an email when ready.'),
-                      backgroundColor: AppColors.success,
-                      behavior: SnackBarBehavior.floating,
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Data Export'),
+                      content: const Text(
+                          'Data export is not yet available. This feature is coming soon.'),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('OK'),
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -335,25 +341,11 @@ class PrivacySecurityScreen extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Sign Out All Devices'),
         content: const Text(
-            'This will sign you out from all other devices. You will remain signed in on this device.'),
+            'This feature requires server-side setup to revoke session tokens across all devices. Please contact your administrator to enable this functionality.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('All other sessions have been terminated'),
-                  backgroundColor: AppColors.success,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            child: const Text('Sign Out All'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
           ),
         ],
       ),

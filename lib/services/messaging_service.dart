@@ -262,6 +262,10 @@ class MessagingService {
         router!.push('/settings/roles');
         break;
 
+      case 'role_changed':
+        router!.push('/settings/roles');
+        break;
+
       case 'invitation':
       case 'invitation_received':
         router!.push('/settings/users');

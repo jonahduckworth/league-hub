@@ -10,6 +10,7 @@ import '../core/utils.dart';
 import '../models/hub.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/authorized_firestore_service.dart';
 import '../services/storage_service.dart';
 
 class UploadDocumentScreen extends ConsumerStatefulWidget {
@@ -156,6 +157,7 @@ class _UploadDocumentScreenState
 
     try {
       final firestore = ref.read(firestoreServiceProvider);
+      final authorizedFirestore = ref.read(authorizedFirestoreServiceProvider);
       final storage = StorageService();
 
       final docId = firestore.newDocumentId(orgId);
@@ -181,7 +183,8 @@ class _UploadDocumentScreenState
         'fileSize': file.size,
       };
 
-      await firestore.createDocument(
+      await authorizedFirestore.createDocument(
+        currentUser,
         orgId,
         {
           'name': name,
@@ -204,6 +207,13 @@ class _UploadDocumentScreenState
           backgroundColor: AppColors.success,
         ));
         context.pop();
+      }
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Permission denied. You cannot upload documents.'),
+          backgroundColor: AppColors.danger,
+        ));
       }
     } catch (e) {
       if (mounted) {

@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/screens/settings/notifications_screen.dart';
 
-Widget _buildTestWidget() {
-  return const ProviderScope(
-    child: MaterialApp(
+Widget _buildTestWidget({List<Override> overrides = const []}) {
+  return ProviderScope(
+    overrides: overrides,
+    child: const MaterialApp(
       home: NotificationsScreen(),
     ),
   );
@@ -95,6 +96,9 @@ void main() {
       expect(find.text('New and pinned announcements'), findsOneWidget);
       expect(find.text('New messages in your chat rooms'), findsOneWidget);
       expect(find.text('New documents shared with you'), findsOneWidget);
+      expect(find.text('Roster changes and team news'), findsOneWidget);
+      expect(find.text('Upcoming games and practices'), findsOneWidget);
+      expect(find.text('User management and system alerts'), findsOneWidget);
     });
 
     testWidgets('renders 9 switches total', (tester) async {
@@ -103,6 +107,179 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(Switch), findsNWidgets(9));
+    });
+
+    testWidgets('renders correct icons for notification types', (tester) async {
+      await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Verify icons exist
+      expect(find.byIcon(Icons.campaign), findsOneWidget);
+      expect(find.byIcon(Icons.chat_bubble_outline), findsOneWidget);
+      expect(find.byIcon(Icons.description_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.groups_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.event_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.admin_panel_settings_outlined), findsOneWidget);
+    });
+
+    testWidgets('renders delivery icons', (tester) async {
+      await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.volume_up_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.vibration), findsOneWidget);
+      expect(find.byIcon(Icons.looks_one_outlined), findsOneWidget);
+    });
+
+    testWidgets('tapping chat messages toggle changes only that toggle',
+        (tester) async {
+      await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Find "Chat Messages" tile and tap its Switch
+      final chatTile = find.ancestor(
+        of: find.text('Chat Messages'),
+        matching: find.byType(ListTile),
+      );
+      final chatSwitch = find.descendant(
+        of: chatTile,
+        matching: find.byType(Switch),
+      );
+      await tester.tap(chatSwitch);
+      await tester.pumpAndSettle();
+
+      // Verify the chat switch is now off
+      final updatedSwitch =
+          tester.widget<Switch>(chatSwitch);
+      expect(updatedSwitch.value, isFalse);
+    });
+
+    testWidgets('delivery section shows sound subtitle', (tester) async {
+      await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Play sound for notifications'), findsOneWidget);
+      expect(find.text('Vibrate for notifications'), findsOneWidget);
+      expect(find.text('Show unread count on app icon'), findsOneWidget);
+    });
+
+    testWidgets('has a scrollable ListView', (tester) async {
+      await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ListView), findsOneWidget);
+    });
+
+    testWidgets('info box contains info icon', (tester) async {
+      await tester.pumpWidget(_buildTestWidget());
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.info_outline), findsOneWidget);
+    });
+  });
+
+  group('NotificationPrefsNotifier', () {
+    test('initial state has all preferences enabled', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final prefs = container.read(notificationPrefsProvider);
+
+      expect(prefs['announcements'], isTrue);
+      expect(prefs['chat_messages'], isTrue);
+      expect(prefs['document_uploads'], isTrue);
+      expect(prefs['team_updates'], isTrue);
+      expect(prefs['event_reminders'], isTrue);
+      expect(prefs['admin_alerts'], isTrue);
+      expect(prefs['sound'], isTrue);
+      expect(prefs['vibration'], isTrue);
+      expect(prefs['badge_count'], isTrue);
+    });
+
+    test('initial state has 9 keys', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final prefs = container.read(notificationPrefsProvider);
+      expect(prefs.length, 9);
+    });
+
+    test('toggle flips a preference value', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(notificationPrefsProvider.notifier);
+      expect(container.read(notificationPrefsProvider)['announcements'], isTrue);
+
+      notifier.toggle('announcements');
+      expect(
+          container.read(notificationPrefsProvider)['announcements'], isFalse);
+    });
+
+    test('toggle twice returns to original value', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(notificationPrefsProvider.notifier);
+      notifier.toggle('chat_messages');
+      notifier.toggle('chat_messages');
+
+      expect(
+          container.read(notificationPrefsProvider)['chat_messages'], isTrue);
+    });
+
+    test('toggling one key does not affect others', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(notificationPrefsProvider.notifier);
+      notifier.toggle('sound');
+
+      final prefs = container.read(notificationPrefsProvider);
+      expect(prefs['sound'], isFalse);
+      expect(prefs['announcements'], isTrue);
+      expect(prefs['chat_messages'], isTrue);
+      expect(prefs['vibration'], isTrue);
+    });
+
+    test('toggle with unknown key defaults missing value to true then false',
+        () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(notificationPrefsProvider.notifier);
+      // Toggling a key not in initial state: (state[key] ?? true) → false
+      notifier.toggle('unknown_key');
+      expect(
+          container.read(notificationPrefsProvider)['unknown_key'], isFalse);
+    });
+
+    test('multiple different keys can be toggled independently', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(notificationPrefsProvider.notifier);
+      notifier.toggle('announcements');
+      notifier.toggle('team_updates');
+      notifier.toggle('badge_count');
+
+      final prefs = container.read(notificationPrefsProvider);
+      expect(prefs['announcements'], isFalse);
+      expect(prefs['team_updates'], isFalse);
+      expect(prefs['badge_count'], isFalse);
+      // Untouched remain true
+      expect(prefs['chat_messages'], isTrue);
+      expect(prefs['document_uploads'], isTrue);
+      expect(prefs['sound'], isTrue);
     });
   });
 }

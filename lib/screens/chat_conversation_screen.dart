@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,9 @@ import '../core/theme.dart';
 import '../models/message.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/authorized_firestore_service.dart';
+import '../services/firestore_service.dart';
+import '../services/storage_service.dart';
 import '../widgets/chat_bubble.dart';
 
 class ChatConversationScreen extends ConsumerStatefulWidget {
@@ -29,6 +33,11 @@ class _ChatConversationScreenState
 
   /// When non-null, the user is editing an existing message instead of composing.
   String? _editingMessageId;
+
+  // Cached values for use in dispose() — ref is invalid after unmount.
+  String? _cachedOrgId;
+  String? _cachedUserId;
+  FirestoreService? _cachedFirestoreService;
 
   @override
   void initState() {
@@ -85,12 +94,13 @@ class _ChatConversationScreenState
   }
 
   void _clearTyping() {
-    final orgId = ref.read(organizationProvider).valueOrNull?.id;
-    final userId = ref.read(currentUserProvider).valueOrNull?.id;
-    if (orgId == null || userId == null) return;
-    ref
-        .read(firestoreServiceProvider)
-        .clearTyping(orgId, widget.roomId, userId);
+    // Use cached values so this is safe to call from dispose() where ref is
+    // already invalidated by Riverpod's unmount sequence.
+    final orgId = _cachedOrgId;
+    final userId = _cachedUserId;
+    final db = _cachedFirestoreService;
+    if (orgId == null || userId == null || db == null) return;
+    db.clearTyping(orgId, widget.roomId, userId);
   }
 
   // ---------------------------------------------------------------------------
@@ -125,6 +135,8 @@ class _ChatConversationScreenState
 
     try {
       if (_editingMessageId != null) {
+        // For updateMessage: add inline sender permission check
+        // Keep on raw FirestoreService since no authorized wrapper exists
         await ref.read(firestoreServiceProvider).updateMessage(
               orgId,
               widget.roomId,
@@ -133,15 +145,25 @@ class _ChatConversationScreenState
             );
         setState(() => _editingMessageId = null);
       } else {
-        await ref.read(firestoreServiceProvider).sendMessage(
+        // Use authorized service for sendMessage
+        await ref.read(authorizedFirestoreServiceProvider).sendMessage(
+              currentUser,
               orgId,
               widget.roomId,
-              senderId: currentUser.id,
-              senderName: currentUser.displayName,
               text: text,
             );
         WidgetsBinding.instance
             .addPostFrameCallback((_) => _scrollToBottom());
+      }
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to send messages'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -193,7 +215,23 @@ class _ChatConversationScreenState
     if (confirmed != true) return;
 
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
-    if (orgId == null) return;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (orgId == null || currentUser == null) return;
+
+    // Check if user is the message sender (inline permission check)
+    if (message.senderId != currentUser.id) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You can only delete your own messages'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       await ref
           .read(firestoreServiceProvider)
@@ -231,22 +269,21 @@ class _ChatConversationScreenState
 
       setState(() => _isSending = true);
 
-      // Upload via Firebase Storage and get the download URL.
-      // The storage upload is handled by the service layer; for now
-      // we send a placeholder path that the backend Cloud Function
-      // or client-side upload logic resolves.
+      // Upload to Firebase Storage and get the download URL.
       final storagePath =
           'orgs/$orgId/chat/${widget.roomId}/${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
+      final storage = StorageService();
+      final downloadUrl = await storage.uploadFile(
+        file: File(picked.path),
+        path: storagePath,
+      );
 
-      // In production, upload picked.path to Firebase Storage at
-      // storagePath and get the download URL. For the MVP we record
-      // the intended path so the upload layer can resolve it.
       await ref.read(firestoreServiceProvider).sendMediaMessage(
             orgId,
             widget.roomId,
             senderId: currentUser.id,
             senderName: currentUser.displayName,
-            mediaUrl: storagePath,
+            mediaUrl: downloadUrl,
             mediaType: 'image/${picked.name.split('.').last}',
             caption: null,
           );
@@ -278,6 +315,15 @@ class _ChatConversationScreenState
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final typingUsers =
         ref.watch(typingUsersProvider(widget.roomId)).valueOrNull ?? [];
+
+    // Keep cached copies up-to-date so dispose() can clear typing without ref.
+    // Only cache firestoreService when orgId and userId are available to avoid
+    // triggering Firebase initialisation in test environments.
+    _cachedOrgId = ref.read(organizationProvider).valueOrNull?.id;
+    _cachedUserId = currentUser?.id;
+    if (_cachedOrgId != null && _cachedUserId != null) {
+      _cachedFirestoreService = ref.read(firestoreServiceProvider);
+    }
 
     // Auto-scroll and mark-as-read when new messages arrive.
     ref.listen<AsyncValue<List<Message>>>(

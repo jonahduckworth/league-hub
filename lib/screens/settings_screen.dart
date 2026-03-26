@@ -7,7 +7,6 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../providers/mock_data.dart';
 import '../widgets/avatar_widget.dart';
-import 'admin/manage_leagues_screen.dart';
 import 'settings/edit_profile_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -37,12 +36,7 @@ class SettingsScreen extends ConsumerWidget {
                   _SettingsItem(
                     icon: Icons.location_city,
                     title: 'Manage Leagues & Hubs',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ManageLeaguesScreen(),
-                      ),
-                    ),
+                    onTap: () => context.push('/settings/leagues'),
                   ),
                 if (visibleTiles.contains('users'))
                   _SettingsItem(

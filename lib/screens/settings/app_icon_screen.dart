@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
+import '../../services/authorized_firestore_service.dart';
 
 class AppIconScreen extends ConsumerStatefulWidget {
   const AppIconScreen({super.key});
@@ -74,7 +75,12 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(firestoreServiceProvider).updateOrganization(
+      final currentUser = await ref.read(currentUserProvider.future);
+      if (currentUser == null) return;
+
+      final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
+      await authorizedSvc.updateOrganization(
+        currentUser,
         org.id,
         {'appIcon': _iconOptions[_selectedIndex].name.toLowerCase()},
       );
@@ -88,6 +94,16 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
           ),
         );
         context.pop();
+      }
+    } on PermissionDeniedException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Permission denied: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

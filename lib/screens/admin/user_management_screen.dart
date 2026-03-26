@@ -9,6 +9,7 @@ import '../../models/invitation.dart';
 import '../../models/league.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
+import '../../services/authorized_firestore_service.dart';
 import '../../widgets/avatar_widget.dart';
 
 class UserManagementScreen extends ConsumerStatefulWidget {
@@ -343,11 +344,45 @@ class _UserCard extends ConsumerWidget {
             ),
             onPressed: () async {
               Navigator.pop(context);
-              final svc = ref.read(firestoreServiceProvider);
-              if (user.isActive) {
-                await svc.deactivateUser(user.id);
-              } else {
-                await svc.reactivateUser(user.id);
+              try {
+                final currentUser = await ref.read(currentUserProvider.future);
+                if (!context.mounted) return;
+                if (currentUser == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('User not authenticated'),
+                      backgroundColor: AppColors.danger,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  return;
+                }
+                final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
+                if (user.isActive) {
+                  await authorizedSvc.deactivateUser(currentUser, user);
+                } else {
+                  await authorizedSvc.reactivateUser(currentUser, user);
+                }
+              } on PermissionDeniedException catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Permission denied: $e'),
+                      backgroundColor: AppColors.danger,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: AppColors.danger,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
               }
             },
             child: Text(action),
@@ -544,7 +579,6 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
       final currentUser = await ref.read(currentUserProvider.future);
       if (org == null || currentUser == null) return;
 
-      final svc = ref.read(firestoreServiceProvider);
       final invitation = Invitation(
         id: '',
         orgId: org.id,
@@ -562,10 +596,21 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
         token: '',
       );
 
-      final token = await svc.createInvitation(org.id, invitation);
+      final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
+      final token = await authorizedSvc.createInvitation(currentUser, org.id, invitation);
       if (!mounted) return;
       Navigator.pop(context);
       _showSuccessDialog(context, token);
+    } on PermissionDeniedException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Permission denied: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

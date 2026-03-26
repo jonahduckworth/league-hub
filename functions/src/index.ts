@@ -10,3 +10,4 @@ export { onMessageCreated } from "./notifications/messages";
 export { onDocumentCreated } from "./notifications/documents";
 export { onTeamUpdated } from "./notifications/teams";
 export { onInvitationCreated } from "./notifications/invitations";
+export { onUserRoleChanged } from "./notifications/roleChanges";

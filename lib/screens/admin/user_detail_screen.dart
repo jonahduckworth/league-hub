@@ -6,6 +6,7 @@ import '../../models/app_user.dart';
 import '../../models/hub.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
+import '../../services/authorized_firestore_service.dart';
 import '../../widgets/avatar_widget.dart';
 
 class UserDetailScreen extends ConsumerStatefulWidget {
@@ -66,14 +67,32 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     if (_user == null) return;
     setState(() => _saving = true);
     try {
-      final svc = ref.read(firestoreServiceProvider);
-      await svc.updateUserFields(widget.userId, {
+      final currentUser = await ref.read(currentUserProvider.future);
+      if (currentUser == null) return;
+
+      final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
+      final fs = ref.read(firestoreServiceProvider);
+      final hubIdsList = _editHubIds.toList();
+      // Derive leagueIds from hub assignments.
+      final leagueIds = currentUser.orgId != null
+          ? await fs.deriveLeagueIdsFromHubs(currentUser.orgId!, hubIdsList)
+          : <String>[];
+      await authorizedSvc.updateUserFields(currentUser, _user!, {
         'role': _editRole!.name,
-        'hubIds': _editHubIds.toList(),
+        'hubIds': hubIdsList,
+        'leagueIds': leagueIds,
       });
       // Reload user
       await _loadUser();
       if (mounted) setState(() => _editing = false);
+    } on PermissionDeniedException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Permission denied: $e'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -115,13 +134,34 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       ),
     );
     if (confirmed != true) return;
-    final svc = ref.read(firestoreServiceProvider);
-    if (_user!.isActive) {
-      await svc.deactivateUser(widget.userId);
-    } else {
-      await svc.reactivateUser(widget.userId);
+    try {
+      final currentUser = await ref.read(currentUserProvider.future);
+      if (currentUser == null) return;
+
+      final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
+      if (_user!.isActive) {
+        await authorizedSvc.deactivateUser(currentUser, _user!);
+      } else {
+        await authorizedSvc.reactivateUser(currentUser, _user!);
+      }
+      await _loadUser();
+    } on PermissionDeniedException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Permission denied: $e'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
     }
-    await _loadUser();
   }
 
   @override

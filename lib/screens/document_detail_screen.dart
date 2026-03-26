@@ -10,7 +10,10 @@ import '../models/app_user.dart';
 import '../models/document.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/authorized_firestore_service.dart';
 import '../services/storage_service.dart';
+import 'viewers/image_viewer_screen.dart';
+import 'viewers/pdf_viewer_screen.dart';
 
 class DocumentDetailScreen extends ConsumerStatefulWidget {
   final String docId;
@@ -34,15 +37,66 @@ class _DocumentDetailScreenState
         user?.role == UserRole.platformOwner;
   }
 
-  Future<void> _openDocument(String url) async {
+  static const _imageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
+  static const _pdfExts = {'pdf'};
+
+  /// Opens the document in-app for supported types (PDF, images) or
+  /// falls back to the external browser for other types.
+  Future<void> _openDocument(String url, {String? fileType, String? title}) async {
+    final ext = (fileType ?? _extractExtFromUrl(url)).toLowerCase();
+
+    if (_imageExts.contains(ext)) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ImageViewerScreen(
+            imageUrl: url,
+            title: title ?? 'Image',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (_pdfExts.contains(ext)) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(
+            pdfUrl: url,
+            title: title ?? 'PDF',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Unsupported type — fall back to external browser.
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'In-app preview not available for .$ext files. Opening in browser.'),
+          ),
+        );
+      }
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open document.')),
       );
     }
+  }
+
+  String _extractExtFromUrl(String url) {
+    try {
+      final path = Uri.parse(url).path;
+      final lastDot = path.lastIndexOf('.');
+      if (lastDot != -1) return path.substring(lastDot + 1);
+    } catch (_) {}
+    return '';
   }
 
   Future<void> _uploadNewVersion(Document doc) async {
@@ -87,7 +141,7 @@ class _DocumentDetailScreenState
 
     try {
       final storage = StorageService();
-      final firestore = ref.read(firestoreServiceProvider);
+      final authorizedFirestore = ref.read(authorizedFirestoreServiceProvider);
 
       final contentType = _contentType(ext);
       final now = DateTime.now();
@@ -109,12 +163,20 @@ class _DocumentDetailScreenState
         'fileSize': file.size,
       };
 
-      await firestore.addDocumentVersion(orgId, doc.id, versionEntry);
+      await authorizedFirestore.addDocumentVersion(
+          currentUser, orgId, doc.id, versionEntry);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('New version uploaded.'),
           backgroundColor: AppColors.success,
+        ));
+      }
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Permission denied. You cannot upload versions.'),
+          backgroundColor: AppColors.danger,
         ));
       }
     } catch (e) {
@@ -159,9 +221,14 @@ class _DocumentDetailScreenState
     setState(() => _isDeleting = true);
 
     try {
+      final currentUser = ref.read(currentUserProvider).valueOrNull;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
       await ref
-          .read(firestoreServiceProvider)
-          .deleteDocument(orgId, doc.id);
+          .read(authorizedFirestoreServiceProvider)
+          .deleteDocument(currentUser, orgId, doc.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -169,6 +236,14 @@ class _DocumentDetailScreenState
           backgroundColor: AppColors.success,
         ));
         context.pop();
+      }
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Permission denied. You cannot delete this document.'),
+          backgroundColor: AppColors.danger,
+        ));
+        setState(() => _isDeleting = false);
       }
     } catch (e) {
       if (mounted) {
@@ -341,7 +416,11 @@ class _DocumentDetailScreenState
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _openDocument(doc.fileUrl),
+                  onPressed: () => _openDocument(
+                    doc.fileUrl,
+                    fileType: doc.fileType,
+                    title: doc.name,
+                  ),
                   icon: const Icon(Icons.open_in_new),
                   label: const Text('Open / Download'),
                   style: ElevatedButton.styleFrom(
@@ -417,7 +496,11 @@ class _DocumentDetailScreenState
                       version: v,
                       displayVersion: displayVersion,
                       isLatest: isLatest,
-                      onTap: () => _openDocument(v.fileUrl),
+                      onTap: () => _openDocument(
+                        v.fileUrl,
+                        fileType: doc.fileType,
+                        title: '${doc.name} v$displayVersion',
+                      ),
                     );
                   },
                 ),

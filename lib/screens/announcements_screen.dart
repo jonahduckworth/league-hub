@@ -8,6 +8,7 @@ import '../models/app_user.dart';
 import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/authorized_firestore_service.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/avatar_widget.dart';
 
@@ -122,7 +123,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
   void _showOptions(BuildContext context, Announcement a) {
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     if (orgId == null) return;
-    final service = ref.read(firestoreServiceProvider);
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
 
     showModalBottomSheet(
       context: context,
@@ -137,7 +139,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
               title: Text(a.isPinned ? 'Unpin' : 'Pin'),
               onTap: () {
                 Navigator.pop(ctx);
-                service.togglePin(orgId, a.id, !a.isPinned);
+                _togglePin(orgId, a.id, !a.isPinned, currentUser);
               },
             ),
             ListTile(
@@ -154,7 +156,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                   style: TextStyle(color: AppColors.danger)),
               onTap: () {
                 Navigator.pop(ctx);
-                _confirmDelete(context, orgId, a.id);
+                _confirmDelete(context, orgId, a.id, currentUser);
               },
             ),
           ],
@@ -163,7 +165,34 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     );
   }
 
-  void _confirmDelete(BuildContext context, String orgId, String id) {
+  Future<void> _togglePin(String orgId, String announcementId, bool isPinned,
+      AppUser currentUser) async {
+    try {
+      await ref.read(authorizedFirestoreServiceProvider).togglePin(
+            currentUser,
+            orgId,
+            announcementId,
+            isPinned,
+          );
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Permission denied. You cannot pin announcements.'),
+          backgroundColor: AppColors.danger,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to toggle pin: $e'),
+          backgroundColor: AppColors.danger,
+        ));
+      }
+    }
+  }
+
+  void _confirmDelete(BuildContext context, String orgId, String id,
+      AppUser currentUser) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -177,9 +206,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              ref
-                  .read(firestoreServiceProvider)
-                  .deleteAnnouncement(orgId, id);
+              _deleteAnnouncement(orgId, id, currentUser);
             },
             child: const Text('Delete',
                 style: TextStyle(color: AppColors.danger)),
@@ -187,6 +214,31 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _deleteAnnouncement(
+      String orgId, String announcementId, AppUser currentUser) async {
+    try {
+      await ref.read(authorizedFirestoreServiceProvider).deleteAnnouncement(
+            currentUser,
+            orgId,
+            announcementId,
+          );
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Permission denied. You cannot delete announcements.'),
+          backgroundColor: AppColors.danger,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Delete failed: $e'),
+          backgroundColor: AppColors.danger,
+        ));
+      }
+    }
   }
 }
 

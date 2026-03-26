@@ -153,12 +153,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onSubmitted: (query) {
                 Navigator.pop(ctx);
                 if (query.trim().isNotEmpty) {
-                  // Navigate to the relevant tab based on best guess
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Searching for "$query"...'),
-                      backgroundColor: AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
+                  showDialog(
+                    context: context,
+                    builder: (dialogCtx) => AlertDialog(
+                      title: const Text('Search'),
+                      content: const Text('Search functionality is coming soon.'),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(dialogCtx),
+                          child: const Text('OK'),
+                        ),
+                      ],
                     ),
                   );
                 }

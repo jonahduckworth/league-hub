@@ -7,6 +7,7 @@ import '../../models/app_user.dart';
 import '../../models/chat_room.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
+import '../../services/authorized_firestore_service.dart';
 import '../../widgets/avatar_widget.dart';
 
 class ChatRoomInfoScreen extends ConsumerWidget {
@@ -226,15 +227,29 @@ class ChatRoomInfoScreen extends ConsumerWidget {
             onPressed: () async {
               final orgId =
                   ref.read(organizationProvider).valueOrNull?.id;
-              if (orgId != null) {
+              final currentUser =
+                  ref.read(currentUserProvider).valueOrNull;
+              if (orgId == null || currentUser == null) return;
+              try {
                 await ref
-                    .read(firestoreServiceProvider)
-                    .archiveChatRoom(orgId, room.id);
-              }
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) {
-                context.pop(); // Back to chat conversation
-                context.pop(); // Back to chat list
+                    .read(authorizedFirestoreServiceProvider)
+                    .archiveChatRoom(currentUser, orgId, room.id);
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  context.pop(); // Back to chat conversation
+                  context.pop(); // Back to chat list
+                }
+              } on PermissionDeniedException {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('You do not have permission to archive chat rooms'),
+                      backgroundColor: AppColors.danger,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
               }
             },
             child: const Text('Archive'),

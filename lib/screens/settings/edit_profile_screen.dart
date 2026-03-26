@@ -2,9 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
+import '../../services/storage_service.dart';
 import '../../widgets/avatar_widget.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
@@ -19,6 +21,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _emailController;
   bool _isLoading = false;
+  bool _isUploadingPhoto = false;
   bool _initialized = false;
 
   @override
@@ -34,6 +37,78 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _nameController = TextEditingController(text: user?.displayName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _initialized = true;
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+
+    // Check permission — users can only edit their own photo.
+    final permissionSvc = ref.read(permissionServiceProvider);
+    if (!permissionSvc.canEditProfile(user, user.id)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You can only change your own profile photo'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+
+    try {
+      final bytes = await picked.readAsBytes();
+      final storage = StorageService();
+      final orgId = user.orgId ?? 'default';
+      final path = 'orgs/$orgId/avatars/${user.id}.jpg';
+
+      final downloadUrl = await storage.uploadBytes(
+        bytes: bytes,
+        path: path,
+        contentType: 'image/jpeg',
+      );
+
+      await ref
+          .read(firestoreServiceProvider)
+          .updateUserFields(user.id, {'avatarUrl': downloadUrl});
+
+      ref.invalidate(currentUserProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile photo updated'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload photo: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
   }
 
   Future<void> _save() async {
@@ -52,6 +127,26 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       if (newEmail != user.email) updates['email'] = newEmail;
 
       if (updates.isNotEmpty) {
+        // For profile self-edits, use raw FirestoreService with permission check
+        try {
+          final permissionSvc = ref.read(permissionServiceProvider);
+          final canEdit = permissionSvc.canEditProfile(user, user.id);
+          if (!canEdit) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('You do not have permission to edit this profile'),
+                  backgroundColor: AppColors.danger,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+            return;
+          }
+        } catch (e) {
+          // If permission check fails, continue with attempt (may fail at Firestore)
+        }
+
         await ref
             .read(firestoreServiceProvider)
             .updateUserFields(user.id, updates);
@@ -123,10 +218,36 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           child: Column(
             children: [
               const SizedBox(height: 16),
-              AvatarWidget(
-                name: user?.displayName ?? '',
-                size: 80,
-                backgroundColor: AppColors.primary,
+              GestureDetector(
+                onTap: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+                child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    AvatarWidget(
+                      name: user?.displayName ?? '',
+                      imageUrl: user?.avatarUrl,
+                      size: 80,
+                      backgroundColor: AppColors.primary,
+                    ),
+                    if (_isUploadingPhoto)
+                      const Positioned.fill(
+                        child: Center(
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.camera_alt,
+                            color: Colors.white, size: 16),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 32),
               TextFormField(

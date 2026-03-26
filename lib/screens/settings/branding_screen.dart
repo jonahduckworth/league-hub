@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
+import '../../services/authorized_firestore_service.dart';
 
 class BrandingScreen extends ConsumerStatefulWidget {
   const BrandingScreen({super.key});
@@ -54,15 +55,17 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final currentUser = await ref.read(currentUserProvider.future);
+      if (currentUser == null) return;
+
       final updates = <String, dynamic>{
         'name': _nameController.text.trim(),
         'primaryColor': _colorToHex(_primaryColor),
         'secondaryColor': _colorToHex(_secondaryColor),
         'accentColor': _colorToHex(_accentColor),
       };
-      await ref
-          .read(firestoreServiceProvider)
-          .updateOrganization(org.id, updates);
+      final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
+      await authorizedSvc.updateOrganization(currentUser, org.id, updates);
       ref.invalidate(organizationProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -73,6 +76,16 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
           ),
         );
         context.pop();
+      }
+    } on PermissionDeniedException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Permission denied: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

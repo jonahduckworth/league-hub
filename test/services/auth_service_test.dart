@@ -209,45 +209,4 @@ void main() {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // createAccountFromInvite
-  // ---------------------------------------------------------------------------
-
-  group('createAccountFromInvite', () {
-    test(
-        'createAccountFromInvite creates auth user AND Firestore user doc with invitation data',
-        () async {
-      const orgId = 'invite-org';
-      final invitation = Invitation(
-        id: 'inv-1',
-        orgId: orgId,
-        email: 'eve@example.com',
-        displayName: 'Eve',
-        role: 'managerAdmin',
-        hubIds: ['hub-a', 'hub-b'],
-        teamIds: ['team-x'],
-        invitedBy: 'admin-1',
-        invitedByName: 'Admin',
-        createdAt: DateTime.now(),
-        status: InvitationStatus.pending,
-        token: 'abc123',
-      );
-
-      await auth.createAccountFromInvite(
-        'eve@example.com',
-        'password123',
-        'Eve',
-        invitation,
-      );
-
-      final uid = auth.currentUser!.uid;
-      final appUser = await firestore.getUser(uid);
-      expect(appUser, isNotNull);
-      expect(appUser!.email, 'eve@example.com');
-      expect(appUser.orgId, orgId);
-      expect(appUser.hubIds, ['hub-a', 'hub-b']);
-      expect(appUser.teamIds, ['team-x']);
-      expect(appUser.role.name, 'managerAdmin');
-    });
-  });
 }

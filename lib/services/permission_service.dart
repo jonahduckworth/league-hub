@@ -65,6 +65,7 @@ class PermissionService {
     '/settings/roles',
     '/settings/branding',
     '/settings/app-icon',
+    '/settings/leagues',
   };
 
   /// Routes that require at least managerAdmin to create/edit content.
@@ -114,6 +115,8 @@ class PermissionService {
     if (normalised.startsWith('/settings/users/')) {
       return isAtLeast(user.role, UserRole.managerAdmin);
     }
+    // Team detail — accessible to all active users.
+    if (normalised.startsWith('/teams/')) return true;
 
     return false;
   }
@@ -285,8 +288,11 @@ class PermissionService {
     if (scope == AnnouncementScope.hub && hubId != null) {
       return user.hubIds.contains(hubId);
     }
-    // League-scoped: visible to all in the org (leagues don't have direct
-    // user assignments — users are assigned to hubs which belong to leagues).
+    // League-scoped: user must belong to a hub within that league.
+    if (scope == AnnouncementScope.league && leagueId != null) {
+      return user.leagueIds.contains(leagueId);
+    }
+    // Fallback: visible to all.
     return true;
   }
 
@@ -318,7 +324,9 @@ class PermissionService {
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     // If hub-scoped, user must be in that hub.
     if (hubId != null) return user.hubIds.contains(hubId);
-    // League-scoped or unscoped docs are visible to everyone in the org.
+    // League-scoped: user must belong to a hub within that league.
+    if (leagueId != null) return user.leagueIds.contains(leagueId);
+    // Unscoped docs are visible to everyone in the org.
     return true;
   }
 
@@ -343,8 +351,11 @@ class PermissionService {
     if (room.type == ChatRoomType.direct) {
       return room.participants.contains(user.id);
     }
-    // League/event rooms: visible to anyone in the org (scoped filtering
-    // happens in the provider layer using hubIds→leagueIds mapping).
+    // League rooms: visible to users in hubs belonging to that league.
+    if (room.type == ChatRoomType.league && room.leagueId != null) {
+      return user.leagueIds.contains(room.leagueId);
+    }
+    // Event rooms: visible to anyone in the org.
     return true;
   }
 

@@ -8,6 +8,7 @@ import '../models/app_user.dart';
 import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/authorized_firestore_service.dart';
 import '../widgets/avatar_widget.dart';
 
 class AnnouncementDetailScreen extends ConsumerWidget {
@@ -180,6 +181,8 @@ class AnnouncementDetailScreen extends ConsumerWidget {
       BuildContext context, WidgetRef ref, Announcement a) {
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     if (orgId == null) return;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
 
     showDialog(
       context: context,
@@ -194,12 +197,7 @@ class AnnouncementDetailScreen extends ConsumerWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              ref
-                  .read(firestoreServiceProvider)
-                  .deleteAnnouncement(orgId, a.id)
-                  .then((_) {
-                if (context.mounted) context.pop();
-              });
+              _deleteAnnouncement(context, ref, orgId, a.id, currentUser);
             },
             child: const Text('Delete',
                 style: TextStyle(color: AppColors.danger)),
@@ -207,6 +205,34 @@ class AnnouncementDetailScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _deleteAnnouncement(BuildContext context, WidgetRef ref,
+      String orgId, String announcementId, AppUser currentUser) async {
+    try {
+      await ref.read(authorizedFirestoreServiceProvider).deleteAnnouncement(
+            currentUser,
+            orgId,
+            announcementId,
+          );
+      if (context.mounted) {
+        context.pop();
+      }
+    } on PermissionDeniedException {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Permission denied. You cannot delete announcements.'),
+          backgroundColor: AppColors.danger,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Delete failed: $e'),
+          backgroundColor: AppColors.danger,
+        ));
+      }
+    }
   }
 }
 

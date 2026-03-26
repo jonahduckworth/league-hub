@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/league.dart';
 import '../../models/hub.dart';
 import '../../models/team.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
-import '../../services/firestore_service.dart';
+import '../../services/authorized_firestore_service.dart';
 
 class ManageLeaguesScreen extends ConsumerWidget {
   const ManageLeaguesScreen({super.key});
@@ -177,8 +179,12 @@ class _AddLeagueSheetState extends State<_AddLeagueSheet> {
     if (name.isEmpty || abbrev.isEmpty) return;
     setState(() => _saving = true);
     try {
-      final db = widget.ref.read(firestoreServiceProvider);
-      final id = db.newLeagueId(widget.orgId);
+      final rawDb = widget.ref.read(firestoreServiceProvider);
+      final authDb = widget.ref.read(authorizedFirestoreServiceProvider);
+      final currentUser = widget.ref.read(currentUserProvider).value;
+      if (currentUser == null) return;
+
+      final id = rawDb.newLeagueId(widget.orgId);
       final league = League(
         id: id,
         orgId: widget.orgId,
@@ -186,8 +192,18 @@ class _AddLeagueSheetState extends State<_AddLeagueSheet> {
         abbreviation: abbrev,
         createdAt: DateTime.now(),
       );
-      await db.createLeague(widget.orgId, league);
+      await authDb.createLeague(currentUser, widget.orgId, league);
       if (mounted) Navigator.pop(context);
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to create leagues'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -206,7 +222,6 @@ class _LeagueTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hubsAsync = ref.watch(hubsProvider(league.id));
-    final db = ref.read(firestoreServiceProvider);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -260,7 +275,7 @@ class _LeagueTile extends ConsumerWidget {
                     color: AppColors.danger, size: 20),
                 tooltip: 'Delete League',
                 onPressed: () =>
-                    _confirmDelete(context, db, orgId, league),
+                    _confirmDelete(context, ref, orgId, league),
               ),
             ],
           ),
@@ -308,7 +323,7 @@ class _LeagueTile extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, FirestoreService db,
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref,
       String orgId, League league) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -328,7 +343,25 @@ class _LeagueTile extends ConsumerWidget {
         ],
       ),
     );
-    if (ok == true) await db.deleteLeague(orgId, league.id);
+    if (ok == true) {
+      try {
+        final currentUser = ref.read(currentUserProvider).value;
+        if (currentUser == null) return;
+        await ref
+            .read(authorizedFirestoreServiceProvider)
+            .deleteLeagueCascade(currentUser, orgId, league.id);
+      } on PermissionDeniedException {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You do not have permission to delete leagues'),
+              backgroundColor: AppColors.danger,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
   }
 
   static Future<void> _showAddHubSheet(BuildContext context, WidgetRef ref,
@@ -430,8 +463,12 @@ class _AddHubSheetState extends State<_AddHubSheet> {
     if (name.isEmpty) return;
     setState(() => _saving = true);
     try {
-      final db = widget.ref.read(firestoreServiceProvider);
-      final id = db.newHubId(widget.orgId, widget.leagueId);
+      final rawDb = widget.ref.read(firestoreServiceProvider);
+      final authDb = widget.ref.read(authorizedFirestoreServiceProvider);
+      final currentUser = widget.ref.read(currentUserProvider).value;
+      if (currentUser == null) return;
+
+      final id = rawDb.newHubId(widget.orgId, widget.leagueId);
       final hub = Hub(
         id: id,
         leagueId: widget.leagueId,
@@ -442,8 +479,19 @@ class _AddHubSheetState extends State<_AddHubSheet> {
             : widget.locationCtrl.text.trim(),
         createdAt: DateTime.now(),
       );
-      await db.createHub(widget.orgId, widget.leagueId, hub);
+      await authDb.createHub(
+          currentUser, widget.orgId, widget.leagueId, hub);
       if (mounted) Navigator.pop(context);
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to create hubs'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -465,7 +513,6 @@ class _HubTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final teamsAsync =
         ref.watch(teamsProvider((leagueId: leagueId, hubId: hub.id)));
-    final db = ref.read(firestoreServiceProvider);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -515,7 +562,7 @@ class _HubTile extends ConsumerWidget {
                     color: AppColors.danger, size: 18),
                 tooltip: 'Delete Hub',
                 onPressed: () =>
-                    _confirmDelete(context, db, orgId, leagueId, hub),
+                    _confirmDelete(context, ref, orgId, leagueId, hub),
               ),
             ],
           ),
@@ -545,8 +592,18 @@ class _HubTile extends ConsumerWidget {
                     children: teams
                         .map((t) => _TeamRow(
                               team: t,
-                              onDelete: () => db.deleteTeam(
-                                  orgId, leagueId, hub.id, t.id),
+                              onDelete: () async {
+                                try {
+                                  final currentUser = ref.read(currentUserProvider).value;
+                                  if (currentUser == null) return;
+                                  await ref
+                                      .read(authorizedFirestoreServiceProvider)
+                                      .deleteTeam(
+                                          currentUser, orgId, leagueId, hub.id, t.id);
+                                } on PermissionDeniedException {
+                                  // Permission denied, but dismissible already triggered
+                                }
+                              },
                             ))
                         .toList());
               },
@@ -557,7 +614,7 @@ class _HubTile extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, FirestoreService db,
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref,
       String orgId, String leagueId, Hub hub) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -577,7 +634,25 @@ class _HubTile extends ConsumerWidget {
         ],
       ),
     );
-    if (ok == true) await db.deleteHub(orgId, leagueId, hub.id);
+    if (ok == true) {
+      try {
+        final currentUser = ref.read(currentUserProvider).value;
+        if (currentUser == null) return;
+        await ref
+            .read(authorizedFirestoreServiceProvider)
+            .deleteHubCascade(currentUser, orgId, leagueId, hub.id);
+      } on PermissionDeniedException {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You do not have permission to delete hubs'),
+              backgroundColor: AppColors.danger,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
   }
 
   static Future<void> _showAddTeamSheet(BuildContext context, WidgetRef ref,
@@ -702,9 +777,13 @@ class _AddTeamSheetState extends State<_AddTeamSheet> {
     if (name.isEmpty) return;
     setState(() => _saving = true);
     try {
-      final db = widget.ref.read(firestoreServiceProvider);
+      final rawDb = widget.ref.read(firestoreServiceProvider);
+      final authDb = widget.ref.read(authorizedFirestoreServiceProvider);
+      final currentUser = widget.ref.read(currentUserProvider).value;
+      if (currentUser == null) return;
+
       final id =
-          db.newTeamId(widget.orgId, widget.leagueId, widget.hubId);
+          rawDb.newTeamId(widget.orgId, widget.leagueId, widget.hubId);
       final team = Team(
         id: id,
         hubId: widget.hubId,
@@ -719,9 +798,19 @@ class _AddTeamSheetState extends State<_AddTeamSheet> {
             : widget.divCtrl.text.trim(),
         createdAt: DateTime.now(),
       );
-      await db.createTeam(
-          widget.orgId, widget.leagueId, widget.hubId, team);
+      await authDb.createTeam(
+          currentUser, widget.orgId, widget.leagueId, widget.hubId, team);
       if (mounted) Navigator.pop(context);
+    } on PermissionDeniedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to create teams'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -739,7 +828,11 @@ class _TeamRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
+    return GestureDetector(
+      onTap: () => context.push(
+        '/teams/${team.id}?leagueId=${team.leagueId}&hubId=${team.hubId}',
+      ),
+      child: Dismissible(
       key: Key(team.id),
       direction: DismissDirection.endToStart,
       background: Container(
@@ -793,6 +886,7 @@ class _TeamRow extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

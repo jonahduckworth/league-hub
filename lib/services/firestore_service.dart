@@ -143,6 +143,12 @@ class FirestoreService {
           String orgId, String leagueId, String hubId, String teamId) =>
       _teamsRef(orgId, leagueId, hubId).doc(teamId).delete();
 
+  Future<void> updateTeamFields(String orgId, String leagueId, String hubId,
+          String teamId, Map<String, dynamic> data) =>
+      _teamsRef(orgId, leagueId, hubId)
+          .doc(teamId)
+          .set(data, SetOptions(merge: true));
+
   // --- ID generators (for creating documents with known IDs) ---
 
   String newLeagueId(String orgId) => _leaguesRef(orgId).doc().id;
@@ -779,6 +785,20 @@ class FirestoreService {
       }
     }
     return hubs;
+  }
+
+  /// Derives the unique league IDs for a set of hub IDs by scanning all hubs.
+  Future<List<String>> deriveLeagueIdsFromHubs(
+      String orgId, List<String> hubIds) async {
+    if (hubIds.isEmpty) return [];
+    final allHubs = await getAllHubsFlat(orgId);
+    final leagueIds = <String>{};
+    for (final hub in allHubs) {
+      if (hubIds.contains(hub.id)) {
+        leagueIds.add(hub.leagueId);
+      }
+    }
+    return leagueIds.toList();
   }
 
   Future<int> getActiveUserCount(String orgId) async {
