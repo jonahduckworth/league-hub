@@ -10,7 +10,10 @@ import '../../models/league.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
+import '../../core/utils.dart';
 import '../../widgets/avatar_widget.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/status_badge.dart';
 
 class UserManagementScreen extends ConsumerStatefulWidget {
   const UserManagementScreen({super.key});
@@ -100,19 +103,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
               data: (users) {
                 final filtered = _filtered(users);
                 if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.people_outline,
-                            size: 64,
-                            color: AppColors.textMuted.withValues(alpha: 0.5)),
-                        const SizedBox(height: 12),
-                        const Text('No users found',
-                            style: TextStyle(
-                                fontSize: 16, color: AppColors.textSecondary)),
-                      ],
-                    ),
+                  return const EmptyState(
+                    icon: Icons.people_outline,
+                    title: 'No users found',
                   );
                 }
                 return ListView.builder(
@@ -286,7 +279,7 @@ class _UserCard extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      _RoleBadge(
+                      StatusBadge(
                           label: user.roleLabel,
                           color: _roleColor(user.role)),
                     ],
@@ -348,13 +341,7 @@ class _UserCard extends ConsumerWidget {
                 final currentUser = await ref.read(currentUserProvider.future);
                 if (!context.mounted) return;
                 if (currentUser == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('User not authenticated'),
-                      backgroundColor: AppColors.danger,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showErrorSnackBar(context, 'User not authenticated');
                   return;
                 }
                 final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
@@ -365,23 +352,11 @@ class _UserCard extends ConsumerWidget {
                 }
               } on PermissionDeniedException catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Permission denied: $e'),
-                      backgroundColor: AppColors.danger,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showErrorSnackBar(context, 'Permission denied: $e');
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: $e'),
-                      backgroundColor: AppColors.danger,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showErrorSnackBar(context, 'Error: $e');
                 }
               }
             },
@@ -389,27 +364,6 @@ class _UserCard extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _RoleBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _RoleBadge({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 11, color: color, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -497,12 +451,7 @@ class _InvitationTile extends StatelessWidget {
         icon: const Icon(Icons.copy, color: AppColors.textMuted),
         onPressed: () {
           Clipboard.setData(ClipboardData(text: invite.token));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invite code copied!'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppUtils.showInfoSnackBar(context, 'Invite code copied!');
         },
         tooltip: 'Copy invite code',
       ),
@@ -563,13 +512,7 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
   Future<void> _sendInvite() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email is required'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppUtils.showErrorSnackBar(context, 'Email is required');
       return;
     }
 
@@ -603,23 +546,11 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
       _showSuccessDialog(context, token);
     } on PermissionDeniedException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Permission denied: $e'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(context, 'Permission denied: $e');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to send invite: $e'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(context, 'Failed to send invite: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -662,12 +593,7 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
                     icon: const Icon(Icons.copy, size: 20),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: token));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Copied!'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
+                      AppUtils.showInfoSnackBar(context, 'Copied!');
                     },
                   ),
                 ],

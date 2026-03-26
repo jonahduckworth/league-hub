@@ -87,19 +87,11 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       if (mounted) setState(() => _editing = false);
     } on PermissionDeniedException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Permission denied: $e'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Permission denied: $e');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to save: $e'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Failed to save: $e');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -147,19 +139,11 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       await _loadUser();
     } on PermissionDeniedException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Permission denied: $e'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Permission denied: $e');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Error: $e');
       }
     }
   }

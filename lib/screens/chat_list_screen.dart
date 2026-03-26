@@ -9,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../widgets/avatar_widget.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 
 class ChatListScreen extends ConsumerStatefulWidget {
@@ -250,13 +251,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                     }
                   } on PermissionDeniedException {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('You do not have permission to create chat rooms'),
-                          backgroundColor: AppColors.danger,
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
+                      AppUtils.showErrorSnackBar(
+                          context, 'You do not have permission to create chat rooms');
                     }
                   }
                 },
@@ -445,29 +441,10 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                     .toList();
 
                 if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.forum_outlined,
-                            size: 56,
-                            color: AppColors.textMuted.withValues(alpha: 0.5)),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'No chat rooms yet',
-                          style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Tap + to start a conversation',
-                          style: TextStyle(
-                              fontSize: 14, color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
+                  return const EmptyState(
+                    icon: Icons.forum_outlined,
+                    title: 'No chat rooms yet',
+                    subtitle: 'Tap + to start a conversation',
                   );
                 }
 

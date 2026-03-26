@@ -9,8 +9,12 @@ import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
+import '../services/permission_service.dart';
+import '../widgets/confirmation_dialog.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/avatar_widget.dart';
+import '../widgets/status_badge.dart';
 
 class AnnouncementsScreen extends ConsumerStatefulWidget {
   const AnnouncementsScreen({super.key});
@@ -33,9 +37,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
   }
 
   bool _canManage(UserRole role) =>
-      role == UserRole.platformOwner ||
-      role == UserRole.superAdmin ||
-      role == UserRole.managerAdmin;
+      PermissionService.isAtLeast(role, UserRole.managerAdmin);
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +78,11 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
               child: announcementsAsync.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : filtered.isEmpty
-                      ? _buildEmptyState()
+                      ? const EmptyState(
+                          icon: Icons.campaign_outlined,
+                          title: 'No announcements yet',
+                          subtitle: 'Check back later for updates.',
+                        )
                       : ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: filtered.length,
@@ -97,25 +103,6 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.campaign_outlined,
-              size: 64, color: AppColors.textMuted.withValues(alpha: 0.5)),
-          const SizedBox(height: 16),
-          const Text('No announcements yet',
-              style:
-                  TextStyle(fontSize: 16, color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          const Text('Check back later for updates.',
-              style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-        ],
       ),
     );
   }
@@ -176,44 +163,28 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
           );
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Permission denied. You cannot pin announcements.'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(
+            context, 'Permission denied. You cannot pin announcements.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to toggle pin: $e'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Failed to toggle pin: $e');
       }
     }
   }
 
   void _confirmDelete(BuildContext context, String orgId, String id,
-      AppUser currentUser) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Announcement'),
-        content:
-            const Text('Are you sure you want to delete this announcement?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _deleteAnnouncement(orgId, id, currentUser);
-            },
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.danger)),
-          ),
-        ],
-      ),
+      AppUser currentUser) async {
+    final ok = await showConfirmationDialog(
+      context,
+      title: 'Delete Announcement',
+      message: 'Are you sure you want to delete this announcement?',
+      confirmLabel: 'Delete',
+      confirmColor: AppColors.danger,
     );
+    if (ok == true) {
+      _deleteAnnouncement(orgId, id, currentUser);
+    }
   }
 
   Future<void> _deleteAnnouncement(
@@ -226,17 +197,12 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
           );
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Permission denied. You cannot delete announcements.'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(
+            context, 'Permission denied. You cannot delete announcements.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Delete failed: $e'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Delete failed: $e');
       }
     }
   }
@@ -396,18 +362,6 @@ class _ScopeTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _color.withValues(alpha: 0.3)),
-      ),
-      child: Text(_label,
-          style: TextStyle(
-              fontSize: 12,
-              color: _color,
-              fontWeight: FontWeight.w600)),
-    );
+    return StatusBadge(label: _label, color: _color);
   }
 }

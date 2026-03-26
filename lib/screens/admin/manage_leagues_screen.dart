@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../core/utils.dart';
 import '../../models/league.dart';
 import '../../models/hub.dart';
 import '../../models/team.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
+import '../../widgets/confirmation_dialog.dart';
+import '../../widgets/empty_state.dart';
 
 class ManageLeaguesScreen extends ConsumerWidget {
   const ManageLeaguesScreen({super.key});
@@ -41,30 +44,10 @@ class ManageLeaguesScreen extends ConsumerWidget {
         ),
         data: (leagues) {
           if (leagues.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.emoji_events_outlined,
-                        size: 64,
-                        color: AppColors.textMuted.withValues(alpha: 0.5)),
-                    const SizedBox(height: 16),
-                    const Text('No leagues yet',
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.text)),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Tap the button below to add your first league.',
-                      style: TextStyle(color: AppColors.textSecondary),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
+            return const EmptyState(
+              icon: Icons.emoji_events_outlined,
+              title: 'No leagues yet',
+              subtitle: 'Tap the button below to add your first league.',
             );
           }
           return ListView.builder(
@@ -196,13 +179,8 @@ class _AddLeagueSheetState extends State<_AddLeagueSheet> {
       if (mounted) Navigator.pop(context);
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to create leagues'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to create leagues');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -325,23 +303,13 @@ class _LeagueTile extends ConsumerWidget {
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref,
       String orgId, League league) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete League'),
-        content: Text(
-            'Delete "${league.name}"? This will also remove all its hubs and teams.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style:
-                  TextButton.styleFrom(foregroundColor: AppColors.danger),
-              child: const Text('Delete')),
-        ],
-      ),
+    final ok = await showConfirmationDialog(
+      context,
+      title: 'Delete League',
+      message:
+          'Delete "${league.name}"? This will also remove all its hubs and teams.',
+      confirmLabel: 'Delete',
+      confirmColor: AppColors.danger,
     );
     if (ok == true) {
       try {
@@ -352,13 +320,8 @@ class _LeagueTile extends ConsumerWidget {
             .deleteLeagueCascade(currentUser, orgId, league.id);
       } on PermissionDeniedException {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You do not have permission to delete leagues'),
-              backgroundColor: AppColors.danger,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppUtils.showErrorSnackBar(
+              context, 'You do not have permission to delete leagues');
         }
       }
     }
@@ -484,13 +447,8 @@ class _AddHubSheetState extends State<_AddHubSheet> {
       if (mounted) Navigator.pop(context);
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to create hubs'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to create hubs');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -616,23 +574,13 @@ class _HubTile extends ConsumerWidget {
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref,
       String orgId, String leagueId, Hub hub) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete Hub'),
-        content: Text(
-            'Delete "${hub.name}"? All its teams will also be removed.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style:
-                  TextButton.styleFrom(foregroundColor: AppColors.danger),
-              child: const Text('Delete')),
-        ],
-      ),
+    final ok = await showConfirmationDialog(
+      context,
+      title: 'Delete Hub',
+      message:
+          'Delete "${hub.name}"? All its teams will also be removed.',
+      confirmLabel: 'Delete',
+      confirmColor: AppColors.danger,
     );
     if (ok == true) {
       try {
@@ -643,13 +591,8 @@ class _HubTile extends ConsumerWidget {
             .deleteHubCascade(currentUser, orgId, leagueId, hub.id);
       } on PermissionDeniedException {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You do not have permission to delete hubs'),
-              backgroundColor: AppColors.danger,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppUtils.showErrorSnackBar(
+              context, 'You do not have permission to delete hubs');
         }
       }
     }
@@ -803,13 +746,8 @@ class _AddTeamSheetState extends State<_AddTeamSheet> {
       if (mounted) Navigator.pop(context);
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to create teams'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to create teams');
       }
     } finally {
       if (mounted) setState(() => _saving = false);

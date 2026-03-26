@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../core/utils.dart';
 import '../../models/app_user.dart';
 import '../../models/team.dart';
 import '../../providers/auth_provider.dart';
@@ -300,19 +301,12 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       }
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('You do not have permission to manage this team'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ));
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to manage this team');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to add member: $e'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Failed to add member: $e');
       }
     }
   }
@@ -336,19 +330,12 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       }
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('You do not have permission to manage this team'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ));
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to manage this team');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to remove member: $e'),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Failed to remove member: $e');
       }
     }
   }

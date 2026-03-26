@@ -1,6 +1,31 @@
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'theme.dart';
 
 class AppUtils {
+  static void showErrorSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: AppColors.danger,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  static void showSuccessSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: AppColors.success,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  static void showInfoSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
   static String formatDate(DateTime date) {
     return DateFormat('MMM d, yyyy').format(date);
   }

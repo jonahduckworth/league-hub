@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
+import '../services/permission_service.dart';
 import '../models/document.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
@@ -32,9 +33,8 @@ class _DocumentDetailScreenState
   bool _isDeleting = false;
 
   bool _canManage(AppUser? user) {
-    return user?.role == UserRole.superAdmin ||
-        user?.role == UserRole.managerAdmin ||
-        user?.role == UserRole.platformOwner;
+    if (user == null) return false;
+    return PermissionService.isAtLeast(user.role, UserRole.managerAdmin);
   }
 
   static const _imageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
@@ -75,18 +75,12 @@ class _DocumentDetailScreenState
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'In-app preview not available for .$ext files. Opening in browser.'),
-          ),
-        );
+        AppUtils.showInfoSnackBar(context,
+            'In-app preview not available for .$ext files. Opening in browser.');
       }
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open document.')),
-      );
+      AppUtils.showInfoSnackBar(context, 'Could not open document.');
     }
   }
 
@@ -121,11 +115,8 @@ class _DocumentDetailScreenState
 
     if (file.size > maxSize) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'File too large. Max: ${isImage ? '10 MB' : '25 MB'}'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(context,
+            'File too large. Max: ${isImage ? '10 MB' : '25 MB'}');
       }
       return;
     }
@@ -167,24 +158,16 @@ class _DocumentDetailScreenState
           currentUser, orgId, doc.id, versionEntry);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('New version uploaded.'),
-          backgroundColor: AppColors.success,
-        ));
+        AppUtils.showSuccessSnackBar(context, 'New version uploaded.');
       }
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Permission denied. You cannot upload versions.'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(
+            context, 'Permission denied. You cannot upload versions.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Upload failed: $e'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Upload failed: $e');
       }
     } finally {
       if (mounted) setState(() => _isUploading = false);
@@ -231,26 +214,18 @@ class _DocumentDetailScreenState
           .deleteDocument(currentUser, orgId, doc.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Document deleted.'),
-          backgroundColor: AppColors.success,
-        ));
+        AppUtils.showSuccessSnackBar(context, 'Document deleted.');
         context.pop();
       }
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Permission denied. You cannot delete this document.'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(
+            context, 'Permission denied. You cannot delete this document.');
         setState(() => _isDeleting = false);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Delete failed: $e'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Delete failed: $e');
         setState(() => _isDeleting = false);
       }
     }

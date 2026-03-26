@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/theme.dart';
+import '../../core/utils.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/storage_service.dart';
@@ -47,13 +48,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final permissionSvc = ref.read(permissionServiceProvider);
     if (!permissionSvc.canEditProfile(user, user.id)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You can only change your own profile photo'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(
+            context, 'You can only change your own profile photo');
       }
       return;
     }
@@ -88,23 +84,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       ref.invalidate(currentUserProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile photo updated'),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showSuccessSnackBar(context, 'Profile photo updated');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to upload photo: $e'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(context, 'Failed to upload photo: $e');
       }
     } finally {
       if (mounted) setState(() => _isUploadingPhoto = false);
@@ -133,13 +117,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           final canEdit = permissionSvc.canEditProfile(user, user.id);
           if (!canEdit) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('You do not have permission to edit this profile'),
-                  backgroundColor: AppColors.danger,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              AppUtils.showErrorSnackBar(
+                  context, 'You do not have permission to edit this profile');
             }
             return;
           }
@@ -160,26 +139,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         ref.invalidate(currentUserProvider);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile updated successfully'),
-              backgroundColor: AppColors.success,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppUtils.showSuccessSnackBar(context, 'Profile updated successfully');
         }
       }
 
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update profile: $e'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(context, 'Failed to update profile: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -356,24 +323,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               final newPass = newPasswordController.text;
               final confirmPass = confirmPasswordController.text;
               if (newPass.isEmpty || newPass.length < 6) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content:
-                        Text('Password must be at least 6 characters'),
-                    backgroundColor: AppColors.danger,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                AppUtils.showErrorSnackBar(
+                    context, 'Password must be at least 6 characters');
                 return;
               }
               if (newPass != confirmPass) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Passwords do not match'),
-                    backgroundColor: AppColors.danger,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                AppUtils.showErrorSnackBar(context, 'Passwords do not match');
                 return;
               }
               try {
@@ -388,23 +343,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Password updated successfully'),
-                      backgroundColor: AppColors.success,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showSuccessSnackBar(
+                      context, 'Password updated successfully');
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to update password: $e'),
-                      backgroundColor: AppColors.danger,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showErrorSnackBar(
+                      context, 'Failed to update password: $e');
                 }
               }
             },

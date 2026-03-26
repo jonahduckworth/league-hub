@@ -105,13 +105,9 @@ class _UploadDocumentScreenState
 
     if (file.size > maxSize) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
+        AppUtils.showErrorSnackBar(context,
             'File too large. Max size for ${_isImageExtension(ext) ? 'images' : 'documents'}: '
-            '${_isImageExtension(ext) ? '10 MB' : '25 MB'}',
-          ),
-          backgroundColor: AppColors.danger,
-        ));
+            '${_isImageExtension(ext) ? '10 MB' : '25 MB'}');
       }
       return;
     }
@@ -132,17 +128,13 @@ class _UploadDocumentScreenState
     final bytes = _fileBytes;
 
     if (file == null || bytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a file first.')),
-      );
+      AppUtils.showInfoSnackBar(context, 'Please select a file first.');
       return;
     }
 
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a document name.')),
-      );
+      AppUtils.showInfoSnackBar(context, 'Please enter a document name.');
       return;
     }
 
@@ -202,25 +194,17 @@ class _UploadDocumentScreenState
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Document uploaded successfully.'),
-          backgroundColor: AppColors.success,
-        ));
+        AppUtils.showSuccessSnackBar(context, 'Document uploaded successfully.');
         context.pop();
       }
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Permission denied. You cannot upload documents.'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(
+            context, 'Permission denied. You cannot upload documents.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Upload failed: $e'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Upload failed: $e');
       }
     } finally {
       if (mounted) setState(() => _isUploading = false);

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
+import '../core/utils.dart';
 
 // ---------------------------------------------------------------------------
 // Local data classes used only during the wizard (not persisted to Firestore
@@ -128,11 +129,7 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: AppColors.danger,
-      behavior: SnackBarBehavior.floating,
-    ));
+    AppUtils.showErrorSnackBar(context, message);
   }
 
   // -------------------------------------------------------------------------

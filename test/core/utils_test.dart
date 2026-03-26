@@ -1,8 +1,92 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/core/utils.dart';
 
 void main() {
   group('AppUtils', () {
+    group('showErrorSnackBar', () {
+      testWidgets('shows snackbar with danger color', (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () =>
+                      AppUtils.showErrorSnackBar(context, 'Something failed'),
+                  child: const Text('Trigger'),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Trigger'));
+        await tester.pump();
+
+        expect(find.text('Something failed'), findsOneWidget);
+        final snackBar =
+            tester.widget<SnackBar>(find.byType(SnackBar));
+        expect(snackBar.backgroundColor, AppColors.danger);
+        expect(snackBar.behavior, SnackBarBehavior.floating);
+      });
+    });
+
+    group('showSuccessSnackBar', () {
+      testWidgets('shows snackbar with success color', (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () =>
+                      AppUtils.showSuccessSnackBar(context, 'Done!'),
+                  child: const Text('Trigger'),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Trigger'));
+        await tester.pump();
+
+        expect(find.text('Done!'), findsOneWidget);
+        final snackBar =
+            tester.widget<SnackBar>(find.byType(SnackBar));
+        expect(snackBar.backgroundColor, AppColors.success);
+        expect(snackBar.behavior, SnackBarBehavior.floating);
+      });
+    });
+
+    group('showInfoSnackBar', () {
+      testWidgets('shows snackbar with floating behavior', (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () =>
+                      AppUtils.showInfoSnackBar(context, 'Info message'),
+                  child: const Text('Trigger'),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Trigger'));
+        await tester.pump();
+
+        expect(find.text('Info message'), findsOneWidget);
+        final snackBar =
+            tester.widget<SnackBar>(find.byType(SnackBar));
+        expect(snackBar.behavior, SnackBarBehavior.floating);
+        // backgroundColor should be null (default)
+        expect(snackBar.backgroundColor, isNull);
+      });
+    });
+
     group('formatDate', () {
       test('formats date correctly', () {
         final date = DateTime(2024, 3, 5);

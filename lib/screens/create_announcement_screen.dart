@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
+import '../core/utils.dart';
 import '../models/announcement.dart';
 import '../models/app_user.dart';
 import '../models/hub.dart';
@@ -62,13 +63,11 @@ class _CreateAnnouncementScreenState
     if (!_formKey.currentState!.validate()) return;
 
     if (_scope == AnnouncementScope.league && _selectedLeagueId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a league.')));
+      AppUtils.showInfoSnackBar(context, 'Please select a league.');
       return;
     }
     if (_scope == AnnouncementScope.hub && _selectedHubId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a hub.')));
+      AppUtils.showInfoSnackBar(context, 'Please select a hub.');
       return;
     }
 
@@ -80,8 +79,8 @@ class _CreateAnnouncementScreenState
     if (currentUser.role == UserRole.managerAdmin &&
         _scope == AnnouncementScope.orgWide) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Manager Admins cannot post org-wide announcements.')));
+        AppUtils.showInfoSnackBar(
+            context, 'Manager Admins cannot post org-wide announcements.');
       }
       return;
     }
@@ -130,27 +129,18 @@ class _CreateAnnouncementScreenState
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_isEditing
-              ? 'Announcement updated.'
-              : 'Announcement posted.'),
-          backgroundColor: AppColors.success,
-        ));
+        AppUtils.showSuccessSnackBar(context,
+            _isEditing ? 'Announcement updated.' : 'Announcement posted.');
         context.pop();
       }
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              'Permission denied. You cannot create or edit announcements.'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(context,
+            'Permission denied. You cannot create or edit announcements.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'),
-                backgroundColor: AppColors.danger));
+        AppUtils.showErrorSnackBar(context, 'Error: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

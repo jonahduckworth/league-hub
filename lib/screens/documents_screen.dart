@@ -8,7 +8,9 @@ import '../models/document.dart';
 import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/permission_service.dart';
 import '../widgets/league_filter.dart';
+import '../widgets/status_badge.dart';
 
 class DocumentsScreen extends ConsumerStatefulWidget {
   const DocumentsScreen({super.key});
@@ -37,9 +39,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   }
 
   bool _canUpload(AppUser? user) {
-    return user?.role == UserRole.superAdmin ||
-        user?.role == UserRole.managerAdmin ||
-        user?.role == UserRole.platformOwner;
+    if (user == null) return false;
+    return PermissionService.isAtLeast(user.role, UserRole.managerAdmin);
   }
 
   @override
@@ -322,9 +323,17 @@ class _DocumentTile extends StatelessWidget {
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      _TagChip(doc.category, AppColors.primary),
+                      StatusBadge(
+                          label: doc.category,
+                          color: AppColors.primary,
+                          fontSize: 11,
+                          showBorder: false),
                       if (leagueName != null)
-                        _TagChip(leagueName, AppColors.accent),
+                        StatusBadge(
+                            label: leagueName,
+                            color: AppColors.accent,
+                            fontSize: 11,
+                            showBorder: false),
                       Text(
                         '${doc.fileType.toUpperCase()} • ${AppUtils.formatFileSize(doc.fileSize)}',
                         style: const TextStyle(
@@ -357,32 +366,6 @@ class _DocumentTile extends StatelessWidget {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TagChip extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _TagChip(this.label, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          color: color,
-          fontWeight: FontWeight.w500,
         ),
       ),
     );

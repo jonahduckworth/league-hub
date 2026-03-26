@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
+import '../core/utils.dart';
 import '../models/message.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
@@ -157,23 +158,12 @@ class _ChatConversationScreenState
       }
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You do not have permission to send messages'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to send messages');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to send: $e'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(context, 'Failed to send: $e');
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -228,23 +218,12 @@ class _ChatConversationScreenState
           );
     } on PermissionDeniedException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You can only delete your own messages'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(
+            context, 'You can only delete your own messages');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete: $e'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(context, 'Failed to delete: $e');
       }
     }
   }
@@ -289,13 +268,7 @@ class _ChatConversationScreenState
           .addPostFrameCallback((_) => _scrollToBottom());
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to send image: $e'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppUtils.showErrorSnackBar(context, 'Failed to send image: $e');
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
