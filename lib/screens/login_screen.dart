@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
+import '../core/utils.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -110,14 +111,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     .sendPasswordResetEmail(email);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          'Password reset email sent. Check your inbox.'),
-                      backgroundColor: AppColors.success,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showSuccessSnackBar(context,
+                      'Password reset email sent. Check your inbox.');
                 }
               } on FirebaseAuthException catch (e) {
                 _showError(_authErrorMessage(e.code));
@@ -134,13 +129,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.danger,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppUtils.showErrorSnackBar(context, message);
   }
 
   @override

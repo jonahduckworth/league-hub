@@ -12,6 +12,7 @@ import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
 import '../../core/utils.dart';
 import '../../widgets/avatar_widget.dart';
+import '../../widgets/bottom_sheet_handle.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/status_badge.dart';
 
@@ -392,15 +393,8 @@ class _PendingInvitationsSheet extends ConsumerWidget {
         child: Column(
           children: [
             const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
+            const BottomSheetHandle(),
+            const SizedBox(height: 4),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
               child: Row(
@@ -625,14 +619,7 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
         child: Column(
           children: [
             const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const BottomSheetHandle(),
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

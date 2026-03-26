@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
 import '../../services/permission_service.dart';
+import '../../widgets/empty_state.dart';
 
 /// Displays team details, roster management, and a link to the team chat room.
 class TeamDetailScreen extends ConsumerStatefulWidget {
@@ -47,9 +48,10 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
         data: (teams) {
           final team = teams.where((t) => t.id == widget.teamId).firstOrNull;
           if (team == null) {
-            return const Center(
-                child: Text('Team not found',
-                    style: TextStyle(color: AppColors.textSecondary)));
+            return const EmptyState(
+              icon: Icons.groups_outlined,
+              title: 'Team not found',
+            );
           }
           return _buildContent(context, team, orgId, currentUser);
         },

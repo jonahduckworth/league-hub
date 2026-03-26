@@ -9,6 +9,7 @@ import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/permission_service.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/status_badge.dart';
 
@@ -126,27 +127,17 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                         .toList();
 
                 if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.folder_open,
-                            size: 48, color: AppColors.textMuted),
-                        const SizedBox(height: 12),
-                        const Text('No documents found',
-                            style: TextStyle(
-                                color: AppColors.textSecondary)),
-                        if (_canUpload(currentUser)) ...[
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
+                  return EmptyState(
+                    icon: Icons.folder_open,
+                    title: 'No documents found',
+                    action: _canUpload(currentUser)
+                        ? ElevatedButton.icon(
                             onPressed: () =>
                                 context.push('/documents/upload'),
                             icon: const Icon(Icons.upload_file),
                             label: const Text('Upload Document'),
-                          ),
-                        ],
-                      ],
-                    ),
+                          )
+                        : null,
                   );
                 }
 

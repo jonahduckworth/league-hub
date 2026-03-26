@@ -9,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../widgets/avatar_widget.dart';
+import '../widgets/bottom_sheet_handle.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 
@@ -55,15 +56,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+              const BottomSheetHandle(),
               const Padding(
                 padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
                 child: Align(
@@ -294,14 +287,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: BottomSheetHandle(),
                   ),
                   const Text(
                     'New Direct Message',

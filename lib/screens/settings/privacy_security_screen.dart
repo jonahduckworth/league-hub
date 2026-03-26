@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../core/utils.dart';
 import '../../providers/auth_provider.dart';
 
 class PrivacySecurityScreen extends ConsumerWidget {
@@ -205,23 +206,13 @@ class PrivacySecurityScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               if (newPassCtrl.text.length < 6) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Password must be at least 6 characters'),
-                    backgroundColor: AppColors.danger,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                AppUtils.showErrorSnackBar(context,
+                    'Password must be at least 6 characters');
                 return;
               }
               if (newPassCtrl.text != confirmPassCtrl.text) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Passwords do not match'),
-                    backgroundColor: AppColors.danger,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                AppUtils.showErrorSnackBar(context,
+                    'Passwords do not match');
                 return;
               }
               try {
@@ -236,23 +227,12 @@ class PrivacySecurityScreen extends ConsumerWidget {
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Password updated successfully'),
-                      backgroundColor: AppColors.success,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showSuccessSnackBar(context,
+                      'Password updated successfully');
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed: $e'),
-                      backgroundColor: AppColors.danger,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showErrorSnackBar(context, 'Failed: $e');
                 }
               }
             },
@@ -307,24 +287,12 @@ class PrivacySecurityScreen extends ConsumerWidget {
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          'Verification email sent. Please check your new email.'),
-                      backgroundColor: AppColors.success,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showSuccessSnackBar(context,
+                      'Verification email sent. Please check your new email.');
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed: $e'),
-                      backgroundColor: AppColors.danger,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showErrorSnackBar(context, 'Failed: $e');
                 }
               }
             },
@@ -386,13 +354,8 @@ class PrivacySecurityScreen extends ConsumerWidget {
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () async {
               if (passwordCtrl.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter your password'),
-                    backgroundColor: AppColors.danger,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                AppUtils.showErrorSnackBar(context,
+                    'Please enter your password');
                 return;
               }
               try {
@@ -425,24 +388,13 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   final msg = e.code == 'wrong-password'
                       ? 'Incorrect password. Please try again.'
                       : 'Failed to delete account: ${e.message}';
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(msg),
-                      backgroundColor: AppColors.danger,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showErrorSnackBar(context, msg);
                 }
               } catch (e) {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to delete account: $e'),
-                      backgroundColor: AppColors.danger,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppUtils.showErrorSnackBar(context,
+                      'Failed to delete account: $e');
                 }
               }
             },

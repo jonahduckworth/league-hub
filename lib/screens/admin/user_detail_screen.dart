@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
 import '../../widgets/avatar_widget.dart';
+import '../../widgets/confirmation_dialog.dart';
 
 class UserDetailScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -101,29 +102,14 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   Future<void> _toggleActive() async {
     if (_user == null) return;
     final action = _user!.isActive ? 'Deactivate' : 'Reactivate';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('$action User'),
-        content: Text(
-          _user!.isActive
-              ? 'Deactivate ${_user!.displayName}? They will lose access to the app.'
-              : 'Reactivate ${_user!.displayName}? They will regain access.',
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  _user!.isActive ? AppColors.danger : AppColors.success,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(action),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: '$action User',
+      message: _user!.isActive
+          ? 'Deactivate ${_user!.displayName}? They will lose access to the app.'
+          : 'Reactivate ${_user!.displayName}? They will regain access.',
+      confirmLabel: action,
+      confirmColor: _user!.isActive ? AppColors.danger : AppColors.success,
     );
     if (confirmed != true) return;
     try {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
+import '../core/utils.dart';
 import '../models/invitation.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
@@ -148,11 +149,7 @@ class _AcceptInvitationScreenState
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: AppColors.danger,
-      behavior: SnackBarBehavior.floating,
-    ));
+    AppUtils.showErrorSnackBar(context, message);
   }
 
   @override

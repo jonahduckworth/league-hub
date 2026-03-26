@@ -13,6 +13,7 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../services/storage_service.dart';
+import '../widgets/confirmation_dialog.dart';
 import 'viewers/image_viewer_screen.dart';
 import 'viewers/pdf_viewer_screen.dart';
 
@@ -175,25 +176,12 @@ class _DocumentDetailScreenState
   }
 
   Future<void> _deleteDocument(Document doc) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Document'),
-        content: Text(
-            'Are you sure you want to delete "${doc.name}"? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(
-                foregroundColor: AppColors.danger),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: 'Delete Document',
+      message: 'Are you sure you want to delete "${doc.name}"? This cannot be undone.',
+      confirmLabel: 'Delete',
+      confirmColor: AppColors.danger,
     );
 
     if (confirmed != true) return;
