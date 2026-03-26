@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../widgets/avatar_widget.dart';
+import '../widgets/confirmation_dialog.dart';
 
 class AnnouncementDetailScreen extends ConsumerWidget {
   final String announcementId;
@@ -177,34 +178,23 @@ class AnnouncementDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmDelete(
-      BuildContext context, WidgetRef ref, Announcement a) {
+  Future<void> _confirmDelete(
+      BuildContext context, WidgetRef ref, Announcement a) async {
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     if (orgId == null) return;
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (currentUser == null) return;
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Announcement'),
-        content:
-            const Text('Are you sure you want to delete this announcement?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _deleteAnnouncement(context, ref, orgId, a.id, currentUser);
-            },
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.danger)),
-          ),
-        ],
-      ),
+    final ok = await showConfirmationDialog(
+      context,
+      title: 'Delete Announcement',
+      message: 'Are you sure you want to delete this announcement?',
+      confirmLabel: 'Delete',
+      confirmColor: AppColors.danger,
     );
+    if (ok == true && context.mounted) {
+      _deleteAnnouncement(context, ref, orgId, a.id, currentUser);
+    }
   }
 
   Future<void> _deleteAnnouncement(BuildContext context, WidgetRef ref,
@@ -220,17 +210,12 @@ class AnnouncementDetailScreen extends ConsumerWidget {
       }
     } on PermissionDeniedException {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Permission denied. You cannot delete announcements.'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(
+            context, 'Permission denied. You cannot delete announcements.');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Delete failed: $e'),
-          backgroundColor: AppColors.danger,
-        ));
+        AppUtils.showErrorSnackBar(context, 'Delete failed: $e');
       }
     }
   }

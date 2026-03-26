@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../models/app_user.dart';
 import 'theme.dart';
 
 class AppUtils {
@@ -58,5 +59,18 @@ class AppUtils {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  static Color roleColor(UserRole role) {
+    switch (role) {
+      case UserRole.platformOwner:
+        return const Color(0xFF7C3AED);
+      case UserRole.superAdmin:
+        return AppColors.primary;
+      case UserRole.managerAdmin:
+        return AppColors.accent;
+      case UserRole.staff:
+        return AppColors.success;
+    }
   }
 }

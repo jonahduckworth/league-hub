@@ -14,6 +14,8 @@ import '../services/authorized_firestore_service.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/confirmation_dialog.dart';
+import '../widgets/empty_state.dart';
 
 class ChatConversationScreen extends ConsumerStatefulWidget {
   final String roomId;
@@ -185,22 +187,12 @@ class _ChatConversationScreenState
   }
 
   Future<void> _deleteMessage(Message message) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete message'),
-        content:
-            const Text('This message will be removed for everyone.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete',
-                  style: TextStyle(color: AppColors.danger))),
-        ],
-      ),
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: 'Delete message',
+      message: 'This message will be removed for everyone.',
+      confirmLabel: 'Delete',
+      confirmColor: AppColors.danger,
     );
     if (confirmed != true) return;
 
@@ -359,28 +351,10 @@ class _ChatConversationScreenState
                   Center(child: Text('Error loading messages: $e')),
               data: (messages) {
                 if (messages.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.chat_bubble_outline,
-                            size: 56, color: AppColors.textMuted),
-                        SizedBox(height: 16),
-                        Text(
-                          'No messages yet',
-                          style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Be the first to say something!',
-                          style: TextStyle(
-                              fontSize: 14, color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
+                  return const EmptyState(
+                    icon: Icons.chat_bubble_outline,
+                    title: 'No messages yet',
+                    subtitle: 'Be the first to say something!',
                   );
                 }
 

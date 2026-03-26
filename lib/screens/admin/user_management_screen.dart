@@ -13,6 +13,7 @@ import '../../services/authorized_firestore_service.dart';
 import '../../core/utils.dart';
 import '../../widgets/avatar_widget.dart';
 import '../../widgets/bottom_sheet_handle.dart';
+import '../../widgets/confirmation_dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/status_badge.dart';
 
@@ -207,19 +208,6 @@ class _UserCard extends ConsumerWidget {
   final AppUser user;
   const _UserCard({required this.user});
 
-  Color _roleColor(UserRole role) {
-    switch (role) {
-      case UserRole.platformOwner:
-        return const Color(0xFF7C3AED);
-      case UserRole.superAdmin:
-        return AppColors.primary;
-      case UserRole.managerAdmin:
-        return AppColors.accent;
-      case UserRole.staff:
-        return AppColors.success;
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
@@ -243,7 +231,7 @@ class _UserCard extends ConsumerWidget {
                   name: user.displayName,
                   imageUrl: user.avatarUrl,
                   size: 48,
-                  backgroundColor: _roleColor(user.role).withValues(alpha: 0.15),
+                  backgroundColor: AppUtils.roleColor(user.role).withValues(alpha: 0.15),
                 ),
                 if (!user.isActive)
                   Positioned(
@@ -282,7 +270,7 @@ class _UserCard extends ConsumerWidget {
                       ),
                       StatusBadge(
                           label: user.roleLabel,
-                          color: _roleColor(user.role)),
+                          color: AppUtils.roleColor(user.role)),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -316,56 +304,41 @@ class _UserCard extends ConsumerWidget {
     );
   }
 
-  void _showDeactivateDialog(BuildContext context, WidgetRef ref) {
+  Future<void> _showDeactivateDialog(BuildContext context, WidgetRef ref) async {
     final action = user.isActive ? 'Deactivate' : 'Reactivate';
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('$action User'),
-        content: Text(
-          user.isActive
-              ? 'Deactivate ${user.displayName}? They will lose access to the app.'
-              : 'Reactivate ${user.displayName}? They will regain access.',
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  user.isActive ? AppColors.danger : AppColors.success,
-            ),
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                final currentUser = await ref.read(currentUserProvider.future);
-                if (!context.mounted) return;
-                if (currentUser == null) {
-                  AppUtils.showErrorSnackBar(context, 'User not authenticated');
-                  return;
-                }
-                final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
-                if (user.isActive) {
-                  await authorizedSvc.deactivateUser(currentUser, user);
-                } else {
-                  await authorizedSvc.reactivateUser(currentUser, user);
-                }
-              } on PermissionDeniedException catch (e) {
-                if (context.mounted) {
-                  AppUtils.showErrorSnackBar(context, 'Permission denied: $e');
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  AppUtils.showErrorSnackBar(context, 'Error: $e');
-                }
-              }
-            },
-            child: Text(action),
-          ),
-        ],
-      ),
+    final ok = await showConfirmationDialog(
+      context,
+      title: '$action User',
+      message: user.isActive
+          ? 'Deactivate ${user.displayName}? They will lose access to the app.'
+          : 'Reactivate ${user.displayName}? They will regain access.',
+      confirmLabel: action,
+      confirmColor: user.isActive ? AppColors.danger : AppColors.success,
     );
+    if (ok != true) return;
+
+    try {
+      final currentUser = await ref.read(currentUserProvider.future);
+      if (!context.mounted) return;
+      if (currentUser == null) {
+        AppUtils.showErrorSnackBar(context, 'User not authenticated');
+        return;
+      }
+      final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
+      if (user.isActive) {
+        await authorizedSvc.deactivateUser(currentUser, user);
+      } else {
+        await authorizedSvc.reactivateUser(currentUser, user);
+      }
+    } on PermissionDeniedException catch (e) {
+      if (context.mounted) {
+        AppUtils.showErrorSnackBar(context, 'Permission denied: $e');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        AppUtils.showErrorSnackBar(context, 'Error: $e');
+      }
+    }
   }
 }
 

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 class StatusBadge extends StatelessWidget {
   final String label;
   final Color color;
+  final Color? textColor;
+  final Color? backgroundColor;
   final double fontSize;
   final bool showBorder;
 
@@ -10,16 +12,21 @@ class StatusBadge extends StatelessWidget {
     super.key,
     required this.label,
     required this.color,
+    this.textColor,
+    this.backgroundColor,
     this.fontSize = 11,
     this.showBorder = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveTextColor = textColor ?? color;
+    final effectiveBgColor = backgroundColor ?? color.withValues(alpha: 0.12);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: effectiveBgColor,
         borderRadius: BorderRadius.circular(6),
         border: showBorder
             ? Border.all(color: color.withValues(alpha: 0.3))
@@ -29,7 +36,7 @@ class StatusBadge extends StatelessWidget {
         label,
         style: TextStyle(
           fontSize: fontSize,
-          color: color,
+          color: effectiveTextColor,
           fontWeight: FontWeight.w600,
         ),
       ),

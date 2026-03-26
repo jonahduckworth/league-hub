@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/utils.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/status_badge.dart';
 
 class PrivacySecurityScreen extends ConsumerWidget {
   const PrivacySecurityScreen({super.key});
@@ -61,18 +62,10 @@ class PrivacySecurityScreen extends ConsumerWidget {
                 subtitle: const Text('This device',
                     style: TextStyle(
                         fontSize: 12, color: AppColors.textSecondary)),
-                trailing: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text('Active',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.success,
-                          fontWeight: FontWeight.w600)),
+                trailing: const StatusBadge(
+                  label: 'Active',
+                  color: AppColors.success,
+                  showBorder: false,
                 ),
               ),
               const Divider(height: 1, indent: 54),

@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
 import '../../widgets/avatar_widget.dart';
+import '../../widgets/confirmation_dialog.dart';
 
 class ChatRoomInfoScreen extends ConsumerWidget {
   final String roomId;
@@ -210,52 +211,33 @@ class ChatRoomInfoScreen extends ConsumerWidget {
     }
   }
 
-  void _confirmArchive(BuildContext context, WidgetRef ref, ChatRoom room) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Archive Chat Room'),
-        content: Text(
-            'Are you sure you want to archive "${room.name}"? Members will no longer be able to send messages.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () async {
-              final orgId =
-                  ref.read(organizationProvider).valueOrNull?.id;
-              final currentUser =
-                  ref.read(currentUserProvider).valueOrNull;
-              if (orgId == null || currentUser == null) return;
-              try {
-                await ref
-                    .read(authorizedFirestoreServiceProvider)
-                    .archiveChatRoom(currentUser, orgId, room.id);
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  context.pop(); // Back to chat conversation
-                  context.pop(); // Back to chat list
-                }
-              } on PermissionDeniedException {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('You do not have permission to archive chat rooms'),
-                      backgroundColor: AppColors.danger,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Archive'),
-          ),
-        ],
-      ),
+  Future<void> _confirmArchive(BuildContext context, WidgetRef ref, ChatRoom room) async {
+    final ok = await showConfirmationDialog(
+      context,
+      title: 'Archive Chat Room',
+      message:
+          'Are you sure you want to archive "${room.name}"? Members will no longer be able to send messages.',
+      confirmLabel: 'Archive',
+      confirmColor: AppColors.danger,
     );
+    if (ok != true) return;
+
+    final orgId = ref.read(organizationProvider).valueOrNull?.id;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (orgId == null || currentUser == null) return;
+    try {
+      await ref
+          .read(authorizedFirestoreServiceProvider)
+          .archiveChatRoom(currentUser, orgId, room.id);
+      if (context.mounted) {
+        context.pop(); // Back to chat conversation
+        context.pop(); // Back to chat list
+      }
+    } on PermissionDeniedException {
+      if (context.mounted) {
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to archive chat rooms');
+      }
+    }
   }
 }

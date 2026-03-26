@@ -9,6 +9,7 @@ import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
 import '../../widgets/avatar_widget.dart';
 import '../../widgets/confirmation_dialog.dart';
+import '../../widgets/status_badge.dart';
 
 class UserDetailScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -253,17 +254,23 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _StatusBadge(
+                    StatusBadge(
                         label: user.roleLabel,
-                        color: Colors.white.withValues(alpha: 0.2),
-                        textColor: Colors.white),
+                        color: Colors.white,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        textColor: Colors.white,
+                        showBorder: false),
                     const SizedBox(width: 8),
-                    _StatusBadge(
+                    StatusBadge(
                         label: user.isActive ? 'Active' : 'Inactive',
                         color: user.isActive
+                            ? AppColors.success
+                            : AppColors.danger,
+                        backgroundColor: user.isActive
                             ? AppColors.success.withValues(alpha: 0.3)
                             : AppColors.danger.withValues(alpha: 0.3),
-                        textColor: Colors.white),
+                        textColor: Colors.white,
+                        showBorder: false),
                   ],
                 ),
               ],
@@ -445,30 +452,6 @@ class _InfoRow extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: AppColors.text)),
       ],
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Color textColor;
-  const _StatusBadge(
-      {required this.label, required this.color, required this.textColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(label,
-          style: TextStyle(
-              color: textColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w600)),
     );
   }
 }

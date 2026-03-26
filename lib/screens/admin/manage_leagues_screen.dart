@@ -779,22 +779,12 @@ class _TeamRow extends StatelessWidget {
         color: AppColors.danger.withValues(alpha: 0.1),
         child: const Icon(Icons.delete_outline, color: AppColors.danger),
       ),
-      confirmDismiss: (_) => showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Delete Team'),
-          content: Text('Delete "${team.name}"?'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
-            TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: TextButton.styleFrom(
-                    foregroundColor: AppColors.danger),
-                child: const Text('Delete')),
-          ],
-        ),
+      confirmDismiss: (_) => showConfirmationDialog(
+        context,
+        title: 'Delete Team',
+        message: 'Delete "${team.name}"?',
+        confirmLabel: 'Delete',
+        confirmColor: AppColors.danger,
       ),
       onDismissed: (_) => onDelete(),
       child: Container(
