@@ -18,6 +18,134 @@ import '../widgets/league_filter.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/status_badge.dart';
 
+class AnnouncementSummaryData {
+  final IconData icon;
+  final String label;
+
+  const AnnouncementSummaryData({
+    required this.icon,
+    required this.label,
+  });
+}
+
+class AnnouncementActionData {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final TextStyle? textStyle;
+  final VoidCallback onTap;
+
+  const AnnouncementActionData({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+    this.textStyle,
+  });
+}
+
+List<Announcement> filterAnnouncementsByLeague(
+  List<Announcement> announcements,
+  String? leagueId,
+) {
+  if (leagueId == null) return announcements;
+  return announcements
+      .where((a) =>
+          a.scope == AnnouncementScope.orgWide || a.leagueId == leagueId)
+      .toList();
+}
+
+bool canManageAnnouncements(UserRole role) {
+  return PermissionService.isAtLeast(role, UserRole.managerAdmin);
+}
+
+List<AnnouncementSummaryData> buildAnnouncementSummaries(
+  List<Announcement> announcements,
+) {
+  return [
+    AnnouncementSummaryData(
+      icon: Icons.push_pin_outlined,
+      label: '${announcements.where((a) => a.isPinned).length} pinned',
+    ),
+    AnnouncementSummaryData(
+      icon: Icons.public_outlined,
+      label: '${announcements.length} total posts',
+    ),
+  ];
+}
+
+Future<void> refreshAnnouncements(WidgetRef ref) async {
+  ref.invalidate(announcementsProvider);
+}
+
+Future<bool> toggleAnnouncementPin({
+  required AuthorizedFirestoreService service,
+  required AppUser currentUser,
+  required String orgId,
+  required String announcementId,
+  required bool isPinned,
+  required void Function(String message) onError,
+}) async {
+  try {
+    await service.togglePin(currentUser, orgId, announcementId, isPinned);
+    return true;
+  } on PermissionDeniedException {
+    onError('Permission denied. You cannot pin announcements.');
+    return false;
+  } catch (e) {
+    onError('Failed to toggle pin: $e');
+    return false;
+  }
+}
+
+Future<bool> deleteAnnouncementWithHandling({
+  required AuthorizedFirestoreService service,
+  required AppUser currentUser,
+  required String orgId,
+  required String announcementId,
+  required void Function(String message) onError,
+}) async {
+  try {
+    await service.deleteAnnouncement(currentUser, orgId, announcementId);
+    return true;
+  } on PermissionDeniedException {
+    onError('Permission denied. You cannot delete announcements.');
+    return false;
+  } catch (e) {
+    onError('Delete failed: $e');
+    return false;
+  }
+}
+
+List<AnnouncementActionData> buildAnnouncementActions({
+  required Announcement announcement,
+  required VoidCallback onTogglePin,
+  required VoidCallback onEdit,
+  required VoidCallback onDelete,
+}) {
+  return [
+    AnnouncementActionData(
+      icon: announcement.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+      iconColor: AppColors.warning,
+      label: announcement.isPinned ? 'Unpin' : 'Pin',
+      onTap: onTogglePin,
+    ),
+    AnnouncementActionData(
+      icon: Icons.edit_outlined,
+      iconColor: AppColors.primary,
+      label: 'Edit',
+      onTap: onEdit,
+    ),
+    AnnouncementActionData(
+      icon: Icons.delete_outline,
+      iconColor: AppColors.danger,
+      label: 'Delete',
+      textStyle: const TextStyle(color: AppColors.danger),
+      onTap: onDelete,
+    ),
+  ];
+}
+
 class AnnouncementsScreen extends ConsumerStatefulWidget {
   const AnnouncementsScreen({super.key});
 
@@ -29,18 +157,6 @@ class AnnouncementsScreen extends ConsumerStatefulWidget {
 class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
   String? _selectedLeagueId;
 
-  List<Announcement> _filterAnnouncements(
-      List<Announcement> all, String? leagueId) {
-    if (leagueId == null) return all;
-    return all
-        .where((a) =>
-            a.scope == AnnouncementScope.orgWide || a.leagueId == leagueId)
-        .toList();
-  }
-
-  bool _canManage(UserRole role) =>
-      PermissionService.isAtLeast(role, UserRole.managerAdmin);
-
   @override
   Widget build(BuildContext context) {
     final bottomContentPadding = appShellBottomPadding(context);
@@ -50,9 +166,12 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
     final leagues = leaguesAsync.valueOrNull ?? [];
     final allAnnouncements = announcementsAsync.valueOrNull ?? [];
-    final filtered = _filterAnnouncements(allAnnouncements, _selectedLeagueId);
+    final filtered =
+        filterAnnouncementsByLeague(allAnnouncements, _selectedLeagueId);
     final currentUser = userAsync.valueOrNull;
-    final canManage = currentUser != null && _canManage(currentUser.role);
+    final canManage =
+        currentUser != null && canManageAnnouncements(currentUser.role);
+    final summaryItems = buildAnnouncementSummaries(allAnnouncements);
 
     return AppShellScaffold(
       floatingActionButton: canManage
@@ -71,17 +190,9 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         bottom: Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: [
-            _InfoChip(
-              icon: Icons.push_pin_outlined,
-              label:
-                  '${allAnnouncements.where((a) => a.isPinned).length} pinned',
-            ),
-            _InfoChip(
-              icon: Icons.public_outlined,
-              label: '${allAnnouncements.length} total posts',
-            ),
-          ],
+          children: summaryItems
+              .map((item) => _InfoChip(icon: item.icon, label: item.label))
+              .toList(),
         ),
       ),
       stickyContent: LeagueFilter(
@@ -90,7 +201,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         onSelected: (id) => setState(() => _selectedLeagueId = id),
       ),
       child: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(announcementsProvider),
+        onRefresh: () => refreshAnnouncements(ref),
         child: announcementsAsync.isLoading
             ? const Center(child: CircularProgressIndicator())
             : filtered.isEmpty
@@ -124,43 +235,30 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     if (orgId == null) return;
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (currentUser == null) return;
+    final actions = buildAnnouncementActions(
+      announcement: a,
+      onTogglePin: () => _togglePin(orgId, a.id, !a.isPinned, currentUser),
+      onEdit: () => context.push('/announcements/${a.id}/edit'),
+      onDelete: () => _confirmDelete(context, orgId, a.id, currentUser),
+    );
 
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(
-                  a.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
-                  color: AppColors.warning),
-              title: Text(a.isPinned ? 'Unpin' : 'Pin'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _togglePin(orgId, a.id, !a.isPinned, currentUser);
-              },
-            ),
-            ListTile(
-              leading:
-                  const Icon(Icons.edit_outlined, color: AppColors.primary),
-              title: const Text('Edit'),
-              onTap: () {
-                Navigator.pop(ctx);
-                context.push('/announcements/${a.id}/edit');
-              },
-            ),
-            ListTile(
-              leading:
-                  const Icon(Icons.delete_outline, color: AppColors.danger),
-              title: const Text('Delete',
-                  style: TextStyle(color: AppColors.danger)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _confirmDelete(context, orgId, a.id, currentUser);
-              },
-            ),
-          ],
+          children: actions
+              .map(
+                (action) => ListTile(
+                  leading: Icon(action.icon, color: action.iconColor),
+                  title: Text(action.label, style: action.textStyle),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    action.onTap();
+                  },
+                ),
+              )
+              .toList(),
         ),
       ),
     );
@@ -168,23 +266,18 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
   Future<void> _togglePin(String orgId, String announcementId, bool isPinned,
       AppUser currentUser) async {
-    try {
-      await ref.read(authorizedFirestoreServiceProvider).togglePin(
-            currentUser,
-            orgId,
-            announcementId,
-            isPinned,
-          );
-    } on PermissionDeniedException {
-      if (mounted) {
-        AppUtils.showErrorSnackBar(
-            context, 'Permission denied. You cannot pin announcements.');
-      }
-    } catch (e) {
-      if (mounted) {
-        AppUtils.showErrorSnackBar(context, 'Failed to toggle pin: $e');
-      }
-    }
+    await toggleAnnouncementPin(
+      service: ref.read(authorizedFirestoreServiceProvider),
+      currentUser: currentUser,
+      orgId: orgId,
+      announcementId: announcementId,
+      isPinned: isPinned,
+      onError: (message) {
+        if (mounted) {
+          AppUtils.showErrorSnackBar(context, message);
+        }
+      },
+    );
   }
 
   void _confirmDelete(BuildContext context, String orgId, String id,
@@ -203,22 +296,17 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
   Future<void> _deleteAnnouncement(
       String orgId, String announcementId, AppUser currentUser) async {
-    try {
-      await ref.read(authorizedFirestoreServiceProvider).deleteAnnouncement(
-            currentUser,
-            orgId,
-            announcementId,
-          );
-    } on PermissionDeniedException {
-      if (mounted) {
-        AppUtils.showErrorSnackBar(
-            context, 'Permission denied. You cannot delete announcements.');
-      }
-    } catch (e) {
-      if (mounted) {
-        AppUtils.showErrorSnackBar(context, 'Delete failed: $e');
-      }
-    }
+    await deleteAnnouncementWithHandling(
+      service: ref.read(authorizedFirestoreServiceProvider),
+      currentUser: currentUser,
+      orgId: orgId,
+      announcementId: announcementId,
+      onError: (message) {
+        if (mounted) {
+          AppUtils.showErrorSnackBar(context, message);
+        }
+      },
+    );
   }
 }
 

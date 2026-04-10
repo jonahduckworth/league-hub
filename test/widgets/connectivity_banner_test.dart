@@ -1,260 +1,256 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:league_hub/widgets/connectivity_banner.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/connectivity_banner.dart';
+
+Finder bannerSlideTransition() => find
+    .descendant(
+      of: find.byType(ConnectivityBanner),
+      matching: find.byType(SlideTransition),
+    )
+    .first;
+
+Finder bannerMaterial() => find
+    .descendant(
+      of: bannerSlideTransition(),
+      matching: find.byType(Material),
+    )
+    .first;
+
+Finder bannerContainer() => find
+    .descendant(
+      of: bannerSlideTransition(),
+      matching: find.byType(Container),
+    )
+    .first;
 
 void main() {
   group('ConnectivityBanner', () {
-    Widget createTestWidget({required bool isOffline}) {
+    test('resolveConnectivityBannerLookup uses injected lookup when provided',
+        () async {
+      final resolved = await resolveConnectivityBannerLookup(
+        host: 'example.com',
+        lookup: (_) async => [InternetAddress('8.8.8.8')],
+      );
+
+      expect(resolved.single.address, '8.8.8.8');
+    });
+
+    test('resolveConnectivityBannerLookup uses fallback when no lookup given',
+        () async {
+      final resolved = await resolveConnectivityBannerLookup(
+        host: 'example.com',
+        fallbackLookup: (_) async => [InternetAddress('1.1.1.1')],
+      );
+
+      expect(resolved.single.address, '1.1.1.1');
+    });
+
+    test('shouldHideOnlineBannerImmediately depends on prior offline state', () {
+      expect(shouldHideOnlineBannerImmediately(false), isTrue);
+      expect(shouldHideOnlineBannerImmediately(true), isFalse);
+    });
+
+    Widget createTestWidget({
+      required Future<List<ConnectivityResult>> Function() connectivityCheck,
+      Stream<List<ConnectivityResult>>? connectivityChanges,
+      Future<List<InternetAddress>> Function(String host)? internetLookup,
+      Stream<int>? pendingCountStream,
+      int initialPendingCount = 0,
+    }) {
       return MaterialApp(
-        home: ConnectivityBanner(
-          child: Scaffold(
-            body: Center(
-              child: Text('Test Content'),
-            ),
+        home: MediaQuery(
+          data: const MediaQueryData(
+            padding: EdgeInsets.only(top: 20),
           ),
-        ),
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: AppColors.primary,
+          child: ConnectivityBanner(
+            connectivityCheck: connectivityCheck,
+            connectivityChanges: connectivityChanges,
+            internetLookup: internetLookup,
+            pendingCountStream: pendingCountStream,
+            initialPendingCount: initialPendingCount,
+            child: const Scaffold(
+              body: Center(child: Text('Test Content')),
+            ),
           ),
         ),
       );
     }
 
-    group('Offline State', () {
-      testWidgets('renders child widget', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: false));
-        await tester.pump();
-        expect(find.text('Test Content'), findsOneWidget);
-      });
+    testWidgets('renders child widget content', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        createTestWidget(
+          connectivityCheck: () async => [ConnectivityResult.wifi],
+        ),
+      );
+      await tester.pump();
 
-      testWidgets('displays offline message when disconnected',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // Banner should be visible with offline message
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
-
-      testWidgets('shows offline icon when disconnected',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // ConnectivityBanner uses the real Connectivity plugin internally;
-        // in the test environment it defaults to online, so we just verify
-        // the banner widget renders and contains an icon.
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+      expect(find.text('Test Content'), findsOneWidget);
     });
 
-    group('Online State', () {
-      testWidgets('hides banner when online', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: false));
-        await tester.pump();
-        await tester.pumpAndSettle();
-        expect(find.text('Test Content'), findsOneWidget);
-      });
+    testWidgets('shows offline banner and pending count when disconnected',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        createTestWidget(
+          connectivityCheck: () async => [ConnectivityResult.none],
+          internetLookup: (_) async => throw const SocketException('offline'),
+          initialPendingCount: 2,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      testWidgets('shows online icon when connected',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: false));
-        await tester.pump();
-        // Connectivity state depends on real plugin; verify icon is present
-        expect(find.byType(Icon), findsWidgets);
-      });
+      expect(
+        find.text('No internet connection — 2 changes pending'),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.wifi_off), findsOneWidget);
 
-      testWidgets('displays back online message after reconnection',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: false));
-        await tester.pump();
-        // When reconnecting, should show "Back online" message
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+      final container = tester.widget<Container>(bannerContainer());
+      final decoration = container.decoration as BoxDecoration?;
+      expect(container.color, AppColors.danger);
+      expect(decoration, isNull);
     });
 
-    group('Banner Styling', () {
-      testWidgets('uses danger color when offline', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // Banner background should be AppColors.danger when offline
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+    testWidgets('uses singular pending text for one pending change',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        createTestWidget(
+          connectivityCheck: () async => [ConnectivityResult.none],
+          internetLookup: (_) async => throw const SocketException('offline'),
+          initialPendingCount: 1,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      testWidgets('uses success color when online', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: false));
-        await tester.pump();
-        // Banner background should be AppColors.success when online
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
-
-      testWidgets('text is white for contrast', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // Text should be white for visibility
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
-
-      testWidgets('banner has elevation', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        expect(find.byType(Material), findsWidgets);
-      });
+      expect(
+        find.text('No internet connection — 1 change pending'),
+        findsOneWidget,
+      );
     });
 
-    group('Banner Messages', () {
-      testWidgets('displays "No internet connection" when offline',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // Should display exact offline message
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+    testWidgets(
+        'treats failed connectivity check as online when lookup succeeds',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        createTestWidget(
+          connectivityCheck: () async => [ConnectivityResult.none],
+          internetLookup: (_) async => [InternetAddress('8.8.8.8')],
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      testWidgets('displays "Back online" when reconnected',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: false));
-        await tester.pump();
-        // Should display reconnection message
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+      expect(find.byIcon(Icons.wifi_off), findsNothing);
 
-      testWidgets('message is centered', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // Banner content should be centered
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+      final slide = tester.widget<SlideTransition>(bannerSlideTransition());
+      expect(slide.position.value.dy, -1);
     });
 
-    group('Animation', () {
-      testWidgets('banner animates in when going offline',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: false));
-        await tester.pump();
-        await tester.pumpAndSettle();
-        // Banner should slide in from top
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+    testWidgets('shows back online state then hides after reconnect',
+        (WidgetTester tester) async {
+      final controller = StreamController<List<ConnectivityResult>>.broadcast();
+      addTearDown(controller.close);
 
-      testWidgets('banner animates out when coming back online',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        await tester.pumpAndSettle();
-        // Banner should slide out when reconnecting
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+      await tester.pumpWidget(
+        createTestWidget(
+          connectivityCheck: () async => [ConnectivityResult.none],
+          connectivityChanges: controller.stream,
+          internetLookup: (_) async => throw const SocketException('offline'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('No internet connection'), findsOneWidget);
 
-      testWidgets('animation uses smooth curve', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // SlideTransition is also used by MaterialApp's page transitions,
-        // so expect multiple instances.
-        expect(find.byType(SlideTransition), findsWidgets);
-      });
+      controller.add([ConnectivityResult.wifi]);
+      await tester.pump();
+
+      expect(find.text('Back online'), findsOneWidget);
+      expect(find.byIcon(Icons.wifi), findsOneWidget);
+
+      final onlineContainer = tester.widget<Container>(bannerContainer());
+      expect(onlineContainer.color, AppColors.success);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final slide = tester.widget<SlideTransition>(bannerSlideTransition());
+      expect(slide.position.value.dy, -1);
     });
 
-    group('Layout', () {
-      testWidgets('banner is full width', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // Banner container should span full width
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+    testWidgets('stays hidden when already online and a reconnect event arrives',
+        (WidgetTester tester) async {
+      final controller = StreamController<List<ConnectivityResult>>.broadcast();
+      addTearDown(controller.close);
 
-      testWidgets('child is below banner', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: false));
-        await tester.pump();
-        expect(find.byType(Stack), findsWidgets);
-        expect(find.text('Test Content'), findsOneWidget);
-      });
+      await tester.pumpWidget(
+        createTestWidget(
+          connectivityCheck: () async => [ConnectivityResult.wifi],
+          connectivityChanges: controller.stream,
+        ),
+      );
+      await tester.pump();
 
-      testWidgets('icon and text are horizontally aligned',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // Banner uses Row for icon and text
-        expect(find.byType(Row), findsWidgets);
-      });
+      controller.add([ConnectivityResult.wifi]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      testWidgets('has proper padding', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // Banner should have padding for spacing
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+      final slide = tester.widget<SlideTransition>(bannerSlideTransition());
+      expect(slide.position.value.dy, -1);
     });
 
-    group('Pending Count', () {
-      testWidgets('shows pending count text when initialPendingCount > 0',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(MaterialApp(
-          home: ConnectivityBanner(
-            initialPendingCount: 3,
-            child: const Scaffold(body: Text('Content')),
-          ),
-        ));
-        await tester.pump();
-        // The pending count text is embedded in the banner text.
-        // The banner message logic uses _pendingCount.
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+    testWidgets('updates pending count from stream while offline',
+        (WidgetTester tester) async {
+      final pendingController = StreamController<int>.broadcast();
+      addTearDown(pendingController.close);
 
-      testWidgets('accepts pendingCountStream parameter',
-          (WidgetTester tester) async {
-        final controller = StreamController<int>.broadcast();
-        addTearDown(controller.close);
+      await tester.pumpWidget(
+        createTestWidget(
+          connectivityCheck: () async => [ConnectivityResult.none],
+          internetLookup: (_) async => throw const SocketException('offline'),
+          pendingCountStream: pendingController.stream,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-        await tester.pumpWidget(MaterialApp(
-          home: ConnectivityBanner(
-            pendingCountStream: controller.stream,
-            child: const Scaffold(body: Text('Content')),
-          ),
-        ));
-        await tester.pump();
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+      expect(find.text('No internet connection'), findsOneWidget);
 
-      testWidgets('works without pendingCountStream',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(MaterialApp(
-          home: ConnectivityBanner(
-            child: const Scaffold(body: Text('Content')),
-          ),
-        ));
-        await tester.pump();
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+      pendingController.add(3);
+      await tester.pump();
+
+      expect(
+        find.text('No internet connection — 3 changes pending'),
+        findsOneWidget,
+      );
     });
 
-    group('Icon Display', () {
-      testWidgets('displays wifi_off icon when offline',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // ConnectivityBanner uses the real Connectivity plugin internally;
-        // in test environments the reported state depends on the platform
-        // channel mock, so we just verify the banner renders with an icon.
-        expect(find.byType(Icon), findsWidgets);
-      });
+    testWidgets('applies safe-area top padding to the banner',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        createTestWidget(
+          connectivityCheck: () async => [ConnectivityResult.none],
+          internetLookup: (_) async => throw const SocketException('offline'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      testWidgets('displays wifi icon when online',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: false));
-        await tester.pump();
-        expect(find.byType(Icon), findsWidgets);
-      });
+      final container = tester.widget<Container>(bannerContainer());
+      final padding = container.padding as EdgeInsets;
+      expect(padding.top, 24);
+      expect(padding.left, 16);
+      expect(padding.right, 16);
+      expect(padding.bottom, 8);
 
-      testWidgets('icon is white colored', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(isOffline: true));
-        await tester.pump();
-        // Icons should be white for contrast
-        expect(find.byType(ConnectivityBanner), findsOneWidget);
-      });
+      final material = tester.widget<Material>(bannerMaterial());
+      expect(material.elevation, greaterThan(0));
     });
   });
 }

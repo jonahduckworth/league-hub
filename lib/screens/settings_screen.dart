@@ -6,10 +6,96 @@ import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../providers/mock_data.dart';
+import '../services/auth_service.dart';
+import '../services/messaging_service.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/avatar_widget.dart';
 import 'settings/edit_profile_screen.dart';
+
+class SettingsNavigationItem {
+  final IconData icon;
+  final String title;
+  final String route;
+  final int? badge;
+
+  const SettingsNavigationItem({
+    required this.icon,
+    required this.title,
+    required this.route,
+    this.badge,
+  });
+}
+
+bool shouldShowOrganizationSettings(List<String> visibleTiles) {
+  return visibleTiles.any((t) =>
+      ['leagues', 'users', 'roles', 'branding', 'app-icon'].contains(t));
+}
+
+List<SettingsNavigationItem> buildOrganizationSettingsItems({
+  required List<String> visibleTiles,
+  required int pendingInviteCount,
+}) {
+  return [
+    if (visibleTiles.contains('leagues'))
+      const SettingsNavigationItem(
+        icon: Icons.location_city,
+        title: 'Manage Leagues & Hubs',
+        route: '/settings/leagues',
+      ),
+    if (visibleTiles.contains('users'))
+      SettingsNavigationItem(
+        icon: Icons.people,
+        title: 'User Management',
+        route: '/settings/users',
+        badge: pendingInviteCount > 0 ? pendingInviteCount : null,
+      ),
+    if (visibleTiles.contains('roles'))
+      const SettingsNavigationItem(
+        icon: Icons.admin_panel_settings,
+        title: 'Roles & Permissions',
+        route: '/settings/roles',
+      ),
+    if (visibleTiles.contains('branding'))
+      const SettingsNavigationItem(
+        icon: Icons.palette,
+        title: 'Branding & Appearance',
+        route: '/settings/branding',
+      ),
+    if (visibleTiles.contains('app-icon'))
+      const SettingsNavigationItem(
+        icon: Icons.apps,
+        title: 'App Icon',
+        route: '/settings/app-icon',
+      ),
+  ];
+}
+
+List<SettingsNavigationItem> buildPreferenceSettingsItems() {
+  return const [
+    SettingsNavigationItem(
+      icon: Icons.notifications_outlined,
+      title: 'Notifications',
+      route: '/settings/notifications',
+    ),
+    SettingsNavigationItem(
+      icon: Icons.lock_outlined,
+      title: 'Privacy & Security',
+      route: '/settings/privacy',
+    ),
+  ];
+}
+
+Future<void> signOutFromSettings({
+  required AppUser? user,
+  required MessagingService messagingService,
+  required AuthService authService,
+}) async {
+  if (user != null) {
+    await messagingService.removeToken(user.id);
+  }
+  await authService.signOut();
+}
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -22,6 +108,13 @@ class SettingsScreen extends ConsumerWidget {
     final pendingInviteCount = ref.watch(pendingInviteCountProvider);
     final ps = ref.read(permissionServiceProvider);
     final visibleTiles = ps.visibleSettingsTiles(user);
+    final organizationItems = buildOrganizationSettingsItems(
+      visibleTiles: visibleTiles,
+      pendingInviteCount: pendingInviteCount,
+    );
+    final preferenceItems = buildPreferenceSettingsItems();
+    final showOrganizationSection =
+        shouldShowOrganizationSettings(visibleTiles);
 
     return AppShellScaffold(
       header: const AppShellHeader(
@@ -36,66 +129,33 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           _ProfileCard(user: user),
           const SizedBox(height: 24),
-          if (visibleTiles.any((t) => [
-                'leagues',
-                'users',
-                'roles',
-                'branding',
-                'app-icon'
-              ].contains(t)))
+          if (showOrganizationSection)
             _SettingsSection(
               title: 'Organization',
-              items: [
-                if (visibleTiles.contains('leagues'))
-                  _SettingsItem(
-                    icon: Icons.location_city,
-                    title: 'Manage Leagues & Hubs',
-                    onTap: () => context.push('/settings/leagues'),
-                  ),
-                if (visibleTiles.contains('users'))
-                  _SettingsItem(
-                    icon: Icons.people,
-                    title: 'User Management',
-                    badge: pendingInviteCount > 0 ? pendingInviteCount : null,
-                    onTap: () => context.push('/settings/users'),
-                  ),
-                if (visibleTiles.contains('roles'))
-                  _SettingsItem(
-                      icon: Icons.admin_panel_settings,
-                      title: 'Roles & Permissions',
-                      onTap: () => context.push('/settings/roles')),
-                if (visibleTiles.contains('branding'))
-                  _SettingsItem(
-                      icon: Icons.palette,
-                      title: 'Branding & Appearance',
-                      onTap: () => context.push('/settings/branding')),
-                if (visibleTiles.contains('app-icon'))
-                  _SettingsItem(
-                      icon: Icons.apps,
-                      title: 'App Icon',
-                      onTap: () => context.push('/settings/app-icon')),
-              ],
+              items: organizationItems
+                  .map(
+                    (item) => _SettingsItem(
+                      icon: item.icon,
+                      title: item.title,
+                      badge: item.badge,
+                      onTap: () => context.push(item.route),
+                    ),
+                  )
+                  .toList(),
             ),
-          if (visibleTiles.any((t) => [
-                'leagues',
-                'users',
-                'roles',
-                'branding',
-                'app-icon'
-              ].contains(t)))
+          if (showOrganizationSection)
             const SizedBox(height: 16),
           _SettingsSection(
             title: 'Preferences',
-            items: [
-              _SettingsItem(
-                  icon: Icons.notifications_outlined,
-                  title: 'Notifications',
-                  onTap: () => context.push('/settings/notifications')),
-              _SettingsItem(
-                  icon: Icons.lock_outlined,
-                  title: 'Privacy & Security',
-                  onTap: () => context.push('/settings/privacy')),
-            ],
+            items: preferenceItems
+                .map(
+                  (item) => _SettingsItem(
+                    icon: item.icon,
+                    title: item.title,
+                    onTap: () => context.push(item.route),
+                  ),
+                )
+                .toList(),
           ),
           const SizedBox(height: 16),
           Container(
@@ -111,10 +171,11 @@ class SettingsScreen extends ConsumerWidget {
                       color: AppColors.danger, fontWeight: FontWeight.w600)),
               onTap: () async {
                 final user = ref.read(currentUserProvider).valueOrNull;
-                if (user != null) {
-                  await ref.read(messagingServiceProvider).removeToken(user.id);
-                }
-                await ref.read(authServiceProvider).signOut();
+                await signOutFromSettings(
+                  user: user,
+                  messagingService: ref.read(messagingServiceProvider),
+                  authService: ref.read(authServiceProvider),
+                );
                 if (context.mounted) context.go('/login');
               },
             ),

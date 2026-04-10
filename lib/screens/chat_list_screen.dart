@@ -5,6 +5,7 @@ import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
+import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
@@ -14,6 +15,153 @@ import '../widgets/avatar_widget.dart';
 import '../widgets/bottom_sheet_handle.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
+
+class ChatRoomSectionData {
+  final String title;
+  final List<ChatRoom> rooms;
+
+  const ChatRoomSectionData({
+    required this.title,
+    required this.rooms,
+  });
+}
+
+TextStyle chatLeagueChipLabelStyle({
+  required bool selected,
+}) {
+  return TextStyle(
+    color: selected ? AppColors.primary : AppColors.textSecondary,
+    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+  );
+}
+
+bool shouldShowEventRoomLeagueSelector(AsyncValue<List<League>> leaguesAsync) {
+  return leaguesAsync.when(
+    loading: () => false,
+    error: (_, __) => false,
+    data: (leagues) => leagues.isNotEmpty,
+  );
+}
+
+List<AppUser> visibleDirectMessageUsers(
+  List<AppUser> users,
+  AppUser? currentUser,
+) {
+  return users.where((u) => u.id != currentUser?.id && u.isActive).toList();
+}
+
+List<ChatRoom> filterChatRooms({
+  required List<ChatRoom> rooms,
+  required String searchText,
+  required String? selectedLeagueId,
+}) {
+  var filtered = rooms;
+
+  if (searchText.isNotEmpty) {
+    filtered = filtered
+        .where((r) => r.name.toLowerCase().contains(searchText))
+        .toList();
+  }
+  if (selectedLeagueId != null) {
+    filtered = filtered
+        .where((r) =>
+            r.leagueId == selectedLeagueId || r.type == ChatRoomType.direct)
+        .toList();
+  }
+
+  return filtered;
+}
+
+List<ChatRoomSectionData> buildChatRoomSections(List<ChatRoom> rooms) {
+  final sections = <ChatRoomSectionData>[
+    ChatRoomSectionData(
+      title: 'League Rooms',
+      rooms: rooms.where((r) => r.type == ChatRoomType.league).toList(),
+    ),
+    ChatRoomSectionData(
+      title: 'Events & Tournaments',
+      rooms: rooms.where((r) => r.type == ChatRoomType.event).toList(),
+    ),
+    ChatRoomSectionData(
+      title: 'Direct Messages',
+      rooms: rooms.where((r) => r.type == ChatRoomType.direct).toList(),
+    ),
+  ];
+
+  return sections.where((section) => section.rooms.isNotEmpty).toList();
+}
+
+String? chatRoomPreviewText(ChatRoom room) {
+  final hasMessage = room.lastMessage != null && room.lastMessage!.isNotEmpty;
+  if (!hasMessage) return null;
+  if (room.lastMessageBy != null) {
+    return '${room.lastMessageBy}: ${room.lastMessage}';
+  }
+  return room.lastMessage!;
+}
+
+Color chatRoomTimestampColor(int unreadCount) {
+  return unreadCount > 0 ? AppColors.primary : AppColors.textMuted;
+}
+
+String formatUnreadBadgeCount(int unreadCount) {
+  return unreadCount > 99 ? '99+' : '$unreadCount';
+}
+
+Future<String?> createEventChatRoom({
+  required AppUser? currentUser,
+  required String orgId,
+  required String roomName,
+  required String? selectedLeagueId,
+  required Future<String> Function(
+    AppUser actor,
+    String orgId,
+    String name,
+    ChatRoomType type, {
+    String? leagueId,
+    List<String> participants,
+  }) createRoom,
+  required VoidCallback onPermissionDenied,
+}) async {
+  final trimmedName = roomName.trim();
+  if (trimmedName.isEmpty || currentUser == null) return null;
+  try {
+    return await createRoom(
+      currentUser,
+      orgId,
+      trimmedName,
+      ChatRoomType.event,
+      leagueId: selectedLeagueId,
+      participants: [currentUser.id],
+    );
+  } on PermissionDeniedException {
+    onPermissionDenied();
+    return null;
+  }
+}
+
+Future<String?> openDirectMessageRoom({
+  required AppUser? currentUser,
+  required AppUser otherUser,
+  required String orgId,
+  required Future<ChatRoom> Function(
+    String orgId,
+    String currentUserId,
+    String otherUserId,
+    String currentUserName,
+    String otherUserName,
+  ) getOrCreateDMRoom,
+}) async {
+  if (currentUser == null) return null;
+  final room = await getOrCreateDMRoom(
+    orgId,
+    currentUser.id,
+    otherUser.id,
+    currentUser.displayName,
+    otherUser.displayName,
+  );
+  return room.id;
+}
 
 class ChatListScreen extends ConsumerStatefulWidget {
   const ChatListScreen({super.key});
@@ -174,84 +322,67 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               ),
               const SizedBox(height: 16),
               // Optional league association
-              leaguesAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (leagues) {
-                  if (leagues.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'LEAGUE (OPTIONAL)',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textSecondary,
-                            letterSpacing: 0.8),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          ChoiceChip(
-                            label: const Text('None'),
-                            selected: selectedLeagueId == null,
-                            onSelected: (_) =>
-                                setSheetState(() => selectedLeagueId = null),
-                            selectedColor: AppColors.border,
-                          ),
-                          ...leagues.map((l) => ChoiceChip(
-                                label: Text(l.abbreviation),
+              if (shouldShowEventRoomLeagueSelector(leaguesAsync))
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'LEAGUE (OPTIONAL)',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary,
+                          letterSpacing: 0.8),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('None'),
+                          selected: selectedLeagueId == null,
+                          onSelected: (_) =>
+                              setSheetState(() => selectedLeagueId = null),
+                          selectedColor: AppColors.border,
+                        ),
+                        ...(leaguesAsync.valueOrNull ?? []).map((l) => ChoiceChip(
+                              label: Text(l.abbreviation),
+                              selected: selectedLeagueId == l.id,
+                              onSelected: (_) =>
+                                  setSheetState(() => selectedLeagueId = l.id),
+                              selectedColor:
+                                  AppColors.primary.withValues(alpha: 0.15),
+                              labelStyle: chatLeagueChipLabelStyle(
                                 selected: selectedLeagueId == l.id,
-                                onSelected: (_) => setSheetState(
-                                    () => selectedLeagueId = l.id),
-                                selectedColor:
-                                    AppColors.primary.withValues(alpha: 0.15),
-                                labelStyle: TextStyle(
-                                  color: selectedLeagueId == l.id
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
-                                  fontWeight: selectedLeagueId == l.id
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                ),
-                              )),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  );
-                },
-              ),
+                              ),
+                            )),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
               const SizedBox(height: 8),
               ElevatedButton(
                 onPressed: () async {
-                  final name = nameController.text.trim();
-                  if (name.isEmpty) return;
                   final currentUser = ref.read(currentUserProvider).valueOrNull;
-                  if (currentUser == null) return;
-                  try {
-                    final roomId = await ref
-                        .read(authorizedFirestoreServiceProvider)
-                        .createChatRoom(
-                      currentUser,
-                      orgId,
-                      name,
-                      ChatRoomType.event,
-                      leagueId: selectedLeagueId,
-                      participants: [currentUser.id],
-                    );
-                    if (ctx.mounted) {
-                      ctx.pop();
-                      if (mounted) context.push('/chat/$roomId');
-                    }
-                  } on PermissionDeniedException {
-                    if (mounted) {
-                      AppUtils.showErrorSnackBar(context,
-                          'You do not have permission to create chat rooms');
-                    }
+                  final roomId = await createEventChatRoom(
+                    currentUser: currentUser,
+                    orgId: orgId,
+                    roomName: nameController.text,
+                    selectedLeagueId: selectedLeagueId,
+                    createRoom:
+                        ref.read(authorizedFirestoreServiceProvider).createChatRoom,
+                    onPermissionDenied: () {
+                      if (mounted) {
+                        AppUtils.showErrorSnackBar(context,
+                            'You do not have permission to create chat rooms');
+                      }
+                    },
+                  );
+                  if (roomId != null && ctx.mounted) {
+                    ctx.pop();
+                    if (mounted) context.push('/chat/$roomId');
                   }
                 },
                 child: const Text('Create Room'),
@@ -270,8 +401,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   void _showDMSheet(String orgId) {
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     final users = ref.read(orgUsersProvider).valueOrNull ?? [];
-    final otherUsers =
-        users.where((u) => u.id != currentUser?.id && u.isActive).toList();
+    final otherUsers = visibleDirectMessageUsers(users, currentUser);
 
     showModalBottomSheet(
       context: context,
@@ -330,18 +460,20 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                         return _UserPickerTile(
                           user: user,
                           onTap: () async {
-                            if (currentUser == null) return;
-                            ctx.pop();
-                            final room = await ref
-                                .read(firestoreServiceProvider)
-                                .getOrCreateDMRoom(
-                                  orgId,
-                                  currentUser.id,
-                                  user.id,
-                                  currentUser.displayName,
-                                  user.displayName,
-                                );
-                            if (mounted) context.push('/chat/${room.id}');
+                            final navigator = Navigator.of(ctx);
+                            final router = GoRouter.of(context);
+                            final roomId = await openDirectMessageRoom(
+                              currentUser: currentUser,
+                              otherUser: user,
+                              orgId: orgId,
+                              getOrCreateDMRoom: ref
+                                  .read(firestoreServiceProvider)
+                                  .getOrCreateDMRoom,
+                            );
+                            if (roomId == null) return;
+                            if (!ctx.mounted || !mounted) return;
+                            navigator.pop();
+                            router.push('/chat/$roomId');
                           },
                         );
                       },
@@ -397,27 +529,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error loading chats: $e')),
         data: (rooms) {
-          var filtered = rooms;
-
-          if (_searchText.isNotEmpty) {
-            filtered = filtered
-                .where((r) => r.name.toLowerCase().contains(_searchText))
-                .toList();
-          }
-          if (_selectedLeagueId != null) {
-            filtered = filtered
-                .where((r) =>
-                    r.leagueId == _selectedLeagueId ||
-                    r.type == ChatRoomType.direct)
-                .toList();
-          }
-
-          final leagueRooms =
-              filtered.where((r) => r.type == ChatRoomType.league).toList();
-          final eventRooms =
-              filtered.where((r) => r.type == ChatRoomType.event).toList();
-          final directRooms =
-              filtered.where((r) => r.type == ChatRoomType.direct).toList();
+          final filtered = filterChatRooms(
+            rooms: rooms,
+            searchText: _searchText,
+            selectedLeagueId: _selectedLeagueId,
+          );
+          final sections = buildChatRoomSections(filtered);
 
           if (filtered.isEmpty) {
             return const EmptyState(
@@ -430,22 +547,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           return ListView(
             padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
             children: [
-              if (leagueRooms.isNotEmpty) ...[
+              for (var index = 0; index < sections.length; index++) ...[
+                if (index > 0) const SizedBox(height: 16),
                 _SectionHeader(
-                    title: 'League Rooms', count: leagueRooms.length),
-                ...leagueRooms.map((r) => _ChatRoomTile(room: r)),
-              ],
-              if (eventRooms.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _SectionHeader(
-                    title: 'Events & Tournaments', count: eventRooms.length),
-                ...eventRooms.map((r) => _ChatRoomTile(room: r)),
-              ],
-              if (directRooms.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _SectionHeader(
-                    title: 'Direct Messages', count: directRooms.length),
-                ...directRooms.map((r) => _ChatRoomTile(room: r)),
+                  title: sections[index].title,
+                  count: sections[index].rooms.length,
+                ),
+                ...sections[index].rooms.map((r) => _ChatRoomTile(room: r)),
               ],
             ],
           );
@@ -504,12 +612,8 @@ class _ChatRoomTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasMessage = room.lastMessage != null && room.lastMessage!.isNotEmpty;
-    final preview = hasMessage
-        ? (room.lastMessageBy != null
-            ? '${room.lastMessageBy}: ${room.lastMessage}'
-            : room.lastMessage!)
-        : null;
+    final preview = chatRoomPreviewText(room);
+    final hasMessage = preview != null;
     final unreadCount =
         ref.watch(unreadCountProvider(room.id)).valueOrNull ?? 0;
 
@@ -571,8 +675,7 @@ class _ChatRoomTile extends ConsumerWidget {
                 AppUtils.formatDateTime(room.lastMessageAt!),
                 style: TextStyle(
                   fontSize: 11,
-                  color:
-                      unreadCount > 0 ? AppColors.primary : AppColors.textMuted,
+                  color: chatRoomTimestampColor(unreadCount),
                 ),
               ),
             if (unreadCount > 0) ...[
@@ -584,7 +687,7 @@ class _ChatRoomTile extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  unreadCount > 99 ? '99+' : '$unreadCount',
+                  formatUnreadBadgeCount(unreadCount),
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,

@@ -1,13 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:league_hub/models/app_user.dart';
+import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings_screen.dart';
-import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/services/auth_service.dart';
+import 'package:league_hub/services/messaging_service.dart';
+import 'package:mockito/mockito.dart';
+
+class MockAuthService extends Mock implements AuthService {
+  @override
+  Future<void> signOut() => (super.noSuchMethod(
+        Invocation.method(#signOut, []),
+        returnValue: Future<void>.value(),
+      ) as Future<void>);
+}
+
+class MockMessagingService extends Mock implements MessagingService {
+  @override
+  Future<void> removeToken(String userId) => (super.noSuchMethod(
+        Invocation.method(#removeToken, [userId]),
+        returnValue: Future<void>.value(),
+      ) as Future<void>);
+}
 
 void main() {
+  group('settings helpers', () {
+    test('detects when organization section should be shown', () {
+      expect(shouldShowOrganizationSettings(['users']), isTrue);
+      expect(shouldShowOrganizationSettings(['notifications']), isFalse);
+    });
+
+    test('builds organization settings items with optional badge', () {
+      final items = buildOrganizationSettingsItems(
+        visibleTiles: ['leagues', 'users', 'branding'],
+        pendingInviteCount: 3,
+      );
+
+      expect(items.map((item) => item.title).toList(), [
+        'Manage Leagues & Hubs',
+        'User Management',
+        'Branding & Appearance',
+      ]);
+      expect(items[1].badge, 3);
+      expect(items[2].route, '/settings/branding');
+    });
+
+    test('omits user badge when there are no pending invites', () {
+      final items = buildOrganizationSettingsItems(
+        visibleTiles: ['users'],
+        pendingInviteCount: 0,
+      );
+
+      expect(items.single.badge, isNull);
+    });
+
+    test('builds preferences settings items', () {
+      final items = buildPreferenceSettingsItems();
+
+      expect(items.map((item) => item.route).toList(), [
+        '/settings/notifications',
+        '/settings/privacy',
+      ]);
+    });
+  });
+
   group('SettingsScreen', () {
     // Helper to create a test widget with Riverpod overrides
     Widget createTestWidget({
@@ -25,6 +85,83 @@ void main() {
           home: Scaffold(
             body: SettingsScreen(),
           ),
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget createRoutedTestWidget({
+      required AppUser user,
+      int pendingInviteCount = 0,
+      AuthService? authService,
+      MessagingService? messagingService,
+    }) {
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const Scaffold(body: SettingsScreen()),
+          ),
+          GoRoute(
+            path: '/settings/leagues',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Leagues Route')),
+          ),
+          GoRoute(
+            path: '/settings/users',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Users Route')),
+          ),
+          GoRoute(
+            path: '/settings/roles',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Roles Route')),
+          ),
+          GoRoute(
+            path: '/settings/branding',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Branding Route')),
+          ),
+          GoRoute(
+            path: '/settings/app-icon',
+            builder: (context, state) =>
+                const Scaffold(body: Text('App Icon Route')),
+          ),
+          GoRoute(
+            path: '/settings/notifications',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Notifications Route')),
+          ),
+          GoRoute(
+            path: '/settings/privacy',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Privacy Route')),
+          ),
+          GoRoute(
+            path: '/login',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Login Route')),
+          ),
+        ],
+      );
+
+      return ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWith((ref) => user),
+          pendingInviteCountProvider.overrideWithValue(pendingInviteCount),
+          if (authService != null)
+            authServiceProvider.overrideWithValue(authService),
+          if (messagingService != null)
+            messagingServiceProvider.overrideWithValue(messagingService),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
@@ -162,6 +299,50 @@ void main() {
         // Super Admin should show Owner badge
         expect(find.text('Owner'), findsOneWidget);
       });
+
+      testWidgets('roles tile navigates to roles route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Roles & Permissions'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Roles Route'), findsOneWidget);
+      });
+
+      testWidgets('branding tile navigates to branding route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Branding & Appearance'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Branding Route'), findsOneWidget);
+      });
+
+      testWidgets('app icon tile navigates to app icon route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('App Icon'),
+          200,
+          scrollable: find.byType(Scrollable).last,
+        );
+        final tile = tester.widget<ListTile>(
+          find.ancestor(
+            of: find.text('App Icon'),
+            matching: find.byType(ListTile),
+          ),
+        );
+        tile.onTap!.call();
+        await tester.pumpAndSettle();
+
+        expect(find.text('App Icon Route'), findsOneWidget);
+      });
     });
 
     group('Platform Owner user', () {
@@ -234,6 +415,16 @@ void main() {
 
         expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       });
+
+      testWidgets('edit button opens edit profile screen',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(user: testUser));
+
+        await tester.tap(find.byIcon(Icons.edit_outlined));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Edit Profile'), findsOneWidget);
+      });
     });
 
     group('Sign Out button', () {
@@ -255,6 +446,30 @@ void main() {
 
         expect(find.text('Sign Out'), findsOneWidget);
         expect(find.byIcon(Icons.logout), findsOneWidget);
+      });
+
+      testWidgets('sign out removes token, signs out, and routes to login',
+          (WidgetTester tester) async {
+        final authService = MockAuthService();
+        final messagingService = MockMessagingService();
+        when(messagingService.removeToken(testUser.id)).thenAnswer((_) async {});
+        when(authService.signOut()).thenAnswer((_) async {});
+
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            user: testUser,
+            authService: authService,
+            messagingService: messagingService,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Sign Out'));
+        await tester.pumpAndSettle();
+
+        verify(messagingService.removeToken(testUser.id)).called(1);
+        verify(authService.signOut()).called(1);
+        expect(find.text('Login Route'), findsOneWidget);
       });
     });
 
@@ -374,6 +589,66 @@ void main() {
 
         // Should find settings items with chevrons
         expect(find.byIcon(Icons.chevron_right), findsWidgets);
+      });
+    });
+
+    group('Navigation', () {
+      final superAdmin = AppUser(
+        id: 'super-admin',
+        email: 'super@example.com',
+        displayName: 'Super Admin',
+        role: UserRole.superAdmin,
+        orgId: 'org-1',
+        createdAt: DateTime(2024),
+        hubIds: [],
+        teamIds: [],
+        isActive: true,
+      );
+
+      testWidgets('organization tile navigates to leagues route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
+
+        await tester.tap(find.text('Manage Leagues & Hubs'));
+        await tester.pumpAndSettle();
+        expect(find.text('Leagues Route'), findsOneWidget);
+      });
+
+      testWidgets('organization tile navigates to users route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
+
+        await tester.tap(find.text('User Management'));
+        await tester.pumpAndSettle();
+        expect(find.text('Users Route'), findsOneWidget);
+      });
+
+      testWidgets('preference tile navigates to notifications route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
+
+        await tester.scrollUntilVisible(
+          find.text('Notifications'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.text('Notifications'));
+        await tester.pumpAndSettle();
+        expect(find.text('Notifications Route'), findsOneWidget);
+      });
+
+      testWidgets('preference tile navigates to privacy route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
+
+        await tester.scrollUntilVisible(
+          find.text('Privacy & Security'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.text('Privacy & Security'));
+        await tester.pumpAndSettle();
+        expect(find.text('Privacy Route'), findsOneWidget);
       });
     });
   });

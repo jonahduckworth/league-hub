@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
@@ -161,6 +162,85 @@ void main() {
       );
     }
 
+    Widget createRoutedTestWidget({
+      AppUser? user,
+      Organization? org,
+      List<League>? leagues,
+      List<Announcement>? announcements,
+      List<ChatRoom>? chatRooms,
+      int hubCount = 3,
+      int teamCount = 12,
+      int memberCount = 45,
+    }) {
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const DashboardScreen(),
+          ),
+          GoRoute(
+            path: '/settings/notifications',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Notifications Route')),
+          ),
+          GoRoute(
+            path: '/announcements',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Announcements Route')),
+          ),
+          GoRoute(
+            path: '/chat',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Chat Route')),
+          ),
+          GoRoute(
+            path: '/documents',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Documents Route')),
+          ),
+          GoRoute(
+            path: '/announcements/:id',
+            builder: (context, state) => Scaffold(
+              body: Text('Announcement Route ${state.pathParameters['id']}'),
+            ),
+          ),
+          GoRoute(
+            path: '/chat/:id',
+            builder: (context, state) => Scaffold(
+                body: Text('Chat Detail ${state.pathParameters['id']}')),
+          ),
+        ],
+      );
+
+      return ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWith((ref) => user ?? testUser),
+          organizationProvider.overrideWith((ref) => org ?? testOrg),
+          leaguesProvider.overrideWith(
+            (ref) => Stream.value(leagues ?? testLeagues),
+          ),
+          announcementsProvider.overrideWith(
+            (ref) => Stream.value(announcements ?? testAnnouncements),
+          ),
+          chatRoomsProvider.overrideWith(
+            (ref) => Stream.value(chatRooms ?? testChatRooms),
+          ),
+          hubCountProvider.overrideWith((ref) => hubCount),
+          teamCountProvider.overrideWith((ref) => teamCount),
+          activeUserCountProvider.overrideWith((ref) => memberCount),
+          unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+          ),
+        ),
+      );
+    }
+
     group('Stat Cards', () {
       testWidgets('displays all stat cards', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
@@ -189,7 +269,8 @@ void main() {
         expect(find.text('2'), findsWidgets); // Leagues (from testLeagues)
       });
 
-      testWidgets('displays zero values correctly', (WidgetTester tester) async {
+      testWidgets('displays zero values correctly',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(
           hubCount: 0,
           teamCount: 0,
@@ -234,7 +315,8 @@ void main() {
         expect(find.text('Custom Org Name'), findsOneWidget);
       });
 
-      testWidgets('displays greeting with user name', (WidgetTester tester) async {
+      testWidgets('displays greeting with user name',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -259,6 +341,52 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.search), findsOneWidget);
+      });
+
+      testWidgets('notification button navigates to notifications',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.notifications_outlined));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Notifications Route'), findsOneWidget);
+      });
+
+      testWidgets('search button opens search sheet',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.search));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Search announcements, chats, documents...'),
+          findsOneWidget,
+        );
+        expect(find.text('Announcements'), findsWidgets);
+        expect(find.text('Chats'), findsOneWidget);
+        expect(find.text('Documents'), findsOneWidget);
+      });
+
+      testWidgets('search submit shows coming soon dialog',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.search));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField),
+          'registrations',
+        );
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+
+        expect(
+            find.text('Search functionality is coming soon.'), findsOneWidget);
       });
     });
 
@@ -348,7 +476,8 @@ void main() {
           ),
         );
 
-        await tester.pumpWidget(createTestWidget(announcements: manyAnnouncements));
+        await tester
+            .pumpWidget(createTestWidget(announcements: manyAnnouncements));
         await tester.pump();
         await tester.pumpAndSettle();
 
@@ -358,6 +487,33 @@ void main() {
         expect(find.text('Announcement 2'), findsOneWidget);
         expect(find.text('Announcement 3'), findsNothing);
         expect(find.text('Announcement 4'), findsNothing);
+      });
+
+      testWidgets('see all navigates to announcements route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('See All').first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Announcements Route'), findsOneWidget);
+      });
+
+      testWidgets('announcement card tap navigates to detail',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('Welcome Announcement'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.text('Welcome Announcement'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Announcement Route ann-1'), findsOneWidget);
       });
     });
 
@@ -380,7 +536,8 @@ void main() {
         expect(find.text('Tournament Bracket'), findsOneWidget);
       });
 
-      testWidgets('shows chat room types with icons', (WidgetTester tester) async {
+      testWidgets('shows chat room types with icons',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -436,16 +593,50 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.textContaining('See you at the game!'), findsOneWidget);
-        expect(find.textContaining('Bracket updates available'), findsOneWidget);
+        expect(
+            find.textContaining('Bracket updates available'), findsOneWidget);
       });
 
-      testWidgets('shows timestamp of last message', (WidgetTester tester) async {
+      testWidgets('shows timestamp of last message',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
         // Should find timestamps (exact format depends on formatDateTime)
         expect(find.byType(Text), findsWidgets);
+      });
+
+      testWidgets('see all navigates to chat route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('See All').last,
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.text('See All').last);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Chat Route'), findsOneWidget);
+      });
+
+      testWidgets('chat card tap navigates to chat detail',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('General Discussion'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.text('General Discussion'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Chat Detail chat-1'), findsOneWidget);
       });
     });
 
@@ -478,7 +669,8 @@ void main() {
     });
 
     group('Default Values', () {
-      testWidgets('uses mock values when data is null', (WidgetTester tester) async {
+      testWidgets('uses mock values when data is null',
+          (WidgetTester tester) async {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
@@ -500,7 +692,8 @@ void main() {
               activeUserCountProvider.overrideWith(
                 (ref) => 0,
               ),
-              unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
+              unreadCountProvider
+                  .overrideWith((ref, roomId) => Stream.value(0)),
             ],
             child: MaterialApp(
               home: DashboardScreen(),

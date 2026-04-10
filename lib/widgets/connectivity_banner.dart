@@ -4,6 +4,20 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 
+Future<List<InternetAddress>> defaultConnectivityBannerLookup(String host) {
+  return InternetAddress.lookup(host).timeout(const Duration(seconds: 2));
+}
+
+Future<List<InternetAddress>> resolveConnectivityBannerLookup({
+  required String host,
+  Future<List<InternetAddress>> Function(String host)? lookup,
+  Future<List<InternetAddress>> Function(String host)? fallbackLookup,
+}) {
+  return (lookup ?? fallbackLookup ?? defaultConnectivityBannerLookup)(host);
+}
+
+bool shouldHideOnlineBannerImmediately(bool wasOffline) => !wasOffline;
+
 /// A banner that slides in from the top when the device loses connectivity
 /// and slides out when it reconnects. Optionally shows a pending mutation count.
 class ConnectivityBanner extends StatefulWidget {
@@ -14,12 +28,18 @@ class ConnectivityBanner extends StatefulWidget {
 
   /// Initial pending count (for when the widget is first built).
   final int initialPendingCount;
+  final Stream<List<ConnectivityResult>>? connectivityChanges;
+  final Future<List<ConnectivityResult>> Function()? connectivityCheck;
+  final Future<List<InternetAddress>> Function(String host)? internetLookup;
 
   const ConnectivityBanner({
     super.key,
     required this.child,
     this.pendingCountStream,
     this.initialPendingCount = 0,
+    this.connectivityChanges,
+    this.connectivityCheck,
+    this.internetLookup,
   });
 
   @override
@@ -39,6 +59,7 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
   @override
   void initState() {
     super.initState();
+    final connectivity = Connectivity();
     _pendingCount = widget.initialPendingCount;
     _animController = AnimationController(
       vsync: this,
@@ -53,9 +74,12 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
     ));
 
     _subscription =
-        Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
+        (widget.connectivityChanges ?? connectivity.onConnectivityChanged)
+            .listen(_onConnectivityChanged);
     // Check initial state.
-    Connectivity().checkConnectivity().then(_onConnectivityChanged);
+    (widget.connectivityCheck ?? connectivity.checkConnectivity)
+        .call()
+        .then(_onConnectivityChanged);
 
     _pendingSub = widget.pendingCountStream?.listen((count) {
       if (mounted) setState(() => _pendingCount = count);
@@ -70,9 +94,11 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
     // Double-check with a real DNS lookup before showing the banner.
     if (offline) {
       try {
-        final result = await InternetAddress.lookup('google.com')
-            .timeout(const Duration(seconds: 2));
-        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        final resolved = await resolveConnectivityBannerLookup(
+          host: 'google.com',
+          lookup: widget.internetLookup,
+        );
+        if (resolved.isNotEmpty && resolved[0].rawAddress.isNotEmpty) {
           offline = false;
         }
       } catch (_) {
@@ -94,7 +120,7 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted && !_isOffline) _animController.reverse();
           });
-        } else {
+        } else if (shouldHideOnlineBannerImmediately(_wasOffline)) {
           _animController.reverse();
         }
       }

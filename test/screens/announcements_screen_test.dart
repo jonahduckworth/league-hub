@@ -3,16 +3,199 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/league.dart';
+import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/announcements_screen.dart';
+import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/empty_state.dart';
+import 'package:mockito/mockito.dart';
+
+class MockAuthorizedFirestoreService extends Mock
+    implements AuthorizedFirestoreService {
+  @override
+  Future<void> togglePin(
+    AppUser actor,
+    String orgId,
+    String announcementId,
+    bool isPinned,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #togglePin,
+              [actor, orgId, announcementId, isPinned],
+            ),
+            returnValue: Future<void>.value(),
+          ) as Future<void>);
+
+  @override
+  Future<void> deleteAnnouncement(
+    AppUser actor,
+    String orgId,
+    String announcementId,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #deleteAnnouncement,
+              [actor, orgId, announcementId],
+            ),
+            returnValue: Future<void>.value(),
+          ) as Future<void>);
+}
+
+class _GenericTogglePinError implements Exception {
+  @override
+  String toString() => 'generic toggle failure';
+}
+
+class _GenericDeleteError implements Exception {
+  @override
+  String toString() => 'generic delete failure';
+}
 
 void main() {
+  group('announcement helpers', () {
+    final baseTime = DateTime(2026, 1, 1);
+    final orgWidePinned = Announcement(
+      id: 'ann-1',
+      orgId: 'org-1',
+      title: 'Org Wide',
+      body: 'Body',
+      authorId: 'user-1',
+      authorName: 'User One',
+      authorRole: 'Admin',
+      scope: AnnouncementScope.orgWide,
+      attachments: [],
+      isPinned: true,
+      createdAt: baseTime,
+    );
+    final leaguePost = Announcement(
+      id: 'ann-2',
+      orgId: 'org-1',
+      title: 'League Post',
+      body: 'Body',
+      authorId: 'user-1',
+      authorName: 'User One',
+      authorRole: 'Admin',
+      scope: AnnouncementScope.league,
+      leagueId: 'league-1',
+      attachments: [],
+      isPinned: false,
+      createdAt: baseTime,
+    );
+
+    test('builds announcement summary chips from post counts', () {
+      final summaries = buildAnnouncementSummaries([orgWidePinned, leaguePost]);
+
+      expect(summaries.map((summary) => summary.label).toList(), [
+        '1 pinned',
+        '2 total posts',
+      ]);
+    });
+
+    test('builds announcement actions for pinned announcement', () {
+      var toggled = false;
+      var edited = false;
+      var deleted = false;
+
+      final actions = buildAnnouncementActions(
+        announcement: orgWidePinned,
+        onTogglePin: () => toggled = true,
+        onEdit: () => edited = true,
+        onDelete: () => deleted = true,
+      );
+
+      expect(actions.map((action) => action.label).toList(),
+          ['Unpin', 'Edit', 'Delete']);
+      expect(actions.first.icon, Icons.push_pin_outlined);
+
+      actions[0].onTap();
+      actions[1].onTap();
+      actions[2].onTap();
+
+      expect(toggled, isTrue);
+      expect(edited, isTrue);
+      expect(deleted, isTrue);
+    });
+
+    test('builds announcement actions for unpinned announcement', () {
+      final actions = buildAnnouncementActions(
+        announcement: leaguePost,
+        onTogglePin: () {},
+        onEdit: () {},
+        onDelete: () {},
+      );
+
+      expect(actions.first.label, 'Pin');
+      expect(actions.first.icon, Icons.push_pin);
+      expect(actions.last.textStyle?.color, AppColors.danger);
+    });
+
+    test('toggleAnnouncementPin reports generic failures', () async {
+      final service = MockAuthorizedFirestoreService();
+      final user = AppUser(
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'User One',
+        role: UserRole.superAdmin,
+        orgId: 'org-1',
+        hubIds: [],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+      when(service.togglePin(user, 'org-1', 'ann-1', true))
+          .thenThrow(_GenericTogglePinError());
+      String? errorMessage;
+
+      final result = await toggleAnnouncementPin(
+        service: service,
+        currentUser: user,
+        orgId: 'org-1',
+        announcementId: 'ann-1',
+        isPinned: true,
+        onError: (message) => errorMessage = message,
+      );
+
+      expect(result, isFalse);
+      expect(errorMessage, 'Failed to toggle pin: generic toggle failure');
+    });
+
+    test('deleteAnnouncementWithHandling reports generic failures', () async {
+      final service = MockAuthorizedFirestoreService();
+      final user = AppUser(
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'User One',
+        role: UserRole.superAdmin,
+        orgId: 'org-1',
+        hubIds: [],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+      when(service.deleteAnnouncement(user, 'org-1', 'ann-1'))
+          .thenThrow(_GenericDeleteError());
+      String? errorMessage;
+
+      final result = await deleteAnnouncementWithHandling(
+        service: service,
+        currentUser: user,
+        orgId: 'org-1',
+        announcementId: 'ann-1',
+        onError: (message) => errorMessage = message,
+      );
+
+      expect(result, isFalse);
+      expect(errorMessage, 'Delete failed: generic delete failure');
+    });
+  });
+
   group('AnnouncementsScreen', () {
     final testUser = AppUser(
       id: 'user-1',
@@ -54,6 +237,16 @@ void main() {
         createdAt: DateTime.now(),
       ),
     ];
+
+    final testOrg = Organization(
+      id: 'org-1',
+      name: 'Test Organization',
+      primaryColor: '#1A3A5C',
+      secondaryColor: '#2E75B6',
+      accentColor: '#4DA3FF',
+      createdAt: DateTime.now(),
+      ownerId: 'admin-1',
+    );
 
     final testAnnouncements = [
       Announcement(
@@ -123,6 +316,64 @@ void main() {
             colorScheme: ColorScheme.fromSeed(
               seedColor: AppColors.primary,
             ),
+          ),
+        ),
+      );
+    }
+
+    Widget createRoutedTestWidget({
+      AppUser? user,
+      List<Announcement>? announcements,
+      List<League>? leagues,
+      AuthorizedFirestoreService? authorizedFirestoreService,
+    }) {
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const AnnouncementsScreen(),
+          ),
+          GoRoute(
+            path: '/announcements/create',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Create Announcement Route')),
+          ),
+          GoRoute(
+            path: '/announcements/:id',
+            builder: (context, state) => Scaffold(
+              body: Text('Announcement Route ${state.pathParameters['id']}'),
+            ),
+          ),
+          GoRoute(
+            path: '/announcements/:id/edit',
+            builder: (context, state) => Scaffold(
+              body:
+                  Text('Edit Announcement Route ${state.pathParameters['id']}'),
+            ),
+          ),
+        ],
+      );
+
+      return ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWith((ref) => user ?? testUser),
+          organizationProvider.overrideWith((ref) => testOrg),
+          announcementsProvider.overrideWith(
+            (ref) => Stream.value(announcements ?? testAnnouncements),
+          ),
+          leaguesProvider.overrideWith(
+            (ref) => Stream.value(leagues ?? testLeagues),
+          ),
+          if (authorizedFirestoreService != null)
+            authorizedFirestoreServiceProvider
+                .overrideWithValue(authorizedFirestoreService),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
           ),
         ),
       );
@@ -321,8 +572,10 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('SL'), findsWidgets); // Spring League (may appear in filter + tag)
-        expect(find.text('FL'), findsWidgets); // Fall League (may appear in filter + tag)
+        expect(find.text('SL'),
+            findsWidgets); // Spring League (may appear in filter + tag)
+        expect(find.text('FL'),
+            findsWidgets); // Fall League (may appear in filter + tag)
       });
 
       testWidgets('scope tags have different colors',
@@ -380,6 +633,20 @@ void main() {
         // Should still render announcements
         expect(find.byType(AnnouncementsScreen), findsOneWidget);
       });
+
+      testWidgets('selecting a league hides unrelated league announcements',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('SL').first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Welcome to League Hub'), findsOneWidget);
+        expect(find.text('Spring Tournament Dates'), findsOneWidget);
+        expect(find.text('Schedule Update'), findsNothing);
+      });
     });
 
     group('Empty State', () {
@@ -431,6 +698,46 @@ void main() {
         await tester.pump();
 
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      });
+
+      testWidgets('pull to refresh rebuilds announcements provider',
+          (WidgetTester tester) async {
+        var buildCount = 0;
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentUserProvider.overrideWith((ref) => testUser),
+              announcementsProvider.overrideWith((ref) {
+                buildCount += 1;
+                return Stream.value(testAnnouncements);
+              }),
+              leaguesProvider.overrideWith((ref) => Stream.value(testLeagues)),
+            ],
+            child: MaterialApp(
+              home: const AnnouncementsScreen(),
+              theme: ThemeData(
+                useMaterial3: true,
+                colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(buildCount, 1);
+
+        await tester.fling(
+          find.byType(ListView).last,
+          const Offset(0, 300),
+          1000,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pumpAndSettle();
+
+        expect(buildCount, greaterThan(1));
       });
     });
 
@@ -496,6 +803,165 @@ void main() {
 
         // Admin user should have FAB for creating
         expect(find.byIcon(Icons.add), findsOneWidget);
+      });
+
+      testWidgets('admin long press opens options sheet',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: adminUser));
+        await tester.pumpAndSettle();
+
+        final cardTitle = find.text('Welcome to League Hub');
+        await tester.longPress(cardTitle);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Unpin'), findsOneWidget);
+        expect(find.text('Edit'), findsOneWidget);
+        expect(find.text('Delete'), findsOneWidget);
+      });
+
+      testWidgets('edit option navigates to edit route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: adminUser));
+        await tester.pumpAndSettle();
+
+        final cardTitle = find.text('Welcome to League Hub');
+        await tester.longPress(cardTitle);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Edit'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Edit Announcement Route ann-1'), findsOneWidget);
+      });
+
+      testWidgets('pin option calls service', (WidgetTester tester) async {
+        final service = MockAuthorizedFirestoreService();
+        when(service.togglePin(adminUser, 'org-1', 'ann-1', false))
+            .thenAnswer((_) async {});
+
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            user: adminUser,
+            authorizedFirestoreService: service,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.text('Welcome to League Hub'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Unpin'));
+        await tester.pumpAndSettle();
+
+        verify(service.togglePin(adminUser, 'org-1', 'ann-1', false))
+            .called(1);
+      });
+
+      testWidgets('delete option opens confirmation dialog',
+          (WidgetTester tester) async {
+        final service = MockAuthorizedFirestoreService();
+
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            user: adminUser,
+            authorizedFirestoreService: service,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.text('Welcome to League Hub'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Delete Announcement'), findsOneWidget);
+        expect(
+          find.text('Are you sure you want to delete this announcement?'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('delete confirm calls service', (WidgetTester tester) async {
+        final service = MockAuthorizedFirestoreService();
+        when(service.deleteAnnouncement(adminUser, 'org-1', 'ann-1'))
+            .thenAnswer((_) async {});
+
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            user: adminUser,
+            authorizedFirestoreService: service,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.text('Welcome to League Hub'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete').last);
+        await tester.pumpAndSettle();
+
+        verify(service.deleteAnnouncement(adminUser, 'org-1', 'ann-1'))
+            .called(1);
+      });
+
+      testWidgets('pin failure shows snackbar', (WidgetTester tester) async {
+        final service = MockAuthorizedFirestoreService();
+        when(service.togglePin(adminUser, 'org-1', 'ann-1', false)).thenThrow(
+          PermissionDeniedException(
+            action: 'togglePin',
+            userId: adminUser.id,
+            role: adminUser.role,
+          ),
+        );
+
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            user: adminUser,
+            authorizedFirestoreService: service,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.text('Welcome to League Hub'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Unpin'));
+        await tester.pump();
+
+        expect(
+          find.text('Permission denied. You cannot pin announcements.'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('delete failure shows snackbar', (WidgetTester tester) async {
+        final service = MockAuthorizedFirestoreService();
+        when(service.deleteAnnouncement(adminUser, 'org-1', 'ann-1'))
+            .thenThrow(
+          PermissionDeniedException(
+            action: 'deleteAnnouncement',
+            userId: adminUser.id,
+            role: adminUser.role,
+          ),
+        );
+
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            user: adminUser,
+            authorizedFirestoreService: service,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.text('Welcome to League Hub'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete').last);
+        await tester.pump();
+
+        expect(
+          find.text('Permission denied. You cannot delete announcements.'),
+          findsOneWidget,
+        );
       });
     });
 
@@ -708,6 +1174,60 @@ void main() {
 
         // Should show something for the league
         expect(find.text('Orphaned Announcement'), findsOneWidget);
+        expect(find.text('League'), findsOneWidget);
+      });
+    });
+
+    group('Navigation', () {
+      testWidgets('fab navigates to create route', (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: adminUser));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Create Announcement Route'), findsOneWidget);
+      });
+
+      testWidgets('tapping announcement card navigates to detail route',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Welcome to League Hub'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Announcement Route ann-1'), findsOneWidget);
+      });
+    });
+
+    group('Hub Scope', () {
+      testWidgets('hub scoped announcement shows Hub badge',
+          (WidgetTester tester) async {
+        final hubAnnouncement = [
+          Announcement(
+            id: 'ann-hub',
+            orgId: 'org-1',
+            title: 'Hub Update',
+            body: 'Hub specific news',
+            authorId: 'admin-1',
+            authorName: 'Admin User',
+            authorRole: 'Super Admin',
+            scope: AnnouncementScope.hub,
+            hubId: 'hub-1',
+            attachments: [],
+            isPinned: false,
+            createdAt: DateTime.now(),
+          ),
+        ];
+
+        await tester.pumpWidget(
+          createTestWidget(announcements: hubAnnouncement),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Hub'), findsOneWidget);
       });
     });
   });
