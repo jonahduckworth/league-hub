@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/permission_service.dart';
 import '../widgets/app_shell_header.dart';
+import '../widgets/app_shell_scaffold.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/status_badge.dart';
@@ -47,7 +48,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomContentPadding = MediaQuery.paddingOf(context).bottom + 8;
+    final bottomContentPadding = appShellBottomPadding(context);
     final docsAsync = ref.watch(documentsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final selectedLeagueId = ref.watch(selectedLeagueProvider);
@@ -55,8 +56,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final leagues = leaguesAsync.valueOrNull ?? [];
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return AppShellScaffold(
       floatingActionButton: _canUpload(currentUser)
           ? FloatingActionButton(
               onPressed: () => context.push('/documents/upload'),
@@ -64,117 +64,86 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
-      body: Column(
+      header: AppShellHeader(
+        eyebrow: 'DOCS',
+        leadingIcon: Icons.folder_copy_outlined,
+        title: 'Documents',
+        subtitle:
+            'Policies, rosters, schedules, and shared files for your league.',
+        bottom: AppHeaderSearchField(
+          controller: _searchController,
+          hintText: 'Search documents...',
+          onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+        ),
+      ),
+      stickyContent: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          AppShellHeader(
-            eyebrow: 'DOCS',
-            leadingIcon: Icons.folder_copy_outlined,
-            title: 'Documents',
-            subtitle:
-                'Policies, rosters, schedules, and shared files for your league.',
-            bottom: AppHeaderSearchField(
-              controller: _searchController,
-              hintText: 'Search documents...',
-              onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-            ),
+          LeagueFilter(
+            leagues: leagues,
+            selectedLeagueId: selectedLeagueId,
+            onSelected: (id) =>
+                ref.read(selectedLeagueProvider.notifier).state = id,
           ),
-          Expanded(
-            child: Transform.translate(
-              offset: const Offset(0, -32),
-              child: SizedBox(
-                width: double.infinity,
-                child: Material(
-                  color: AppColors.background,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(30),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 20),
-                      LeagueFilter(
-                        leagues: leagues,
-                        selectedLeagueId: selectedLeagueId,
-                        onSelected: (id) => ref
-                            .read(selectedLeagueProvider.notifier)
-                            .state = id,
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 36,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          children: _categories
-                              .map((cat) => _CategoryChip(
-                                    label: cat,
-                                    isSelected: selectedCategory == cat,
-                                    onTap: () => ref
-                                        .read(selectedCategoryProvider.notifier)
-                                        .state = cat,
-                                  ))
-                              .toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: docsAsync.when(
-                          loading: () =>
-                              const Center(child: CircularProgressIndicator()),
-                          error: (e, _) => Center(
-                            child: Text('Error: $e',
-                                style:
-                                    const TextStyle(color: AppColors.danger)),
-                          ),
-                          data: (docs) {
-                            final filtered = _searchQuery.isEmpty
-                                ? docs
-                                : docs
-                                    .where((d) => d.name
-                                        .toLowerCase()
-                                        .contains(_searchQuery))
-                                    .toList();
-
-                            if (filtered.isEmpty) {
-                              return EmptyState(
-                                icon: Icons.folder_open,
-                                title: 'No documents found',
-                                action: _canUpload(currentUser)
-                                    ? ElevatedButton.icon(
-                                        onPressed: () =>
-                                            context.push('/documents/upload'),
-                                        icon: const Icon(Icons.upload_file),
-                                        label: const Text('Upload Document'),
-                                      )
-                                    : null,
-                              );
-                            }
-
-                            return RefreshIndicator(
-                              onRefresh: () async =>
-                                  ref.invalidate(documentsProvider),
-                              child: ListView.builder(
-                                padding: EdgeInsets.fromLTRB(
-                                    16, 0, 16, bottomContentPadding),
-                                itemCount: filtered.length,
-                                itemBuilder: (context, index) => _DocumentTile(
-                                  doc: filtered[index],
-                                  leagues: leagues,
-                                  onTap: () => context
-                                      .push('/documents/${filtered[index].id}'),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: _categories
+                  .map((cat) => _CategoryChip(
+                        label: cat,
+                        isSelected: selectedCategory == cat,
+                        onTap: () => ref
+                            .read(selectedCategoryProvider.notifier)
+                            .state = cat,
+                      ))
+                  .toList(),
             ),
           ),
         ],
+      ),
+      child: docsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Text('Error: $e',
+              style: const TextStyle(color: AppColors.danger)),
+        ),
+        data: (docs) {
+          final filtered = _searchQuery.isEmpty
+              ? docs
+              : docs
+                  .where((d) => d.name.toLowerCase().contains(_searchQuery))
+                  .toList();
+
+          if (filtered.isEmpty) {
+            return EmptyState(
+              icon: Icons.folder_open,
+              title: 'No documents found',
+              action: _canUpload(currentUser)
+                  ? ElevatedButton.icon(
+                      onPressed: () => context.push('/documents/upload'),
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Upload Document'),
+                    )
+                  : null,
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(documentsProvider),
+            child: ListView.builder(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+              itemCount: filtered.length,
+              itemBuilder: (context, index) => _DocumentTile(
+                doc: filtered[index],
+                leagues: leagues,
+                onTap: () => context.push('/documents/${filtered[index].id}'),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../widgets/app_shell_header.dart';
+import '../widgets/app_shell_scaffold.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/bottom_sheet_handle.dart';
 import '../widgets/empty_state.dart';
@@ -358,13 +359,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomContentPadding = MediaQuery.paddingOf(context).bottom + 8;
+    final bottomContentPadding = appShellBottomPadding(context);
     final chatRoomsAsync = ref.watch(chatRoomsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final orgId = ref.watch(organizationProvider).valueOrNull?.id;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return AppShellScaffold(
       floatingActionButton: orgId == null
           ? null
           : FloatingActionButton(
@@ -372,125 +372,84 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: Colors.white),
             ),
-      body: Column(
-        children: [
-          AppShellHeader(
-            eyebrow: 'CHAT',
-            leadingIcon: Icons.forum_outlined,
-            title: 'Messages',
-            subtitle:
-                'League rooms, event chats, and direct messages in one place.',
-            bottom: AppHeaderSearchField(
-              controller: _searchController,
-              hintText: 'Search conversations...',
-            ),
-          ),
-          Expanded(
-            child: Transform.translate(
-              offset: const Offset(0, -32),
-              child: SizedBox(
-                width: double.infinity,
-                child: Material(
-                  color: AppColors.background,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(30),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 20),
-                      leaguesAsync.when(
-                        loading: () => const SizedBox(height: 48),
-                        error: (_, __) => const SizedBox(height: 48),
-                        data: (leagues) => LeagueFilter(
-                          leagues: leagues,
-                          selectedLeagueId: _selectedLeagueId,
-                          onSelected: (id) =>
-                              setState(() => _selectedLeagueId = id),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: chatRoomsAsync.when(
-                          loading: () =>
-                              const Center(child: CircularProgressIndicator()),
-                          error: (e, _) =>
-                              Center(child: Text('Error loading chats: $e')),
-                          data: (rooms) {
-                            var filtered = rooms;
+      header: AppShellHeader(
+        eyebrow: 'CHAT',
+        leadingIcon: Icons.forum_outlined,
+        title: 'Messages',
+        subtitle:
+            'League rooms, event chats, and direct messages in one place.',
+        bottom: AppHeaderSearchField(
+          controller: _searchController,
+          hintText: 'Search conversations...',
+        ),
+      ),
+      stickyContent: leaguesAsync.when(
+        loading: () => const SizedBox(height: 48),
+        error: (_, __) => const SizedBox(height: 48),
+        data: (leagues) => LeagueFilter(
+          leagues: leagues,
+          selectedLeagueId: _selectedLeagueId,
+          onSelected: (id) => setState(() => _selectedLeagueId = id),
+        ),
+      ),
+      stickySpacing: 8,
+      child: chatRoomsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error loading chats: $e')),
+        data: (rooms) {
+          var filtered = rooms;
 
-                            if (_searchText.isNotEmpty) {
-                              filtered = filtered
-                                  .where((r) => r.name
-                                      .toLowerCase()
-                                      .contains(_searchText))
-                                  .toList();
-                            }
-                            if (_selectedLeagueId != null) {
-                              filtered = filtered
-                                  .where((r) =>
-                                      r.leagueId == _selectedLeagueId ||
-                                      r.type == ChatRoomType.direct)
-                                  .toList();
-                            }
+          if (_searchText.isNotEmpty) {
+            filtered = filtered
+                .where((r) => r.name.toLowerCase().contains(_searchText))
+                .toList();
+          }
+          if (_selectedLeagueId != null) {
+            filtered = filtered
+                .where((r) =>
+                    r.leagueId == _selectedLeagueId ||
+                    r.type == ChatRoomType.direct)
+                .toList();
+          }
 
-                            final leagueRooms = filtered
-                                .where((r) => r.type == ChatRoomType.league)
-                                .toList();
-                            final eventRooms = filtered
-                                .where((r) => r.type == ChatRoomType.event)
-                                .toList();
-                            final directRooms = filtered
-                                .where((r) => r.type == ChatRoomType.direct)
-                                .toList();
+          final leagueRooms =
+              filtered.where((r) => r.type == ChatRoomType.league).toList();
+          final eventRooms =
+              filtered.where((r) => r.type == ChatRoomType.event).toList();
+          final directRooms =
+              filtered.where((r) => r.type == ChatRoomType.direct).toList();
 
-                            if (filtered.isEmpty) {
-                              return const EmptyState(
-                                icon: Icons.forum_outlined,
-                                title: 'No chat rooms yet',
-                                subtitle: 'Tap + to start a conversation',
-                              );
-                            }
+          if (filtered.isEmpty) {
+            return const EmptyState(
+              icon: Icons.forum_outlined,
+              title: 'No chat rooms yet',
+              subtitle: 'Tap + to start a conversation',
+            );
+          }
 
-                            return ListView(
-                              padding: EdgeInsets.fromLTRB(
-                                  16, 0, 16, bottomContentPadding),
-                              children: [
-                                if (leagueRooms.isNotEmpty) ...[
-                                  _SectionHeader(
-                                      title: 'League Rooms',
-                                      count: leagueRooms.length),
-                                  ...leagueRooms
-                                      .map((r) => _ChatRoomTile(room: r)),
-                                ],
-                                if (eventRooms.isNotEmpty) ...[
-                                  const SizedBox(height: 16),
-                                  _SectionHeader(
-                                      title: 'Events & Tournaments',
-                                      count: eventRooms.length),
-                                  ...eventRooms
-                                      .map((r) => _ChatRoomTile(room: r)),
-                                ],
-                                if (directRooms.isNotEmpty) ...[
-                                  const SizedBox(height: 16),
-                                  _SectionHeader(
-                                      title: 'Direct Messages',
-                                      count: directRooms.length),
-                                  ...directRooms
-                                      .map((r) => _ChatRoomTile(room: r)),
-                                ],
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+          return ListView(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+            children: [
+              if (leagueRooms.isNotEmpty) ...[
+                _SectionHeader(
+                    title: 'League Rooms', count: leagueRooms.length),
+                ...leagueRooms.map((r) => _ChatRoomTile(room: r)),
+              ],
+              if (eventRooms.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _SectionHeader(
+                    title: 'Events & Tournaments', count: eventRooms.length),
+                ...eventRooms.map((r) => _ChatRoomTile(room: r)),
+              ],
+              if (directRooms.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _SectionHeader(
+                    title: 'Direct Messages', count: directRooms.length),
+                ...directRooms.map((r) => _ChatRoomTile(room: r)),
+              ],
+            ],
+          );
+        },
       ),
     );
   }

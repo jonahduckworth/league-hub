@@ -8,6 +8,7 @@ import '../models/chat_room.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../widgets/app_shell_header.dart';
+import '../widgets/app_shell_scaffold.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/avatar_widget.dart';
 
@@ -23,7 +24,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomContentPadding = MediaQuery.paddingOf(context).bottom + 8;
+    final bottomContentPadding = appShellBottomPadding(context);
     final userAsync = ref.watch(currentUserProvider);
     final orgAsync = ref.watch(organizationProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
@@ -39,92 +40,66 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final leagueCount = leagues.length;
     final memberCount = memberCountAsync.valueOrNull ?? 0;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          AppShellHeader(
-            eyebrow: 'LEAGUE HUB',
-            leadingIcon: Icons.apartment_rounded,
-            title: orgName,
-            subtitle: userName.isNotEmpty
-                ? 'Welcome back, $userName'
-                : 'Your organization overview for today',
-            actions: [
-              AppHeaderIconButton(
-                icon: Icons.notifications_outlined,
-                tooltip: 'Notifications',
-                onPressed: () => context.push('/settings/notifications'),
-              ),
-              AppHeaderIconButton(
-                icon: Icons.search,
-                tooltip: 'Search',
-                onPressed: () => _showSearchSheet(context),
-              ),
-            ],
-            bottom: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _HeaderPill(
-                  icon: Icons.location_city,
-                  label: '$hubCount hubs',
-                ),
-                _HeaderPill(
-                  icon: Icons.emoji_events_outlined,
-                  label: '$leagueCount leagues',
-                ),
-                _HeaderPill(
-                  icon: Icons.groups_2_outlined,
-                  label: '$memberCount members',
-                ),
-              ],
-            ),
+    return AppShellScaffold(
+      header: AppShellHeader(
+        eyebrow: 'LEAGUE HUB',
+        leadingIcon: Icons.apartment_rounded,
+        title: orgName,
+        subtitle: userName.isNotEmpty
+            ? 'Welcome back, $userName'
+            : 'Your organization overview for today',
+        actions: [
+          AppHeaderIconButton(
+            icon: Icons.notifications_outlined,
+            tooltip: 'Notifications',
+            onPressed: () => context.push('/settings/notifications'),
           ),
-          Expanded(
-            child: Transform.translate(
-              offset: const Offset(0, -32),
-              child: Material(
-                color: AppColors.background,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(30)),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 20),
-                    LeagueFilter(
-                      leagues: leagues,
-                      selectedLeagueId: _selectedLeagueId,
-                      onSelected: (id) =>
-                          setState(() => _selectedLeagueId = id),
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding:
-                            EdgeInsets.fromLTRB(0, 0, 0, bottomContentPadding),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildStatsRow(
-                                hubCount: hubCount,
-                                teamCount: teamCount,
-                                leagueCount: leagueCount,
-                                memberCount: memberCount),
-                            const SizedBox(height: 24),
-                            _buildAnnouncementsSection(),
-                            const SizedBox(height: 24),
-                            _buildChatsSection(),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          AppHeaderIconButton(
+            icon: Icons.search,
+            tooltip: 'Search',
+            onPressed: () => _showSearchSheet(context),
           ),
         ],
+        bottom: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _HeaderPill(
+              icon: Icons.location_city,
+              label: '$hubCount hubs',
+            ),
+            _HeaderPill(
+              icon: Icons.emoji_events_outlined,
+              label: '$leagueCount leagues',
+            ),
+            _HeaderPill(
+              icon: Icons.groups_2_outlined,
+              label: '$memberCount members',
+            ),
+          ],
+        ),
+      ),
+      stickyContent: LeagueFilter(
+        leagues: leagues,
+        selectedLeagueId: _selectedLeagueId,
+        onSelected: (id) => setState(() => _selectedLeagueId = id),
+      ),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(0, 0, 0, bottomContentPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildStatsRow(
+                hubCount: hubCount,
+                teamCount: teamCount,
+                leagueCount: leagueCount,
+                memberCount: memberCount),
+            const SizedBox(height: 24),
+            _buildAnnouncementsSection(),
+            const SizedBox(height: 24),
+            _buildChatsSection(),
+          ],
+        ),
       ),
     );
   }

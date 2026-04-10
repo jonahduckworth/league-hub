@@ -11,6 +11,7 @@ import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../services/permission_service.dart';
 import '../widgets/app_shell_header.dart';
+import '../widgets/app_shell_scaffold.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
@@ -42,7 +43,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomContentPadding = MediaQuery.paddingOf(context).bottom + 8;
+    final bottomContentPadding = appShellBottomPadding(context);
     final announcementsAsync = ref.watch(announcementsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final userAsync = ref.watch(currentUserProvider);
@@ -53,8 +54,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     final currentUser = userAsync.valueOrNull;
     final canManage = currentUser != null && _canManage(currentUser.role);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return AppShellScaffold(
       floatingActionButton: canManage
           ? FloatingActionButton(
               onPressed: () => context.push('/announcements/create'),
@@ -62,88 +62,59 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
-      body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(announcementsProvider),
-        child: Column(
+      header: AppShellHeader(
+        eyebrow: 'UPDATES',
+        leadingIcon: Icons.campaign_outlined,
+        title: 'Announcements',
+        subtitle:
+            'Keep teams, staff, and families aligned with the latest updates.',
+        bottom: Wrap(
+          spacing: 10,
+          runSpacing: 10,
           children: [
-            AppShellHeader(
-              eyebrow: 'UPDATES',
-              leadingIcon: Icons.campaign_outlined,
-              title: 'Announcements',
-              subtitle:
-                  'Keep teams, staff, and families aligned with the latest updates.',
-              bottom: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _InfoChip(
-                    icon: Icons.push_pin_outlined,
-                    label:
-                        '${allAnnouncements.where((a) => a.isPinned).length} pinned',
-                  ),
-                  _InfoChip(
-                    icon: Icons.public_outlined,
-                    label: '${allAnnouncements.length} total posts',
-                  ),
-                ],
-              ),
+            _InfoChip(
+              icon: Icons.push_pin_outlined,
+              label:
+                  '${allAnnouncements.where((a) => a.isPinned).length} pinned',
             ),
-            Expanded(
-              child: Transform.translate(
-                offset: const Offset(0, -32),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Material(
-                    color: AppColors.background,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(30)),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 20),
-                        LeagueFilter(
-                          leagues: leagues,
-                          selectedLeagueId: _selectedLeagueId,
-                          onSelected: (id) =>
-                              setState(() => _selectedLeagueId = id),
-                        ),
-                        const SizedBox(height: 12),
-                        Expanded(
-                          child: announcementsAsync.isLoading
-                              ? const Center(child: CircularProgressIndicator())
-                              : filtered.isEmpty
-                                  ? const EmptyState(
-                                      icon: Icons.campaign_outlined,
-                                      title: 'No announcements yet',
-                                      subtitle: 'Check back later for updates.',
-                                    )
-                                  : ListView.builder(
-                                      padding: EdgeInsets.fromLTRB(
-                                          16, 0, 16, bottomContentPadding),
-                                      itemCount: filtered.length,
-                                      itemBuilder: (context, index) {
-                                        final a = filtered[index];
-                                        return _AnnouncementCard(
-                                          announcement: a,
-                                          leagues: leagues,
-                                          canManage: canManage,
-                                          onTap: () => context
-                                              .push('/announcements/${a.id}'),
-                                          onLongPress: canManage
-                                              ? () => _showOptions(context, a)
-                                              : null,
-                                        );
-                                      },
-                                    ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            _InfoChip(
+              icon: Icons.public_outlined,
+              label: '${allAnnouncements.length} total posts',
             ),
           ],
         ),
+      ),
+      stickyContent: LeagueFilter(
+        leagues: leagues,
+        selectedLeagueId: _selectedLeagueId,
+        onSelected: (id) => setState(() => _selectedLeagueId = id),
+      ),
+      child: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(announcementsProvider),
+        child: announcementsAsync.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : filtered.isEmpty
+                ? const EmptyState(
+                    icon: Icons.campaign_outlined,
+                    title: 'No announcements yet',
+                    subtitle: 'Check back later for updates.',
+                  )
+                : ListView.builder(
+                    padding:
+                        EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final a = filtered[index];
+                      return _AnnouncementCard(
+                        announcement: a,
+                        leagues: leagues,
+                        canManage: canManage,
+                        onTap: () => context.push('/announcements/${a.id}'),
+                        onLongPress:
+                            canManage ? () => _showOptions(context, a) : null,
+                      );
+                    },
+                  ),
       ),
     );
   }
