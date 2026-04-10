@@ -10,6 +10,7 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/announcements_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/empty_state.dart';
 
 void main() {
   group('AnnouncementsScreen', () {
@@ -127,6 +128,18 @@ void main() {
       );
     }
 
+    Future<void> scrollAnnouncementsUntilVisible(
+      WidgetTester tester,
+      Finder target,
+    ) async {
+      await tester.scrollUntilVisible(
+        target,
+        300,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+    }
+
     group('Screen Rendering', () {
       testWidgets('renders without crashing', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
@@ -212,6 +225,10 @@ void main() {
 
         expect(find.text('Welcome to League Hub'), findsOneWidget);
         expect(find.text('Spring Tournament Dates'), findsOneWidget);
+        await scrollAnnouncementsUntilVisible(
+          tester,
+          find.text('Schedule Update'),
+        );
         expect(find.text('Schedule Update'), findsOneWidget);
       });
 
@@ -338,6 +355,10 @@ void main() {
         // Default should show all
         expect(find.text('Welcome to League Hub'), findsOneWidget);
         expect(find.text('Spring Tournament Dates'), findsOneWidget);
+        await scrollAnnouncementsUntilVisible(
+          tester,
+          find.text('Schedule Update'),
+        );
         expect(find.text('Schedule Update'), findsOneWidget);
       });
 
@@ -370,7 +391,7 @@ void main() {
 
         expect(find.text('No announcements yet'), findsOneWidget);
         expect(find.text('Check back later for updates.'), findsOneWidget);
-        expect(find.byIcon(Icons.campaign_outlined), findsOneWidget);
+        expect(find.byType(EmptyState), findsOneWidget);
       });
 
       testWidgets('empty state is centered', (WidgetTester tester) async {

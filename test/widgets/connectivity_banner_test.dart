@@ -169,8 +169,8 @@ void main() {
       testWidgets('child is below banner', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(isOffline: false));
         await tester.pump();
-        // ConnectivityBanner uses Column with Expanded child
-        expect(find.byType(Column), findsWidgets);
+        expect(find.byType(Stack), findsWidgets);
+        expect(find.text('Test Content'), findsOneWidget);
       });
 
       testWidgets('icon and text are horizontally aligned',

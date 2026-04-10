@@ -48,8 +48,7 @@ void main() {
         isActive: true,
       );
 
-      testWidgets('sees Preferences section only',
-          (WidgetTester tester) async {
+      testWidgets('sees Preferences section only', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: staffUser));
 
         // Should see Preferences section
@@ -360,6 +359,12 @@ void main() {
         await tester.pumpWidget(createTestWidget(user: testUser));
 
         expect(find.text('ORGANIZATION'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('PREFERENCES'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.pumpAndSettle();
         expect(find.text('PREFERENCES'), findsOneWidget);
       });
 

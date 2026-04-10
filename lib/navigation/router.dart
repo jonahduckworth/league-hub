@@ -120,67 +120,94 @@ final router = GoRouter(
       path: '/unauthorized',
       builder: (context, state) => const UnauthorizedScreen(),
     ),
-    ShellRoute(
-      builder: (context, state, child) =>
-          _MainScaffold(location: state.uri.toString(), child: child),
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const DashboardScreen(),
+    StatefulShellRoute(
+      builder: (context, state, navigationShell) =>
+          _MainScaffold(navigationShell: navigationShell),
+      navigatorContainerBuilder: (context, navigationShell, children) =>
+          _AnimatedBranchContainer(
+        currentIndex: navigationShell.currentIndex,
+        children: children,
+      ),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (context, state) => const DashboardScreen(),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/chat',
-          builder: (context, state) => const ChatListScreen(),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/chat',
+              builder: (context, state) => const ChatListScreen(),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/documents',
-          builder: (context, state) => const DocumentsScreen(),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/documents',
+              builder: (context, state) => const DocumentsScreen(),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/announcements',
-          builder: (context, state) => const AnnouncementsScreen(),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/announcements',
+              builder: (context, state) => const AnnouncementsScreen(),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/settings',
-          builder: (context, state) => const SettingsScreen(),
-        ),
-        GoRoute(
-          path: '/settings/users',
-          builder: (context, state) => const UserManagementScreen(),
-        ),
-        GoRoute(
-          path: '/settings/users/:userId',
-          builder: (context, state) => UserDetailScreen(
-            userId: state.pathParameters['userId']!,
-          ),
-        ),
-        GoRoute(
-          path: '/settings/profile',
-          builder: (context, state) => const EditProfileScreen(),
-        ),
-        GoRoute(
-          path: '/settings/roles',
-          builder: (context, state) => const RolesPermissionsScreen(),
-        ),
-        GoRoute(
-          path: '/settings/branding',
-          builder: (context, state) => const BrandingScreen(),
-        ),
-        GoRoute(
-          path: '/settings/app-icon',
-          builder: (context, state) => const AppIconScreen(),
-        ),
-        GoRoute(
-          path: '/settings/notifications',
-          builder: (context, state) => const NotificationsScreen(),
-        ),
-        GoRoute(
-          path: '/settings/privacy',
-          builder: (context, state) => const PrivacySecurityScreen(),
-        ),
-        GoRoute(
-          path: '/settings/leagues',
-          builder: (context, state) => const ManageLeaguesScreen(),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/settings',
+              builder: (context, state) => const SettingsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'users',
+                  builder: (context, state) => const UserManagementScreen(),
+                ),
+                GoRoute(
+                  path: 'users/:userId',
+                  builder: (context, state) => UserDetailScreen(
+                    userId: state.pathParameters['userId']!,
+                  ),
+                ),
+                GoRoute(
+                  path: 'profile',
+                  builder: (context, state) => const EditProfileScreen(),
+                ),
+                GoRoute(
+                  path: 'roles',
+                  builder: (context, state) => const RolesPermissionsScreen(),
+                ),
+                GoRoute(
+                  path: 'branding',
+                  builder: (context, state) => const BrandingScreen(),
+                ),
+                GoRoute(
+                  path: 'app-icon',
+                  builder: (context, state) => const AppIconScreen(),
+                ),
+                GoRoute(
+                  path: 'notifications',
+                  builder: (context, state) => const NotificationsScreen(),
+                ),
+                GoRoute(
+                  path: 'privacy',
+                  builder: (context, state) => const PrivacySecurityScreen(),
+                ),
+                GoRoute(
+                  path: 'leagues',
+                  builder: (context, state) => const ManageLeaguesScreen(),
+                ),
+              ],
+            ),
+          ],
         ),
       ],
     ),
@@ -236,58 +263,151 @@ final router = GoRouter(
 );
 
 class _MainScaffold extends StatelessWidget {
-  final Widget child;
-  final String location;
+  final StatefulNavigationShell navigationShell;
 
-  const _MainScaffold({required this.child, required this.location});
-
-  int get _currentIndex {
-    if (location.startsWith('/chat')) return 1;
-    if (location.startsWith('/documents')) return 2;
-    if (location.startsWith('/announcements')) return 3;
-    if (location.startsWith('/settings')) return 4;
-    return 0;
-  }
+  const _MainScaffold({required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final slide = Tween<Offset>(
-            begin: const Offset(0.03, 0),
-            end: Offset.zero,
-          ).animate(animation);
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(position: slide, child: child),
+      body: navigationShell,
+      bottomNavigationBar: BottomNavBar(
+        currentIndex: navigationShell.currentIndex,
+        onTap: (index) {
+          navigationShell.goBranch(
+            index,
+            initialLocation: index == navigationShell.currentIndex,
           );
         },
-        child: KeyedSubtree(
-          key: ValueKey(_currentIndex),
+      ),
+    );
+  }
+}
+
+class _AnimatedBranchContainer extends StatefulWidget {
+  final int currentIndex;
+  final List<Widget> children;
+
+  const _AnimatedBranchContainer({
+    required this.currentIndex,
+    required this.children,
+  });
+
+  @override
+  State<_AnimatedBranchContainer> createState() =>
+      _AnimatedBranchContainerState();
+}
+
+class _AnimatedBranchContainerState extends State<_AnimatedBranchContainer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  int? _previousIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    )..value = 1;
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedBranchContainer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      _previousIndex = oldWidget.currentIndex;
+      _controller
+        ..value = 0
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final progress = Curves.easeOutCubic.transform(_controller.value);
+        final direction = _branchDirection;
+        final isAnimating = _controller.value < 1 && _previousIndex != null;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: List.generate(widget.children.length, (index) {
+            final isCurrent = index == widget.currentIndex;
+            final isPrevious = index == _previousIndex;
+            final shouldShow = isCurrent || (isAnimating && isPrevious);
+
+            if (!shouldShow) {
+              return _BranchStage(
+                isInteractive: false,
+                isVisible: false,
+                child: widget.children[index],
+              );
+            }
+
+            final opacity = isCurrent ? progress : 1 - progress;
+            final offsetFactor = isCurrent ? 1 - progress : -progress;
+            final offset = Offset(
+              direction *
+                  offsetFactor *
+                  MediaQuery.sizeOf(context).width *
+                  0.035,
+              0,
+            );
+
+            return _BranchStage(
+              isInteractive: isCurrent,
+              isVisible: true,
+              child: Opacity(
+                opacity: opacity.clamp(0, 1),
+                child: Transform.translate(
+                  offset: offset,
+                  child: widget.children[index],
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  double get _branchDirection {
+    if (_previousIndex == null) return 1;
+    return widget.currentIndex >= _previousIndex! ? 1 : -1;
+  }
+}
+
+class _BranchStage extends StatelessWidget {
+  final bool isInteractive;
+  final bool isVisible;
+  final Widget child;
+
+  const _BranchStage({
+    required this.isInteractive,
+    required this.isVisible,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: !isInteractive,
+      child: TickerMode(
+        enabled: isVisible,
+        child: Offstage(
+          offstage: !isVisible,
           child: child,
         ),
-      ),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              context.go('/');
-            case 1:
-              context.go('/chat');
-            case 2:
-              context.go('/documents');
-            case 3:
-              context.go('/announcements');
-            case 4:
-              context.go('/settings');
-          }
-        },
       ),
     );
   }

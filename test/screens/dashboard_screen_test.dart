@@ -10,6 +10,7 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/dashboard_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/league_filter.dart';
 
 void main() {
   group('DashboardScreen', () {
@@ -206,7 +207,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.location_city), findsOneWidget); // Hubs
+        expect(find.byIcon(Icons.location_city), findsWidgets); // Hubs
         expect(find.byIcon(Icons.groups), findsOneWidget); // Teams
         expect(find.byIcon(Icons.emoji_events), findsOneWidget); // Leagues
         expect(find.byIcon(Icons.people), findsOneWidget); // Members
@@ -238,7 +239,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Hi, Test User'), findsOneWidget);
+        expect(find.text('Welcome back, Test User'), findsOneWidget);
       });
 
       testWidgets('has notification button', (WidgetTester tester) async {
@@ -526,8 +527,23 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // Screen should be scrollable with proper spacing
-        expect(find.byType(CustomScrollView), findsOneWidget);
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
+      });
+
+      testWidgets('league filter stays outside the scrollable content',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(LeagueFilter), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byType(LeagueFilter),
+          ),
+          findsNothing,
+        );
       });
 
       testWidgets('has proper padding on content', (WidgetTester tester) async {

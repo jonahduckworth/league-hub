@@ -9,6 +9,7 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/chat_list_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/empty_state.dart';
 
 void main() {
   group('ChatListScreen', () {
@@ -133,6 +134,18 @@ void main() {
       );
     }
 
+    Future<void> scrollRoomsUntilVisible(
+      WidgetTester tester,
+      Finder target,
+    ) async {
+      await tester.scrollUntilVisible(
+        target,
+        300,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+    }
+
     group('Screen Rendering', () {
       testWidgets('renders without crashing', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
@@ -226,6 +239,7 @@ void main() {
 
         expect(find.text('Spring League Hub'), findsOneWidget);
         expect(find.text('Tournament Bracket'), findsOneWidget);
+        await scrollRoomsUntilVisible(tester, find.text('Direct Message'));
         expect(find.text('Direct Message'), findsOneWidget);
       });
 
@@ -276,7 +290,9 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.forum), findsOneWidget); // League room
+        await scrollRoomsUntilVisible(tester, find.text('Tournament Bracket'));
         expect(find.byIcon(Icons.event), findsOneWidget); // Event room
+        await scrollRoomsUntilVisible(tester, find.text('Direct Message'));
         expect(find.byIcon(Icons.person), findsOneWidget); // Direct message
       });
     });
@@ -289,7 +305,7 @@ void main() {
 
         expect(find.text('No chat rooms yet'), findsOneWidget);
         expect(find.text('Tap + to start a conversation'), findsOneWidget);
-        expect(find.byIcon(Icons.forum_outlined), findsOneWidget);
+        expect(find.byType(EmptyState), findsOneWidget);
       });
 
       testWidgets('empty state message is centered',
@@ -374,6 +390,7 @@ void main() {
         // All rooms should be visible again
         expect(find.text('Spring League Hub'), findsOneWidget);
         expect(find.text('Tournament Bracket'), findsOneWidget);
+        await scrollRoomsUntilVisible(tester, find.text('Direct Message'));
         expect(find.text('Direct Message'), findsOneWidget);
       });
 
@@ -526,6 +543,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Direct message room should always be visible
+        await scrollRoomsUntilVisible(tester, find.text('Direct Message'));
         expect(find.text('Direct Message'), findsOneWidget);
       });
     });

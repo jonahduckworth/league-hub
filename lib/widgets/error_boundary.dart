@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 
@@ -14,22 +15,32 @@ class ErrorBoundary extends StatefulWidget {
 class _ErrorBoundaryState extends State<ErrorBoundary> {
   bool _hasError = false;
   FlutterErrorDetails? _errorDetails;
+  FlutterExceptionHandler? _originalOnError;
 
   @override
   void initState() {
     super.initState();
     // Intercept Flutter framework errors.
-    final originalOnError = FlutterError.onError;
+    _originalOnError = FlutterError.onError;
     FlutterError.onError = (details) {
       if (mounted) {
-        setState(() {
-          _hasError = true;
-          _errorDetails = details;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() {
+            _hasError = true;
+            _errorDetails = details;
+          });
         });
       }
       // Still forward to the original handler for logging.
-      originalOnError?.call(details);
+      _originalOnError?.call(details);
     };
+  }
+
+  @override
+  void dispose() {
+    FlutterError.onError = _originalOnError;
+    super.dispose();
   }
 
   void _retry() {
@@ -149,8 +160,8 @@ Widget appErrorWidget(FlutterErrorDetails details) {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ],
         ),
