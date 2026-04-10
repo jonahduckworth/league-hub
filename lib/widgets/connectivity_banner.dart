@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
@@ -61,9 +62,25 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
     });
   }
 
-  void _onConnectivityChanged(List<ConnectivityResult> results) {
-    final offline = results.isEmpty ||
+  void _onConnectivityChanged(List<ConnectivityResult> results) async {
+    var offline = results.isEmpty ||
         results.every((r) => r == ConnectivityResult.none);
+
+    // connectivity_plus can report false negatives on iOS simulators.
+    // Double-check with a real DNS lookup before showing the banner.
+    if (offline) {
+      try {
+        final result = await InternetAddress.lookup('google.com')
+            .timeout(const Duration(seconds: 2));
+        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+          offline = false;
+        }
+      } catch (_) {
+        // Genuinely offline.
+      }
+    }
+
+    if (!mounted) return;
     if (offline != _isOffline) {
       setState(() {
         _wasOffline = _isOffline;

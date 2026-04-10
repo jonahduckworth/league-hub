@@ -129,11 +129,16 @@ class MessagingService {
 
   /// Removes the current token on sign-out so the user stops receiving pushes.
   Future<void> removeToken(String userId) async {
-    final token = await _messaging.getToken();
-    if (token != null) {
-      await _db.collection(AppConstants.usersCollection).doc(userId).update({
-        'fcmTokens': FieldValue.arrayRemove([token]),
-      });
+    try {
+      final token = await _messaging.getToken();
+      if (token != null) {
+        await _db.collection(AppConstants.usersCollection).doc(userId).update({
+          'fcmTokens': FieldValue.arrayRemove([token]),
+        });
+      }
+    } catch (e) {
+      // APNS token unavailable on simulators — safe to ignore.
+      debugPrint('MessagingService: removeToken skipped ($e)');
     }
   }
 

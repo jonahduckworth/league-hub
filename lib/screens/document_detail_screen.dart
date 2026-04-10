@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -107,8 +110,17 @@ class _DocumentDetailScreenState
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.single;
-    final bytes = file.bytes;
-    if (bytes == null) return;
+    // file.bytes can be null/empty on desktop — read from path as fallback.
+    var bytes = file.bytes;
+    if ((bytes == null || bytes.isEmpty) && !kIsWeb && file.path != null) {
+      bytes = await File(file.path!).readAsBytes();
+    }
+    if (bytes == null || bytes.isEmpty) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(context, 'Could not read file data.');
+      }
+      return;
+    }
 
     final ext = file.name.split('.').last.toLowerCase();
     final isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].contains(ext);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -15,14 +16,23 @@ class StorageService {
   }) async {
     final ref = _storage.ref().child(path);
     final task = ref.putFile(file);
+    StreamSubscription? sub;
     if (onProgress != null) {
-      task.snapshotEvents.listen((snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        onProgress(progress);
-      });
+      sub = task.snapshotEvents.listen(
+        (snapshot) {
+          if (snapshot.totalBytes > 0) {
+            onProgress(snapshot.bytesTransferred / snapshot.totalBytes);
+          }
+        },
+        onError: (_) {}, // handled by await task below
+      );
     }
-    await task;
-    return await ref.getDownloadURL();
+    try {
+      await task;
+      return await ref.getDownloadURL();
+    } finally {
+      await sub?.cancel();
+    }
   }
 
   Future<String> uploadBytes({
@@ -48,15 +58,23 @@ class StorageService {
     final path = 'organizations/$orgId/documents/$docId/$filename';
     final ref = _storage.ref().child(path);
     final task = ref.putData(bytes, SettableMetadata(contentType: contentType));
+    StreamSubscription? sub;
     if (onProgress != null) {
-      task.snapshotEvents.listen((snapshot) {
-        if (snapshot.totalBytes > 0) {
-          onProgress(snapshot.bytesTransferred / snapshot.totalBytes);
-        }
-      });
+      sub = task.snapshotEvents.listen(
+        (snapshot) {
+          if (snapshot.totalBytes > 0) {
+            onProgress(snapshot.bytesTransferred / snapshot.totalBytes);
+          }
+        },
+        onError: (_) {}, // handled by await task below
+      );
     }
-    await task;
-    return await ref.getDownloadURL();
+    try {
+      await task;
+      return await ref.getDownloadURL();
+    } finally {
+      await sub?.cancel();
+    }
   }
 
   /// Deletes a document file from Storage. Silently ignores if not found.

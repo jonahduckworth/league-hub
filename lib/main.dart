@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -37,24 +35,15 @@ void main() async {
     return true; // Prevents the runtime from terminating the app.
   };
 
-  // ---------- Run app inside an error zone ----------
-
-  runZonedGuarded(
-    () {
-      runApp(
-        ProviderScope(
-          overrides: [
-            messagingServiceProvider.overrideWithValue(
-              MessagingService(router: router),
-            ),
-          ],
-          child: const LeagueHubApp(),
+  runApp(
+    ProviderScope(
+      overrides: [
+        messagingServiceProvider.overrideWithValue(
+          MessagingService(router: router),
         ),
-      );
-    },
-    (error, stack) {
-      debugPrint('ZoneError: $error\n$stack');
-    },
+      ],
+      child: const LeagueHubApp(),
+    ),
   );
 }
 
