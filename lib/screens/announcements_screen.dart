@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../services/permission_service.dart';
+import '../widgets/app_shell_header.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
@@ -53,9 +54,6 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Announcements'),
-      ),
       floatingActionButton: canManage
           ? FloatingActionButton(
               onPressed: () => context.push('/announcements/create'),
@@ -67,39 +65,81 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         onRefresh: () async => ref.invalidate(announcementsProvider),
         child: Column(
           children: [
-            const SizedBox(height: 12),
-            LeagueFilter(
-              leagues: leagues,
-              selectedLeagueId: _selectedLeagueId,
-              onSelected: (id) => setState(() => _selectedLeagueId = id),
+            AppShellHeader(
+              eyebrow: 'UPDATES',
+              leadingIcon: Icons.campaign_outlined,
+              title: 'Announcements',
+              subtitle:
+                  'Keep teams, staff, and families aligned with the latest updates.',
+              bottom: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _InfoChip(
+                    icon: Icons.push_pin_outlined,
+                    label:
+                        '${allAnnouncements.where((a) => a.isPinned).length} pinned',
+                  ),
+                  _InfoChip(
+                    icon: Icons.public_outlined,
+                    label: '${allAnnouncements.length} total posts',
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
             Expanded(
-              child: announcementsAsync.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : filtered.isEmpty
-                      ? const EmptyState(
-                          icon: Icons.campaign_outlined,
-                          title: 'No announcements yet',
-                          subtitle: 'Check back later for updates.',
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) {
-                            final a = filtered[index];
-                            return _AnnouncementCard(
-                              announcement: a,
-                              leagues: leagues,
-                              canManage: canManage,
-                              onTap: () =>
-                                  context.push('/announcements/${a.id}'),
-                              onLongPress: canManage
-                                  ? () => _showOptions(context, a)
-                                  : null,
-                            );
-                          },
+              child: Transform.translate(
+                offset: const Offset(0, -32),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Material(
+                    color: AppColors.background,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(30)),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        LeagueFilter(
+                          leagues: leagues,
+                          selectedLeagueId: _selectedLeagueId,
+                          onSelected: (id) =>
+                              setState(() => _selectedLeagueId = id),
                         ),
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: announcementsAsync.isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : filtered.isEmpty
+                                  ? const EmptyState(
+                                      icon: Icons.campaign_outlined,
+                                      title: 'No announcements yet',
+                                      subtitle: 'Check back later for updates.',
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          16, 0, 16, 104),
+                                      itemCount: filtered.length,
+                                      itemBuilder: (context, index) {
+                                        final a = filtered[index];
+                                        return _AnnouncementCard(
+                                          announcement: a,
+                                          leagues: leagues,
+                                          canManage: canManage,
+                                          onTap: () => context
+                                              .push('/announcements/${a.id}'),
+                                          onLongPress: canManage
+                                              ? () => _showOptions(context, a)
+                                              : null,
+                                        );
+                                      },
+                                    ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -130,7 +170,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.edit_outlined, color: AppColors.primary),
+              leading:
+                  const Icon(Icons.edit_outlined, color: AppColors.primary),
               title: const Text('Edit'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -138,7 +179,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: AppColors.danger),
+              leading:
+                  const Icon(Icons.delete_outline, color: AppColors.danger),
               title: const Text('Delete',
                   style: TextStyle(color: AppColors.danger)),
               onTap: () {
@@ -276,8 +318,7 @@ class _AnnouncementCard extends StatelessWidget {
                           leagues: leagues,
                           leagueId: announcement.leagueId),
                       const Spacer(),
-                      Text(
-                          AppUtils.formatDateTime(announcement.createdAt),
+                      Text(AppUtils.formatDateTime(announcement.createdAt),
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.textMuted)),
                     ],
@@ -299,8 +340,7 @@ class _AnnouncementCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      AvatarWidget(
-                          name: announcement.authorName, size: 28),
+                      AvatarWidget(name: announcement.authorName, size: 28),
                       const SizedBox(width: 8),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,8 +352,7 @@ class _AnnouncementCard extends StatelessWidget {
                                   color: AppColors.text)),
                           Text(announcement.authorRole,
                               style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted)),
+                                  fontSize: 11, color: AppColors.textMuted)),
                         ],
                       ),
                     ],
@@ -333,8 +372,7 @@ class _ScopeTag extends StatelessWidget {
   final List<League> leagues;
   final String? leagueId;
 
-  const _ScopeTag(
-      {required this.scope, required this.leagues, this.leagueId});
+  const _ScopeTag({required this.scope, required this.leagues, this.leagueId});
 
   Color get _color {
     switch (scope) {
@@ -352,8 +390,7 @@ class _ScopeTag extends StatelessWidget {
       case AnnouncementScope.orgWide:
         return 'Org-Wide';
       case AnnouncementScope.league:
-        final league =
-            leagues.where((l) => l.id == leagueId).firstOrNull;
+        final league = leagues.where((l) => l.id == leagueId).firstOrNull;
         return league?.abbreviation ?? 'League';
       case AnnouncementScope.hub:
         return 'Hub';
@@ -363,5 +400,42 @@ class _ScopeTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StatusBadge(label: _label, color: _color);
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

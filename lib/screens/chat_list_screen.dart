@@ -8,6 +8,7 @@ import '../models/chat_room.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
+import '../widgets/app_shell_header.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/bottom_sheet_handle.dart';
 import '../widgets/empty_state.dart';
@@ -79,11 +80,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.event_outlined, color: AppColors.primary),
+                  child: const Icon(Icons.event_outlined,
+                      color: AppColors.primary),
                 ),
                 title: const Text('New Event Room',
                     style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Create a group chat for an event or tournament'),
+                subtitle: const Text(
+                    'Create a group chat for an event or tournament'),
                 onTap: () {
                   ctx.pop();
                   _showEventRoomSheet(orgId);
@@ -97,11 +100,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                     color: AppColors.accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.person_outlined, color: AppColors.accent),
+                  child: const Icon(Icons.person_outlined,
+                      color: AppColors.accent),
                 ),
                 title: const Text('New Direct Message',
                     style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Start a private conversation with someone'),
+                subtitle:
+                    const Text('Start a private conversation with someone'),
                 onTap: () {
                   ctx.pop();
                   _showDMSheet(orgId);
@@ -224,28 +229,27 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                 onPressed: () async {
                   final name = nameController.text.trim();
                   if (name.isEmpty) return;
-                  final currentUser =
-                      ref.read(currentUserProvider).valueOrNull;
+                  final currentUser = ref.read(currentUserProvider).valueOrNull;
                   if (currentUser == null) return;
                   try {
                     final roomId = await ref
                         .read(authorizedFirestoreServiceProvider)
                         .createChatRoom(
-                          currentUser,
-                          orgId,
-                          name,
-                          ChatRoomType.event,
-                          leagueId: selectedLeagueId,
-                          participants: [currentUser.id],
-                        );
+                      currentUser,
+                      orgId,
+                      name,
+                      ChatRoomType.event,
+                      leagueId: selectedLeagueId,
+                      participants: [currentUser.id],
+                    );
                     if (ctx.mounted) {
                       ctx.pop();
                       if (mounted) context.push('/chat/$roomId');
                     }
                   } on PermissionDeniedException {
                     if (mounted) {
-                      AppUtils.showErrorSnackBar(
-                          context, 'You do not have permission to create chat rooms');
+                      AppUtils.showErrorSnackBar(context,
+                          'You do not have permission to create chat rooms');
                     }
                   }
                 },
@@ -301,8 +305,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                   const SizedBox(height: 4),
                   const Text(
                     'Choose someone to message',
-                    style: TextStyle(
-                        fontSize: 13, color: AppColors.textSecondary),
+                    style:
+                        TextStyle(fontSize: 13, color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -360,9 +364,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Messages'),
-      ),
       floatingActionButton: orgId == null
           ? null
           : FloatingActionButton(
@@ -372,96 +373,120 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: TextField(
+          AppShellHeader(
+            eyebrow: 'CHAT',
+            leadingIcon: Icons.forum_outlined,
+            title: 'Messages',
+            subtitle:
+                'League rooms, event chats, and direct messages in one place.',
+            bottom: AppHeaderSearchField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                hintText: 'Search conversations...',
-                prefixIcon: Icon(Icons.search, color: AppColors.textMuted),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
+              hintText: 'Search conversations...',
             ),
           ),
-          const SizedBox(height: 8),
-          leaguesAsync.when(
-            loading: () => const SizedBox(height: 48),
-            error: (_, __) => const SizedBox(height: 48),
-            data: (leagues) => LeagueFilter(
-              leagues: leagues,
-              selectedLeagueId: _selectedLeagueId,
-              onSelected: (id) => setState(() => _selectedLeagueId = id),
-            ),
-          ),
-          const SizedBox(height: 8),
           Expanded(
-            child: chatRoomsAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('Error loading chats: $e')),
-              data: (rooms) {
-                var filtered = rooms;
+            child: Transform.translate(
+              offset: const Offset(0, -32),
+              child: SizedBox(
+                width: double.infinity,
+                child: Material(
+                  color: AppColors.background,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(30),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 20),
+                      leaguesAsync.when(
+                        loading: () => const SizedBox(height: 48),
+                        error: (_, __) => const SizedBox(height: 48),
+                        data: (leagues) => LeagueFilter(
+                          leagues: leagues,
+                          selectedLeagueId: _selectedLeagueId,
+                          onSelected: (id) =>
+                              setState(() => _selectedLeagueId = id),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: chatRoomsAsync.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (e, _) =>
+                              Center(child: Text('Error loading chats: $e')),
+                          data: (rooms) {
+                            var filtered = rooms;
 
-                if (_searchText.isNotEmpty) {
-                  filtered = filtered
-                      .where((r) =>
-                          r.name.toLowerCase().contains(_searchText))
-                      .toList();
-                }
-                if (_selectedLeagueId != null) {
-                  filtered = filtered
-                      .where((r) =>
-                          r.leagueId == _selectedLeagueId ||
-                          r.type == ChatRoomType.direct)
-                      .toList();
-                }
+                            if (_searchText.isNotEmpty) {
+                              filtered = filtered
+                                  .where((r) => r.name
+                                      .toLowerCase()
+                                      .contains(_searchText))
+                                  .toList();
+                            }
+                            if (_selectedLeagueId != null) {
+                              filtered = filtered
+                                  .where((r) =>
+                                      r.leagueId == _selectedLeagueId ||
+                                      r.type == ChatRoomType.direct)
+                                  .toList();
+                            }
 
-                final leagueRooms = filtered
-                    .where((r) => r.type == ChatRoomType.league)
-                    .toList();
-                final eventRooms = filtered
-                    .where((r) => r.type == ChatRoomType.event)
-                    .toList();
-                final directRooms = filtered
-                    .where((r) => r.type == ChatRoomType.direct)
-                    .toList();
+                            final leagueRooms = filtered
+                                .where((r) => r.type == ChatRoomType.league)
+                                .toList();
+                            final eventRooms = filtered
+                                .where((r) => r.type == ChatRoomType.event)
+                                .toList();
+                            final directRooms = filtered
+                                .where((r) => r.type == ChatRoomType.direct)
+                                .toList();
 
-                if (filtered.isEmpty) {
-                  return const EmptyState(
-                    icon: Icons.forum_outlined,
-                    title: 'No chat rooms yet',
-                    subtitle: 'Tap + to start a conversation',
-                  );
-                }
+                            if (filtered.isEmpty) {
+                              return const EmptyState(
+                                icon: Icons.forum_outlined,
+                                title: 'No chat rooms yet',
+                                subtitle: 'Tap + to start a conversation',
+                              );
+                            }
 
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                  children: [
-                    if (leagueRooms.isNotEmpty) ...[
-                      _SectionHeader(
-                          title: 'League Rooms',
-                          count: leagueRooms.length),
-                      ...leagueRooms.map((r) => _ChatRoomTile(room: r)),
+                            return ListView(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 0, 16, 104),
+                              children: [
+                                if (leagueRooms.isNotEmpty) ...[
+                                  _SectionHeader(
+                                      title: 'League Rooms',
+                                      count: leagueRooms.length),
+                                  ...leagueRooms
+                                      .map((r) => _ChatRoomTile(room: r)),
+                                ],
+                                if (eventRooms.isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  _SectionHeader(
+                                      title: 'Events & Tournaments',
+                                      count: eventRooms.length),
+                                  ...eventRooms
+                                      .map((r) => _ChatRoomTile(room: r)),
+                                ],
+                                if (directRooms.isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  _SectionHeader(
+                                      title: 'Direct Messages',
+                                      count: directRooms.length),
+                                  ...directRooms
+                                      .map((r) => _ChatRoomTile(room: r)),
+                                ],
+                              ],
+                            );
+                          },
+                        ),
+                      ),
                     ],
-                    if (eventRooms.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _SectionHeader(
-                          title: 'Events & Tournaments',
-                          count: eventRooms.length),
-                      ...eventRooms.map((r) => _ChatRoomTile(room: r)),
-                    ],
-                    if (directRooms.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _SectionHeader(
-                          title: 'Direct Messages',
-                          count: directRooms.length),
-                      ...directRooms.map((r) => _ChatRoomTile(room: r)),
-                    ],
-                  ],
-                );
-              },
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -525,7 +550,8 @@ class _ChatRoomTile extends ConsumerWidget {
             ? '${room.lastMessageBy}: ${room.lastMessage}'
             : room.lastMessage!)
         : null;
-    final unreadCount = ref.watch(unreadCountProvider(room.id)).valueOrNull ?? 0;
+    final unreadCount =
+        ref.watch(unreadCountProvider(room.id)).valueOrNull ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -535,8 +561,7 @@ class _ChatRoomTile extends ConsumerWidget {
         border: Border.all(color: AppColors.border),
       ),
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         leading: Container(
           width: 46,
           height: 46,
@@ -586,16 +611,14 @@ class _ChatRoomTile extends ConsumerWidget {
                 AppUtils.formatDateTime(room.lastMessageAt!),
                 style: TextStyle(
                   fontSize: 11,
-                  color: unreadCount > 0
-                      ? AppColors.primary
-                      : AppColors.textMuted,
+                  color:
+                      unreadCount > 0 ? AppColors.primary : AppColors.textMuted,
                 ),
               ),
             if (unreadCount > 0) ...[
               const SizedBox(height: 4),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(10),

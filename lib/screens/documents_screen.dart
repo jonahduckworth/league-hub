@@ -9,6 +9,7 @@ import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/permission_service.dart';
+import '../widgets/app_shell_header.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/status_badge.dart';
@@ -55,9 +56,6 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Documents'),
-      ),
       floatingActionButton: _canUpload(currentUser)
           ? FloatingActionButton(
               onPressed: () => context.push('/documents/upload'),
@@ -67,96 +65,112 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           : null,
       body: Column(
         children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: TextField(
+          AppShellHeader(
+            eyebrow: 'DOCS',
+            leadingIcon: Icons.folder_copy_outlined,
+            title: 'Documents',
+            subtitle:
+                'Policies, rosters, schedules, and shared files for your league.',
+            bottom: AppHeaderSearchField(
               controller: _searchController,
-              onChanged: (v) =>
-                  setState(() => _searchQuery = v.toLowerCase()),
-              decoration: const InputDecoration(
-                hintText: 'Search documents...',
-                prefixIcon: Icon(Icons.search, color: AppColors.textMuted),
-              ),
+              hintText: 'Search documents...',
+              onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
             ),
           ),
-
-          // League filter pills
-          LeagueFilter(
-            leagues: leagues,
-            selectedLeagueId: selectedLeagueId,
-            onSelected: (id) =>
-                ref.read(selectedLeagueProvider.notifier).state = id,
-          ),
-          const SizedBox(height: 8),
-
-          // Category chips
-          SizedBox(
-            height: 36,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: _categories
-                  .map((cat) => _CategoryChip(
-                        label: cat,
-                        isSelected: selectedCategory == cat,
-                        onTap: () => ref
-                            .read(selectedCategoryProvider.notifier)
-                            .state = cat,
-                      ))
-                  .toList(),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Document list
           Expanded(
-            child: docsAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Text('Error: $e',
-                    style: const TextStyle(color: AppColors.danger)),
-              ),
-              data: (docs) {
-                final filtered = _searchQuery.isEmpty
-                    ? docs
-                    : docs
-                        .where((d) =>
-                            d.name.toLowerCase().contains(_searchQuery))
-                        .toList();
-
-                if (filtered.isEmpty) {
-                  return EmptyState(
-                    icon: Icons.folder_open,
-                    title: 'No documents found',
-                    action: _canUpload(currentUser)
-                        ? ElevatedButton.icon(
-                            onPressed: () =>
-                                context.push('/documents/upload'),
-                            icon: const Icon(Icons.upload_file),
-                            label: const Text('Upload Document'),
-                          )
-                        : null,
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async =>
-                      ref.invalidate(documentsProvider),
-                  child: ListView.builder(
-                    padding:
-                        const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) => _DocumentTile(
-                      doc: filtered[index],
-                      leagues: leagues,
-                      onTap: () => context
-                          .push('/documents/${filtered[index].id}'),
-                    ),
+            child: Transform.translate(
+              offset: const Offset(0, -32),
+              child: SizedBox(
+                width: double.infinity,
+                child: Material(
+                  color: AppColors.background,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(30),
                   ),
-                );
-              },
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 20),
+                      LeagueFilter(
+                        leagues: leagues,
+                        selectedLeagueId: selectedLeagueId,
+                        onSelected: (id) => ref
+                            .read(selectedLeagueProvider.notifier)
+                            .state = id,
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 36,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          children: _categories
+                              .map((cat) => _CategoryChip(
+                                    label: cat,
+                                    isSelected: selectedCategory == cat,
+                                    onTap: () => ref
+                                        .read(selectedCategoryProvider.notifier)
+                                        .state = cat,
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: docsAsync.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (e, _) => Center(
+                            child: Text('Error: $e',
+                                style:
+                                    const TextStyle(color: AppColors.danger)),
+                          ),
+                          data: (docs) {
+                            final filtered = _searchQuery.isEmpty
+                                ? docs
+                                : docs
+                                    .where((d) => d.name
+                                        .toLowerCase()
+                                        .contains(_searchQuery))
+                                    .toList();
+
+                            if (filtered.isEmpty) {
+                              return EmptyState(
+                                icon: Icons.folder_open,
+                                title: 'No documents found',
+                                action: _canUpload(currentUser)
+                                    ? ElevatedButton.icon(
+                                        onPressed: () =>
+                                            context.push('/documents/upload'),
+                                        icon: const Icon(Icons.upload_file),
+                                        label: const Text('Upload Document'),
+                                      )
+                                    : null,
+                              );
+                            }
+
+                            return RefreshIndicator(
+                              onRefresh: () async =>
+                                  ref.invalidate(documentsProvider),
+                              child: ListView.builder(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 0, 16, 104),
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) => _DocumentTile(
+                                  doc: filtered[index],
+                                  leagues: leagues,
+                                  onTap: () => context
+                                      .push('/documents/${filtered[index].id}'),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -182,23 +196,19 @@ class _CategoryChip extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(right: 8),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.accent : Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-              color:
-                  isSelected ? AppColors.accent : AppColors.border),
+              color: isSelected ? AppColors.accent : AppColors.border),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: isSelected
-                ? Colors.white
-                : AppColors.textSecondary,
+            color: isSelected ? Colors.white : AppColors.textSecondary,
           ),
         ),
       ),
@@ -269,8 +279,7 @@ class _DocumentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final versionCount =
-        doc.versions.isEmpty ? 1 : doc.versions.length;
+    final versionCount = doc.versions.isEmpty ? 1 : doc.versions.length;
     final leagueName = _leagueName;
 
     return GestureDetector(
@@ -328,8 +337,7 @@ class _DocumentTile extends StatelessWidget {
                       Text(
                         '${doc.fileType.toUpperCase()} • ${AppUtils.formatFileSize(doc.fileSize)}',
                         style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textMuted),
+                            fontSize: 11, color: AppColors.textMuted),
                       ),
                     ],
                   ),
@@ -342,8 +350,8 @@ class _DocumentTile extends StatelessWidget {
               children: [
                 Text(
                   AppUtils.formatDateTime(doc.updatedAt),
-                  style: const TextStyle(
-                      fontSize: 11, color: AppColors.textMuted),
+                  style:
+                      const TextStyle(fontSize: 11, color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 4),
                 Text(

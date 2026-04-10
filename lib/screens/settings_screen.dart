@@ -6,6 +6,7 @@ import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../providers/mock_data.dart';
+import '../widgets/app_shell_header.dart';
 import '../widgets/avatar_widget.dart';
 import 'settings/edit_profile_screen.dart';
 
@@ -22,72 +23,132 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.zero,
         children: [
-          _ProfileCard(user: user),
-          const SizedBox(height: 24),
-          if (visibleTiles.any((t) => ['leagues', 'users', 'roles', 'branding', 'app-icon'].contains(t)))
-            _SettingsSection(
-              title: 'Organization',
-              items: [
-                if (visibleTiles.contains('leagues'))
-                  _SettingsItem(
-                    icon: Icons.location_city,
-                    title: 'Manage Leagues & Hubs',
-                    onTap: () => context.push('/settings/leagues'),
-                  ),
-                if (visibleTiles.contains('users'))
-                  _SettingsItem(
-                    icon: Icons.people,
-                    title: 'User Management',
-                    badge: pendingInviteCount > 0 ? pendingInviteCount : null,
-                    onTap: () => context.push('/settings/users'),
-                  ),
-                if (visibleTiles.contains('roles'))
-                  _SettingsItem(icon: Icons.admin_panel_settings, title: 'Roles & Permissions', onTap: () => context.push('/settings/roles')),
-                if (visibleTiles.contains('branding'))
-                  _SettingsItem(icon: Icons.palette, title: 'Branding & Appearance', onTap: () => context.push('/settings/branding')),
-                if (visibleTiles.contains('app-icon'))
-                  _SettingsItem(icon: Icons.apps, title: 'App Icon', onTap: () => context.push('/settings/app-icon')),
-              ],
-            ),
-          if (visibleTiles.any((t) => ['leagues', 'users', 'roles', 'branding', 'app-icon'].contains(t)))
-            const SizedBox(height: 16),
-          _SettingsSection(
-            title: 'Preferences',
-            items: [
-              _SettingsItem(icon: Icons.notifications_outlined, title: 'Notifications', onTap: () => context.push('/settings/notifications')),
-              _SettingsItem(icon: Icons.lock_outlined, title: 'Privacy & Security', onTap: () => context.push('/settings/privacy')),
-            ],
+          const AppShellHeader(
+            eyebrow: 'ACCOUNT',
+            leadingIcon: Icons.settings_outlined,
+            title: 'Settings',
+            subtitle:
+                'Manage your profile, organization tools, and app preferences.',
           ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: ListTile(
-              leading: const Icon(Icons.logout, color: AppColors.danger),
-              title: const Text('Sign Out',
-                  style: TextStyle(
-                      color: AppColors.danger, fontWeight: FontWeight.w600)),
-              onTap: () async {
-                final user = ref.read(currentUserProvider).valueOrNull;
-                if (user != null) {
-                  await ref.read(messagingServiceProvider).removeToken(user.id);
-                }
-                await ref.read(authServiceProvider).signOut();
-                if (context.mounted) context.go('/login');
-              },
+          Transform.translate(
+            offset: const Offset(0, -32),
+            child: Material(
+              color: AppColors.background,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(30)),
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                child: Column(
+                  children: [
+                    _ProfileCard(user: user),
+                    const SizedBox(height: 24),
+                    if (visibleTiles.any((t) => [
+                          'leagues',
+                          'users',
+                          'roles',
+                          'branding',
+                          'app-icon'
+                        ].contains(t)))
+                      _SettingsSection(
+                        title: 'Organization',
+                        items: [
+                          if (visibleTiles.contains('leagues'))
+                            _SettingsItem(
+                              icon: Icons.location_city,
+                              title: 'Manage Leagues & Hubs',
+                              onTap: () => context.push('/settings/leagues'),
+                            ),
+                          if (visibleTiles.contains('users'))
+                            _SettingsItem(
+                              icon: Icons.people,
+                              title: 'User Management',
+                              badge: pendingInviteCount > 0
+                                  ? pendingInviteCount
+                                  : null,
+                              onTap: () => context.push('/settings/users'),
+                            ),
+                          if (visibleTiles.contains('roles'))
+                            _SettingsItem(
+                                icon: Icons.admin_panel_settings,
+                                title: 'Roles & Permissions',
+                                onTap: () => context.push('/settings/roles')),
+                          if (visibleTiles.contains('branding'))
+                            _SettingsItem(
+                                icon: Icons.palette,
+                                title: 'Branding & Appearance',
+                                onTap: () =>
+                                    context.push('/settings/branding')),
+                          if (visibleTiles.contains('app-icon'))
+                            _SettingsItem(
+                                icon: Icons.apps,
+                                title: 'App Icon',
+                                onTap: () =>
+                                    context.push('/settings/app-icon')),
+                        ],
+                      ),
+                    if (visibleTiles.any((t) => [
+                          'leagues',
+                          'users',
+                          'roles',
+                          'branding',
+                          'app-icon'
+                        ].contains(t)))
+                      const SizedBox(height: 16),
+                    _SettingsSection(
+                      title: 'Preferences',
+                      items: [
+                        _SettingsItem(
+                            icon: Icons.notifications_outlined,
+                            title: 'Notifications',
+                            onTap: () =>
+                                context.push('/settings/notifications')),
+                        _SettingsItem(
+                            icon: Icons.lock_outlined,
+                            title: 'Privacy & Security',
+                            onTap: () => context.push('/settings/privacy')),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: ListTile(
+                        leading:
+                            const Icon(Icons.logout, color: AppColors.danger),
+                        title: const Text('Sign Out',
+                            style: TextStyle(
+                                color: AppColors.danger,
+                                fontWeight: FontWeight.w600)),
+                        onTap: () async {
+                          final user =
+                              ref.read(currentUserProvider).valueOrNull;
+                          if (user != null) {
+                            await ref
+                                .read(messagingServiceProvider)
+                                .removeToken(user.id);
+                          }
+                          await ref.read(authServiceProvider).signOut();
+                          if (context.mounted) context.go('/login');
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Center(
+                        child: Text('League Hub v1.0.0',
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.textMuted))),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 24),
-          const Center(
-              child: Text('League Hub v1.0.0',
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted))),
         ],
       ),
     );
@@ -158,11 +219,11 @@ class _ProfileCard extends StatelessWidget {
           IconButton(
               icon: const Icon(Icons.edit_outlined, color: Colors.white),
               onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const EditProfileScreen(),
-                ),
-              )),
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const EditProfileScreen(),
+                    ),
+                  )),
         ],
       ),
     );
@@ -255,8 +316,7 @@ class _SettingsItem extends StatelessWidget {
           if (badge != null)
             Container(
               margin: const EdgeInsets.only(right: 6),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                 color: AppColors.danger,
                 borderRadius: BorderRadius.circular(10),

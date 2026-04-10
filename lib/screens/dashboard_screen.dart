@@ -7,6 +7,7 @@ import '../models/announcement.dart';
 import '../models/chat_room.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../widgets/app_shell_header.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/avatar_widget.dart';
 
@@ -39,73 +40,79 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 120,
-            pinned: true,
-            backgroundColor: AppColors.primary,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-              title: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    orgName,
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
-                  ),
-                  Text(
-                    userName.isNotEmpty ? 'Hi, $userName' : 'League Hub',
-                    style: const TextStyle(fontSize: 11, color: Colors.white70),
-                  ),
-                ],
-              ),
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primary, AppColors.primaryLight],
-                  ),
-                ),
-              ),
-            ),
+      body: Column(
+        children: [
+          AppShellHeader(
+            eyebrow: 'LEAGUE HUB',
+            leadingIcon: Icons.apartment_rounded,
+            title: orgName,
+            subtitle: userName.isNotEmpty
+                ? 'Welcome back, $userName'
+                : 'Your organization overview for today',
             actions: [
-              IconButton(
-                  icon: const Icon(Icons.notifications_outlined,
-                      color: Colors.white),
-                  onPressed: () => context.push('/settings/notifications')),
-              IconButton(
-                  icon: const Icon(Icons.search, color: Colors.white),
-                  onPressed: () => _showSearchSheet(context)),
+              AppHeaderIconButton(
+                icon: Icons.notifications_outlined,
+                tooltip: 'Notifications',
+                onPressed: () => context.push('/settings/notifications'),
+              ),
+              AppHeaderIconButton(
+                icon: Icons.search,
+                tooltip: 'Search',
+                onPressed: () => _showSearchSheet(context),
+              ),
             ],
-          ),
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            bottom: Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: [
-                const SizedBox(height: 16),
-                LeagueFilter(
-                  leagues: leagues,
-                  selectedLeagueId: _selectedLeagueId,
-                  onSelected: (id) => setState(() => _selectedLeagueId = id),
+                _HeaderPill(
+                  icon: Icons.location_city,
+                  label: '$hubCount hubs',
                 ),
-                const SizedBox(height: 20),
-                _buildStatsRow(
-                    hubCount: hubCount,
-                    teamCount: teamCount,
-                    leagueCount: leagueCount,
-                    memberCount: memberCount),
-                const SizedBox(height: 24),
-                _buildAnnouncementsSection(),
-                const SizedBox(height: 24),
-                _buildChatsSection(),
-                const SizedBox(height: 24),
+                _HeaderPill(
+                  icon: Icons.emoji_events_outlined,
+                  label: '$leagueCount leagues',
+                ),
+                _HeaderPill(
+                  icon: Icons.groups_2_outlined,
+                  label: '$memberCount members',
+                ),
               ],
+            ),
+          ),
+          Expanded(
+            child: Transform.translate(
+              offset: const Offset(0, -32),
+              child: Material(
+                color: AppColors.background,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(30)),
+                clipBehavior: Clip.antiAlias,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(0, 20, 0, 104),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LeagueFilter(
+                        leagues: leagues,
+                        selectedLeagueId: _selectedLeagueId,
+                        onSelected: (id) =>
+                            setState(() => _selectedLeagueId = id),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildStatsRow(
+                          hubCount: hubCount,
+                          teamCount: teamCount,
+                          leagueCount: leagueCount,
+                          memberCount: memberCount),
+                      const SizedBox(height: 24),
+                      _buildAnnouncementsSection(),
+                      const SizedBox(height: 24),
+                      _buildChatsSection(),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -157,7 +164,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     context: context,
                     builder: (dialogCtx) => AlertDialog(
                       title: const Text('Search'),
-                      content: const Text('Search functionality is coming soon.'),
+                      content:
+                          const Text('Search functionality is coming soon.'),
                       actions: [
                         ElevatedButton(
                           onPressed: () => Navigator.pop(dialogCtx),
@@ -260,8 +268,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildAnnouncementsSection() {
-    final announcements =
-        ref.watch(announcementsProvider).valueOrNull ?? [];
+    final announcements = ref.watch(announcementsProvider).valueOrNull ?? [];
     final recent = announcements.take(3).toList();
 
     return Column(
@@ -381,6 +388,43 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+class _HeaderPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _HeaderPill({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AnnouncementCard extends StatelessWidget {
   final Announcement announcement;
   const _AnnouncementCard({required this.announcement});
@@ -390,83 +434,84 @@ class _AnnouncementCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/announcements/${announcement.id}'),
       child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (announcement.isPinned)
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (announcement.isPinned)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.push_pin,
+                            size: 12, color: AppColors.warning),
+                        SizedBox(width: 4),
+                        Text('Pinned',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.warning,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
                 Container(
-                  margin: const EdgeInsets.only(right: 8),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.15),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.push_pin, size: 12, color: AppColors.warning),
-                      SizedBox(width: 4),
-                      Text('Pinned',
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.warning,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
+                  child: Text(announcement.scopeLabel,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600)),
                 ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(announcement.scopeLabel,
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(announcement.title,
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.text)),
+            const SizedBox(height: 4),
+            Text(announcement.body,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                AvatarWidget(name: announcement.authorName, size: 20),
+                const SizedBox(width: 6),
+                Text(announcement.authorName,
                     style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(announcement.title,
-              style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.text)),
-          const SizedBox(height: 4),
-          Text(announcement.body,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              AvatarWidget(name: announcement.authorName, size: 20),
-              const SizedBox(width: 6),
-              Text(announcement.authorName,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary)),
-              const Spacer(),
-              Text(AppUtils.formatDateTime(announcement.createdAt),
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textMuted)),
-            ],
-          ),
-        ],
-      ),
+                        fontSize: 12, color: AppColors.textSecondary)),
+                const Spacer(),
+                Text(AppUtils.formatDateTime(announcement.createdAt),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textMuted)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -520,62 +565,62 @@ class _ChatCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/chat/${chatRoom.id}'),
       child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: chatRoom.type == ChatRoomType.direct
+                    ? AppColors.accent.withValues(alpha: 0.15)
+                    : AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                chatRoom.type == ChatRoomType.direct
+                    ? Icons.person
+                    : chatRoom.type == ChatRoomType.event
+                        ? Icons.event
+                        : Icons.forum,
+                color: chatRoom.type == ChatRoomType.direct
+                    ? AppColors.accent
+                    : AppColors.primary,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(chatRoom.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppColors.text)),
+                  const SizedBox(height: 2),
+                  Text(chatRoom.lastMessage ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            if (chatRoom.lastMessageAt != null)
+              Text(AppUtils.formatDateTime(chatRoom.lastMessageAt!),
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textMuted)),
+          ],
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: chatRoom.type == ChatRoomType.direct
-                  ? AppColors.accent.withValues(alpha: 0.15)
-                  : AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              chatRoom.type == ChatRoomType.direct
-                  ? Icons.person
-                  : chatRoom.type == ChatRoomType.event
-                      ? Icons.event
-                      : Icons.forum,
-              color: chatRoom.type == ChatRoomType.direct
-                  ? AppColors.accent
-                  : AppColors.primary,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(chatRoom.name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: AppColors.text)),
-                const SizedBox(height: 2),
-                Text(chatRoom.lastMessage ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppColors.textSecondary)),
-              ],
-            ),
-          ),
-          if (chatRoom.lastMessageAt != null)
-            Text(AppUtils.formatDateTime(chatRoom.lastMessageAt!),
-                style:
-                    const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-        ],
-      ),
-    ),
     );
   }
 }

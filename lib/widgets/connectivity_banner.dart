@@ -63,8 +63,8 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
   }
 
   void _onConnectivityChanged(List<ConnectivityResult> results) async {
-    var offline = results.isEmpty ||
-        results.every((r) => r == ConnectivityResult.none);
+    var offline =
+        results.isEmpty || results.every((r) => r == ConnectivityResult.none);
 
     // connectivity_plus can report false negatives on iOS simulators.
     // Double-check with a real DNS lookup before showing the banner.
@@ -122,44 +122,52 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        SlideTransition(
-          position: _slideAnimation,
-          child: Material(
-            elevation: 2,
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 4,
-                bottom: 8,
-                left: 16,
-                right: 16,
-              ),
-              color: _isOffline ? AppColors.danger : AppColors.success,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _isOffline ? Icons.wifi_off : Icons.wifi,
-                    color: Colors.white,
-                    size: 16,
+        Positioned.fill(child: widget.child),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            ignoring: !_isOffline,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Material(
+                elevation: 2,
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 4,
+                    bottom: 8,
+                    left: 16,
+                    right: 16,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _bannerText,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: _isOffline ? AppColors.danger : AppColors.success,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _isOffline ? Icons.wifi_off : Icons.wifi,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _bannerText,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
-        Expanded(child: widget.child),
       ],
     );
   }
