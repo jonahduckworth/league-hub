@@ -500,6 +500,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       floatingActionButton: orgId == null
           ? null
           : FloatingActionButton(
+              heroTag: 'chat_list_fab',
               onPressed: () => _showNewChatOptions(orgId),
               backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: Colors.white),

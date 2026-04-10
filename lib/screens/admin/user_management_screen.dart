@@ -123,6 +123,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'user_management_fab',
         onPressed: () => _showInviteSheet(context),
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.person_add_outlined, color: Colors.white),

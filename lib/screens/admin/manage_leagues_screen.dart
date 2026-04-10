@@ -24,6 +24,7 @@ class ManageLeaguesScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Manage Leagues & Hubs')),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'manage_leagues_fab',
         onPressed: org == null
             ? null
             : () => _showAddLeagueSheet(context, ref, org.id),

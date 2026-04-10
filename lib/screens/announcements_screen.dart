@@ -176,6 +176,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     return AppShellScaffold(
       floatingActionButton: canManage
           ? FloatingActionButton(
+              heroTag: 'announcements_fab',
               onPressed: () => context.push('/announcements/create'),
               backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: Colors.white),

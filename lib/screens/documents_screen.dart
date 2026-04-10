@@ -59,6 +59,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     return AppShellScaffold(
       floatingActionButton: _canUpload(currentUser)
           ? FloatingActionButton(
+              heroTag: 'documents_fab',
               onPressed: () => context.push('/documents/upload'),
               backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: Colors.white),
