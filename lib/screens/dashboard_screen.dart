@@ -23,6 +23,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomContentPadding = MediaQuery.paddingOf(context).bottom + 8;
     final userAsync = ref.watch(currentUserProvider);
     final orgAsync = ref.watch(organizationProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
@@ -88,29 +89,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(30)),
                 clipBehavior: Clip.antiAlias,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(0, 20, 0, 104),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      LeagueFilter(
-                        leagues: leagues,
-                        selectedLeagueId: _selectedLeagueId,
-                        onSelected: (id) =>
-                            setState(() => _selectedLeagueId = id),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    LeagueFilter(
+                      leagues: leagues,
+                      selectedLeagueId: _selectedLeagueId,
+                      onSelected: (id) =>
+                          setState(() => _selectedLeagueId = id),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding:
+                            EdgeInsets.fromLTRB(0, 0, 0, bottomContentPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildStatsRow(
+                                hubCount: hubCount,
+                                teamCount: teamCount,
+                                leagueCount: leagueCount,
+                                memberCount: memberCount),
+                            const SizedBox(height: 24),
+                            _buildAnnouncementsSection(),
+                            const SizedBox(height: 24),
+                            _buildChatsSection(),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 20),
-                      _buildStatsRow(
-                          hubCount: hubCount,
-                          teamCount: teamCount,
-                          leagueCount: leagueCount,
-                          memberCount: memberCount),
-                      const SizedBox(height: 24),
-                      _buildAnnouncementsSection(),
-                      const SizedBox(height: 24),
-                      _buildChatsSection(),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

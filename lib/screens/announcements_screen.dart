@@ -42,6 +42,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomContentPadding = MediaQuery.paddingOf(context).bottom + 8;
     final announcementsAsync = ref.watch(announcementsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final userAsync = ref.watch(currentUserProvider);
@@ -117,8 +118,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                                       subtitle: 'Check back later for updates.',
                                     )
                                   : ListView.builder(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          16, 0, 16, 104),
+                                      padding: EdgeInsets.fromLTRB(
+                                          16, 0, 16, bottomContentPadding),
                                       itemCount: filtered.length,
                                       itemBuilder: (context, index) {
                                         final a = filtered[index];

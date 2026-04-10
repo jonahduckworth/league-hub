@@ -358,6 +358,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomContentPadding = MediaQuery.paddingOf(context).bottom + 8;
     final chatRoomsAsync = ref.watch(chatRoomsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final orgId = ref.watch(organizationProvider).valueOrNull?.id;
@@ -452,8 +453,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                             }
 
                             return ListView(
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 0, 16, 104),
+                              padding: EdgeInsets.fromLTRB(
+                                  16, 0, 16, bottomContentPadding),
                               children: [
                                 if (leagueRooms.isNotEmpty) ...[
                                   _SectionHeader(

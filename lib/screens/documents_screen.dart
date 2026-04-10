@@ -47,6 +47,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomContentPadding = MediaQuery.paddingOf(context).bottom + 8;
     final docsAsync = ref.watch(documentsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final selectedLeagueId = ref.watch(selectedLeagueProvider);
@@ -153,8 +154,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                               onRefresh: () async =>
                                   ref.invalidate(documentsProvider),
                               child: ListView.builder(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 0, 16, 104),
+                                padding: EdgeInsets.fromLTRB(
+                                    16, 0, 16, bottomContentPadding),
                                 itemCount: filtered.length,
                                 itemBuilder: (context, index) => _DocumentTile(
                                   doc: filtered[index],

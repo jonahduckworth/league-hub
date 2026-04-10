@@ -15,6 +15,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final bottomContentPadding = MediaQuery.paddingOf(context).bottom + 8;
     final userAsync = ref.watch(currentUserProvider);
     final user = userAsync.valueOrNull ?? mockCurrentUser;
     final pendingInviteCount = ref.watch(pendingInviteCountProvider);
@@ -41,7 +42,7 @@ class SettingsScreen extends ConsumerWidget {
                   const BorderRadius.vertical(top: Radius.circular(30)),
               clipBehavior: Clip.antiAlias,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                padding: EdgeInsets.fromLTRB(16, 20, 16, bottomContentPadding),
                 child: Column(
                   children: [
                     _ProfileCard(user: user),
