@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings/chat_room_info_screen.dart';
+import 'package:league_hub/widgets/avatar_widget.dart';
 
 ChatRoom _leagueRoom() => ChatRoom(
       id: 'cr1',
@@ -19,6 +21,29 @@ ChatRoom _leagueRoom() => ChatRoom(
       lastMessage: 'Hello',
       lastMessageAt: DateTime(2025, 3, 15),
       lastMessageBy: 'Admin',
+      roomIconName: 'trophy',
+    );
+
+ChatRoom _eventRoomWithImage() => ChatRoom(
+      id: 'cr3',
+      orgId: 'org-1',
+      name: 'Spring Tournament',
+      type: ChatRoomType.event,
+      participants: ['u1', 'u2'],
+      createdAt: DateTime(2025, 4, 1),
+      isArchived: false,
+      roomImageUrl: 'https://example.com/room.png',
+    );
+
+ChatRoom _eventRoomWithIcon() => ChatRoom(
+      id: 'cr4',
+      orgId: 'org-1',
+      name: 'Spring Tournament',
+      type: ChatRoomType.event,
+      participants: ['u1', 'u2'],
+      createdAt: DateTime(2025, 4, 1),
+      isArchived: false,
+      roomIconName: 'trophy',
     );
 
 ChatRoom _dmRoom() => ChatRoom(
@@ -53,6 +78,7 @@ AppUser _staffUser() => AppUser(
       teamIds: [],
       createdAt: DateTime(2025, 1, 1),
       isActive: true,
+      avatarUrl: 'https://example.com/staff.png',
     );
 
 Widget _buildTestWidget({
@@ -74,8 +100,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         roomId: 'cr1',
         overrides: [
-          chatRoomProvider('cr1')
-              .overrideWith((ref) => Stream.value(room)),
+          chatRoomProvider('cr1').overrideWith((ref) => Stream.value(room)),
           orgUsersProvider.overrideWith(
               (ref) => Stream.value([_adminUser(), _staffUser()])),
           currentUserProvider.overrideWith((ref) async => _adminUser()),
@@ -87,6 +112,51 @@ void main() {
       expect(find.text('Chat Info'), findsOneWidget);
       expect(find.text('PL - General'), findsOneWidget);
       expect(find.text('League Chat'), findsOneWidget);
+      expect(find.byIcon(Icons.forum), findsOneWidget);
+    });
+
+    testWidgets('uses room icon when an event room has no image',
+        (tester) async {
+      final room = _eventRoomWithIcon();
+      await tester.pumpWidget(_buildTestWidget(
+        roomId: 'cr4',
+        overrides: [
+          chatRoomProvider('cr4').overrideWith((ref) => Stream.value(room)),
+          orgUsersProvider.overrideWith(
+              (ref) => Stream.value([_adminUser(), _staffUser()])),
+          currentUserProvider.overrideWith((ref) async => _adminUser()),
+          organizationProvider.overrideWith((ref) async => null),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Event Chat'), findsOneWidget);
+      expect(find.byIcon(Icons.emoji_events_outlined), findsOneWidget);
+    });
+
+    testWidgets('uses room image when a room image is available',
+        (tester) async {
+      final room = _eventRoomWithImage();
+      await tester.pumpWidget(_buildTestWidget(
+        roomId: 'cr3',
+        overrides: [
+          chatRoomProvider('cr3').overrideWith((ref) => Stream.value(room)),
+          orgUsersProvider.overrideWith(
+              (ref) => Stream.value([_adminUser(), _staffUser()])),
+          currentUserProvider.overrideWith((ref) async => _adminUser()),
+          organizationProvider.overrideWith((ref) async => null),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is CachedNetworkImage &&
+              widget.imageUrl == 'https://example.com/room.png',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shows member list with participant data', (tester) async {
@@ -94,8 +164,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         roomId: 'cr1',
         overrides: [
-          chatRoomProvider('cr1')
-              .overrideWith((ref) => Stream.value(room)),
+          chatRoomProvider('cr1').overrideWith((ref) => Stream.value(room)),
           orgUsersProvider.overrideWith(
               (ref) => Stream.value([_adminUser(), _staffUser()])),
           currentUserProvider.overrideWith((ref) async => _adminUser()),
@@ -107,6 +176,14 @@ void main() {
       expect(find.text('MEMBERS (2)'), findsOneWidget);
       expect(find.text('Admin'), findsOneWidget);
       expect(find.text('Staff Member'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is AvatarWidget &&
+              widget.imageUrl == 'https://example.com/staff.png',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shows "You" badge for current user', (tester) async {
@@ -114,8 +191,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         roomId: 'cr1',
         overrides: [
-          chatRoomProvider('cr1')
-              .overrideWith((ref) => Stream.value(room)),
+          chatRoomProvider('cr1').overrideWith((ref) => Stream.value(room)),
           orgUsersProvider.overrideWith(
               (ref) => Stream.value([_adminUser(), _staffUser()])),
           currentUserProvider.overrideWith((ref) async => _adminUser()),
@@ -133,8 +209,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         roomId: 'cr1',
         overrides: [
-          chatRoomProvider('cr1')
-              .overrideWith((ref) => Stream.value(room)),
+          chatRoomProvider('cr1').overrideWith((ref) => Stream.value(room)),
           orgUsersProvider.overrideWith(
               (ref) => Stream.value([_adminUser(), _staffUser()])),
           currentUserProvider.overrideWith((ref) async => _adminUser()),
@@ -144,6 +219,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Archive Chat Room'), findsOneWidget);
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
     });
 
     testWidgets('hides archive button on DM rooms', (tester) async {
@@ -151,8 +227,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         roomId: 'cr2',
         overrides: [
-          chatRoomProvider('cr2')
-              .overrideWith((ref) => Stream.value(room)),
+          chatRoomProvider('cr2').overrideWith((ref) => Stream.value(room)),
           orgUsersProvider.overrideWith(
               (ref) => Stream.value([_adminUser(), _staffUser()])),
           currentUserProvider.overrideWith((ref) async => _adminUser()),
@@ -163,6 +238,7 @@ void main() {
 
       expect(find.text('Direct Message'), findsOneWidget);
       expect(find.text('Archive Chat Room'), findsNothing);
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
     });
 
     testWidgets('hides archive for staff users', (tester) async {
@@ -170,8 +246,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         roomId: 'cr1',
         overrides: [
-          chatRoomProvider('cr1')
-              .overrideWith((ref) => Stream.value(room)),
+          chatRoomProvider('cr1').overrideWith((ref) => Stream.value(room)),
           orgUsersProvider.overrideWith(
               (ref) => Stream.value([_adminUser(), _staffUser()])),
           currentUserProvider.overrideWith((ref) async => _staffUser()),
@@ -181,6 +256,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Archive Chat Room'), findsNothing);
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
     });
 
     testWidgets('shows created date', (tester) async {
@@ -188,8 +264,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         roomId: 'cr1',
         overrides: [
-          chatRoomProvider('cr1')
-              .overrideWith((ref) => Stream.value(room)),
+          chatRoomProvider('cr1').overrideWith((ref) => Stream.value(room)),
           orgUsersProvider.overrideWith(
               (ref) => Stream.value([_adminUser(), _staffUser()])),
           currentUserProvider.overrideWith((ref) async => _adminUser()),

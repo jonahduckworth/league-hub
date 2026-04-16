@@ -27,7 +27,9 @@ class FirestoreService {
       .collection(AppConstants.chatRoomsCollection);
 
   CollectionReference _messagesRef(String orgId, String roomId) =>
-      _chatRoomsRef(orgId).doc(roomId).collection(AppConstants.messagesCollection);
+      _chatRoomsRef(orgId)
+          .doc(roomId)
+          .collection(AppConstants.messagesCollection);
 
   CollectionReference _leaguesRef(String orgId) => _db
       .collection(AppConstants.orgsCollection)
@@ -62,7 +64,8 @@ class FirestoreService {
   // --- Organizations ---
 
   Future<Organization?> getOrganization(String orgId) async {
-    final doc = await _db.collection(AppConstants.orgsCollection).doc(orgId).get();
+    final doc =
+        await _db.collection(AppConstants.orgsCollection).doc(orgId).get();
     if (!doc.exists) return null;
     return Organization.fromJson(
         {'id': doc.id, ..._convertTimestamps(doc.data()!)});
@@ -80,8 +83,10 @@ class FirestoreService {
       .orderBy('createdAt')
       .snapshots()
       .map((snap) => snap.docs
-          .map((d) => League.fromJson(
-              {'id': d.id, ..._convertTimestamps(d.data() as Map<String, dynamic>)}))
+          .map((d) => League.fromJson({
+                'id': d.id,
+                ..._convertTimestamps(d.data() as Map<String, dynamic>)
+              }))
           .toList());
 
   Future<void> createLeague(String orgId, League league) =>
@@ -102,11 +107,12 @@ class FirestoreService {
   // --- Hubs (subcollection) ---
 
   Stream<List<Hub>> getHubs(String orgId, String leagueId) =>
-      _hubsRef(orgId, leagueId)
-          .orderBy('createdAt')
-          .snapshots()
-          .map((snap) => snap.docs
-              .map((d) => Hub.fromJson({'id': d.id, ..._convertTimestamps(d.data() as Map<String, dynamic>)}))
+      _hubsRef(orgId, leagueId).orderBy('createdAt').snapshots().map((snap) =>
+          snap.docs
+              .map((d) => Hub.fromJson({
+                    'id': d.id,
+                    ..._convertTimestamps(d.data() as Map<String, dynamic>)
+                  }))
               .toList());
 
   Future<void> createHub(String orgId, String leagueId, Hub hub) =>
@@ -128,11 +134,12 @@ class FirestoreService {
   // --- Teams (subcollection) ---
 
   Stream<List<Team>> getTeams(String orgId, String leagueId, String hubId) =>
-      _teamsRef(orgId, leagueId, hubId)
-          .orderBy('createdAt')
-          .snapshots()
-          .map((snap) => snap.docs
-              .map((d) => Team.fromJson({'id': d.id, ..._convertTimestamps(d.data() as Map<String, dynamic>)}))
+      _teamsRef(orgId, leagueId, hubId).orderBy('createdAt').snapshots().map(
+          (snap) => snap.docs
+              .map((d) => Team.fromJson({
+                    'id': d.id,
+                    ..._convertTimestamps(d.data() as Map<String, dynamic>)
+                  }))
               .toList());
 
   Future<void> createTeam(
@@ -188,8 +195,7 @@ class FirestoreService {
     final doc =
         await _db.collection(AppConstants.usersCollection).doc(userId).get();
     if (!doc.exists) return null;
-    return AppUser.fromJson(
-        {'id': doc.id, ..._convertTimestamps(doc.data()!)});
+    return AppUser.fromJson({'id': doc.id, ..._convertTimestamps(doc.data()!)});
   }
 
   Future<void> updateUser(AppUser user) async {
@@ -205,8 +211,8 @@ class FirestoreService {
         .where('orgId', isEqualTo: orgId)
         .snapshots()
         .map((snap) => snap.docs
-            .map((d) => AppUser.fromJson(
-                {'id': d.id, ..._convertTimestamps(d.data())}))
+            .map((d) =>
+                AppUser.fromJson({'id': d.id, ..._convertTimestamps(d.data())}))
             .toList());
   }
 
@@ -230,6 +236,8 @@ class FirestoreService {
     ChatRoomType type, {
     String? leagueId,
     List<String> participants = const [],
+    String? roomIconName,
+    String? roomImageUrl,
   }) async {
     final ref = _chatRoomsRef(orgId).doc();
     await ref.set({
@@ -243,6 +251,8 @@ class FirestoreService {
       'lastMessage': null,
       'lastMessageAt': FieldValue.serverTimestamp(),
       'lastMessageBy': null,
+      'roomIconName': roomIconName,
+      'roomImageUrl': roomImageUrl,
     });
     return ref.id;
   }
@@ -250,6 +260,13 @@ class FirestoreService {
   /// Archives a chat room (soft delete).
   Future<void> archiveChatRoom(String orgId, String roomId) =>
       _chatRoomsRef(orgId).doc(roomId).update({'isArchived': true});
+
+  Future<void> updateChatRoomFields(
+    String orgId,
+    String roomId,
+    Map<String, dynamic> data,
+  ) =>
+      _chatRoomsRef(orgId).doc(roomId).update(data);
 
   /// Auto-creates a "General" chat room for each league that doesn't already have one.
   Future<void> createLeagueChatRooms(
@@ -288,8 +305,10 @@ class FirestoreService {
         .snapshots()
         .map((snap) {
       final rooms = snap.docs
-          .map((d) => ChatRoom.fromJson(
-              {'id': d.id, ..._convertTimestamps(d.data() as Map<String, dynamic>)}))
+          .map((d) => ChatRoom.fromJson({
+                'id': d.id,
+                ..._convertTimestamps(d.data() as Map<String, dynamic>)
+              }))
           .toList();
       rooms.sort((a, b) {
         if (a.lastMessageAt == null && b.lastMessageAt == null) return 0;
@@ -305,15 +324,17 @@ class FirestoreService {
   Stream<ChatRoom?> getChatRoom(String orgId, String roomId) {
     return _chatRoomsRef(orgId).doc(roomId).snapshots().map((doc) {
       if (!doc.exists) return null;
-      return ChatRoom.fromJson(
-          {'id': doc.id, ..._convertTimestamps(doc.data() as Map<String, dynamic>)});
+      return ChatRoom.fromJson({
+        'id': doc.id,
+        ..._convertTimestamps(doc.data() as Map<String, dynamic>)
+      });
     });
   }
 
   /// Finds an existing DM room between two users or creates one.
   /// [name1] and [name2] are the display names of uid1 and uid2 respectively.
-  Future<ChatRoom> getOrCreateDMRoom(
-      String orgId, String uid1, String uid2, String name1, String name2) async {
+  Future<ChatRoom> getOrCreateDMRoom(String orgId, String uid1, String uid2,
+      String name1, String name2) async {
     final participants = ([uid1, uid2]..sort());
     // Use a deterministic document ID so lookups are a simple get, not a query.
     final dmId = 'dm_${participants[0]}_${participants[1]}';
@@ -321,8 +342,10 @@ class FirestoreService {
 
     final existing = await roomRef.get();
     if (existing.exists) {
-      return ChatRoom.fromJson(
-          {'id': existing.id, ..._convertTimestamps(existing.data() as Map<String, dynamic>)});
+      return ChatRoom.fromJson({
+        'id': existing.id,
+        ..._convertTimestamps(existing.data() as Map<String, dynamic>)
+      });
     }
 
     // Store both names so either participant can reconstruct the other's name.
@@ -340,8 +363,10 @@ class FirestoreService {
       'lastMessageBy': null,
     });
     final roomDoc = await roomRef.get();
-    return ChatRoom.fromJson(
-        {'id': roomRef.id, ..._convertTimestamps(roomDoc.data() as Map<String, dynamic>)});
+    return ChatRoom.fromJson({
+      'id': roomRef.id,
+      ..._convertTimestamps(roomDoc.data() as Map<String, dynamic>)
+    });
   }
 
   // --- Messages ---
@@ -353,8 +378,10 @@ class FirestoreService {
         .limitToLast(100)
         .snapshots()
         .map((snap) => snap.docs
-            .map((d) => Message.fromJson(
-                {'id': d.id, ..._convertTimestamps(d.data() as Map<String, dynamic>)}))
+            .map((d) => Message.fromJson({
+                  'id': d.id,
+                  ..._convertTimestamps(d.data() as Map<String, dynamic>)
+                }))
             .toList());
   }
 
@@ -415,8 +442,7 @@ class FirestoreService {
   }
 
   /// Returns a stream of the count of unread messages in [roomId] for [userId].
-  Stream<int> unreadCountStream(
-      String orgId, String roomId, String userId) {
+  Stream<int> unreadCountStream(String orgId, String roomId, String userId) {
     return _messagesRef(orgId, roomId)
         .orderBy('createdAt', descending: true)
         .limit(100)
@@ -449,8 +475,7 @@ class FirestoreService {
   }
 
   /// Removes the typing indicator for [userId] in [roomId].
-  Future<void> clearTyping(
-      String orgId, String roomId, String userId) async {
+  Future<void> clearTyping(String orgId, String roomId, String userId) async {
     await _chatRoomsRef(orgId)
         .doc(roomId)
         .collection('typing')
@@ -467,8 +492,7 @@ class FirestoreService {
         .collection('typing')
         .snapshots()
         .map((snap) {
-      final cutoff =
-          DateTime.now().subtract(const Duration(seconds: 5));
+      final cutoff = DateTime.now().subtract(const Duration(seconds: 5));
       return snap.docs
           .where((d) {
             if (d.id == currentUserId) return false;
@@ -555,8 +579,11 @@ class FirestoreService {
 
   String newDocumentId(String orgId) => _documentsRef(orgId).doc().id;
 
-  Document _docFromSnap(DocumentSnapshot d, String orgId) => Document.fromJson(
-      {'id': d.id, 'orgId': orgId, ..._convertTimestamps(d.data() as Map<String, dynamic>)});
+  Document _docFromSnap(DocumentSnapshot d, String orgId) => Document.fromJson({
+        'id': d.id,
+        'orgId': orgId,
+        ..._convertTimestamps(d.data() as Map<String, dynamic>)
+      });
 
   /// Stream of all documents for an org, client-side filtered by leagueId/category.
   Stream<List<Document>> documentsStream(String orgId,
@@ -576,8 +603,7 @@ class FirestoreService {
     });
   }
 
-  Stream<List<Document>> getDocuments(String orgId) =>
-      documentsStream(orgId);
+  Stream<List<Document>> getDocuments(String orgId) => documentsStream(orgId);
 
   Stream<List<Document>> getDocumentsByLeague(String orgId, String leagueId) =>
       documentsStream(orgId, leagueId: leagueId);
@@ -654,8 +680,10 @@ class FirestoreService {
         .snapshots()
         .map((snap) {
       final list = snap.docs
-          .map((d) => Announcement.fromJson(
-              {'id': d.id, ..._convertTimestamps(d.data() as Map<String, dynamic>)}))
+          .map((d) => Announcement.fromJson({
+                'id': d.id,
+                ..._convertTimestamps(d.data() as Map<String, dynamic>)
+              }))
           .toList();
       // Sort pinned first, then by date descending.
       list.sort((a, b) {
@@ -694,8 +722,7 @@ class FirestoreService {
     await _announcementsRef(orgId).doc(announcementId).update(data);
   }
 
-  Future<void> deleteAnnouncement(
-      String orgId, String announcementId) async {
+  Future<void> deleteAnnouncement(String orgId, String announcementId) async {
     await _announcementsRef(orgId).doc(announcementId).delete();
   }
 
@@ -734,8 +761,10 @@ class FirestoreService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs
-            .map((d) => Invitation.fromJson(
-                {'id': d.id, ..._convertTimestamps(d.data() as Map<String, dynamic>)}))
+            .map((d) => Invitation.fromJson({
+                  'id': d.id,
+                  ..._convertTimestamps(d.data() as Map<String, dynamic>)
+                }))
             .toList());
   }
 
@@ -751,8 +780,8 @@ class FirestoreService {
         .get();
     if (snap.docs.isEmpty) return null;
     final doc = snap.docs.first;
-    final invitation = Invitation.fromJson(
-        {'id': doc.id, ..._convertTimestamps(doc.data())});
+    final invitation =
+        Invitation.fromJson({'id': doc.id, ..._convertTimestamps(doc.data())});
 
     // Check expiry.
     final expiry = invitation.createdAt.add(Duration(days: expiryDays));

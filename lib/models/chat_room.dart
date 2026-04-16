@@ -12,6 +12,9 @@ class ChatRoom {
   final String? lastMessage;
   final DateTime? lastMessageAt;
   final String? lastMessageBy;
+  final String? roomIconName;
+  final String? roomImageUrl;
+  final Map<String, String> participantNames;
 
   ChatRoom({
     required this.id,
@@ -25,6 +28,9 @@ class ChatRoom {
     this.lastMessage,
     this.lastMessageAt,
     this.lastMessageBy,
+    this.roomIconName,
+    this.roomImageUrl,
+    this.participantNames = const {},
   });
 
   factory ChatRoom.fromJson(Map<String, dynamic> json) => ChatRoom(
@@ -44,6 +50,10 @@ class ChatRoom {
             ? DateTime.parse(json['lastMessageAt'] as String)
             : null,
         lastMessageBy: json['lastMessageBy'] as String?,
+        roomIconName: json['roomIconName'] as String?,
+        roomImageUrl: json['roomImageUrl'] as String?,
+        participantNames:
+            Map<String, String>.from(json['participantNames'] as Map? ?? {}),
       );
 
   Map<String, dynamic> toJson() => {
@@ -58,5 +68,8 @@ class ChatRoom {
         'lastMessage': lastMessage,
         'lastMessageAt': lastMessageAt?.toIso8601String(),
         'lastMessageBy': lastMessageBy,
+        'roomIconName': roomIconName,
+        'roomImageUrl': roomImageUrl,
+        'participantNames': participantNames,
       };
 }

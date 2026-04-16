@@ -30,51 +30,51 @@ class MockFirestoreService extends Mock implements FirestoreService {
 
   @override
   Future<void> createHub(String orgId, String leagueId, Hub hub) =>
-      (super.noSuchMethod(
-              Invocation.method(#createHub, [orgId, leagueId, hub]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+      (super.noSuchMethod(Invocation.method(#createHub, [orgId, leagueId, hub]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> createTeam(
           String orgId, String leagueId, String hubId, Team team) =>
       (super.noSuchMethod(
-              Invocation.method(#createTeam, [orgId, leagueId, hubId, team]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#createTeam, [orgId, leagueId, hubId, team]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<String> createChatRoom(String orgId, String name, ChatRoomType type,
-          {String? leagueId, List<String> participants = const []}) =>
+          {String? leagueId,
+          List<String> participants = const [],
+          String? roomIconName,
+          String? roomImageUrl}) =>
       (super.noSuchMethod(
-              Invocation.method(#createChatRoom, [orgId, name, type],
-                  {#leagueId: leagueId, #participants: participants}),
-              returnValue: Future<String>.value(''))
-          as Future<String>);
+          Invocation.method(#createChatRoom, [
+            orgId,
+            name,
+            type
+          ], {
+            #leagueId: leagueId,
+            #participants: participants,
+            #roomIconName: roomIconName,
+            #roomImageUrl: roomImageUrl,
+          }),
+          returnValue: Future<String>.value('')) as Future<String>);
 
   @override
-  Future<String> createAnnouncement(
-          String orgId, Map<String, dynamic> data) =>
-      (super.noSuchMethod(
-              Invocation.method(#createAnnouncement, [orgId, data]),
-              returnValue: Future<String>.value(''))
-          as Future<String>);
+  Future<String> createAnnouncement(String orgId, Map<String, dynamic> data) =>
+      (super.noSuchMethod(Invocation.method(#createAnnouncement, [orgId, data]),
+          returnValue: Future<String>.value('')) as Future<String>);
 
   @override
   Future<String> createDocument(String orgId, Map<String, dynamic> docData,
           {String? docId}) =>
       (super.noSuchMethod(
-              Invocation.method(
-                  #createDocument, [orgId, docData], {#docId: docId}),
-              returnValue: Future<String>.value(''))
-          as Future<String>);
+          Invocation.method(#createDocument, [orgId, docData], {#docId: docId}),
+          returnValue: Future<String>.value('')) as Future<String>);
 
   @override
-  Future<String> createInvitation(String orgId, Invitation invitation) =>
-      (super.noSuchMethod(
-              Invocation.method(#createInvitation, [orgId, invitation]),
-              returnValue: Future<String>.value(''))
-          as Future<String>);
+  Future<String> createInvitation(String orgId, Invitation invitation) => (super
+      .noSuchMethod(Invocation.method(#createInvitation, [orgId, invitation]),
+          returnValue: Future<String>.value('')) as Future<String>);
 }
 
 void main() {
@@ -111,7 +111,8 @@ void main() {
             .thenAnswer((_) => Future.value());
 
         await afs.updateOrganization(actor, 'org1', {'name': 'New Name'});
-        verify(mockFs.updateOrganization('org1', {'name': 'New Name'})).called(1);
+        verify(mockFs.updateOrganization('org1', {'name': 'New Name'}))
+            .called(1);
       });
 
       test('can create league', () async {
@@ -230,10 +231,11 @@ void main() {
         );
 
         when(mockFs.createChatRoom('org1', 'General', ChatRoomType.league,
-                leagueId: null, participants: const []))
-            .thenAnswer((_) => Future.value('room1'));
+            leagueId: null,
+            participants: const [])).thenAnswer((_) => Future.value('room1'));
 
-        final roomId = await afs.createChatRoom(actor, 'org1', 'General', ChatRoomType.league);
+        final roomId = await afs.createChatRoom(
+            actor, 'org1', 'General', ChatRoomType.league);
         expect(roomId, 'room1');
       });
 
@@ -278,7 +280,8 @@ void main() {
         when(mockFs.createDocument('org1', {'name': 'Document'}, docId: null))
             .thenAnswer((_) => Future.value('doc1'));
 
-        final docId = await afs.createDocument(actor, 'org1', {'name': 'Document'});
+        final docId =
+            await afs.createDocument(actor, 'org1', {'name': 'Document'});
         expect(docId, 'doc1');
       });
     });
@@ -301,7 +304,8 @@ void main() {
             .thenAnswer((_) => Future.value());
 
         await afs.updateOrganization(actor, 'org1', {'name': 'Updated'});
-        verify(mockFs.updateOrganization('org1', {'name': 'Updated'})).called(1);
+        verify(mockFs.updateOrganization('org1', {'name': 'Updated'}))
+            .called(1);
       });
 
       test('can create league', () async {
@@ -345,10 +349,11 @@ void main() {
         );
 
         when(mockFs.createChatRoom('org1', 'General', ChatRoomType.league,
-                leagueId: null, participants: const []))
-            .thenAnswer((_) => Future.value('room1'));
+            leagueId: null,
+            participants: const [])).thenAnswer((_) => Future.value('room1'));
 
-        final roomId = await afs.createChatRoom(actor, 'org1', 'General', ChatRoomType.league);
+        final roomId = await afs.createChatRoom(
+            actor, 'org1', 'General', ChatRoomType.league);
         expect(roomId, 'room1');
       });
 
@@ -633,7 +638,8 @@ void main() {
         );
 
         expect(
-          () => afs.createChatRoom(actor, 'org1', 'General', ChatRoomType.league),
+          () =>
+              afs.createChatRoom(actor, 'org1', 'General', ChatRoomType.league),
           throwsA(isA<PermissionDeniedException>()),
         );
       });

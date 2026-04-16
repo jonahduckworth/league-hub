@@ -38,48 +38,40 @@ class MockFirestoreService extends Mock implements FirestoreService {
   @override
   Stream<List<Team>> getTeams(String orgId, String leagueId, String hubId) =>
       (super.noSuchMethod(
-              Invocation.method(#getTeams, [orgId, leagueId, hubId]),
-              returnValue: Stream<List<Team>>.value([]))
-          as Stream<List<Team>>);
+          Invocation.method(#getTeams, [orgId, leagueId, hubId]),
+          returnValue: Stream<List<Team>>.value([])) as Stream<List<Team>>);
 
   @override
   Future<void> deleteTeam(
           String orgId, String leagueId, String hubId, String teamId) =>
       (super.noSuchMethod(
-              Invocation.method(#deleteTeam, [orgId, leagueId, hubId, teamId]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#deleteTeam, [orgId, leagueId, hubId, teamId]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> createHub(String orgId, String leagueId, Hub hub) =>
-      (super.noSuchMethod(
-              Invocation.method(#createHub, [orgId, leagueId, hub]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+      (super.noSuchMethod(Invocation.method(#createHub, [orgId, leagueId, hub]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
-  Future<void> deleteHub(String orgId, String leagueId, String hubId) =>
-      (super.noSuchMethod(
-              Invocation.method(#deleteHub, [orgId, leagueId, hubId]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+  Future<void> deleteHub(String orgId, String leagueId, String hubId) => (super
+      .noSuchMethod(Invocation.method(#deleteHub, [orgId, leagueId, hubId]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> createTeam(
           String orgId, String leagueId, String hubId, Team team) =>
       (super.noSuchMethod(
-              Invocation.method(#createTeam, [orgId, leagueId, hubId, team]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#createTeam, [orgId, leagueId, hubId, team]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> updateTeamFields(String orgId, String leagueId, String hubId,
           String teamId, Map<String, dynamic> data) =>
       (super.noSuchMethod(
-              Invocation.method(
-                  #updateTeamFields, [orgId, leagueId, hubId, teamId, data]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(
+              #updateTeamFields, [orgId, leagueId, hubId, teamId, data]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> sendMediaMessage(String orgId, String roomId,
@@ -89,31 +81,31 @@ class MockFirestoreService extends Mock implements FirestoreService {
           required String mediaType,
           String? caption}) =>
       (super.noSuchMethod(
-              Invocation.method(#sendMediaMessage, [orgId, roomId], {
-                #senderId: senderId,
-                #senderName: senderName,
-                #mediaUrl: mediaUrl,
-                #mediaType: mediaType,
-                #caption: caption,
-              }),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#sendMediaMessage, [
+            orgId,
+            roomId
+          ], {
+            #senderId: senderId,
+            #senderName: senderName,
+            #mediaUrl: mediaUrl,
+            #mediaType: mediaType,
+            #caption: caption,
+          }),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> updateMessage(
           String orgId, String roomId, String messageId, String newText) =>
       (super.noSuchMethod(
-              Invocation.method(
-                  #updateMessage, [orgId, roomId, messageId, newText]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(
+              #updateMessage, [orgId, roomId, messageId, newText]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> deleteMessage(String orgId, String roomId, String messageId) =>
       (super.noSuchMethod(
-              Invocation.method(#deleteMessage, [orgId, roomId, messageId]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#deleteMessage, [orgId, roomId, messageId]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> deactivateUser(String uid) =>
@@ -132,19 +124,34 @@ class MockFirestoreService extends Mock implements FirestoreService {
 
   @override
   Future<String> createChatRoom(String orgId, String name, ChatRoomType type,
-          {String? leagueId, List<String> participants = const []}) =>
+          {String? leagueId,
+          List<String> participants = const [],
+          String? roomIconName,
+          String? roomImageUrl}) =>
       (super.noSuchMethod(
-              Invocation.method(#createChatRoom, [orgId, name, type],
-                  {#leagueId: leagueId, #participants: participants}),
-              returnValue: Future<String>.value(''))
-          as Future<String>);
+          Invocation.method(#createChatRoom, [
+            orgId,
+            name,
+            type
+          ], {
+            #leagueId: leagueId,
+            #participants: participants,
+            #roomIconName: roomIconName,
+            #roomImageUrl: roomImageUrl,
+          }),
+          returnValue: Future<String>.value('')) as Future<String>);
 
   @override
   Future<void> archiveChatRoom(String orgId, String roomId) =>
+      (super.noSuchMethod(Invocation.method(#archiveChatRoom, [orgId, roomId]),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
+  Future<void> updateChatRoomFields(
+          String orgId, String roomId, Map<String, dynamic> data) =>
       (super.noSuchMethod(
-              Invocation.method(#archiveChatRoom, [orgId, roomId]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#updateChatRoomFields, [orgId, roomId, data]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> sendMessage(String orgId, String roomId,
@@ -152,27 +159,23 @@ class MockFirestoreService extends Mock implements FirestoreService {
           required String senderName,
           required String text}) =>
       (super.noSuchMethod(
-              Invocation.method(#sendMessage, [orgId, roomId],
-                  {#senderId: senderId, #senderName: senderName, #text: text}),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#sendMessage, [orgId, roomId],
+              {#senderId: senderId, #senderName: senderName, #text: text}),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<String> createDocument(String orgId, Map<String, dynamic> docData,
           {String? docId}) =>
       (super.noSuchMethod(
-              Invocation.method(
-                  #createDocument, [orgId, docData], {#docId: docId}),
-              returnValue: Future<String>.value(''))
-          as Future<String>);
+          Invocation.method(#createDocument, [orgId, docData], {#docId: docId}),
+          returnValue: Future<String>.value('')) as Future<String>);
 
   @override
   Future<void> updateDocument(
           String orgId, String docId, Map<String, dynamic> data) =>
       (super.noSuchMethod(
-              Invocation.method(#updateDocument, [orgId, docId, data]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#updateDocument, [orgId, docId, data]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> deleteDocument(String orgId, String docId) =>
@@ -183,56 +186,42 @@ class MockFirestoreService extends Mock implements FirestoreService {
   Future<void> addDocumentVersion(
           String orgId, String docId, Map<String, dynamic> versionData) =>
       (super.noSuchMethod(
-              Invocation.method(
-                  #addDocumentVersion, [orgId, docId, versionData]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#addDocumentVersion, [orgId, docId, versionData]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
-  Future<String> createAnnouncement(
-          String orgId, Map<String, dynamic> data) =>
-      (super.noSuchMethod(
-              Invocation.method(#createAnnouncement, [orgId, data]),
-              returnValue: Future<String>.value(''))
-          as Future<String>);
+  Future<String> createAnnouncement(String orgId, Map<String, dynamic> data) =>
+      (super.noSuchMethod(Invocation.method(#createAnnouncement, [orgId, data]),
+          returnValue: Future<String>.value('')) as Future<String>);
 
   @override
   Future<void> updateAnnouncement(
           String orgId, String announcementId, Map<String, dynamic> data) =>
       (super.noSuchMethod(
-              Invocation.method(
-                  #updateAnnouncement, [orgId, announcementId, data]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#updateAnnouncement, [orgId, announcementId, data]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> deleteAnnouncement(String orgId, String announcementId) =>
       (super.noSuchMethod(
-              Invocation.method(#deleteAnnouncement, [orgId, announcementId]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#deleteAnnouncement, [orgId, announcementId]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
   Future<void> togglePin(String orgId, String announcementId, bool isPinned) =>
       (super.noSuchMethod(
-              Invocation.method(
-                  #togglePin, [orgId, announcementId, isPinned]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+          Invocation.method(#togglePin, [orgId, announcementId, isPinned]),
+          returnValue: Future<void>.value()) as Future<void>);
 
   @override
-  Future<String> createInvitation(String orgId, Invitation invitation) =>
-      (super.noSuchMethod(
-              Invocation.method(#createInvitation, [orgId, invitation]),
-              returnValue: Future<String>.value(''))
-          as Future<String>);
+  Future<String> createInvitation(String orgId, Invitation invitation) => (super
+      .noSuchMethod(Invocation.method(#createInvitation, [orgId, invitation]),
+          returnValue: Future<String>.value('')) as Future<String>);
 
   @override
-  Future<void> acceptInvitation(String orgId, String inviteId) =>
-      (super.noSuchMethod(
-              Invocation.method(#acceptInvitation, [orgId, inviteId]),
-              returnValue: Future<void>.value())
-          as Future<void>);
+  Future<void> acceptInvitation(String orgId, String inviteId) => (super
+      .noSuchMethod(Invocation.method(#acceptInvitation, [orgId, inviteId]),
+          returnValue: Future<void>.value()) as Future<void>);
 }
 
 // Helper factory for creating test users
@@ -362,7 +351,8 @@ void main() {
     // =========================================================================
 
     group('updateOrganization', () {
-      test('throws PermissionDeniedException when staff tries to update org', () async {
+      test('throws PermissionDeniedException when staff tries to update org',
+          () async {
         final staff = makeUser(role: UserRole.staff);
         final data = {'name': 'New Org Name'};
 
@@ -374,7 +364,9 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('throws PermissionDeniedException when managerAdmin tries to update org', () async {
+      test(
+          'throws PermissionDeniedException when managerAdmin tries to update org',
+          () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
         final data = {'name': 'New Org Name'};
 
@@ -390,7 +382,8 @@ void main() {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final data = {'name': 'New Org Name'};
 
-        when(mockFs.updateOrganization('org1', data)).thenAnswer((_) async => {});
+        when(mockFs.updateOrganization('org1', data))
+            .thenAnswer((_) async => {});
 
         await afs.updateOrganization(superAdmin, 'org1', data);
 
@@ -401,7 +394,8 @@ void main() {
         final platformOwner = makeUser(role: UserRole.platformOwner);
         final data = {'name': 'New Org Name'};
 
-        when(mockFs.updateOrganization('org1', data)).thenAnswer((_) async => {});
+        when(mockFs.updateOrganization('org1', data))
+            .thenAnswer((_) async => {});
 
         await afs.updateOrganization(platformOwner, 'org1', data);
 
@@ -414,7 +408,8 @@ void main() {
     // =========================================================================
 
     group('createLeague', () {
-      test('throws PermissionDeniedException when staff tries to create league', () async {
+      test('throws PermissionDeniedException when staff tries to create league',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -436,7 +431,8 @@ void main() {
         verify(mockFs.createLeague('org1', league)).called(1);
       });
 
-      test('calls FirestoreService when platformOwner creates league', () async {
+      test('calls FirestoreService when platformOwner creates league',
+          () async {
         final platformOwner = makeUser(role: UserRole.platformOwner);
         final league = makeLeague();
 
@@ -449,7 +445,8 @@ void main() {
     });
 
     group('deleteLeague', () {
-      test('throws PermissionDeniedException when staff tries to delete league', () async {
+      test('throws PermissionDeniedException when staff tries to delete league',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -472,7 +469,9 @@ void main() {
     });
 
     group('deleteLeagueCascade', () {
-      test('throws PermissionDeniedException when staff tries to cascade delete league', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to cascade delete league',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -488,9 +487,12 @@ void main() {
         final hub = makeHub();
         final team = makeTeam();
 
-        when(mockFs.getHubs('org1', 'l1')).thenAnswer((_) => Stream.value([hub]));
-        when(mockFs.getTeams('org1', 'l1', 'h1')).thenAnswer((_) => Stream.value([team]));
-        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1')).thenAnswer((_) async => {});
+        when(mockFs.getHubs('org1', 'l1'))
+            .thenAnswer((_) => Stream.value([hub]));
+        when(mockFs.getTeams('org1', 'l1', 'h1'))
+            .thenAnswer((_) => Stream.value([team]));
+        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1'))
+            .thenAnswer((_) async => {});
         when(mockFs.deleteHub('org1', 'l1', 'h1')).thenAnswer((_) async => {});
         when(mockFs.deleteLeague('org1', 'l1')).thenAnswer((_) async => {});
 
@@ -510,11 +512,16 @@ void main() {
         final team1 = makeTeam(id: 't1', hubId: 'h1');
         final team2 = makeTeam(id: 't2', hubId: 'h2');
 
-        when(mockFs.getHubs('org1', 'l1')).thenAnswer((_) => Stream.value([hub1, hub2]));
-        when(mockFs.getTeams('org1', 'l1', 'h1')).thenAnswer((_) => Stream.value([team1]));
-        when(mockFs.getTeams('org1', 'l1', 'h2')).thenAnswer((_) => Stream.value([team2]));
-        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1')).thenAnswer((_) async {});
-        when(mockFs.deleteTeam('org1', 'l1', 'h2', 't2')).thenAnswer((_) async {});
+        when(mockFs.getHubs('org1', 'l1'))
+            .thenAnswer((_) => Stream.value([hub1, hub2]));
+        when(mockFs.getTeams('org1', 'l1', 'h1'))
+            .thenAnswer((_) => Stream.value([team1]));
+        when(mockFs.getTeams('org1', 'l1', 'h2'))
+            .thenAnswer((_) => Stream.value([team2]));
+        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1'))
+            .thenAnswer((_) async {});
+        when(mockFs.deleteTeam('org1', 'l1', 'h2', 't2'))
+            .thenAnswer((_) async {});
         when(mockFs.deleteHub('org1', 'l1', 'h1')).thenAnswer((_) async {});
         when(mockFs.deleteHub('org1', 'l1', 'h2')).thenAnswer((_) async {});
         when(mockFs.deleteLeague('org1', 'l1')).thenAnswer((_) async {});
@@ -533,7 +540,8 @@ void main() {
     // =========================================================================
 
     group('createHub', () {
-      test('throws PermissionDeniedException when staff tries to create hub', () async {
+      test('throws PermissionDeniedException when staff tries to create hub',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -555,8 +563,11 @@ void main() {
         verify(mockFs.createHub('org1', 'l1', hub)).called(1);
       });
 
-      test('calls FirestoreService when managerAdmin with hub assignment creates hub', () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
+      test(
+          'calls FirestoreService when managerAdmin with hub assignment creates hub',
+          () async {
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
         final hub = makeHub();
 
         when(mockFs.createHub('org1', 'l1', hub)).thenAnswer((_) async {});
@@ -567,7 +578,8 @@ void main() {
       });
 
       // managerAdmin can always create hubs per current PermissionService logic
-      test('calls FirestoreService when managerAdmin without hub assignment creates hub',
+      test(
+          'calls FirestoreService when managerAdmin without hub assignment creates hub',
           () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin, hubIds: []);
         final hub = makeHub();
@@ -581,7 +593,8 @@ void main() {
     });
 
     group('deleteHub', () {
-      test('throws PermissionDeniedException when staff tries to delete hub', () async {
+      test('throws PermissionDeniedException when staff tries to delete hub',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -592,8 +605,11 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('throws PermissionDeniedException when managerAdmin tries to delete hub', () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
+      test(
+          'throws PermissionDeniedException when managerAdmin tries to delete hub',
+          () async {
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
 
         expect(
           () => afs.deleteHub(managerAdmin, 'org1', 'l1', 'h1'),
@@ -615,7 +631,9 @@ void main() {
     });
 
     group('deleteHubCascade', () {
-      test('throws PermissionDeniedException when staff tries to cascade delete hub', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to cascade delete hub',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -630,8 +648,10 @@ void main() {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final team = makeTeam();
 
-        when(mockFs.getTeams('org1', 'l1', 'h1')).thenAnswer((_) => Stream.value([team]));
-        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1')).thenAnswer((_) async => {});
+        when(mockFs.getTeams('org1', 'l1', 'h1'))
+            .thenAnswer((_) => Stream.value([team]));
+        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1'))
+            .thenAnswer((_) async => {});
         when(mockFs.deleteHub('org1', 'l1', 'h1')).thenAnswer((_) async => {});
 
         await afs.deleteHubCascade(superAdmin, 'org1', 'l1', 'h1');
@@ -648,8 +668,10 @@ void main() {
 
         when(mockFs.getTeams('org1', 'l1', 'h1'))
             .thenAnswer((_) => Stream.value([team1, team2]));
-        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1')).thenAnswer((_) async {});
-        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't2')).thenAnswer((_) async {});
+        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1'))
+            .thenAnswer((_) async {});
+        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't2'))
+            .thenAnswer((_) async {});
         when(mockFs.deleteHub('org1', 'l1', 'h1')).thenAnswer((_) async {});
 
         await afs.deleteHubCascade(superAdmin, 'org1', 'l1', 'h1');
@@ -664,7 +686,8 @@ void main() {
     // =========================================================================
 
     group('createTeam', () {
-      test('throws PermissionDeniedException when staff tries to create team', () async {
+      test('throws PermissionDeniedException when staff tries to create team',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -679,7 +702,8 @@ void main() {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final team = makeTeam();
 
-        when(mockFs.createTeam('org1', 'l1', 'h1', team)).thenAnswer((_) async {});
+        when(mockFs.createTeam('org1', 'l1', 'h1', team))
+            .thenAnswer((_) async {});
 
         await afs.createTeam(superAdmin, 'org1', 'l1', 'h1', team);
 
@@ -689,10 +713,12 @@ void main() {
       test(
           'calls FirestoreService when managerAdmin with hub assignment creates team',
           () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
         final team = makeTeam();
 
-        when(mockFs.createTeam('org1', 'l1', 'h1', team)).thenAnswer((_) async {});
+        when(mockFs.createTeam('org1', 'l1', 'h1', team))
+            .thenAnswer((_) async {});
 
         await afs.createTeam(managerAdmin, 'org1', 'l1', 'h1', team);
 
@@ -702,7 +728,8 @@ void main() {
       test(
           'throws PermissionDeniedException when managerAdmin tries to create team in hub they don\'t own',
           () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin, hubIds: ['h2']);
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, hubIds: ['h2']);
 
         expect(
           () => afs.createTeam(managerAdmin, 'org1', 'l1', 'h1', {}),
@@ -714,7 +741,8 @@ void main() {
     });
 
     group('deleteTeam', () {
-      test('throws PermissionDeniedException when staff tries to delete team', () async {
+      test('throws PermissionDeniedException when staff tries to delete team',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -728,7 +756,8 @@ void main() {
       test('calls FirestoreService when superAdmin deletes team', () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
 
-        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1')).thenAnswer((_) async => {});
+        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1'))
+            .thenAnswer((_) async => {});
 
         await afs.deleteTeam(superAdmin, 'org1', 'l1', 'h1', 't1');
 
@@ -738,9 +767,11 @@ void main() {
       test(
           'calls FirestoreService when managerAdmin with hub assignment deletes team',
           () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
 
-        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1')).thenAnswer((_) async => {});
+        when(mockFs.deleteTeam('org1', 'l1', 'h1', 't1'))
+            .thenAnswer((_) async => {});
 
         await afs.deleteTeam(managerAdmin, 'org1', 'l1', 'h1', 't1');
 
@@ -750,7 +781,8 @@ void main() {
       test(
           'throws PermissionDeniedException when managerAdmin tries to delete team in hub they don\'t own',
           () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin, hubIds: ['h2']);
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, hubIds: ['h2']);
 
         expect(
           () => afs.deleteTeam(managerAdmin, 'org1', 'l1', 'h1', 't1'),
@@ -766,7 +798,9 @@ void main() {
     // =========================================================================
 
     group('deactivateUser', () {
-      test('throws PermissionDeniedException when staff tries to deactivate user', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to deactivate user',
+          () async {
         final staff = makeUser(role: UserRole.staff);
         final target = makeUser(id: 'u2', role: UserRole.staff);
 
@@ -778,7 +812,9 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('throws PermissionDeniedException when managerAdmin tries to deactivate higher role', () async {
+      test(
+          'throws PermissionDeniedException when managerAdmin tries to deactivate higher role',
+          () async {
         final managerAdmin =
             makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
         final target = makeUser(id: 'u2', role: UserRole.superAdmin);
@@ -791,7 +827,8 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when superAdmin deactivates staff user', () async {
+      test('calls FirestoreService when superAdmin deactivates staff user',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final target = makeUser(id: 'u2', role: UserRole.staff);
 
@@ -802,7 +839,9 @@ void main() {
         verify(mockFs.deactivateUser('u2')).called(1);
       });
 
-      test('calls FirestoreService when managerAdmin deactivates staff in their hub', () async {
+      test(
+          'calls FirestoreService when managerAdmin deactivates staff in their hub',
+          () async {
         final managerAdmin =
             makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
         final target = makeUser(id: 'u2', role: UserRole.staff, hubIds: ['h1']);
@@ -814,7 +853,8 @@ void main() {
         verify(mockFs.deactivateUser('u2')).called(1);
       });
 
-      test('throws PermissionDeniedException when managerAdmin tries to deactivate user outside their hub',
+      test(
+          'throws PermissionDeniedException when managerAdmin tries to deactivate user outside their hub',
           () async {
         final managerAdmin =
             makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
@@ -832,7 +872,8 @@ void main() {
     group('reactivateUser', () {
       test('calls FirestoreService when superAdmin reactivates user', () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
-        final target = makeUser(id: 'u2', role: UserRole.staff, isActive: false);
+        final target =
+            makeUser(id: 'u2', role: UserRole.staff, isActive: false);
 
         when(mockFs.reactivateUser('u2')).thenAnswer((_) async => {});
 
@@ -841,9 +882,12 @@ void main() {
         verify(mockFs.reactivateUser('u2')).called(1);
       });
 
-      test('throws PermissionDeniedException when staff tries to reactivate user', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to reactivate user',
+          () async {
         final staff = makeUser(role: UserRole.staff);
-        final target = makeUser(id: 'u2', role: UserRole.staff, isActive: false);
+        final target =
+            makeUser(id: 'u2', role: UserRole.staff, isActive: false);
 
         expect(
           () => afs.reactivateUser(staff, target),
@@ -855,7 +899,8 @@ void main() {
     });
 
     group('updateUserFields', () {
-      test('throws PermissionDeniedException when staff tries to update user', () async {
+      test('throws PermissionDeniedException when staff tries to update user',
+          () async {
         final staff = makeUser(role: UserRole.staff);
         final target = makeUser(id: 'u2', role: UserRole.staff);
 
@@ -867,7 +912,8 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('throws PermissionDeniedException when user tries to update themselves through management',
+      test(
+          'throws PermissionDeniedException when user tries to update themselves through management',
           () async {
         final superAdmin = makeUser(id: 'u1', role: UserRole.superAdmin);
 
@@ -897,38 +943,43 @@ void main() {
     // =========================================================================
 
     group('createChatRoom', () {
-      test('throws PermissionDeniedException when staff tries to create chat room', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to create chat room',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
-          () => afs.createChatRoom(staff, 'org1', 'Room 1', ChatRoomType.league),
+          () =>
+              afs.createChatRoom(staff, 'org1', 'Room 1', ChatRoomType.league),
           throwsA(isA<PermissionDeniedException>()),
         );
 
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when managerAdmin creates chat room', () async {
+      test('calls FirestoreService when managerAdmin creates chat room',
+          () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
 
         when(mockFs.createChatRoom('org1', 'Room 1', ChatRoomType.league,
-                leagueId: null, participants: []))
-            .thenAnswer((_) async => 'roomId');
+            leagueId: null,
+            participants: [])).thenAnswer((_) async => 'roomId');
 
-        final result = await afs.createChatRoom(managerAdmin, 'org1', 'Room 1', ChatRoomType.league);
+        final result = await afs.createChatRoom(
+            managerAdmin, 'org1', 'Room 1', ChatRoomType.league);
 
         expect(result, equals('roomId'));
         verify(mockFs.createChatRoom('org1', 'Room 1', ChatRoomType.league,
-                leagueId: null, participants: []))
-            .called(1);
+            leagueId: null, participants: [])).called(1);
       });
 
-      test('calls FirestoreService when superAdmin creates chat room', () async {
+      test('calls FirestoreService when superAdmin creates chat room',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
 
         when(mockFs.createChatRoom('org1', 'Room 2', ChatRoomType.event,
-                leagueId: 'l1', participants: ['u1', 'u2']))
-            .thenAnswer((_) async => 'roomId2');
+            leagueId: 'l1',
+            participants: ['u1', 'u2'])).thenAnswer((_) async => 'roomId2');
 
         final result = await afs.createChatRoom(
           superAdmin,
@@ -944,7 +995,8 @@ void main() {
     });
 
     group('archiveChatRoom', () {
-      test('throws PermissionDeniedException when staff tries to archive room', () async {
+      test('throws PermissionDeniedException when staff tries to archive room',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -958,7 +1010,8 @@ void main() {
       test('calls FirestoreService when managerAdmin archives room', () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
 
-        when(mockFs.archiveChatRoom('org1', 'room1')).thenAnswer((_) async => {});
+        when(mockFs.archiveChatRoom('org1', 'room1'))
+            .thenAnswer((_) async => {});
 
         await afs.archiveChatRoom(managerAdmin, 'org1', 'room1');
 
@@ -966,8 +1019,41 @@ void main() {
       });
     });
 
+    group('updateChatRoomFields', () {
+      test('throws PermissionDeniedException when staff tries to update room',
+          () async {
+        final staff = makeUser(role: UserRole.staff);
+        final data = {'name': 'Updated'};
+
+        expect(
+          () => afs.updateChatRoomFields(staff, 'org1', 'room1', data),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+
+        verifyZeroInteractions(mockFs);
+      });
+
+      test('calls FirestoreService when managerAdmin updates room', () async {
+        final managerAdmin = makeUser(role: UserRole.managerAdmin);
+        final data = {
+          'name': 'Updated',
+          'roomIconName': 'trophy',
+          'roomImageUrl': null,
+        };
+
+        when(mockFs.updateChatRoomFields('org1', 'room1', data))
+            .thenAnswer((_) async => {});
+
+        await afs.updateChatRoomFields(managerAdmin, 'org1', 'room1', data);
+
+        verify(mockFs.updateChatRoomFields('org1', 'room1', data)).called(1);
+      });
+    });
+
     group('sendMessage', () {
-      test('throws PermissionDeniedException when inactive user tries to send message', () async {
+      test(
+          'throws PermissionDeniedException when inactive user tries to send message',
+          () async {
         final inactive = makeUser(role: UserRole.staff, isActive: false);
 
         expect(
@@ -978,7 +1064,8 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService with actor.id as senderId for staff', () async {
+      test('calls FirestoreService with actor.id as senderId for staff',
+          () async {
         final staff = makeUser(id: 'u1', role: UserRole.staff);
 
         when(mockFs.sendMessage(
@@ -1034,7 +1121,8 @@ void main() {
           text: 'Admin message',
         )).thenAnswer((_) async => {});
 
-        await afs.sendMessage(managerAdmin, 'org1', 'room1', text: 'Admin message');
+        await afs.sendMessage(managerAdmin, 'org1', 'room1',
+            text: 'Admin message');
 
         verify(mockFs.sendMessage(
           'org1',
@@ -1051,7 +1139,9 @@ void main() {
     // =========================================================================
 
     group('createDocument', () {
-      test('throws PermissionDeniedException when staff tries to create document', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to create document',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -1062,7 +1152,8 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when managerAdmin creates document', () async {
+      test('calls FirestoreService when managerAdmin creates document',
+          () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
         final docData = {'title': 'Document'};
 
@@ -1075,7 +1166,9 @@ void main() {
         verify(mockFs.createDocument('org1', docData, docId: null)).called(1);
       });
 
-      test('calls FirestoreService when superAdmin creates document with specific docId', () async {
+      test(
+          'calls FirestoreService when superAdmin creates document with specific docId',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final docData = {'title': 'Document'};
 
@@ -1090,12 +1183,15 @@ void main() {
         );
 
         expect(result, equals('specific-id'));
-        verify(mockFs.createDocument('org1', docData, docId: 'specific-id')).called(1);
+        verify(mockFs.createDocument('org1', docData, docId: 'specific-id'))
+            .called(1);
       });
     });
 
     group('updateDocument', () {
-      test('throws PermissionDeniedException when staff tries to update document', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to update document',
+          () async {
         final staff = makeUser(id: 'u1', role: UserRole.staff);
 
         expect(
@@ -1106,46 +1202,53 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('throws PermissionDeniedException when managerAdmin tries to edit document by different author',
+      test(
+          'throws PermissionDeniedException when managerAdmin tries to edit document by different author',
           () async {
         final managerAdmin = makeUser(id: 'u1', role: UserRole.managerAdmin);
 
         expect(
-          () =>
-              afs.updateDocument(managerAdmin, 'org1', 'doc1', {}, uploadedBy: 'u2'),
+          () => afs.updateDocument(managerAdmin, 'org1', 'doc1', {},
+              uploadedBy: 'u2'),
           throwsA(isA<PermissionDeniedException>()),
         );
 
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when managerAdmin edits their own document', () async {
+      test('calls FirestoreService when managerAdmin edits their own document',
+          () async {
         final managerAdmin = makeUser(id: 'u1', role: UserRole.managerAdmin);
         final data = {'title': 'Updated'};
 
         when(mockFs.updateDocument('org1', 'doc1', data))
             .thenAnswer((_) async => {});
 
-        await afs.updateDocument(managerAdmin, 'org1', 'doc1', data, uploadedBy: 'u1');
+        await afs.updateDocument(managerAdmin, 'org1', 'doc1', data,
+            uploadedBy: 'u1');
 
         verify(mockFs.updateDocument('org1', 'doc1', data)).called(1);
       });
 
-      test('calls FirestoreService when superAdmin edits any document', () async {
+      test('calls FirestoreService when superAdmin edits any document',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final data = {'title': 'Updated'};
 
         when(mockFs.updateDocument('org1', 'doc1', data))
             .thenAnswer((_) async => {});
 
-        await afs.updateDocument(superAdmin, 'org1', 'doc1', data, uploadedBy: 'u2');
+        await afs.updateDocument(superAdmin, 'org1', 'doc1', data,
+            uploadedBy: 'u2');
 
         verify(mockFs.updateDocument('org1', 'doc1', data)).called(1);
       });
     });
 
     group('deleteDocument', () {
-      test('throws PermissionDeniedException when managerAdmin tries to delete document', () async {
+      test(
+          'throws PermissionDeniedException when managerAdmin tries to delete document',
+          () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
 
         expect(
@@ -1168,7 +1271,8 @@ void main() {
     });
 
     group('addDocumentVersion', () {
-      test('throws PermissionDeniedException when staff tries to add version', () async {
+      test('throws PermissionDeniedException when staff tries to add version',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -1188,7 +1292,8 @@ void main() {
 
         await afs.addDocumentVersion(managerAdmin, 'org1', 'doc1', versionData);
 
-        verify(mockFs.addDocumentVersion('org1', 'doc1', versionData)).called(1);
+        verify(mockFs.addDocumentVersion('org1', 'doc1', versionData))
+            .called(1);
       });
     });
 
@@ -1197,7 +1302,9 @@ void main() {
     // =========================================================================
 
     group('createAnnouncement', () {
-      test('throws PermissionDeniedException when staff tries to create announcement', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to create announcement',
+          () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
@@ -1213,7 +1320,8 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('throws PermissionDeniedException when managerAdmin tries to create org-wide announcement',
+      test(
+          'throws PermissionDeniedException when managerAdmin tries to create org-wide announcement',
           () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
 
@@ -1230,7 +1338,8 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when managerAdmin creates hub-scoped announcement in their hub',
+      test(
+          'calls FirestoreService when managerAdmin creates hub-scoped announcement in their hub',
           () async {
         final managerAdmin =
             makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
@@ -1271,7 +1380,9 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when superAdmin creates org-wide announcement', () async {
+      test(
+          'calls FirestoreService when superAdmin creates org-wide announcement',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final data = {'title': 'Global Announcement'};
 
@@ -1288,8 +1399,11 @@ void main() {
         expect(result, equals('announceId'));
       });
 
-      test('calls FirestoreService when managerAdmin creates league-scoped announcement', () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
+      test(
+          'calls FirestoreService when managerAdmin creates league-scoped announcement',
+          () async {
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
         final data = {'title': 'League Announcement'};
 
         when(mockFs.createAnnouncement('org1', data))
@@ -1307,57 +1421,67 @@ void main() {
     });
 
     group('updateAnnouncement', () {
-      test('throws PermissionDeniedException when staff tries to update announcement', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to update announcement',
+          () async {
         final staff = makeUser(id: 'u1', role: UserRole.staff);
 
         expect(
-          () => afs.updateAnnouncement(staff, 'org1', 'ann1', {}, authorId: 'u1'),
+          () =>
+              afs.updateAnnouncement(staff, 'org1', 'ann1', {}, authorId: 'u1'),
           throwsA(isA<PermissionDeniedException>()),
         );
 
         verifyZeroInteractions(mockFs);
       });
 
-      test('throws PermissionDeniedException when user tries to edit announcement by different author',
+      test(
+          'throws PermissionDeniedException when user tries to edit announcement by different author',
           () async {
         final managerAdmin = makeUser(id: 'u1', role: UserRole.managerAdmin);
 
         expect(
-          () =>
-              afs.updateAnnouncement(managerAdmin, 'org1', 'ann1', {}, authorId: 'u2'),
+          () => afs.updateAnnouncement(managerAdmin, 'org1', 'ann1', {},
+              authorId: 'u2'),
           throwsA(isA<PermissionDeniedException>()),
         );
 
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when user edits their own announcement', () async {
+      test('calls FirestoreService when user edits their own announcement',
+          () async {
         final managerAdmin = makeUser(id: 'u1', role: UserRole.managerAdmin);
         final data = {'title': 'Updated'};
 
         when(mockFs.updateAnnouncement('org1', 'ann1', data))
             .thenAnswer((_) async => {});
 
-        await afs.updateAnnouncement(managerAdmin, 'org1', 'ann1', data, authorId: 'u1');
+        await afs.updateAnnouncement(managerAdmin, 'org1', 'ann1', data,
+            authorId: 'u1');
 
         verify(mockFs.updateAnnouncement('org1', 'ann1', data)).called(1);
       });
 
-      test('calls FirestoreService when superAdmin edits any announcement', () async {
+      test('calls FirestoreService when superAdmin edits any announcement',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final data = {'title': 'Updated'};
 
         when(mockFs.updateAnnouncement('org1', 'ann1', data))
             .thenAnswer((_) async => {});
 
-        await afs.updateAnnouncement(superAdmin, 'org1', 'ann1', data, authorId: 'u2');
+        await afs.updateAnnouncement(superAdmin, 'org1', 'ann1', data,
+            authorId: 'u2');
 
         verify(mockFs.updateAnnouncement('org1', 'ann1', data)).called(1);
       });
     });
 
     group('deleteAnnouncement', () {
-      test('throws PermissionDeniedException when managerAdmin tries to delete announcement', () async {
+      test(
+          'throws PermissionDeniedException when managerAdmin tries to delete announcement',
+          () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
 
         expect(
@@ -1368,10 +1492,12 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when superAdmin deletes announcement', () async {
+      test('calls FirestoreService when superAdmin deletes announcement',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
 
-        when(mockFs.deleteAnnouncement('org1', 'ann1')).thenAnswer((_) async => {});
+        when(mockFs.deleteAnnouncement('org1', 'ann1'))
+            .thenAnswer((_) async => {});
 
         await afs.deleteAnnouncement(superAdmin, 'org1', 'ann1');
 
@@ -1380,7 +1506,9 @@ void main() {
     });
 
     group('togglePin', () {
-      test('throws PermissionDeniedException when managerAdmin tries to toggle pin', () async {
+      test(
+          'throws PermissionDeniedException when managerAdmin tries to toggle pin',
+          () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
 
         expect(
@@ -1391,20 +1519,24 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when superAdmin pins announcement', () async {
+      test('calls FirestoreService when superAdmin pins announcement',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
 
-        when(mockFs.togglePin('org1', 'ann1', true)).thenAnswer((_) async => {});
+        when(mockFs.togglePin('org1', 'ann1', true))
+            .thenAnswer((_) async => {});
 
         await afs.togglePin(superAdmin, 'org1', 'ann1', true);
 
         verify(mockFs.togglePin('org1', 'ann1', true)).called(1);
       });
 
-      test('calls FirestoreService when superAdmin unpins announcement', () async {
+      test('calls FirestoreService when superAdmin unpins announcement',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
 
-        when(mockFs.togglePin('org1', 'ann1', false)).thenAnswer((_) async => {});
+        when(mockFs.togglePin('org1', 'ann1', false))
+            .thenAnswer((_) async => {});
 
         await afs.togglePin(superAdmin, 'org1', 'ann1', false);
 
@@ -1417,7 +1549,9 @@ void main() {
     // =========================================================================
 
     group('createInvitation', () {
-      test('throws PermissionDeniedException when staff tries to create invitation', () async {
+      test(
+          'throws PermissionDeniedException when staff tries to create invitation',
+          () async {
         final staff = makeUser(role: UserRole.staff);
         final invitation = makeInvitation();
 
@@ -1429,7 +1563,8 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when managerAdmin invites to their hub', () async {
+      test('calls FirestoreService when managerAdmin invites to their hub',
+          () async {
         final managerAdmin =
             makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
         final invitation = makeInvitation(hubIds: ['h1']);
@@ -1437,7 +1572,8 @@ void main() {
         when(mockFs.createInvitation('org1', invitation))
             .thenAnswer((_) async => 'token');
 
-        final result = await afs.createInvitation(managerAdmin, 'org1', invitation);
+        final result =
+            await afs.createInvitation(managerAdmin, 'org1', invitation);
 
         expect(result, equals('token'));
         verify(mockFs.createInvitation('org1', invitation)).called(1);
@@ -1473,14 +1609,16 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when superAdmin invites to multiple hubs', () async {
+      test('calls FirestoreService when superAdmin invites to multiple hubs',
+          () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final invitation = makeInvitation(hubIds: ['h1', 'h2']);
 
         when(mockFs.createInvitation('org1', invitation))
             .thenAnswer((_) async => 'token');
 
-        final result = await afs.createInvitation(superAdmin, 'org1', invitation);
+        final result =
+            await afs.createInvitation(superAdmin, 'org1', invitation);
 
         expect(result, equals('token'));
         verify(mockFs.createInvitation('org1', invitation)).called(1);
@@ -1512,7 +1650,8 @@ void main() {
 
       test('accepts invitation at exact expiry boundary', () async {
         // Use 6 days 23 hours to avoid race condition at exact boundary
-        final invitedDate = DateTime.now().subtract(const Duration(days: 6, hours: 23));
+        final invitedDate =
+            DateTime.now().subtract(const Duration(days: 6, hours: 23));
 
         when(mockFs.acceptInvitation('org1', 'inv1'))
             .thenAnswer((_) async => {});
@@ -1538,7 +1677,8 @@ void main() {
         verify(mockFs.acceptInvitation('org1', 'inv1')).called(1);
       });
 
-      test('throws StateError when invitation exceeds custom expiry days', () async {
+      test('throws StateError when invitation exceeds custom expiry days',
+          () async {
         final invitedDate = DateTime.now().subtract(const Duration(days: 25));
 
         expect(
@@ -1609,22 +1749,32 @@ void main() {
     group('updateTeamFields', () {
       test('superAdmin can update team fields', () async {
         final sa = makeUser(id: 'sa', role: UserRole.superAdmin);
-        when(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': ['u1']}))
-            .thenAnswer((_) async {});
-        await afs.updateTeamFields(sa, 'org1', 'l1', 'h1', 't1', {'memberIds': ['u1']});
-        verify(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': ['u1']})).called(1);
+        when(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {
+          'memberIds': ['u1']
+        })).thenAnswer((_) async {});
+        await afs.updateTeamFields(sa, 'org1', 'l1', 'h1', 't1', {
+          'memberIds': ['u1']
+        });
+        verify(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {
+          'memberIds': ['u1']
+        })).called(1);
       });
 
       test('managerAdmin can update team in own hub', () async {
-        final ma = makeUser(id: 'ma', role: UserRole.managerAdmin, hubIds: ['h1']);
-        when(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': []}))
+        final ma =
+            makeUser(id: 'ma', role: UserRole.managerAdmin, hubIds: ['h1']);
+        when(mockFs
+                .updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': []}))
             .thenAnswer((_) async {});
-        await afs.updateTeamFields(ma, 'org1', 'l1', 'h1', 't1', {'memberIds': []});
-        verify(mockFs.updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': []})).called(1);
+        await afs
+            .updateTeamFields(ma, 'org1', 'l1', 'h1', 't1', {'memberIds': []});
+        verify(mockFs.updateTeamFields(
+            'org1', 'l1', 'h1', 't1', {'memberIds': []})).called(1);
       });
 
       test('managerAdmin cannot update team in other hub', () {
-        final ma = makeUser(id: 'ma', role: UserRole.managerAdmin, hubIds: ['h2']);
+        final ma =
+            makeUser(id: 'ma', role: UserRole.managerAdmin, hubIds: ['h2']);
         expect(
           () => afs.updateTeamFields(ma, 'org1', 'l1', 'h1', 't1', {}),
           throwsA(isA<PermissionDeniedException>()),
@@ -1648,19 +1798,21 @@ void main() {
       test('active user can send media', () async {
         final user = makeUser(id: 'u1', role: UserRole.staff);
         when(mockFs.sendMediaMessage('org1', 'room1',
-            senderId: 'u1',
-            senderName: 'User u1',
-            mediaUrl: 'https://example.com/img.jpg',
-            mediaType: 'image/jpeg',
-            caption: null)).thenAnswer((_) async {});
+                senderId: 'u1',
+                senderName: 'User u1',
+                mediaUrl: 'https://example.com/img.jpg',
+                mediaType: 'image/jpeg',
+                caption: null))
+            .thenAnswer((_) async {});
         await afs.sendMediaMessage(user, 'org1', 'room1',
             mediaUrl: 'https://example.com/img.jpg', mediaType: 'image/jpeg');
         verify(mockFs.sendMediaMessage('org1', 'room1',
-            senderId: 'u1',
-            senderName: 'User u1',
-            mediaUrl: 'https://example.com/img.jpg',
-            mediaType: 'image/jpeg',
-            caption: null)).called(1);
+                senderId: 'u1',
+                senderName: 'User u1',
+                mediaUrl: 'https://example.com/img.jpg',
+                mediaType: 'image/jpeg',
+                caption: null))
+            .called(1);
       });
 
       test('inactive user cannot send media', () {
@@ -1682,14 +1834,17 @@ void main() {
         final user = makeUser(id: 'u1', role: UserRole.staff);
         when(mockFs.updateMessage('org1', 'room1', 'msg1', 'edited'))
             .thenAnswer((_) async {});
-        await afs.updateMessage(user, 'org1', 'room1', 'msg1', 'edited', senderId: 'u1');
-        verify(mockFs.updateMessage('org1', 'room1', 'msg1', 'edited')).called(1);
+        await afs.updateMessage(user, 'org1', 'room1', 'msg1', 'edited',
+            senderId: 'u1');
+        verify(mockFs.updateMessage('org1', 'room1', 'msg1', 'edited'))
+            .called(1);
       });
 
       test('other user cannot update someone else message', () {
         final user = makeUser(id: 'u2', role: UserRole.staff);
         expect(
-          () => afs.updateMessage(user, 'org1', 'room1', 'msg1', 'edited', senderId: 'u1'),
+          () => afs.updateMessage(user, 'org1', 'room1', 'msg1', 'edited',
+              senderId: 'u1'),
           throwsA(isA<PermissionDeniedException>()),
         );
       });
@@ -1697,7 +1852,8 @@ void main() {
       test('superAdmin cannot update someone else message', () {
         final admin = makeUser(id: 'admin', role: UserRole.superAdmin);
         expect(
-          () => afs.updateMessage(admin, 'org1', 'room1', 'msg1', 'edited', senderId: 'u1'),
+          () => afs.updateMessage(admin, 'org1', 'room1', 'msg1', 'edited',
+              senderId: 'u1'),
           throwsA(isA<PermissionDeniedException>()),
         );
       });
@@ -1727,7 +1883,8 @@ void main() {
       test('staff cannot delete other user message', () {
         final user = makeUser(id: 'u2', role: UserRole.staff);
         expect(
-          () => afs.deleteMessage(user, 'org1', 'room1', 'msg1', senderId: 'u1'),
+          () =>
+              afs.deleteMessage(user, 'org1', 'room1', 'msg1', senderId: 'u1'),
           throwsA(isA<PermissionDeniedException>()),
         );
       });
@@ -1735,7 +1892,8 @@ void main() {
       test('inactive user cannot delete any message', () {
         final user = makeUser(id: 'u1', role: UserRole.staff, isActive: false);
         expect(
-          () => afs.deleteMessage(user, 'org1', 'room1', 'msg1', senderId: 'u1'),
+          () =>
+              afs.deleteMessage(user, 'org1', 'room1', 'msg1', senderId: 'u1'),
           throwsA(isA<PermissionDeniedException>()),
         );
       });

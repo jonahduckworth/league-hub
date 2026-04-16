@@ -189,24 +189,26 @@ void main() {
 
     test('getHubs streams hub list', () async {
       final now = DateTime.now();
-      await svc.createHub(orgId, leagueId,
-        Hub(
-          id: 'hub-a',
-          leagueId: leagueId,
-          orgId: orgId,
-          name: 'Hub A',
-          createdAt: now,
-        )
-      );
-      await svc.createHub(orgId, leagueId,
-        Hub(
-          id: 'hub-b',
-          leagueId: leagueId,
-          orgId: orgId,
-          name: 'Hub B',
-          createdAt: now.add(const Duration(seconds: 1)),
-        )
-      );
+      await svc.createHub(
+          orgId,
+          leagueId,
+          Hub(
+            id: 'hub-a',
+            leagueId: leagueId,
+            orgId: orgId,
+            name: 'Hub A',
+            createdAt: now,
+          ));
+      await svc.createHub(
+          orgId,
+          leagueId,
+          Hub(
+            id: 'hub-b',
+            leagueId: leagueId,
+            orgId: orgId,
+            name: 'Hub B',
+            createdAt: now.add(const Duration(seconds: 1)),
+          ));
 
       final hubs = await svc.getHubs(orgId, leagueId).first;
       expect(hubs, hasLength(2));
@@ -273,27 +275,29 @@ void main() {
     test('getTeams streams team list', () async {
       final now = DateTime.now();
       await svc.createTeam(
-        orgId, leagueId, hubId,
-        Team(
-          id: 'team-a',
-          hubId: hubId,
-          leagueId: leagueId,
-          orgId: orgId,
-          name: 'Team A',
-          createdAt: now,
-        )
-      );
+          orgId,
+          leagueId,
+          hubId,
+          Team(
+            id: 'team-a',
+            hubId: hubId,
+            leagueId: leagueId,
+            orgId: orgId,
+            name: 'Team A',
+            createdAt: now,
+          ));
       await svc.createTeam(
-        orgId, leagueId, hubId,
-        Team(
-          id: 'team-b',
-          hubId: hubId,
-          leagueId: leagueId,
-          orgId: orgId,
-          name: 'Team B',
-          createdAt: now.add(const Duration(seconds: 1)),
-        )
-      );
+          orgId,
+          leagueId,
+          hubId,
+          Team(
+            id: 'team-b',
+            hubId: hubId,
+            leagueId: leagueId,
+            orgId: orgId,
+            name: 'Team B',
+            createdAt: now.add(const Duration(seconds: 1)),
+          ));
 
       final teams = await svc.getTeams(orgId, leagueId, hubId).first;
       expect(teams, hasLength(2));
@@ -470,6 +474,8 @@ void main() {
         'General',
         ChatRoomType.league,
         leagueId: 'lg-1',
+        roomIconName: 'trophy',
+        roomImageUrl: 'https://example.com/room.png',
       );
 
       expect(roomId, isNotEmpty);
@@ -486,11 +492,13 @@ void main() {
       expect(doc.data()!['type'], 'league');
       expect(doc.data()!['leagueId'], 'lg-1');
       expect(doc.data()!['isArchived'], false);
+      expect(doc.data()!['roomIconName'], 'trophy');
+      expect(doc.data()!['roomImageUrl'], 'https://example.com/room.png');
     });
 
     test('archiveChatRoom sets isArchived true', () async {
-      final roomId = await svc.createChatRoom(
-          orgId, 'To Archive', ChatRoomType.league);
+      final roomId =
+          await svc.createChatRoom(orgId, 'To Archive', ChatRoomType.league);
 
       await svc.archiveChatRoom(orgId, roomId);
 
@@ -503,9 +511,31 @@ void main() {
       expect(doc.data()!['isArchived'], true);
     });
 
+    test('updateChatRoomFields updates editable room metadata', () async {
+      final roomId =
+          await svc.createChatRoom(orgId, 'Original', ChatRoomType.event);
+
+      await svc.updateChatRoomFields(orgId, roomId, {
+        'name': 'Updated',
+        'roomIconName': 'schedule',
+        'roomImageUrl': null,
+      });
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.chatRoomsCollection)
+          .doc(roomId)
+          .get();
+      expect(doc.data()!['name'], 'Updated');
+      expect(doc.data()!['roomIconName'], 'schedule');
+      expect(doc.data()!['roomImageUrl'], isNull);
+    });
+
     test('getChatRooms returns non-archived rooms', () async {
       await svc.createChatRoom(orgId, 'Room A', ChatRoomType.league);
-      final id2 = await svc.createChatRoom(orgId, 'Room B', ChatRoomType.league);
+      final id2 =
+          await svc.createChatRoom(orgId, 'Room B', ChatRoomType.league);
 
       await svc.archiveChatRoom(orgId, id2);
 
@@ -515,8 +545,8 @@ void main() {
     });
 
     test('getChatRoom streams single room', () async {
-      final roomId = await svc.createChatRoom(
-          orgId, 'Test Room', ChatRoomType.league);
+      final roomId =
+          await svc.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
 
       final room = await svc.getChatRoom(orgId, roomId).first;
       expect(room, isNotNull);
@@ -524,8 +554,8 @@ void main() {
     });
 
     test('getOrCreateDMRoom creates new DM', () async {
-      final room = await svc.getOrCreateDMRoom(
-          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
+      final room =
+          await svc.getOrCreateDMRoom(orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
 
       expect(room.id, isNotEmpty);
       expect(room.type, ChatRoomType.direct);
@@ -533,16 +563,17 @@ void main() {
     });
 
     test('getOrCreateDMRoom returns existing DM', () async {
-      final room1 = await svc.getOrCreateDMRoom(
-          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
+      final room1 =
+          await svc.getOrCreateDMRoom(orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
 
-      final room2 = await svc.getOrCreateDMRoom(
-          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
+      final room2 =
+          await svc.getOrCreateDMRoom(orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
 
       expect(room1.id, room2.id);
     });
 
-    test('createLeagueChatRooms creates rooms for leagues without existing ones',
+    test(
+        'createLeagueChatRooms creates rooms for leagues without existing ones',
         () async {
       final leagues = [
         {'id': 'lg-a', 'name': 'Alpha'},
@@ -578,7 +609,8 @@ void main() {
 
     setUp(() async {
       await svc.createOrganization(makeOrg());
-      roomId = await svc.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
+      roomId =
+          await svc.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
     });
 
     test('getMessages streams messages ordered by createdAt', () async {
@@ -595,9 +627,7 @@ void main() {
 
     test('sendMessage creates message and updates room atomically', () async {
       await svc.sendMessage(orgId, roomId,
-          senderId: 'sender-1',
-          senderName: 'Alice',
-          text: 'Hello world!');
+          senderId: 'sender-1', senderName: 'Alice', text: 'Hello world!');
 
       final messages = await svc.getMessages(orgId, roomId).first;
       expect(messages, hasLength(1));
@@ -648,23 +678,31 @@ void main() {
       expect(announcements[1].isPinned, isFalse);
     });
 
-    test('getAnnouncementsByLeague includes orgWide + matching league', () async {
-      await svc.createAnnouncement(orgId, announcementData(
-        scope: AnnouncementScope.orgWide.name,
-        title: 'Org Wide',
-      ));
-      await svc.createAnnouncement(orgId, announcementData(
-        scope: AnnouncementScope.league.name,
-        leagueId: 'lg-1',
-        title: 'League 1',
-      ));
-      await svc.createAnnouncement(orgId, announcementData(
-        scope: AnnouncementScope.league.name,
-        leagueId: 'lg-2',
-        title: 'League 2',
-      ));
+    test('getAnnouncementsByLeague includes orgWide + matching league',
+        () async {
+      await svc.createAnnouncement(
+          orgId,
+          announcementData(
+            scope: AnnouncementScope.orgWide.name,
+            title: 'Org Wide',
+          ));
+      await svc.createAnnouncement(
+          orgId,
+          announcementData(
+            scope: AnnouncementScope.league.name,
+            leagueId: 'lg-1',
+            title: 'League 1',
+          ));
+      await svc.createAnnouncement(
+          orgId,
+          announcementData(
+            scope: AnnouncementScope.league.name,
+            leagueId: 'lg-2',
+            title: 'League 2',
+          ));
 
-      final annuncements = await svc.getAnnouncementsByLeague(orgId, 'lg-1').first;
+      final annuncements =
+          await svc.getAnnouncementsByLeague(orgId, 'lg-1').first;
       expect(annuncements.length, 2);
       expect(annuncements.any((a) => a.title == 'Org Wide'), true);
       expect(annuncements.any((a) => a.title == 'League 1'), true);
@@ -970,19 +1008,36 @@ void main() {
     setUp(() async {
       await svc.createOrganization(makeOrg());
       await svc.createLeague(orgId, makeLeague('l1'));
-      await svc.createLeague(orgId, League(
-        id: 'l2', orgId: orgId, name: 'South', abbreviation: 'SL',
-        createdAt: DateTime.now(),
-      ));
+      await svc.createLeague(
+          orgId,
+          League(
+            id: 'l2',
+            orgId: orgId,
+            name: 'South',
+            abbreviation: 'SL',
+            createdAt: DateTime.now(),
+          ));
       await svc.createHub(orgId, 'l1', makeHub('h1', 'l1'));
-      await svc.createHub(orgId, 'l1', Hub(
-        id: 'h2', leagueId: 'l1', orgId: orgId, name: 'West',
-        createdAt: DateTime.now(),
-      ));
-      await svc.createHub(orgId, 'l2', Hub(
-        id: 'h3', leagueId: 'l2', orgId: orgId, name: 'South Hub',
-        createdAt: DateTime.now(),
-      ));
+      await svc.createHub(
+          orgId,
+          'l1',
+          Hub(
+            id: 'h2',
+            leagueId: 'l1',
+            orgId: orgId,
+            name: 'West',
+            createdAt: DateTime.now(),
+          ));
+      await svc.createHub(
+          orgId,
+          'l2',
+          Hub(
+            id: 'h3',
+            leagueId: 'l2',
+            orgId: orgId,
+            name: 'South Hub',
+            createdAt: DateTime.now(),
+          ));
     });
 
     test('empty hubIds returns empty list', () async {
@@ -1034,8 +1089,9 @@ void main() {
     });
 
     test('updates memberIds field', () async {
-      await svc.updateTeamFields(
-          orgId, 'l1', 'h1', 't1', {'memberIds': ['u1', 'u2']});
+      await svc.updateTeamFields(orgId, 'l1', 'h1', 't1', {
+        'memberIds': ['u1', 'u2']
+      });
 
       final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
       final team = teams.firstWhere((t) => t.id == 't1');
@@ -1043,8 +1099,9 @@ void main() {
     });
 
     test('merge preserves existing fields', () async {
-      await svc.updateTeamFields(
-          orgId, 'l1', 'h1', 't1', {'memberIds': ['u1']});
+      await svc.updateTeamFields(orgId, 'l1', 'h1', 't1', {
+        'memberIds': ['u1']
+      });
 
       final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
       final team = teams.firstWhere((t) => t.id == 't1');
@@ -1054,8 +1111,8 @@ void main() {
     });
 
     test('can update chatRoomId', () async {
-      await svc.updateTeamFields(
-          orgId, 'l1', 'h1', 't1', {'chatRoomId': 'chat-t1'});
+      await svc
+          .updateTeamFields(orgId, 'l1', 'h1', 't1', {'chatRoomId': 'chat-t1'});
 
       final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
       final team = teams.firstWhere((t) => t.id == 't1');

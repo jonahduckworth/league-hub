@@ -9,6 +9,7 @@ import '../screens/login_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/chat_list_screen.dart';
 import '../screens/chat_conversation_screen.dart';
+import '../screens/new_chat_screen.dart';
 import '../screens/documents_screen.dart';
 import '../screens/announcements_screen.dart';
 import '../screens/settings_screen.dart';
@@ -218,6 +219,10 @@ final router = GoRouter(
         leagueId: state.uri.queryParameters['leagueId'] ?? '',
         hubId: state.uri.queryParameters['hubId'] ?? '',
       ),
+    ),
+    GoRoute(
+      path: '/chat/new',
+      builder: (context, state) => const NewChatScreen(),
     ),
     GoRoute(
       path: '/chat/:roomId',

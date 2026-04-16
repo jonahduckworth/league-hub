@@ -274,7 +274,8 @@ class PermissionService {
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
 
   /// Returns true if [user] should see [announcement] based on scope + assignments.
-  bool canViewAnnouncement(AppUser user, {
+  bool canViewAnnouncement(
+    AppUser user, {
     required AnnouncementScope scope,
     String? leagueId,
     String? hubId,
@@ -338,6 +339,9 @@ class PermissionService {
       isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
 
   bool canArchiveChatRoom(AppUser user) =>
+      isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
+
+  bool canUpdateChatRoom(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
 
   /// All active users can send messages.

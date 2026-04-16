@@ -675,6 +675,13 @@ void main() {
       expect(service.canArchiveChatRoom(staff()), isFalse);
     });
 
+    test('canUpdateChatRoom requires managerAdmin+', () {
+      expect(service.canUpdateChatRoom(owner()), isTrue);
+      expect(service.canUpdateChatRoom(superAdmin()), isTrue);
+      expect(service.canUpdateChatRoom(manager()), isTrue);
+      expect(service.canUpdateChatRoom(staff()), isFalse);
+    });
+
     test('canSendMessage any active user', () {
       expect(service.canSendMessage(staff()), isTrue);
       expect(service.canSendMessage(staff(isActive: false)), isFalse);

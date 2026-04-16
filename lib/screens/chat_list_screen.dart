@@ -12,7 +12,6 @@ import '../services/authorized_firestore_service.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/avatar_widget.dart';
-import '../widgets/bottom_sheet_handle.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 
@@ -91,10 +90,74 @@ List<ChatRoomSectionData> buildChatRoomSections(List<ChatRoom> rooms) {
   return sections.where((section) => section.rooms.isNotEmpty).toList();
 }
 
-String? chatRoomPreviewText(ChatRoom room) {
+const chatRoomIconOptions = <String, IconData>{
+  'event': Icons.event_outlined,
+  'trophy': Icons.emoji_events_outlined,
+  'group': Icons.groups_2_outlined,
+  'schedule': Icons.schedule_outlined,
+};
+
+IconData iconForChatRoomIconName(String? iconName) {
+  return chatRoomIconOptions[iconName] ?? Icons.event_outlined;
+}
+
+String chatRoomImageContentType(String ext) {
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    default:
+      return 'image/png';
+  }
+}
+
+AppUser? directMessagePeer(
+  ChatRoom room,
+  AppUser? currentUser,
+  List<AppUser> users,
+) {
+  if (room.type != ChatRoomType.direct || currentUser == null) return null;
+  final peerId = room.participants.firstWhere(
+    (id) => id != currentUser.id,
+    orElse: () => '',
+  );
+  if (peerId.isEmpty) return null;
+  for (final user in users) {
+    if (user.id == peerId) return user;
+  }
+  return null;
+}
+
+String chatRoomDisplayName(
+  ChatRoom room,
+  AppUser? currentUser,
+  List<AppUser> users,
+) {
+  final peer = directMessagePeer(room, currentUser, users);
+  if (peer != null) return peer.displayName;
+  if (room.type == ChatRoomType.direct && currentUser != null) {
+    final peerId = room.participants.firstWhere(
+      (id) => id != currentUser.id,
+      orElse: () => '',
+    );
+    final peerName = room.participantNames[peerId];
+    if (peerName != null && peerName.isNotEmpty) return peerName;
+  }
+  return room.name;
+}
+
+String? chatRoomPreviewText(ChatRoom room, {AppUser? currentUser}) {
   final hasMessage = room.lastMessage != null && room.lastMessage!.isNotEmpty;
   if (!hasMessage) return null;
   if (room.lastMessageBy != null) {
+    if (room.type == ChatRoomType.direct &&
+        room.lastMessageBy == currentUser?.displayName) {
+      return room.lastMessage!;
+    }
     return '${room.lastMessageBy}: ${room.lastMessage}';
   }
   return room.lastMessage!;
@@ -120,8 +183,12 @@ Future<String?> createEventChatRoom({
     ChatRoomType type, {
     String? leagueId,
     List<String> participants,
+    String? roomIconName,
+    String? roomImageUrl,
   }) createRoom,
   required VoidCallback onPermissionDenied,
+  String? roomIconName,
+  String? roomImageUrl,
 }) async {
   final trimmedName = roomName.trim();
   if (trimmedName.isEmpty || currentUser == null) return null;
@@ -133,6 +200,8 @@ Future<String?> createEventChatRoom({
       ChatRoomType.event,
       leagueId: selectedLeagueId,
       participants: [currentUser.id],
+      roomIconName: roomIconName,
+      roomImageUrl: roomImageUrl,
     );
   } on PermissionDeniedException {
     onPermissionDenied();
@@ -189,306 +258,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     super.dispose();
   }
 
-  // ---------------------------------------------------------------------------
-  // FAB action sheet
-  // ---------------------------------------------------------------------------
-
-  void _showNewChatOptions(String orgId) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const BottomSheetHandle(),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'New Conversation',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.text,
-                    ),
-                  ),
-                ),
-              ),
-              ListTile(
-                leading: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.event_outlined,
-                      color: AppColors.primary),
-                ),
-                title: const Text('New Event Room',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text(
-                    'Create a group chat for an event or tournament'),
-                onTap: () {
-                  ctx.pop();
-                  _showEventRoomSheet(orgId);
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.person_outlined,
-                      color: AppColors.accent),
-                ),
-                title: const Text('New Direct Message',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle:
-                    const Text('Start a private conversation with someone'),
-                onTap: () {
-                  ctx.pop();
-                  _showDMSheet(orgId);
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // New Event Room sheet
-  // ---------------------------------------------------------------------------
-
-  void _showEventRoomSheet(String orgId) {
-    final nameController = TextEditingController();
-    final leaguesAsync = ref.read(leaguesProvider);
-    String? selectedLeagueId;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'New Event Room',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.text),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Create a group chat for an event or tournament.',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Room Name',
-                  hintText: 'e.g. Spring Tournament 2025',
-                  prefixIcon: Icon(Icons.event_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Optional league association
-              if (shouldShowEventRoomLeagueSelector(leaguesAsync))
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'LEAGUE (OPTIONAL)',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 0.8),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('None'),
-                          selected: selectedLeagueId == null,
-                          onSelected: (_) =>
-                              setSheetState(() => selectedLeagueId = null),
-                          selectedColor: AppColors.border,
-                        ),
-                        ...(leaguesAsync.valueOrNull ?? []).map((l) => ChoiceChip(
-                              label: Text(l.abbreviation),
-                              selected: selectedLeagueId == l.id,
-                              onSelected: (_) =>
-                                  setSheetState(() => selectedLeagueId = l.id),
-                              selectedColor:
-                                  AppColors.primary.withValues(alpha: 0.15),
-                              labelStyle: chatLeagueChipLabelStyle(
-                                selected: selectedLeagueId == l.id,
-                              ),
-                            )),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () async {
-                  final currentUser = ref.read(currentUserProvider).valueOrNull;
-                  final roomId = await createEventChatRoom(
-                    currentUser: currentUser,
-                    orgId: orgId,
-                    roomName: nameController.text,
-                    selectedLeagueId: selectedLeagueId,
-                    createRoom:
-                        ref.read(authorizedFirestoreServiceProvider).createChatRoom,
-                    onPermissionDenied: () {
-                      if (mounted) {
-                        AppUtils.showErrorSnackBar(context,
-                            'You do not have permission to create chat rooms');
-                      }
-                    },
-                  );
-                  if (roomId != null && ctx.mounted) {
-                    ctx.pop();
-                    if (mounted) context.push('/chat/$roomId');
-                  }
-                },
-                child: const Text('Create Room'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // New DM sheet (user picker)
-  // ---------------------------------------------------------------------------
-
-  void _showDMSheet(String orgId) {
-    final currentUser = ref.read(currentUserProvider).valueOrNull;
-    final users = ref.read(orgUsersProvider).valueOrNull ?? [];
-    final otherUsers = visibleDirectMessageUsers(users, currentUser);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (ctx, scrollController) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 4),
-                    child: BottomSheetHandle(),
-                  ),
-                  const Text(
-                    'New Direct Message',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.text),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Choose someone to message',
-                    style:
-                        TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: otherUsers.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No other members in your organization.',
-                        style:
-                            TextStyle(fontSize: 14, color: AppColors.textMuted),
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: scrollController,
-                      itemCount: otherUsers.length,
-                      itemBuilder: (_, i) {
-                        final user = otherUsers[i];
-                        return _UserPickerTile(
-                          user: user,
-                          onTap: () async {
-                            final navigator = Navigator.of(ctx);
-                            final router = GoRouter.of(context);
-                            final roomId = await openDirectMessageRoom(
-                              currentUser: currentUser,
-                              otherUser: user,
-                              orgId: orgId,
-                              getOrCreateDMRoom: ref
-                                  .read(firestoreServiceProvider)
-                                  .getOrCreateDMRoom,
-                            );
-                            if (roomId == null) return;
-                            if (!ctx.mounted || !mounted) return;
-                            navigator.pop();
-                            router.push('/chat/$roomId');
-                          },
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Build
-  // ---------------------------------------------------------------------------
-
   @override
   Widget build(BuildContext context) {
     final bottomContentPadding = appShellBottomPadding(context);
@@ -503,7 +272,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           ? null
           : FloatingActionButton(
               heroTag: 'chat_list_fab',
-              onPressed: () => _showNewChatOptions(orgId),
+              onPressed: () => context.push('/chat/new'),
               backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: Colors.white),
             ),
@@ -613,7 +382,11 @@ class _ChatRoomTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final preview = chatRoomPreviewText(room);
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
+    final displayName = chatRoomDisplayName(room, currentUser, users);
+    final peer = directMessagePeer(room, currentUser, users);
+    final preview = chatRoomPreviewText(room, currentUser: currentUser);
     final hasMessage = preview != null;
     final unreadCount =
         ref.watch(unreadCountProvider(room.id)).valueOrNull ?? 0;
@@ -627,28 +400,12 @@ class _ChatRoomTile extends ConsumerWidget {
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        leading: Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: room.type == ChatRoomType.direct
-                ? AppColors.accent.withValues(alpha: 0.12)
-                : AppColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            room.type == ChatRoomType.direct
-                ? Icons.person
-                : room.type == ChatRoomType.event
-                    ? Icons.event
-                    : Icons.forum,
-            color: room.type == ChatRoomType.direct
-                ? AppColors.accent
-                : AppColors.primary,
-            size: 22,
-          ),
+        leading: _ChatRoomAvatar(
+          room: room,
+          displayName: displayName,
+          peer: peer,
         ),
-        title: Text(room.name,
+        title: Text(displayName,
             style: TextStyle(
                 fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.w600,
                 fontSize: 14)),
@@ -705,25 +462,53 @@ class _ChatRoomTile extends ConsumerWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// User picker tile (for DM)
-// ---------------------------------------------------------------------------
+class _ChatRoomAvatar extends StatelessWidget {
+  final ChatRoom room;
+  final String displayName;
+  final AppUser? peer;
 
-class _UserPickerTile extends StatelessWidget {
-  final AppUser user;
-  final VoidCallback onTap;
-  const _UserPickerTile({required this.user, required this.onTap});
+  const _ChatRoomAvatar({
+    required this.room,
+    required this.displayName,
+    required this.peer,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: AvatarWidget(name: user.displayName, size: 40),
-      title: Text(user.displayName,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      subtitle: Text(user.roleLabel,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
-      onTap: onTap,
+    if (room.type == ChatRoomType.direct) {
+      return AvatarWidget(
+        imageUrl: peer?.avatarUrl,
+        name: displayName,
+        size: 46,
+        backgroundColor: AppColors.accent,
+      );
+    }
+
+    if (room.type == ChatRoomType.event && room.roomImageUrl != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: AvatarWidget(
+          imageUrl: room.roomImageUrl,
+          name: displayName,
+          size: 46,
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    }
+
+    final isEvent = room.type == ChatRoomType.event;
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(
+        isEvent ? iconForChatRoomIconName(room.roomIconName) : Icons.forum,
+        color: AppColors.primary,
+        size: 22,
+      ),
     );
   }
 }

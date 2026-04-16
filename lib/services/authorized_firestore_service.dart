@@ -38,8 +38,7 @@ class AuthorizedFirestoreService {
   // Helper
   // -------------------------------------------------------------------------
 
-  Never _deny(String action, AppUser actor) =>
-      throw PermissionDeniedException(
+  Never _deny(String action, AppUser actor) => throw PermissionDeniedException(
         action: action,
         userId: actor.id,
         role: actor.role,
@@ -178,16 +177,30 @@ class AuthorizedFirestoreService {
     ChatRoomType type, {
     String? leagueId,
     List<String> participants = const [],
+    String? roomIconName,
+    String? roomImageUrl,
   }) {
     if (!_ps.canCreateChatRoom(actor)) _deny('createChatRoom', actor);
     return _fs.createChatRoom(orgId, name, type,
-        leagueId: leagueId, participants: participants);
+        leagueId: leagueId,
+        participants: participants,
+        roomIconName: roomIconName,
+        roomImageUrl: roomImageUrl);
   }
 
-  Future<void> archiveChatRoom(
-      AppUser actor, String orgId, String roomId) {
+  Future<void> archiveChatRoom(AppUser actor, String orgId, String roomId) {
     if (!_ps.canArchiveChatRoom(actor)) _deny('archiveChatRoom', actor);
     return _fs.archiveChatRoom(orgId, roomId);
+  }
+
+  Future<void> updateChatRoomFields(
+    AppUser actor,
+    String orgId,
+    String roomId,
+    Map<String, dynamic> data,
+  ) {
+    if (!_ps.canUpdateChatRoom(actor)) _deny('updateChatRoomFields', actor);
+    return _fs.updateChatRoomFields(orgId, roomId, data);
   }
 
   /// Sends a message, enforcing that senderId matches actor.id.
@@ -208,8 +221,7 @@ class AuthorizedFirestoreService {
   }
 
   /// Marks messages as read — requires active user.
-  Future<void> markMessagesAsRead(
-      AppUser actor, String orgId, String roomId) {
+  Future<void> markMessagesAsRead(AppUser actor, String orgId, String roomId) {
     if (!_ps.canSendMessage(actor)) _deny('markMessagesAsRead', actor);
     return _fs.markMessagesAsRead(orgId, roomId, actor.id);
   }
@@ -283,8 +295,8 @@ class AuthorizedFirestoreService {
     return _fs.createDocument(orgId, docData, docId: docId);
   }
 
-  Future<void> updateDocument(AppUser actor, String orgId, String docId,
-      Map<String, dynamic> data,
+  Future<void> updateDocument(
+      AppUser actor, String orgId, String docId, Map<String, dynamic> data,
       {required String uploadedBy}) {
     if (!_ps.canEditDocument(actor, uploadedBy: uploadedBy)) {
       _deny('updateDocument', actor);

@@ -22,6 +22,9 @@ void main() {
           'lastMessage': 'Hello everyone!',
           'lastMessageAt': lastMsgDateStr,
           'lastMessageBy': 'user1',
+          'roomIconName': 'trophy',
+          'roomImageUrl': 'https://example.com/room.png',
+          'participantNames': {'user1': 'Alice', 'user2': 'Bob'},
         };
 
         final room = ChatRoom.fromJson(json);
@@ -37,6 +40,9 @@ void main() {
         expect(room.lastMessage, 'Hello everyone!');
         expect(room.lastMessageAt, lastMsgDate);
         expect(room.lastMessageBy, 'user1');
+        expect(room.roomIconName, 'trophy');
+        expect(room.roomImageUrl, 'https://example.com/room.png');
+        expect(room.participantNames, {'user1': 'Alice', 'user2': 'Bob'});
       });
 
       test('parses all ChatRoomType values', () {
@@ -110,6 +116,9 @@ void main() {
         expect(room.lastMessage, isNull);
         expect(room.lastMessageAt, isNull);
         expect(room.lastMessageBy, isNull);
+        expect(room.roomIconName, isNull);
+        expect(room.roomImageUrl, isNull);
+        expect(room.participantNames, isEmpty);
       });
     });
 
@@ -126,6 +135,9 @@ void main() {
           lastMessage: 'See you!',
           lastMessageAt: lastMsgDate,
           lastMessageBy: 'userA',
+          roomIconName: 'group',
+          roomImageUrl: 'https://example.com/group.png',
+          participantNames: const {'userA': 'Alice', 'userB': 'Bob'},
         );
 
         final json = room.toJson();
@@ -140,6 +152,9 @@ void main() {
         expect(json['lastMessage'], 'See you!');
         expect(json['lastMessageAt'], lastMsgDateStr);
         expect(json['lastMessageBy'], 'userA');
+        expect(json['roomIconName'], 'group');
+        expect(json['roomImageUrl'], 'https://example.com/group.png');
+        expect(json['participantNames'], {'userA': 'Alice', 'userB': 'Bob'});
       });
 
       test('serializes null optional fields', () {
@@ -159,6 +174,9 @@ void main() {
         expect(json['lastMessage'], isNull);
         expect(json['lastMessageAt'], isNull);
         expect(json['lastMessageBy'], isNull);
+        expect(json['roomIconName'], isNull);
+        expect(json['roomImageUrl'], isNull);
+        expect(json['participantNames'], isEmpty);
       });
     });
 
@@ -175,9 +193,13 @@ void main() {
         lastMessage: 'Hi',
         lastMessageAt: lastMsgDate,
         lastMessageBy: 'u1',
+        roomIconName: 'schedule',
+        roomImageUrl: 'https://example.com/schedule.png',
+        participantNames: const {'u1': 'Alice', 'u2': 'Bob'},
       );
 
-      final restored = ChatRoom.fromJson({'id': original.id, ...original.toJson()});
+      final restored =
+          ChatRoom.fromJson({'id': original.id, ...original.toJson()});
 
       expect(restored.id, original.id);
       expect(restored.orgId, original.orgId);
@@ -190,6 +212,9 @@ void main() {
       expect(restored.lastMessage, original.lastMessage);
       expect(restored.lastMessageAt, original.lastMessageAt);
       expect(restored.lastMessageBy, original.lastMessageBy);
+      expect(restored.roomIconName, original.roomIconName);
+      expect(restored.roomImageUrl, original.roomImageUrl);
+      expect(restored.participantNames, original.participantNames);
     });
   });
 }

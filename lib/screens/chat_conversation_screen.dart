@@ -155,8 +155,7 @@ class _ChatConversationScreenState
               widget.roomId,
               text: text,
             );
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _scrollToBottom());
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
       }
     } on PermissionDeniedException {
       if (mounted) {
@@ -256,8 +255,7 @@ class _ChatConversationScreenState
             mediaUrl: downloadUrl,
             mediaType: 'image/${picked.name.split('.').last}',
           );
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _scrollToBottom());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     } catch (e) {
       if (mounted) {
         AppUtils.showErrorSnackBar(context, 'Failed to send image: $e');
@@ -311,14 +309,20 @@ class _ChatConversationScreenState
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/chat');
+            }
+          },
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(roomName,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold)),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             if (typingUsers.isNotEmpty)
               Text(
                 _typingLabel(typingUsers),
@@ -330,23 +334,20 @@ class _ChatConversationScreenState
             else if (participantCount > 0)
               Text(
                   '$participantCount member${participantCount == 1 ? '' : 's'}',
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.white70)),
+                  style: const TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         ),
         actions: [
           IconButton(
               icon: const Icon(Icons.info_outlined),
-              onPressed: () =>
-                  context.push('/chat/${widget.roomId}/info')),
+              onPressed: () => context.push('/chat/${widget.roomId}/info')),
         ],
       ),
       body: Column(
         children: [
           Expanded(
             child: messagesAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) =>
                   Center(child: Text('Error loading messages: $e')),
               data: (messages) {
@@ -358,8 +359,7 @@ class _ChatConversationScreenState
                   );
                 }
 
-                final items =
-                    _buildMessageItems(messages, currentUser?.id);
+                final items = _buildMessageItems(messages, currentUser?.id);
 
                 return ListView.builder(
                   controller: _scrollController,
@@ -404,8 +404,10 @@ class _ChatConversationScreenState
       items.add(ChatBubble(
         message: message,
         isSelf: isSelf,
-        onEdit: isSelf && !message.deleted ? () => _startEditing(message) : null,
-        onDelete: isSelf && !message.deleted ? () => _deleteMessage(message) : null,
+        onEdit:
+            isSelf && !message.deleted ? () => _startEditing(message) : null,
+        onDelete:
+            isSelf && !message.deleted ? () => _deleteMessage(message) : null,
       ));
     }
 
@@ -429,7 +431,8 @@ class _ChatConversationScreenState
           ),
           GestureDetector(
             onTap: _cancelEditing,
-            child: const Icon(Icons.close, size: 18, color: AppColors.textMuted),
+            child:
+                const Icon(Icons.close, size: 18, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -449,7 +452,8 @@ class _ChatConversationScreenState
         children: [
           // Media attachment button
           IconButton(
-            icon: const Icon(Icons.image_outlined, color: AppColors.textSecondary),
+            icon: const Icon(Icons.image_outlined,
+                color: AppColors.textSecondary),
             onPressed: _isSending ? null : _pickAndSendImage,
             tooltip: 'Send image',
           ),
@@ -464,16 +468,13 @@ class _ChatConversationScreenState
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide:
-                        const BorderSide(color: AppColors.border)),
+                    borderSide: const BorderSide(color: AppColors.border)),
                 enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide:
-                        const BorderSide(color: AppColors.border)),
+                    borderSide: const BorderSide(color: AppColors.border)),
                 focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary)),
+                    borderSide: const BorderSide(color: AppColors.primary)),
                 filled: true,
                 fillColor: AppColors.background,
               ),
@@ -539,8 +540,7 @@ class _DateDivider extends StatelessWidget {
           const Expanded(
               child: Divider(color: AppColors.border, endIndent: 12)),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: AppColors.border,
               borderRadius: BorderRadius.circular(12),
@@ -554,8 +554,7 @@ class _DateDivider extends StatelessWidget {
               ),
             ),
           ),
-          const Expanded(
-              child: Divider(color: AppColors.border, indent: 12)),
+          const Expanded(child: Divider(color: AppColors.border, indent: 12)),
         ],
       ),
     );

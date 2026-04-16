@@ -11,9 +11,11 @@ import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/chat_list_screen.dart';
+import 'package:league_hub/screens/new_chat_screen.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/avatar_widget.dart';
 import 'package:league_hub/widgets/empty_state.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 import 'package:mockito/mockito.dart';
@@ -28,18 +30,22 @@ class MockAuthorizedFirestoreService extends Mock
     ChatRoomType type, {
     String? leagueId,
     List<String> participants = const [],
+    String? roomIconName,
+    String? roomImageUrl,
   }) =>
       (super.noSuchMethod(
-            Invocation.method(
-              #createChatRoom,
-              [actor, orgId, name, type],
-              {
-                #leagueId: leagueId,
-                #participants: participants,
-              },
-            ),
-            returnValue: Future<String>.value('created-room'),
-          ) as Future<String>);
+        Invocation.method(
+          #createChatRoom,
+          [actor, orgId, name, type],
+          {
+            #leagueId: leagueId,
+            #participants: participants,
+            #roomIconName: roomIconName,
+            #roomImageUrl: roomImageUrl,
+          },
+        ),
+        returnValue: Future<String>.value('created-room'),
+      ) as Future<String>);
 }
 
 class MockFirestoreService extends Mock implements FirestoreService {
@@ -52,28 +58,28 @@ class MockFirestoreService extends Mock implements FirestoreService {
     String otherUserName,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(
-              #getOrCreateDMRoom,
-              [
-                orgId,
-                currentUserId,
-                otherUserId,
-                currentUserName,
-                otherUserName,
-              ],
-            ),
-            returnValue: Future<ChatRoom>.value(
-              ChatRoom(
-                id: 'dm-room-created',
-                orgId: orgId,
-                name: 'DM',
-                type: ChatRoomType.direct,
-                participants: [currentUserId, otherUserId],
-                createdAt: DateTime(2026),
-                isArchived: false,
-              ),
-            ),
-          ) as Future<ChatRoom>);
+        Invocation.method(
+          #getOrCreateDMRoom,
+          [
+            orgId,
+            currentUserId,
+            otherUserId,
+            currentUserName,
+            otherUserName,
+          ],
+        ),
+        returnValue: Future<ChatRoom>.value(
+          ChatRoom(
+            id: 'dm-room-created',
+            orgId: orgId,
+            name: 'DM',
+            type: ChatRoomType.direct,
+            participants: [currentUserId, otherUserId],
+            createdAt: DateTime(2026),
+            isArchived: false,
+          ),
+        ),
+      ) as Future<ChatRoom>);
 }
 
 void main() {
@@ -183,6 +189,64 @@ void main() {
       );
 
       expect(chatRoomPreviewText(room), 'Ready to go');
+    });
+
+    test('direct message preview omits current users name', () {
+      final currentUser = AppUser(
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: [],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+      final room = ChatRoom(
+        id: dmRoom.id,
+        orgId: dmRoom.orgId,
+        name: dmRoom.name,
+        type: dmRoom.type,
+        participants: dmRoom.participants,
+        createdAt: dmRoom.createdAt,
+        isArchived: dmRoom.isArchived,
+        lastMessage: 'See you at 5',
+        lastMessageBy: currentUser.displayName,
+      );
+
+      expect(
+          chatRoomPreviewText(room, currentUser: currentUser), 'See you at 5');
+    });
+
+    test('direct message display name uses the other participant', () {
+      final currentUser = AppUser(
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: [],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+      final otherUser = AppUser(
+        id: 'user-2',
+        email: 'other@example.com',
+        displayName: 'Other User',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: [],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+
+      expect(
+        chatRoomDisplayName(dmRoom, currentUser, [currentUser, otherUser]),
+        'Other User',
+      );
     });
 
     test('opens direct message room when current user is available', () async {
@@ -411,6 +475,10 @@ void main() {
             builder: (context, state) => const ChatListScreen(),
           ),
           GoRoute(
+            path: '/chat/new',
+            builder: (context, state) => const NewChatScreen(),
+          ),
+          GoRoute(
             path: '/chat/:roomId',
             builder: (context, state) => Scaffold(
               body: Text('Chat Route ${state.pathParameters['roomId']}'),
@@ -549,8 +617,8 @@ void main() {
       });
     });
 
-    group('New Conversation Sheets', () {
-      testWidgets('fab opens new conversation options',
+    group('New Conversation Flow', () {
+      testWidgets('fab opens new conversation page',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
@@ -559,28 +627,26 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('New Conversation'), findsOneWidget);
-        expect(find.text('New Event Room'), findsWidgets);
-        expect(find.text('New Direct Message'), findsWidgets);
+        expect(find.text('Event Room'), findsOneWidget);
+        expect(find.text('Direct Message'), findsOneWidget);
       });
 
-      testWidgets('event option opens event room sheet',
+      testWidgets('event option opens event room form',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New Event Room').last);
+        await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
 
-        expect(find.text('Create a group chat for an event or tournament.'),
-            findsOneWidget);
         expect(find.text('Room Name'), findsOneWidget);
-        expect(find.text('LEAGUE (OPTIONAL)'), findsOneWidget);
+        expect(find.text('LEAGUE OPTIONAL'), findsOneWidget);
         expect(find.text('None'), findsOneWidget);
       });
 
-      testWidgets('event room sheet hides league chips while leagues load',
+      testWidgets('event room page hides league chips while leagues load',
           (WidgetTester tester) async {
         final controller = StreamController<List<League>>();
         addTearDown(controller.close);
@@ -592,6 +658,10 @@ void main() {
               path: '/',
               builder: (context, state) => const ChatListScreen(),
             ),
+            GoRoute(
+              path: '/chat/new',
+              builder: (context, state) => const NewChatScreen(),
+            ),
           ],
         );
 
@@ -601,9 +671,11 @@ void main() {
               currentUserProvider.overrideWith((ref) => testUser),
               organizationProvider.overrideWith((ref) => testOrg),
               leaguesProvider.overrideWith((ref) => controller.stream),
-              chatRoomsProvider.overrideWith((ref) => Stream.value(testChatRooms)),
+              chatRoomsProvider
+                  .overrideWith((ref) => Stream.value(testChatRooms)),
               orgUsersProvider.overrideWith((ref) => Stream.value([testUser])),
-              unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
+              unreadCountProvider
+                  .overrideWith((ref, roomId) => Stream.value(0)),
             ],
             child: MaterialApp.router(routerConfig: router),
           ),
@@ -613,13 +685,13 @@ void main() {
 
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New Event Room').last);
+        await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
 
-        expect(find.text('LEAGUE (OPTIONAL)'), findsNothing);
+        expect(find.text('LEAGUE OPTIONAL'), findsNothing);
       });
 
-      testWidgets('event room sheet hides league chips on leagues error',
+      testWidgets('event room page hides league chips on leagues error',
           (WidgetTester tester) async {
         final router = GoRouter(
           initialLocation: '/',
@@ -627,6 +699,10 @@ void main() {
             GoRoute(
               path: '/',
               builder: (context, state) => const ChatListScreen(),
+            ),
+            GoRoute(
+              path: '/chat/new',
+              builder: (context, state) => const NewChatScreen(),
             ),
           ],
         );
@@ -639,9 +715,11 @@ void main() {
               leaguesProvider.overrideWith(
                 (ref) => Stream<List<League>>.error('boom'),
               ),
-              chatRoomsProvider.overrideWith((ref) => Stream.value(testChatRooms)),
+              chatRoomsProvider
+                  .overrideWith((ref) => Stream.value(testChatRooms)),
               orgUsersProvider.overrideWith((ref) => Stream.value([testUser])),
-              unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
+              unreadCountProvider
+                  .overrideWith((ref, roomId) => Stream.value(0)),
             ],
             child: MaterialApp.router(routerConfig: router),
           ),
@@ -651,13 +729,13 @@ void main() {
 
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New Event Room').last);
+        await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
 
-        expect(find.text('LEAGUE (OPTIONAL)'), findsNothing);
+        expect(find.text('LEAGUE OPTIONAL'), findsNothing);
       });
 
-      testWidgets('direct message option opens chooser sheet',
+      testWidgets('direct message option opens chooser page',
           (WidgetTester tester) async {
         final otherUser = AppUser(
           id: 'user-2',
@@ -678,21 +756,22 @@ void main() {
 
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New Direct Message').last);
+        await tester.tap(find.text('Direct Message').last);
         await tester.pumpAndSettle();
 
-        expect(find.text('Choose someone to message'), findsOneWidget);
+        expect(find.text('New Direct Message'), findsOneWidget);
+        expect(find.text('Other User'), findsOneWidget);
         expect(find.byType(ListTile), findsWidgets);
       });
 
-      testWidgets('direct message sheet shows empty state when no peers',
+      testWidgets('direct message page shows empty state when no peers',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget(orgUsers: [testUser]));
         await tester.pumpAndSettle();
 
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New Direct Message').last);
+        await tester.tap(find.text('Direct Message').last);
         await tester.pumpAndSettle();
 
         expect(find.text('No other members in your organization.'),
@@ -710,6 +789,7 @@ void main() {
             ChatRoomType.event,
             leagueId: null,
             participants: [testUser.id],
+            roomIconName: 'event',
           ),
         ).thenAnswer((_) async => 'created-room');
 
@@ -720,7 +800,7 @@ void main() {
 
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New Event Room').last);
+        await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField).last, 'Playoffs');
         await tester.tap(find.text('Create Room'));
@@ -740,6 +820,7 @@ void main() {
             ChatRoomType.event,
             leagueId: 'league-1',
             participants: [testUser.id],
+            roomIconName: 'event',
           ),
         ).thenAnswer((_) async => 'created-room');
 
@@ -750,7 +831,7 @@ void main() {
 
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New Event Room').last);
+        await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
         await tester.tap(find.text('SL').last);
         await tester.pumpAndSettle();
@@ -772,6 +853,7 @@ void main() {
             ChatRoomType.event,
             leagueId: null,
             participants: [testUser.id],
+            roomIconName: 'event',
           ),
         ).thenAnswer((_) async => 'created-room');
 
@@ -782,7 +864,7 @@ void main() {
 
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New Event Room').last);
+        await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
         await tester.tap(find.text('SL').last);
         await tester.pumpAndSettle();
@@ -806,6 +888,7 @@ void main() {
             ChatRoomType.event,
             leagueId: null,
             participants: [testUser.id],
+            roomIconName: 'event',
           ),
         ).thenThrow(
           PermissionDeniedException(
@@ -822,7 +905,7 @@ void main() {
 
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('New Event Room').last);
+        await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField).last, 'Playoffs');
         await tester.tap(find.text('Create Room'));
@@ -833,7 +916,6 @@ void main() {
           findsOneWidget,
         );
       });
-
     });
 
     group('Chat Room List Rendering', () {
@@ -889,16 +971,16 @@ void main() {
             find.textContaining('Bracket updates available'), findsOneWidget);
       });
 
-      testWidgets('displays correct icons for room types',
+      testWidgets('displays correct leading visuals for room types',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.forum), findsOneWidget); // League room
         await scrollRoomsUntilVisible(tester, find.text('Tournament Bracket'));
-        expect(find.byIcon(Icons.event), findsOneWidget); // Event room
+        expect(find.byIcon(Icons.event_outlined), findsOneWidget); // Event room
         await scrollRoomsUntilVisible(tester, find.text('Direct Message'));
-        expect(find.byIcon(Icons.person), findsOneWidget); // Direct message
+        expect(find.byType(AvatarWidget), findsOneWidget); // Direct message
       });
     });
 
