@@ -50,8 +50,8 @@ List<Announcement> filterAnnouncementsByLeague(
 ) {
   if (leagueId == null) return announcements;
   return announcements
-      .where((a) =>
-          a.scope == AnnouncementScope.orgWide || a.leagueId == leagueId)
+      .where(
+          (a) => a.scope == AnnouncementScope.orgWide || a.leagueId == leagueId)
       .toList();
 }
 
@@ -162,6 +162,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     final bottomContentPadding = appShellBottomPadding(context);
     final announcementsAsync = ref.watch(announcementsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
+    final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
     final userAsync = ref.watch(currentUserProvider);
 
     final leagues = leaguesAsync.valueOrNull ?? [];
@@ -222,6 +223,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                       final a = filtered[index];
                       return _AnnouncementCard(
                         announcement: a,
+                        author: _userById(users, a.authorId),
                         leagues: leagues,
                         canManage: canManage,
                         onTap: () => context.push('/announcements/${a.id}'),
@@ -232,6 +234,13 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                   ),
       ),
     );
+  }
+
+  AppUser? _userById(List<AppUser> users, String id) {
+    for (final user in users) {
+      if (user.id == id) return user;
+    }
+    return null;
   }
 
   void _showOptions(BuildContext context, Announcement a) {
@@ -316,6 +325,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
 class _AnnouncementCard extends StatelessWidget {
   final Announcement announcement;
+  final AppUser? author;
   final List<League> leagues;
   final bool canManage;
   final VoidCallback onTap;
@@ -323,6 +333,7 @@ class _AnnouncementCard extends StatelessWidget {
 
   const _AnnouncementCard({
     required this.announcement,
+    required this.author,
     required this.leagues,
     required this.canManage,
     required this.onTap,
@@ -404,7 +415,11 @@ class _AnnouncementCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      AvatarWidget(name: announcement.authorName, size: 28),
+                      AvatarWidget(
+                        imageUrl: author?.avatarUrl,
+                        name: announcement.authorName,
+                        size: 28,
+                      ),
                       const SizedBox(width: 8),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

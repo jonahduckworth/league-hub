@@ -11,7 +11,7 @@ import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
-import '../widgets/avatar_widget.dart';
+import '../widgets/chat_room_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 
@@ -90,17 +90,6 @@ List<ChatRoomSectionData> buildChatRoomSections(List<ChatRoom> rooms) {
   return sections.where((section) => section.rooms.isNotEmpty).toList();
 }
 
-const chatRoomIconOptions = <String, IconData>{
-  'event': Icons.event_outlined,
-  'trophy': Icons.emoji_events_outlined,
-  'group': Icons.groups_2_outlined,
-  'schedule': Icons.schedule_outlined,
-};
-
-IconData iconForChatRoomIconName(String? iconName) {
-  return chatRoomIconOptions[iconName] ?? Icons.event_outlined;
-}
-
 String chatRoomImageContentType(String ext) {
   switch (ext) {
     case 'jpg':
@@ -163,6 +152,26 @@ String? chatRoomPreviewText(ChatRoom room, {AppUser? currentUser}) {
   return room.lastMessage!;
 }
 
+List<AppUser> chatRoomMembers(ChatRoom room, List<AppUser> users) {
+  final activeUsers = users.where((user) => user.isActive).toList();
+  if (room.type == ChatRoomType.direct) {
+    return activeUsers
+        .where((user) => room.participants.contains(user.id))
+        .toList();
+  }
+  if (room.leagueId != null) {
+    return activeUsers
+        .where((user) => user.leagueIds.contains(room.leagueId))
+        .toList();
+  }
+  if (room.participants.isNotEmpty) {
+    return activeUsers
+        .where((user) => room.participants.contains(user.id))
+        .toList();
+  }
+  return activeUsers;
+}
+
 Color chatRoomTimestampColor(int unreadCount) {
   return unreadCount > 0 ? AppColors.primary : AppColors.textMuted;
 }
@@ -189,6 +198,7 @@ Future<String?> createEventChatRoom({
   required VoidCallback onPermissionDenied,
   String? roomIconName,
   String? roomImageUrl,
+  List<String>? participantIds,
 }) async {
   final trimmedName = roomName.trim();
   if (trimmedName.isEmpty || currentUser == null) return null;
@@ -199,7 +209,7 @@ Future<String?> createEventChatRoom({
       trimmedName,
       ChatRoomType.event,
       leagueId: selectedLeagueId,
-      participants: [currentUser.id],
+      participants: participantIds ?? [currentUser.id],
       roomIconName: roomIconName,
       roomImageUrl: roomImageUrl,
     );
@@ -400,10 +410,10 @@ class _ChatRoomTile extends ConsumerWidget {
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        leading: _ChatRoomAvatar(
+        leading: ChatRoomAvatar(
           room: room,
           displayName: displayName,
-          peer: peer,
+          directMessagePeer: peer,
         ),
         title: Text(displayName,
             style: TextStyle(
@@ -457,57 +467,6 @@ class _ChatRoomTile extends ConsumerWidget {
           ],
         ),
         onTap: () => context.push('/chat/${room.id}'),
-      ),
-    );
-  }
-}
-
-class _ChatRoomAvatar extends StatelessWidget {
-  final ChatRoom room;
-  final String displayName;
-  final AppUser? peer;
-
-  const _ChatRoomAvatar({
-    required this.room,
-    required this.displayName,
-    required this.peer,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (room.type == ChatRoomType.direct) {
-      return AvatarWidget(
-        imageUrl: peer?.avatarUrl,
-        name: displayName,
-        size: 46,
-        backgroundColor: AppColors.accent,
-      );
-    }
-
-    if (room.type == ChatRoomType.event && room.roomImageUrl != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: AvatarWidget(
-          imageUrl: room.roomImageUrl,
-          name: displayName,
-          size: 46,
-          backgroundColor: AppColors.primary,
-        ),
-      );
-    }
-
-    final isEvent = room.type == ChatRoomType.event;
-    return Container(
-      width: 46,
-      height: 46,
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Icon(
-        isEvent ? iconForChatRoomIconName(room.roomIconName) : Icons.forum,
-        color: AppColors.primary,
-        size: 22,
       ),
     );
   }

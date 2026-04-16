@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +11,7 @@ import '../providers/data_providers.dart';
 import '../screens/chat_list_screen.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/chat_room_avatar.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/avatar_widget.dart';
 
@@ -437,10 +437,12 @@ class _ChatCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _DashboardChatAvatar(
+            ChatRoomAvatar(
               room: chatRoom,
               displayName: displayName,
-              peer: peer,
+              directMessagePeer: peer,
+              size: 44,
+              showImageBorder: true,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -469,71 +471,6 @@ class _ChatCard extends StatelessWidget {
                       fontSize: 11, color: AppColors.textMuted)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _DashboardChatAvatar extends StatelessWidget {
-  final ChatRoom room;
-  final String displayName;
-  final AppUser? peer;
-
-  const _DashboardChatAvatar({
-    required this.room,
-    required this.displayName,
-    required this.peer,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (room.type == ChatRoomType.direct) {
-      return AvatarWidget(
-        imageUrl: peer?.avatarUrl,
-        name: displayName,
-        size: 44,
-        backgroundColor: AppColors.accent,
-      );
-    }
-
-    final imageUrl = room.roomImageUrl;
-    if (room.type == ChatRoomType.event &&
-        imageUrl != null &&
-        imageUrl.isNotEmpty) {
-      return Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: CachedNetworkImage(
-          imageUrl: imageUrl,
-          fit: BoxFit.cover,
-          placeholder: (_, __) => _iconFallback(),
-          errorWidget: (_, __, ___) => _iconFallback(),
-        ),
-      );
-    }
-
-    return _iconFallback();
-  }
-
-  Widget _iconFallback() {
-    final isEvent = room.type == ChatRoomType.event;
-
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(
-        isEvent ? iconForChatRoomIconName(room.roomIconName) : Icons.forum,
-        color: AppColors.primary,
-        size: 22,
       ),
     );
   }

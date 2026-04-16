@@ -51,14 +51,46 @@ void main() {
       );
 
   // Shorthand
-  AppUser owner({bool isActive = true, List<String> hubIds = const [], List<String> leagueIds = const []}) =>
-      makeUser(id: 'owner', role: UserRole.platformOwner, isActive: isActive, hubIds: hubIds, leagueIds: leagueIds);
-  AppUser superAdmin({bool isActive = true, List<String> hubIds = const [], List<String> leagueIds = const []}) =>
-      makeUser(id: 'sa', role: UserRole.superAdmin, isActive: isActive, hubIds: hubIds, leagueIds: leagueIds);
-  AppUser manager({bool isActive = true, List<String> hubIds = const [], List<String> leagueIds = const []}) =>
-      makeUser(id: 'ma', role: UserRole.managerAdmin, isActive: isActive, hubIds: hubIds, leagueIds: leagueIds);
-  AppUser staff({bool isActive = true, List<String> hubIds = const [], List<String> leagueIds = const []}) =>
-      makeUser(id: 'staff', role: UserRole.staff, isActive: isActive, hubIds: hubIds, leagueIds: leagueIds);
+  AppUser owner(
+          {bool isActive = true,
+          List<String> hubIds = const [],
+          List<String> leagueIds = const []}) =>
+      makeUser(
+          id: 'owner',
+          role: UserRole.platformOwner,
+          isActive: isActive,
+          hubIds: hubIds,
+          leagueIds: leagueIds);
+  AppUser superAdmin(
+          {bool isActive = true,
+          List<String> hubIds = const [],
+          List<String> leagueIds = const []}) =>
+      makeUser(
+          id: 'sa',
+          role: UserRole.superAdmin,
+          isActive: isActive,
+          hubIds: hubIds,
+          leagueIds: leagueIds);
+  AppUser manager(
+          {bool isActive = true,
+          List<String> hubIds = const [],
+          List<String> leagueIds = const []}) =>
+      makeUser(
+          id: 'ma',
+          role: UserRole.managerAdmin,
+          isActive: isActive,
+          hubIds: hubIds,
+          leagueIds: leagueIds);
+  AppUser staff(
+          {bool isActive = true,
+          List<String> hubIds = const [],
+          List<String> leagueIds = const []}) =>
+      makeUser(
+          id: 'staff',
+          role: UserRole.staff,
+          isActive: isActive,
+          hubIds: hubIds,
+          leagueIds: leagueIds);
 
   // -------------------------------------------------------------------------
   // Hierarchy helpers
@@ -66,47 +98,96 @@ void main() {
 
   group('isAtLeast', () {
     test('platformOwner is at least every role', () {
-      expect(PermissionService.isAtLeast(UserRole.platformOwner, UserRole.platformOwner), isTrue);
-      expect(PermissionService.isAtLeast(UserRole.platformOwner, UserRole.superAdmin), isTrue);
-      expect(PermissionService.isAtLeast(UserRole.platformOwner, UserRole.managerAdmin), isTrue);
-      expect(PermissionService.isAtLeast(UserRole.platformOwner, UserRole.staff), isTrue);
+      expect(
+          PermissionService.isAtLeast(
+              UserRole.platformOwner, UserRole.platformOwner),
+          isTrue);
+      expect(
+          PermissionService.isAtLeast(
+              UserRole.platformOwner, UserRole.superAdmin),
+          isTrue);
+      expect(
+          PermissionService.isAtLeast(
+              UserRole.platformOwner, UserRole.managerAdmin),
+          isTrue);
+      expect(
+          PermissionService.isAtLeast(UserRole.platformOwner, UserRole.staff),
+          isTrue);
     });
 
     test('superAdmin is at least superAdmin, managerAdmin, staff', () {
-      expect(PermissionService.isAtLeast(UserRole.superAdmin, UserRole.platformOwner), isFalse);
-      expect(PermissionService.isAtLeast(UserRole.superAdmin, UserRole.superAdmin), isTrue);
-      expect(PermissionService.isAtLeast(UserRole.superAdmin, UserRole.managerAdmin), isTrue);
-      expect(PermissionService.isAtLeast(UserRole.superAdmin, UserRole.staff), isTrue);
+      expect(
+          PermissionService.isAtLeast(
+              UserRole.superAdmin, UserRole.platformOwner),
+          isFalse);
+      expect(
+          PermissionService.isAtLeast(UserRole.superAdmin, UserRole.superAdmin),
+          isTrue);
+      expect(
+          PermissionService.isAtLeast(
+              UserRole.superAdmin, UserRole.managerAdmin),
+          isTrue);
+      expect(PermissionService.isAtLeast(UserRole.superAdmin, UserRole.staff),
+          isTrue);
     });
 
     test('managerAdmin is at least managerAdmin and staff', () {
-      expect(PermissionService.isAtLeast(UserRole.managerAdmin, UserRole.platformOwner), isFalse);
-      expect(PermissionService.isAtLeast(UserRole.managerAdmin, UserRole.superAdmin), isFalse);
-      expect(PermissionService.isAtLeast(UserRole.managerAdmin, UserRole.managerAdmin), isTrue);
-      expect(PermissionService.isAtLeast(UserRole.managerAdmin, UserRole.staff), isTrue);
+      expect(
+          PermissionService.isAtLeast(
+              UserRole.managerAdmin, UserRole.platformOwner),
+          isFalse);
+      expect(
+          PermissionService.isAtLeast(
+              UserRole.managerAdmin, UserRole.superAdmin),
+          isFalse);
+      expect(
+          PermissionService.isAtLeast(
+              UserRole.managerAdmin, UserRole.managerAdmin),
+          isTrue);
+      expect(PermissionService.isAtLeast(UserRole.managerAdmin, UserRole.staff),
+          isTrue);
     });
 
     test('staff is only at least staff', () {
-      expect(PermissionService.isAtLeast(UserRole.staff, UserRole.platformOwner), isFalse);
-      expect(PermissionService.isAtLeast(UserRole.staff, UserRole.superAdmin), isFalse);
-      expect(PermissionService.isAtLeast(UserRole.staff, UserRole.managerAdmin), isFalse);
-      expect(PermissionService.isAtLeast(UserRole.staff, UserRole.staff), isTrue);
+      expect(
+          PermissionService.isAtLeast(UserRole.staff, UserRole.platformOwner),
+          isFalse);
+      expect(PermissionService.isAtLeast(UserRole.staff, UserRole.superAdmin),
+          isFalse);
+      expect(PermissionService.isAtLeast(UserRole.staff, UserRole.managerAdmin),
+          isFalse);
+      expect(
+          PermissionService.isAtLeast(UserRole.staff, UserRole.staff), isTrue);
     });
   });
 
   group('outranks', () {
     test('platformOwner outranks everyone except itself', () {
-      expect(PermissionService.outranks(UserRole.platformOwner, UserRole.platformOwner), isFalse);
-      expect(PermissionService.outranks(UserRole.platformOwner, UserRole.superAdmin), isTrue);
-      expect(PermissionService.outranks(UserRole.platformOwner, UserRole.managerAdmin), isTrue);
-      expect(PermissionService.outranks(UserRole.platformOwner, UserRole.staff), isTrue);
+      expect(
+          PermissionService.outranks(
+              UserRole.platformOwner, UserRole.platformOwner),
+          isFalse);
+      expect(
+          PermissionService.outranks(
+              UserRole.platformOwner, UserRole.superAdmin),
+          isTrue);
+      expect(
+          PermissionService.outranks(
+              UserRole.platformOwner, UserRole.managerAdmin),
+          isTrue);
+      expect(PermissionService.outranks(UserRole.platformOwner, UserRole.staff),
+          isTrue);
     });
 
     test('staff outranks nobody', () {
-      expect(PermissionService.outranks(UserRole.staff, UserRole.platformOwner), isFalse);
-      expect(PermissionService.outranks(UserRole.staff, UserRole.superAdmin), isFalse);
-      expect(PermissionService.outranks(UserRole.staff, UserRole.managerAdmin), isFalse);
-      expect(PermissionService.outranks(UserRole.staff, UserRole.staff), isFalse);
+      expect(PermissionService.outranks(UserRole.staff, UserRole.platformOwner),
+          isFalse);
+      expect(PermissionService.outranks(UserRole.staff, UserRole.superAdmin),
+          isFalse);
+      expect(PermissionService.outranks(UserRole.staff, UserRole.managerAdmin),
+          isFalse);
+      expect(
+          PermissionService.outranks(UserRole.staff, UserRole.staff), isFalse);
     });
   });
 
@@ -152,9 +233,16 @@ void main() {
 
   group('canAccessRoute', () {
     group('public routes', () {
-      for (final route in ['/', '/chat', '/documents', '/announcements',
-          '/settings', '/settings/profile', '/settings/notifications',
-          '/settings/privacy']) {
+      for (final route in [
+        '/',
+        '/chat',
+        '/documents',
+        '/announcements',
+        '/settings',
+        '/settings/profile',
+        '/settings/notifications',
+        '/settings/privacy'
+      ]) {
         test('$route accessible to staff', () {
           expect(service.canAccessRoute(staff(), route), isTrue);
         });
@@ -171,16 +259,22 @@ void main() {
       });
 
       test('/settings/users/:userId accessible to managerAdmin', () {
-        expect(service.canAccessRoute(manager(), '/settings/users/abc123'), isTrue);
+        expect(service.canAccessRoute(manager(), '/settings/users/abc123'),
+            isTrue);
       });
 
       test('/settings/users/:userId blocked for staff', () {
-        expect(service.canAccessRoute(staff(), '/settings/users/abc123'), isFalse);
+        expect(
+            service.canAccessRoute(staff(), '/settings/users/abc123'), isFalse);
       });
     });
 
     group('admin routes', () {
-      for (final route in ['/settings/roles', '/settings/branding', '/settings/app-icon']) {
+      for (final route in [
+        '/settings/roles',
+        '/settings/branding',
+        '/settings/app-icon'
+      ]) {
         test('$route accessible to superAdmin', () {
           expect(service.canAccessRoute(superAdmin(), route), isTrue);
         });
@@ -221,12 +315,15 @@ void main() {
       });
 
       test('announcement detail accessible to all active users', () {
-        expect(service.canAccessRoute(staff(), '/announcements/ann123'), isTrue);
+        expect(
+            service.canAccessRoute(staff(), '/announcements/ann123'), isTrue);
       });
 
       test('announcement edit requires managerAdmin+', () {
-        expect(service.canAccessRoute(manager(), '/announcements/ann123/edit'), isTrue);
-        expect(service.canAccessRoute(staff(), '/announcements/ann123/edit'), isFalse);
+        expect(service.canAccessRoute(manager(), '/announcements/ann123/edit'),
+            isTrue);
+        expect(service.canAccessRoute(staff(), '/announcements/ann123/edit'),
+            isFalse);
       });
     });
 
@@ -391,7 +488,8 @@ void main() {
       });
 
       test('managerAdmin cannot manage another managerAdmin', () {
-        final ma2 = makeUser(id: 'ma2', role: UserRole.managerAdmin, hubIds: ['h1']);
+        final ma2 =
+            makeUser(id: 'ma2', role: UserRole.managerAdmin, hubIds: ['h1']);
         expect(service.canManageUser(manager(hubIds: ['h1']), ma2), isFalse);
       });
 
@@ -488,35 +586,54 @@ void main() {
 
     group('canCreateAnnouncementWithScope', () {
       test('superAdmin+ can create org-wide', () {
-        expect(service.canCreateAnnouncementWithScope(superAdmin(), AnnouncementScope.orgWide), isTrue);
+        expect(
+            service.canCreateAnnouncementWithScope(
+                superAdmin(), AnnouncementScope.orgWide),
+            isTrue);
       });
 
       test('managerAdmin cannot create org-wide', () {
-        expect(service.canCreateAnnouncementWithScope(manager(), AnnouncementScope.orgWide), isFalse);
+        expect(
+            service.canCreateAnnouncementWithScope(
+                manager(), AnnouncementScope.orgWide),
+            isFalse);
       });
 
       test('managerAdmin can create league-scoped', () {
-        expect(service.canCreateAnnouncementWithScope(manager(), AnnouncementScope.league), isTrue);
+        expect(
+            service.canCreateAnnouncementWithScope(
+                manager(), AnnouncementScope.league),
+            isTrue);
       });
 
       test('managerAdmin can create hub-scoped for own hub', () {
         final ma = manager(hubIds: ['h1']);
-        expect(service.canCreateAnnouncementWithScope(ma, AnnouncementScope.hub, hubId: 'h1'), isTrue);
+        expect(
+            service.canCreateAnnouncementWithScope(ma, AnnouncementScope.hub,
+                hubId: 'h1'),
+            isTrue);
       });
 
       test('managerAdmin cannot create hub-scoped for other hub', () {
         final ma = manager(hubIds: ['h1']);
-        expect(service.canCreateAnnouncementWithScope(ma, AnnouncementScope.hub, hubId: 'h2'), isFalse);
+        expect(
+            service.canCreateAnnouncementWithScope(ma, AnnouncementScope.hub,
+                hubId: 'h2'),
+            isFalse);
       });
 
       test('staff cannot create any scope', () {
-        expect(service.canCreateAnnouncementWithScope(staff(), AnnouncementScope.hub), isFalse);
+        expect(
+            service.canCreateAnnouncementWithScope(
+                staff(), AnnouncementScope.hub),
+            isFalse);
       });
     });
 
     group('canEditAnnouncement', () {
       test('superAdmin+ can edit any', () {
-        expect(service.canEditAnnouncement(superAdmin(), authorId: 'anyone'), isTrue);
+        expect(service.canEditAnnouncement(superAdmin(), authorId: 'anyone'),
+            isTrue);
       });
 
       test('author can edit their own', () {
@@ -525,11 +642,13 @@ void main() {
       });
 
       test('non-author managerAdmin cannot edit', () {
-        expect(service.canEditAnnouncement(manager(), authorId: 'other'), isFalse);
+        expect(
+            service.canEditAnnouncement(manager(), authorId: 'other'), isFalse);
       });
 
       test('staff cannot edit', () {
-        expect(service.canEditAnnouncement(staff(), authorId: 'staff'), isFalse);
+        expect(
+            service.canEditAnnouncement(staff(), authorId: 'staff'), isFalse);
       });
     });
 
@@ -553,36 +672,50 @@ void main() {
 
     group('canViewAnnouncement', () {
       test('superAdmin sees all scopes', () {
-        expect(service.canViewAnnouncement(superAdmin(),
-            scope: AnnouncementScope.hub, hubId: 'h99'), isTrue);
+        expect(
+            service.canViewAnnouncement(superAdmin(),
+                scope: AnnouncementScope.hub, hubId: 'h99'),
+            isTrue);
       });
 
       test('org-wide visible to everyone', () {
-        expect(service.canViewAnnouncement(staff(),
-            scope: AnnouncementScope.orgWide), isTrue);
+        expect(
+            service.canViewAnnouncement(staff(),
+                scope: AnnouncementScope.orgWide),
+            isTrue);
       });
 
       test('hub-scoped visible only if user is in that hub', () {
         final s = makeUser(role: UserRole.staff, hubIds: ['h1']);
-        expect(service.canViewAnnouncement(s,
-            scope: AnnouncementScope.hub, hubId: 'h1'), isTrue);
-        expect(service.canViewAnnouncement(s,
-            scope: AnnouncementScope.hub, hubId: 'h2'), isFalse);
+        expect(
+            service.canViewAnnouncement(s,
+                scope: AnnouncementScope.hub, hubId: 'h1'),
+            isTrue);
+        expect(
+            service.canViewAnnouncement(s,
+                scope: AnnouncementScope.hub, hubId: 'h2'),
+            isFalse);
       });
 
       test('league-scoped visible to user in that league', () {
-        expect(service.canViewAnnouncement(staff(leagueIds: ['l1']),
-            scope: AnnouncementScope.league, leagueId: 'l1'), isTrue);
+        expect(
+            service.canViewAnnouncement(staff(leagueIds: ['l1']),
+                scope: AnnouncementScope.league, leagueId: 'l1'),
+            isTrue);
       });
 
       test('league-scoped NOT visible to user outside that league', () {
-        expect(service.canViewAnnouncement(staff(leagueIds: ['l2']),
-            scope: AnnouncementScope.league, leagueId: 'l1'), isFalse);
+        expect(
+            service.canViewAnnouncement(staff(leagueIds: ['l2']),
+                scope: AnnouncementScope.league, leagueId: 'l1'),
+            isFalse);
       });
 
       test('inactive user cannot view', () {
-        expect(service.canViewAnnouncement(staff(isActive: false),
-            scope: AnnouncementScope.orgWide), isFalse);
+        expect(
+            service.canViewAnnouncement(staff(isActive: false),
+                scope: AnnouncementScope.orgWide),
+            isFalse);
       });
     });
   });
@@ -617,7 +750,8 @@ void main() {
       });
 
       test('managerAdmin cannot edit others uploads', () {
-        expect(service.canEditDocument(manager(), uploadedBy: 'other'), isFalse);
+        expect(
+            service.canEditDocument(manager(), uploadedBy: 'other'), isFalse);
       });
 
       test('staff cannot edit', () {
@@ -644,11 +778,15 @@ void main() {
       });
 
       test('league-scoped doc visible to user in that league', () {
-        expect(service.canViewDocument(staff(leagueIds: ['l1']), leagueId: 'l1'), isTrue);
+        expect(
+            service.canViewDocument(staff(leagueIds: ['l1']), leagueId: 'l1'),
+            isTrue);
       });
 
       test('league-scoped doc NOT visible to user outside that league', () {
-        expect(service.canViewDocument(staff(leagueIds: ['l2']), leagueId: 'l1'), isFalse);
+        expect(
+            service.canViewDocument(staff(leagueIds: ['l2']), leagueId: 'l1'),
+            isFalse);
       });
 
       test('unscoped doc visible to everyone', () {
@@ -689,12 +827,14 @@ void main() {
 
     group('canViewChatRoom', () {
       test('superAdmin sees all rooms', () {
-        final room = makeRoom(type: ChatRoomType.direct, participants: ['other1', 'other2']);
+        final room = makeRoom(
+            type: ChatRoomType.direct, participants: ['other1', 'other2']);
         expect(service.canViewChatRoom(superAdmin(), room), isTrue);
       });
 
       test('DM only visible to participants', () {
-        final room = makeRoom(type: ChatRoomType.direct, participants: ['staff', 'other']);
+        final room = makeRoom(
+            type: ChatRoomType.direct, participants: ['staff', 'other']);
         expect(service.canViewChatRoom(staff(), room), isTrue);
 
         final outsider = makeUser(id: 'outsider', role: UserRole.staff);
@@ -709,6 +849,17 @@ void main() {
       test('event room visible to all active users', () {
         final room = makeRoom(type: ChatRoomType.event);
         expect(service.canViewChatRoom(staff(), room), isTrue);
+      });
+
+      test('league-scoped event room visible only to league users', () {
+        final room = makeRoom(
+          type: ChatRoomType.event,
+          leagueId: 'league-1',
+        );
+        expect(service.canViewChatRoom(staff(leagueIds: ['league-1']), room),
+            isTrue);
+        expect(service.canViewChatRoom(staff(leagueIds: ['league-2']), room),
+            isFalse);
       });
 
       test('inactive user cannot view', () {
@@ -762,25 +913,42 @@ void main() {
 
     test('managerAdmin also sees users', () {
       final tiles = service.visibleSettingsTiles(manager());
-      expect(tiles, containsAll(['profile', 'notifications', 'privacy', 'users']));
+      expect(
+          tiles, containsAll(['profile', 'notifications', 'privacy', 'users']));
       expect(tiles, isNot(contains('roles')));
       expect(tiles, isNot(contains('branding')));
     });
 
     test('superAdmin sees everything except org management', () {
       final tiles = service.visibleSettingsTiles(superAdmin());
-      expect(tiles, containsAll([
-        'profile', 'notifications', 'privacy', 'users',
-        'roles', 'branding', 'app-icon', 'leagues',
-      ]));
+      expect(
+          tiles,
+          containsAll([
+            'profile',
+            'notifications',
+            'privacy',
+            'users',
+            'roles',
+            'branding',
+            'app-icon',
+            'leagues',
+          ]));
     });
 
     test('platformOwner sees everything', () {
       final tiles = service.visibleSettingsTiles(owner());
-      expect(tiles, containsAll([
-        'profile', 'notifications', 'privacy', 'users',
-        'roles', 'branding', 'app-icon', 'leagues',
-      ]));
+      expect(
+          tiles,
+          containsAll([
+            'profile',
+            'notifications',
+            'privacy',
+            'users',
+            'roles',
+            'branding',
+            'app-icon',
+            'leagues',
+          ]));
     });
   });
 }

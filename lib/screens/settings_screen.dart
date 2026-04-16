@@ -28,8 +28,8 @@ class SettingsNavigationItem {
 }
 
 bool shouldShowOrganizationSettings(List<String> visibleTiles) {
-  return visibleTiles.any((t) =>
-      ['leagues', 'users', 'roles', 'branding', 'app-icon'].contains(t));
+  return visibleTiles.any(
+      (t) => ['leagues', 'users', 'roles', 'branding', 'app-icon'].contains(t));
 }
 
 List<SettingsNavigationItem> buildOrganizationSettingsItems({
@@ -143,8 +143,7 @@ class SettingsScreen extends ConsumerWidget {
                   )
                   .toList(),
             ),
-          if (showOrganizationSection)
-            const SizedBox(height: 16),
+          if (showOrganizationSection) const SizedBox(height: 16),
           _SettingsSection(
             title: 'Preferences',
             items: preferenceItems
@@ -209,9 +208,11 @@ class _ProfileCard extends StatelessWidget {
       child: Row(
         children: [
           AvatarWidget(
-              name: user.displayName,
-              size: 60,
-              backgroundColor: Colors.white.withValues(alpha: 0.3)),
+            imageUrl: user.avatarUrl,
+            name: user.displayName,
+            size: 60,
+            backgroundColor: Colors.white.withValues(alpha: 0.3),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(

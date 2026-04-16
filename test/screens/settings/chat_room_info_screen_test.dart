@@ -63,6 +63,7 @@ AppUser _adminUser() => AppUser(
       role: UserRole.platformOwner,
       orgId: 'org-1',
       hubIds: [],
+      leagueIds: ['l1'],
       teamIds: [],
       createdAt: DateTime(2025, 1, 1),
       isActive: true,
@@ -75,6 +76,7 @@ AppUser _staffUser() => AppUser(
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: [],
+      leagueIds: ['l1'],
       teamIds: [],
       createdAt: DateTime(2025, 1, 1),
       isActive: true,
@@ -112,7 +114,7 @@ void main() {
       expect(find.text('Chat Info'), findsOneWidget);
       expect(find.text('PL - General'), findsOneWidget);
       expect(find.text('League Chat'), findsOneWidget);
-      expect(find.byIcon(Icons.forum), findsOneWidget);
+      expect(find.byIcon(Icons.emoji_events_outlined), findsOneWidget);
     });
 
     testWidgets('uses room icon when an event room has no image',
@@ -186,6 +188,35 @@ void main() {
       );
     });
 
+    testWidgets('shows league members for league-attached event rooms',
+        (tester) async {
+      final room = ChatRoom(
+        id: 'event-league',
+        orgId: 'org-1',
+        name: 'JPHL Tournament',
+        type: ChatRoomType.event,
+        leagueId: 'l1',
+        participants: ['u1'],
+        createdAt: DateTime(2025, 4, 1),
+        isArchived: false,
+      );
+
+      await tester.pumpWidget(_buildTestWidget(
+        roomId: room.id,
+        overrides: [
+          chatRoomProvider(room.id).overrideWith((ref) => Stream.value(room)),
+          orgUsersProvider.overrideWith(
+              (ref) => Stream.value([_adminUser(), _staffUser()])),
+          currentUserProvider.overrideWith((ref) async => _adminUser()),
+          organizationProvider.overrideWith((ref) async => null),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('MEMBERS (2)'), findsOneWidget);
+      expect(find.text('Staff Member'), findsOneWidget);
+    });
+
     testWidgets('shows "You" badge for current user', (tester) async {
       final room = _leagueRoom();
       await tester.pumpWidget(_buildTestWidget(
@@ -239,6 +270,37 @@ void main() {
       expect(find.text('Direct Message'), findsOneWidget);
       expect(find.text('Archive Chat Room'), findsNothing);
       expect(find.byIcon(Icons.edit_outlined), findsNothing);
+    });
+
+    testWidgets('shows peer-focused details for DM rooms', (tester) async {
+      final room = _dmRoom();
+      await tester.pumpWidget(_buildTestWidget(
+        roomId: 'cr2',
+        overrides: [
+          chatRoomProvider('cr2').overrideWith((ref) => Stream.value(room)),
+          orgUsersProvider.overrideWith(
+              (ref) => Stream.value([_adminUser(), _staffUser()])),
+          currentUserProvider.overrideWith((ref) async => _adminUser()),
+          organizationProvider.overrideWith((ref) async => null),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Staff Member'), findsWidgets);
+      expect(find.text('DIRECT MESSAGE'), findsOneWidget);
+      expect(find.text('Private one-on-one conversation'), findsOneWidget);
+      expect(find.text('Only you and this person can see messages here.'),
+          findsOneWidget);
+      expect(find.text('MEMBERS (2)'), findsNothing);
+      expect(find.text('Admin'), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is AvatarWidget &&
+              widget.imageUrl == 'https://example.com/staff.png',
+        ),
+        findsWidgets,
+      );
     });
 
     testWidgets('hides archive for staff users', (tester) async {

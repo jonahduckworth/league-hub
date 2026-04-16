@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
+import '../models/app_user.dart';
+import '../models/chat_room.dart';
 import '../models/message.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
@@ -14,8 +16,10 @@ import '../services/authorized_firestore_service.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/chat_room_avatar.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../widgets/empty_state.dart';
+import 'chat_list_screen.dart';
 
 class ChatConversationScreen extends ConsumerStatefulWidget {
   final String roomId;
@@ -241,7 +245,7 @@ class _ChatConversationScreenState
 
       // Upload to Firebase Storage and get the download URL.
       final storagePath =
-          'orgs/$orgId/chat/${widget.roomId}/${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
+          'orgs/$orgId/chat/${widget.roomId}/attachments/${currentUser.id}/${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
       final storage = StorageService();
       final downloadUrl = await storage.uploadFile(
         file: File(picked.path),
@@ -274,6 +278,7 @@ class _ChatConversationScreenState
     final roomAsync = ref.watch(chatRoomProvider(widget.roomId));
     final messagesAsync = ref.watch(messagesProvider(widget.roomId));
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
     final typingUsers =
         ref.watch(typingUsersProvider(widget.roomId)).valueOrNull ?? [];
 
@@ -301,8 +306,19 @@ class _ChatConversationScreenState
     );
 
     final room = roomAsync.valueOrNull;
-    final roomName = room?.name ?? 'Chat';
-    final participantCount = room?.participants.length ?? 0;
+    final roomName =
+        room == null ? 'Chat' : chatRoomDisplayName(room, currentUser, users);
+    final isDirectMessage = room?.type == ChatRoomType.direct;
+    final members =
+        room == null ? const <AppUser>[] : chatRoomMembers(room, users);
+    final participantCount = room == null
+        ? 0
+        : (members.isNotEmpty ? members.length : room.participants.length);
+    final roomSubtitle = isDirectMessage
+        ? 'Direct Message'
+        : participantCount > 0
+            ? '$participantCount member${participantCount == 1 ? '' : 's'}'
+            : null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -317,24 +333,51 @@ class _ChatConversationScreenState
             }
           },
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text(roomName,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            if (typingUsers.isNotEmpty)
-              Text(
-                _typingLabel(typingUsers),
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.white70),
-              )
-            else if (participantCount > 0)
-              Text(
-                  '$participantCount member${participantCount == 1 ? '' : 's'}',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70)),
+            if (room != null) ...[
+              ChatRoomAvatar(
+                room: room,
+                displayName: roomName,
+                directMessagePeer: directMessagePeer(room, currentUser, users),
+                size: 36,
+                borderRadius: 10,
+                iconSize: 18,
+              ),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    roomName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  if (typingUsers.isNotEmpty)
+                    Text(
+                      _typingLabel(typingUsers),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.white70),
+                    )
+                  else if (roomSubtitle != null)
+                    Text(
+                      roomSubtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.white70),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [

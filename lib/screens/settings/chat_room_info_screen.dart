@@ -1,10 +1,9 @@
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/picked_file.dart';
 import '../../core/theme.dart';
 import '../../core/utils.dart';
 import '../../models/app_user.dart';
@@ -16,6 +15,7 @@ import '../../services/authorized_firestore_service.dart';
 import '../../services/permission_service.dart';
 import '../../services/storage_service.dart';
 import '../../widgets/avatar_widget.dart';
+import '../../widgets/chat_room_avatar.dart';
 import '../../widgets/confirmation_dialog.dart';
 
 class ChatRoomInfoScreen extends ConsumerWidget {
@@ -40,10 +40,7 @@ class ChatRoomInfoScreen extends ConsumerWidget {
       );
     }
 
-    // Filter participants from the org users list.
-    final participants = room.participants.isNotEmpty
-        ? allUsers.where((u) => room.participants.contains(u.id)).toList()
-        : allUsers;
+    final participants = chatRoomMembers(room, allUsers);
     final peer = directMessagePeer(room, currentUser, allUsers);
     final displayName = chatRoomDisplayName(room, currentUser, allUsers);
 
@@ -70,10 +67,13 @@ class ChatRoomInfoScreen extends ConsumerWidget {
           Center(
             child: Column(
               children: [
-                _RoomInfoAvatar(
+                ChatRoomAvatar(
                   room: room,
                   displayName: displayName,
-                  peer: peer,
+                  directMessagePeer: peer,
+                  size: 72,
+                  borderRadius: 20,
+                  iconSize: 32,
                 ),
                 const SizedBox(height: 12),
                 Text(displayName,
@@ -107,73 +107,16 @@ class ChatRoomInfoScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          // Members section
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              'MEMBERS (${participants.length})',
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
-                  letterSpacing: 0.8),
+          if (room.type == ChatRoomType.direct)
+            _DirectMessageInfoCard(
+              peer: peer,
+              displayName: displayName,
+            )
+          else
+            _MembersSection(
+              participants: participants,
+              currentUser: currentUser,
             ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: participants.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('All organization members have access',
-                        style: TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary)),
-                  )
-                : Column(
-                    children: participants.asMap().entries.map((entry) {
-                      final user = entry.value;
-                      final isLast = entry.key == participants.length - 1;
-                      return Column(
-                        children: [
-                          ListTile(
-                            leading: AvatarWidget(
-                              imageUrl: user.avatarUrl,
-                              name: user.displayName,
-                              size: 36,
-                            ),
-                            title: Text(user.displayName,
-                                style: const TextStyle(
-                                    fontSize: 14, fontWeight: FontWeight.w500)),
-                            subtitle: Text(user.roleLabel,
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary)),
-                            trailing: user.id == currentUser?.id
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary
-                                          .withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text('You',
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.primary,
-                                            fontWeight: FontWeight.w600)),
-                                  )
-                                : null,
-                          ),
-                          if (!isLast) const Divider(height: 1, indent: 62),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-          ),
           const SizedBox(height: 24),
           // Actions
           if (canManageRoom) ...[
@@ -223,170 +166,178 @@ class ChatRoomInfoScreen extends ConsumerWidget {
     String? selectedImageName;
     bool isSaving = false;
 
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Edit Room'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Room Name',
-                    prefixIcon: Icon(Icons.forum_outlined),
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: const Text('Edit Room'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Room Name',
+                      prefixIcon: Icon(Icons.forum_outlined),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'ROOM LOOK',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textSecondary,
-                    letterSpacing: 0.8,
+                  const SizedBox(height: 16),
+                  const Text(
+                    'ROOM LOOK',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textSecondary,
+                      letterSpacing: 0.8,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ...chatRoomIconOptions.entries.map(
-                      (entry) => ChoiceChip(
-                        label: Icon(entry.value, size: 18),
-                        selected: !useImage && selectedIconName == entry.key,
-                        onSelected: isSaving
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ...chatRoomIconOptions.entries.map(
+                        (entry) => ChoiceChip(
+                          label: Icon(entry.value, size: 18),
+                          selected: !useImage && selectedIconName == entry.key,
+                          onSelected: isSaving
+                              ? null
+                              : (_) => setDialogState(() {
+                                    selectedIconName = entry.key;
+                                    useImage = false;
+                                    selectedImageBytes = null;
+                                    selectedImageName = null;
+                                  }),
+                        ),
+                      ),
+                      ActionChip(
+                        avatar: Icon(
+                          useImage ? Icons.check_circle : Icons.image_outlined,
+                          size: 18,
+                        ),
+                        label: Text(selectedImageName ??
+                            (useImage ? 'Current Image' : 'Use Image')),
+                        onPressed: isSaving
                             ? null
-                            : (_) => setDialogState(() {
-                                  selectedIconName = entry.key;
-                                  useImage = false;
-                                  selectedImageBytes = null;
-                                  selectedImageName = null;
-                                }),
+                            : () async {
+                                final picked = await pickImageBytes();
+                                if (picked == null) {
+                                  if (context.mounted) {
+                                    AppUtils.showInfoSnackBar(
+                                      context,
+                                      'We could not read that image. Please try a different file.',
+                                    );
+                                  }
+                                  return;
+                                }
+                                if (!dialogContext.mounted) return;
+                                setDialogState(() {
+                                  useImage = true;
+                                  selectedImageBytes = picked.bytes;
+                                  selectedImageName = picked.name;
+                                });
+                              },
                       ),
-                    ),
-                    ActionChip(
-                      avatar: Icon(
-                        useImage ? Icons.check_circle : Icons.image_outlined,
-                        size: 18,
-                      ),
-                      label: Text(selectedImageName ??
-                          (useImage ? 'Current Image' : 'Use Image')),
-                      onPressed: isSaving
-                          ? null
-                          : () async {
-                              final result =
-                                  await FilePicker.platform.pickFiles(
-                                type: FileType.image,
-                                withData: true,
-                              );
-                              final file = result?.files.single;
-                              if (file?.bytes == null || file!.bytes!.isEmpty) {
-                                return;
-                              }
-                              setDialogState(() {
-                                useImage = true;
-                                selectedImageBytes = file.bytes;
-                                selectedImageName = file.name;
-                              });
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                    isSaving ? null : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final name = nameController.text.trim();
+                        if (name.isEmpty) {
+                          AppUtils.showInfoSnackBar(
+                            context,
+                            'Please enter a room name.',
+                          );
+                          return;
+                        }
+
+                        final orgId =
+                            ref.read(organizationProvider).valueOrNull?.id ??
+                                room.orgId;
+                        final currentUser =
+                            await ref.read(currentUserProvider.future);
+                        if (currentUser == null) return;
+
+                        setDialogState(() => isSaving = true);
+
+                        var dialogClosed = false;
+                        try {
+                          String? roomImageUrl =
+                              useImage ? room.roomImageUrl : null;
+                          if (selectedImageBytes != null) {
+                            final extension = (selectedImageName ?? 'room.png')
+                                .split('.')
+                                .last
+                                .toLowerCase();
+                            roomImageUrl = await StorageService().uploadBytes(
+                              bytes: selectedImageBytes!,
+                              path:
+                                  'orgs/$orgId/chat/${room.id}/room-images/${currentUser.id}/roomImage_${DateTime.now().microsecondsSinceEpoch}_${selectedImageName ?? 'room.$extension'}',
+                              contentType: chatRoomImageContentType(extension),
+                            );
+                          }
+
+                          await ref
+                              .read(authorizedFirestoreServiceProvider)
+                              .updateChatRoomFields(
+                            currentUser,
+                            orgId,
+                            room.id,
+                            {
+                              'name': name,
+                              'roomIconName':
+                                  useImage ? null : selectedIconName,
+                              'roomImageUrl': roomImageUrl,
                             },
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                          );
+
+                          if (dialogContext.mounted) {
+                            dialogClosed = true;
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } on PermissionDeniedException {
+                          if (context.mounted) {
+                            AppUtils.showErrorSnackBar(
+                              context,
+                              'You do not have permission to edit chat rooms',
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            AppUtils.showErrorSnackBar(
+                              context,
+                              'Could not update room: $e',
+                            );
+                          }
+                        } finally {
+                          if (!dialogClosed && dialogContext.mounted) {
+                            setDialogState(() => isSaving = false);
+                          }
+                        }
+                      },
+                child: Text(isSaving ? 'Saving...' : 'Save'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed:
-                  isSaving ? null : () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: isSaving
-                  ? null
-                  : () async {
-                      final name = nameController.text.trim();
-                      if (name.isEmpty) {
-                        AppUtils.showInfoSnackBar(
-                          context,
-                          'Please enter a room name.',
-                        );
-                        return;
-                      }
-
-                      final orgId =
-                          ref.read(organizationProvider).valueOrNull?.id;
-                      final currentUser =
-                          ref.read(currentUserProvider).valueOrNull;
-                      if (orgId == null || currentUser == null) return;
-
-                      setDialogState(() => isSaving = true);
-
-                      try {
-                        String? roomImageUrl =
-                            useImage ? room.roomImageUrl : null;
-                        if (selectedImageBytes != null) {
-                          final extension = (selectedImageName ?? 'room.png')
-                              .split('.')
-                              .last
-                              .toLowerCase();
-                          roomImageUrl = await StorageService().uploadBytes(
-                            bytes: selectedImageBytes!,
-                            path:
-                                'organizations/$orgId/chatRooms/${DateTime.now().microsecondsSinceEpoch}_${selectedImageName ?? 'room.$extension'}',
-                            contentType: chatRoomImageContentType(extension),
-                          );
-                        }
-
-                        await ref
-                            .read(authorizedFirestoreServiceProvider)
-                            .updateChatRoomFields(
-                          currentUser,
-                          orgId,
-                          room.id,
-                          {
-                            'name': name,
-                            'roomIconName': useImage ? null : selectedIconName,
-                            'roomImageUrl': roomImageUrl,
-                          },
-                        );
-
-                        if (dialogContext.mounted) {
-                          Navigator.of(dialogContext).pop();
-                        }
-                      } on PermissionDeniedException {
-                        if (context.mounted) {
-                          AppUtils.showErrorSnackBar(
-                            context,
-                            'You do not have permission to edit chat rooms',
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          AppUtils.showErrorSnackBar(
-                            context,
-                            'Could not update room: $e',
-                          );
-                        }
-                      } finally {
-                        if (dialogContext.mounted) {
-                          setDialogState(() => isSaving = false);
-                        }
-                      }
-                    },
-              child: Text(isSaving ? 'Saving...' : 'Save'),
-            ),
-          ],
         ),
-      ),
-    );
-
-    nameController.dispose();
+      );
+    } finally {
+      nameController.dispose();
+    }
   }
 
   Future<void> _confirmArchive(
@@ -421,68 +372,175 @@ class ChatRoomInfoScreen extends ConsumerWidget {
   }
 }
 
-class _RoomInfoAvatar extends StatelessWidget {
-  final ChatRoom room;
-  final String displayName;
+class _DirectMessageInfoCard extends StatelessWidget {
   final AppUser? peer;
+  final String displayName;
 
-  const _RoomInfoAvatar({
-    required this.room,
-    required this.displayName,
+  const _DirectMessageInfoCard({
     required this.peer,
+    required this.displayName,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (room.type == ChatRoomType.direct) {
-      return AvatarWidget(
-        imageUrl: peer?.avatarUrl,
-        name: displayName,
-        size: 72,
-        backgroundColor: AppColors.accent,
-      );
-    }
-
-    final imageUrl = room.roomImageUrl;
-    if (imageUrl != null && imageUrl.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: CachedNetworkImage(
-          imageUrl: imageUrl,
-          width: 72,
-          height: 72,
-          fit: BoxFit.cover,
-          placeholder: (_, __) => _IconAvatar(room: room),
-          errorWidget: (_, __, ___) => _IconAvatar(room: room),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'DIRECT MESSAGE',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.8),
+          ),
         ),
-      );
-    }
-
-    return _IconAvatar(room: room);
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: AvatarWidget(
+                  imageUrl: peer?.avatarUrl,
+                  name: displayName,
+                  size: 44,
+                  backgroundColor: AppColors.accent,
+                ),
+                title: Text(
+                  displayName,
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text),
+                ),
+                subtitle: Text(
+                  peer?.roleLabel ?? 'Direct Message',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              const ListTile(
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                leading: Icon(
+                  Icons.lock_outline,
+                  color: AppColors.textSecondary,
+                  size: 22,
+                ),
+                title: Text(
+                  'Private one-on-one conversation',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text,
+                  ),
+                ),
+                subtitle: Text(
+                  'Only you and this person can see messages here.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
-class _IconAvatar extends StatelessWidget {
-  final ChatRoom room;
+class _MembersSection extends StatelessWidget {
+  final List<AppUser> participants;
+  final AppUser? currentUser;
 
-  const _IconAvatar({required this.room});
+  const _MembersSection({
+    required this.participants,
+    required this.currentUser,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 72,
-      height: 72,
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Icon(
-        room.type == ChatRoomType.event
-            ? iconForChatRoomIconName(room.roomIconName)
-            : Icons.forum,
-        color: AppColors.primary,
-        size: 32,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'MEMBERS (${participants.length})',
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.8),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: participants.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('All organization members have access',
+                      style: TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary)),
+                )
+              : Column(
+                  children: participants.asMap().entries.map((entry) {
+                    final user = entry.value;
+                    final isLast = entry.key == participants.length - 1;
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: AvatarWidget(
+                            imageUrl: user.avatarUrl,
+                            name: user.displayName,
+                            size: 36,
+                          ),
+                          title: Text(user.displayName,
+                              style: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w500)),
+                          subtitle: Text(user.roleLabel,
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary)),
+                          trailing: user.id == currentUser?.id
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text('You',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w600)),
+                                )
+                              : null,
+                        ),
+                        if (!isLast) const Divider(height: 1, indent: 62),
+                      ],
+                    );
+                  }).toList(),
+                ),
+        ),
+      ],
     );
   }
 }

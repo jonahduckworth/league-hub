@@ -22,6 +22,7 @@ class AnnouncementDetailScreen extends ConsumerWidget {
     final announcementsAsync = ref.watch(announcementsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final userAsync = ref.watch(currentUserProvider);
+    final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
 
     final announcement = announcementsAsync.valueOrNull
         ?.where((a) => a.id == announcementId)
@@ -29,6 +30,7 @@ class AnnouncementDetailScreen extends ConsumerWidget {
 
     final leagues = leaguesAsync.valueOrNull ?? [];
     final currentUser = userAsync.valueOrNull;
+    final author = _userById(users, announcement?.authorId);
 
     if (announcementsAsync.isLoading) {
       return const Scaffold(
@@ -81,13 +83,13 @@ class AnnouncementDetailScreen extends ConsumerWidget {
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppColors.warning.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border:
-                      Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                  border: Border.all(
+                      color: AppColors.warning.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   children: [
@@ -128,9 +130,7 @@ class AnnouncementDetailScreen extends ConsumerWidget {
             // ── Body ────────────────────────────────────────────────────
             Text(announcement.body,
                 style: const TextStyle(
-                    fontSize: 15,
-                    color: AppColors.textSecondary,
-                    height: 1.6)),
+                    fontSize: 15, color: AppColors.textSecondary, height: 1.6)),
             const SizedBox(height: 28),
 
             // ── Author card ─────────────────────────────────────────────
@@ -144,7 +144,10 @@ class AnnouncementDetailScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   AvatarWidget(
-                      name: announcement.authorName, size: 44),
+                    imageUrl: author?.avatarUrl,
+                    name: announcement.authorName,
+                    size: 44,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -158,14 +161,12 @@ class AnnouncementDetailScreen extends ConsumerWidget {
                         const SizedBox(height: 2),
                         Text(announcement.authorRole,
                             style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary)),
+                                fontSize: 12, color: AppColors.textSecondary)),
                         const SizedBox(height: 4),
                         Text(
                             'Posted ${AppUtils.formatDateTime(announcement.createdAt)}',
                             style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textMuted)),
+                                fontSize: 11, color: AppColors.textMuted)),
                       ],
                     ),
                   ),
@@ -176,6 +177,14 @@ class AnnouncementDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  AppUser? _userById(List<AppUser> users, String? id) {
+    if (id == null) return null;
+    for (final user in users) {
+      if (user.id == id) return user;
+    }
+    return null;
   }
 
   Future<void> _confirmDelete(
@@ -226,8 +235,7 @@ class _ScopeTag extends StatelessWidget {
   final List<League> leagues;
   final String? leagueId;
 
-  const _ScopeTag(
-      {required this.scope, required this.leagues, this.leagueId});
+  const _ScopeTag({required this.scope, required this.leagues, this.leagueId});
 
   Color get _color {
     switch (scope) {
@@ -245,8 +253,7 @@ class _ScopeTag extends StatelessWidget {
       case AnnouncementScope.orgWide:
         return 'Org-Wide';
       case AnnouncementScope.league:
-        final league =
-            leagues.where((l) => l.id == leagueId).firstOrNull;
+        final league = leagues.where((l) => l.id == leagueId).firstOrNull;
         return league?.name ?? 'League';
       case AnnouncementScope.hub:
         return 'Hub';
@@ -264,9 +271,7 @@ class _ScopeTag extends StatelessWidget {
       ),
       child: Text(_label,
           style: TextStyle(
-              fontSize: 13,
-              color: _color,
-              fontWeight: FontWeight.w600)),
+              fontSize: 13, color: _color, fontWeight: FontWeight.w600)),
     );
   }
 }

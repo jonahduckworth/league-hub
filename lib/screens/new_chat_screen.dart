@@ -1,17 +1,19 @@
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/picked_file.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/permission_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/avatar_widget.dart';
+import '../widgets/chat_room_avatar.dart';
 import 'chat_list_screen.dart';
 
 enum _NewChatStep { choose, eventRoom, directMessage }
@@ -59,15 +61,19 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
   }
 
   Future<void> _pickRoomImage() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: true,
-    );
-    final file = result?.files.single;
-    if (file?.bytes == null || file!.bytes!.isEmpty) return;
+    final picked = await pickImageBytes();
+    if (picked == null) {
+      if (mounted) {
+        AppUtils.showInfoSnackBar(
+          context,
+          'We could not read that image. Please try a different file.',
+        );
+      }
+      return;
+    }
     setState(() {
-      _selectedImageBytes = file.bytes;
-      _selectedImageName = file.name;
+      _selectedImageBytes = picked.bytes;
+      _selectedImageName = picked.name;
     });
   }
 
@@ -80,27 +86,39 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
     setState(() => _isCreating = true);
 
     try {
-      final currentUser = ref.read(currentUserProvider).valueOrNull;
-      String? roomImageUrl;
-
-      if (_selectedImageBytes != null) {
-        final extension =
-            (_selectedImageName ?? 'room.png').split('.').last.toLowerCase();
-        roomImageUrl = await StorageService().uploadBytes(
-          bytes: _selectedImageBytes!,
-          path:
-              'organizations/$orgId/chatRooms/${DateTime.now().microsecondsSinceEpoch}_${_selectedImageName ?? 'room.$extension'}',
-          contentType: chatRoomImageContentType(extension),
-        );
+      final currentUser = await ref.read(currentUserProvider.future);
+      if (currentUser == null) {
+        if (mounted) {
+          AppUtils.showErrorSnackBar(context, 'Please sign in again.');
+          setState(() => _isCreating = false);
+        }
+        return;
       }
+      if (!const PermissionService().canCreateChatRoom(currentUser)) {
+        if (mounted) {
+          AppUtils.showErrorSnackBar(
+            context,
+            'You do not have permission to create chat rooms',
+          );
+          setState(() => _isCreating = false);
+        }
+        return;
+      }
+
+      final orgUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
+      final participantIds = eventRoomParticipantIds(
+        creator: currentUser,
+        users: orgUsers,
+        leagueId: _selectedLeagueId,
+      );
 
       final roomId = await createEventChatRoom(
         currentUser: currentUser,
         orgId: orgId,
         roomName: _nameController.text,
         selectedLeagueId: _selectedLeagueId,
-        roomIconName: _selectedImageBytes == null ? _selectedIconName : null,
-        roomImageUrl: roomImageUrl,
+        roomIconName: _selectedIconName,
+        participantIds: participantIds,
         createRoom: ref.read(authorizedFirestoreServiceProvider).createChatRoom,
         onPermissionDenied: () {
           if (mounted) {
@@ -111,6 +129,37 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
           }
         },
       );
+
+      if (roomId != null && _selectedImageBytes != null) {
+        try {
+          final extension =
+              (_selectedImageName ?? 'room.png').split('.').last.toLowerCase();
+          final roomImageUrl = await StorageService().uploadBytes(
+            bytes: _selectedImageBytes!,
+            path:
+                'orgs/$orgId/chat/$roomId/room-images/${currentUser.id}/roomImage_${DateTime.now().microsecondsSinceEpoch}_${_selectedImageName ?? 'room.$extension'}',
+            contentType: chatRoomImageContentType(extension),
+          );
+          await ref
+              .read(authorizedFirestoreServiceProvider)
+              .updateChatRoomFields(
+            currentUser,
+            orgId,
+            roomId,
+            {
+              'roomIconName': null,
+              'roomImageUrl': roomImageUrl,
+            },
+          );
+        } catch (_) {
+          if (mounted) {
+            AppUtils.showErrorSnackBar(
+              context,
+              'Room created, but the image upload failed. You can add it from Chat Info.',
+            );
+          }
+        }
+      }
 
       if (roomId != null && mounted) {
         context.pushReplacement('/chat/$roomId');
@@ -129,7 +178,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
   }
 
   Future<void> _openDirectMessage(String orgId, AppUser user) async {
-    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    final currentUser = await ref.read(currentUserProvider.future);
     final roomId = await openDirectMessageRoom(
       currentUser: currentUser,
       otherUser: user,
@@ -161,7 +210,9 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final orgId =
+        ref.watch(organizationProvider).valueOrNull?.id ?? currentUser?.orgId;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -211,6 +262,22 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
             ),
     );
   }
+}
+
+List<String> eventRoomParticipantIds({
+  required AppUser creator,
+  required List<AppUser> users,
+  required String? leagueId,
+}) {
+  final matchingUsers = users.where((user) {
+    if (!user.isActive) return false;
+    if (leagueId == null) return user.orgId == creator.orgId;
+    return user.leagueIds.contains(leagueId);
+  });
+  return {
+    creator.id,
+    ...matchingUsers.map((user) => user.id),
+  }.toList();
 }
 
 class _ChooseConversationType extends StatelessWidget {
@@ -483,7 +550,9 @@ class _DirectMessagePicker extends ConsumerWidget {
             leading: AvatarWidget(
               imageUrl: user.avatarUrl,
               name: user.displayName,
-              size: 42,
+              size: 48,
+              backgroundColor:
+                  AppUtils.roleColor(user.role).withValues(alpha: 0.18),
             ),
             title: Text(
               user.displayName,

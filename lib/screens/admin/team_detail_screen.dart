@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
 import '../../services/permission_service.dart';
+import '../../widgets/avatar_widget.dart';
 import '../../widgets/empty_state.dart';
 
 /// Displays team details, roster management, and a link to the team chat room.
@@ -106,8 +107,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                                 .where((s) => s != null && s.isNotEmpty)
                                 .join(' · '),
                             style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary),
+                                fontSize: 13, color: AppColors.textSecondary),
                           ),
                       ],
                     ),
@@ -125,8 +125,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
             icon: Icons.chat_bubble_outline,
             title: 'Team Chat',
             subtitle: 'Open the team chat room',
-            trailing: const Icon(Icons.chevron_right,
-                color: AppColors.textSecondary),
+            trailing:
+                const Icon(Icons.chevron_right, color: AppColors.textSecondary),
             onTap: () => context.push('/chat/${team.chatRoomId}'),
           ),
           const SizedBox(height: 16),
@@ -159,8 +159,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     if (canManage) ...[
                       const SizedBox(width: 8),
                       GestureDetector(
-                        onTap: () => _showAddMemberSheet(
-                            context, team, orgId ?? ''),
+                        onTap: () =>
+                            _showAddMemberSheet(context, team, orgId ?? ''),
                         child: const Icon(Icons.person_add_outlined,
                             size: 20, color: AppColors.accent),
                       ),
@@ -197,8 +197,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                           .map((m) => _MemberTile(
                                 user: m,
                                 canRemove: canManage,
-                                onRemove: () => _removeMember(
-                                    team, m.id, orgId ?? ''),
+                                onRemove: () =>
+                                    _removeMember(team, m.id, orgId ?? ''),
                               ))
                           .toList(),
                     );
@@ -256,15 +256,12 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                   itemBuilder: (_, i) {
                     final user = available[i];
                     return ListTile(
-                      leading: CircleAvatar(
+                      leading: AvatarWidget(
+                        imageUrl: user.avatarUrl,
+                        name: user.displayName,
+                        size: 40,
                         backgroundColor:
-                            AppColors.primary.withValues(alpha: 0.1),
-                        child: Text(
-                          user.displayName.isNotEmpty
-                              ? user.displayName[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(color: AppColors.primary),
-                        ),
+                            AppColors.primary.withValues(alpha: 0.18),
                       ),
                       title: Text(user.displayName),
                       subtitle: Text(user.roleLabel,
@@ -290,9 +287,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     try {
       final authFs = ref.read(authorizedFirestoreServiceProvider);
       final newMembers = [...team.memberIds, userId];
-      await authFs.updateTeamFields(
-          currentUser, orgId, team.leagueId, team.hubId, team.id,
-          {'memberIds': newMembers});
+      await authFs.updateTeamFields(currentUser, orgId, team.leagueId,
+          team.hubId, team.id, {'memberIds': newMembers});
       // Also update the user's teamIds.
       final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
@@ -319,9 +315,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     try {
       final authFs = ref.read(authorizedFirestoreServiceProvider);
       final newMembers = team.memberIds.where((id) => id != userId).toList();
-      await authFs.updateTeamFields(
-          currentUser, orgId, team.leagueId, team.hubId, team.id,
-          {'memberIds': newMembers});
+      await authFs.updateTeamFields(currentUser, orgId, team.leagueId,
+          team.hubId, team.id, {'memberIds': newMembers});
       // Also update the user's teamIds.
       final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
@@ -341,7 +336,6 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       }
     }
   }
-
 }
 
 class _SectionCard extends StatelessWidget {
@@ -411,13 +405,11 @@ class _MemberTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-        radius: 18,
-        child: Text(
-          user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : '?',
-          style: const TextStyle(color: AppColors.primary, fontSize: 14),
-        ),
+      leading: AvatarWidget(
+        imageUrl: user.avatarUrl,
+        name: user.displayName,
+        size: 36,
+        backgroundColor: AppColors.primary.withValues(alpha: 0.18),
       ),
       title: Text(user.displayName,
           style: const TextStyle(fontSize: 14, color: AppColors.text)),
@@ -425,8 +417,8 @@ class _MemberTile extends StatelessWidget {
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       trailing: canRemove
           ? IconButton(
-              icon:
-                  const Icon(Icons.remove_circle_outline, color: AppColors.danger, size: 20),
+              icon: const Icon(Icons.remove_circle_outline,
+                  color: AppColors.danger, size: 20),
               onPressed: onRemove,
             )
           : null,

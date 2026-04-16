@@ -249,6 +249,87 @@ void main() {
       );
     });
 
+    test('chat room members come from league membership when league scoped',
+        () {
+      final leagueMember = AppUser(
+        id: 'user-2',
+        email: 'member@example.com',
+        displayName: 'League Member',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: [],
+        leagueIds: ['league-1'],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+      final otherUser = AppUser(
+        id: 'user-3',
+        email: 'other@example.com',
+        displayName: 'Other User',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: [],
+        leagueIds: ['league-2'],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+
+      final members = chatRoomMembers(leagueRoom, [leagueMember, otherUser]);
+
+      expect(members, [leagueMember]);
+    });
+
+    test('event room participant ids include active users from selected league',
+        () {
+      final creator = AppUser(
+        id: 'creator',
+        email: 'creator@example.com',
+        displayName: 'Creator',
+        role: UserRole.managerAdmin,
+        orgId: 'org-1',
+        hubIds: [],
+        leagueIds: ['league-1'],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+      final leagueMember = AppUser(
+        id: 'sam',
+        email: 'sam@example.com',
+        displayName: 'Sam Orr',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: [],
+        leagueIds: ['league-1'],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+      final otherLeagueMember = AppUser(
+        id: 'other',
+        email: 'other@example.com',
+        displayName: 'Other League',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: [],
+        leagueIds: ['league-2'],
+        teamIds: [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+
+      expect(
+        eventRoomParticipantIds(
+          creator: creator,
+          users: [leagueMember, otherLeagueMember],
+          leagueId: 'league-1',
+        ),
+        ['creator', 'sam'],
+      );
+    });
+
     test('opens direct message room when current user is available', () async {
       final currentUser = AppUser(
         id: 'user-1',
@@ -343,6 +424,19 @@ void main() {
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: [],
+      leagueIds: ['league-1'],
+      teamIds: [],
+      createdAt: DateTime(2024),
+      isActive: true,
+    );
+    final managerUser = AppUser(
+      id: 'manager-1',
+      email: 'manager@example.com',
+      displayName: 'Manager User',
+      role: UserRole.managerAdmin,
+      orgId: 'org-1',
+      hubIds: [],
+      leagueIds: ['league-1'],
       teamIds: [],
       createdAt: DateTime(2024),
       isActive: true,
@@ -741,6 +835,7 @@ void main() {
           id: 'user-2',
           email: 'other@example.com',
           displayName: 'Other User',
+          avatarUrl: 'https://example.com/other-user.jpg',
           role: UserRole.staff,
           orgId: 'org-1',
           hubIds: [],
@@ -761,6 +856,14 @@ void main() {
 
         expect(find.text('New Direct Message'), findsOneWidget);
         expect(find.text('Other User'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is AvatarWidget &&
+                widget.imageUrl == 'https://example.com/other-user.jpg',
+          ),
+          findsOneWidget,
+        );
         expect(find.byType(ListTile), findsWidgets);
       });
 
@@ -783,18 +886,21 @@ void main() {
         final service = MockAuthorizedFirestoreService();
         when(
           service.createChatRoom(
-            testUser,
+            managerUser,
             'org-1',
             'Playoffs',
             ChatRoomType.event,
             leagueId: null,
-            participants: [testUser.id],
+            participants: [managerUser.id, testUser.id],
             roomIconName: 'event',
           ),
         ).thenAnswer((_) async => 'created-room');
 
         await tester.pumpWidget(
-          createRoutedTestWidget(authorizedFirestoreService: service),
+          createRoutedTestWidget(
+            user: managerUser,
+            authorizedFirestoreService: service,
+          ),
         );
         await tester.pumpAndSettle();
 
@@ -814,18 +920,21 @@ void main() {
         final service = MockAuthorizedFirestoreService();
         when(
           service.createChatRoom(
-            testUser,
+            managerUser,
             'org-1',
             'Playoffs',
             ChatRoomType.event,
             leagueId: 'league-1',
-            participants: [testUser.id],
+            participants: [managerUser.id, testUser.id],
             roomIconName: 'event',
           ),
         ).thenAnswer((_) async => 'created-room');
 
         await tester.pumpWidget(
-          createRoutedTestWidget(authorizedFirestoreService: service),
+          createRoutedTestWidget(
+            user: managerUser,
+            authorizedFirestoreService: service,
+          ),
         );
         await tester.pumpAndSettle();
 
@@ -847,18 +956,21 @@ void main() {
         final service = MockAuthorizedFirestoreService();
         when(
           service.createChatRoom(
-            testUser,
+            managerUser,
             'org-1',
             'No League Event',
             ChatRoomType.event,
             leagueId: null,
-            participants: [testUser.id],
+            participants: [managerUser.id, testUser.id],
             roomIconName: 'event',
           ),
         ).thenAnswer((_) async => 'created-room');
 
         await tester.pumpWidget(
-          createRoutedTestWidget(authorizedFirestoreService: service),
+          createRoutedTestWidget(
+            user: managerUser,
+            authorizedFirestoreService: service,
+          ),
         );
         await tester.pumpAndSettle();
 

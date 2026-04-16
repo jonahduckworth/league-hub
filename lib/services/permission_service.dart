@@ -370,7 +370,11 @@ class PermissionService {
     if (room.type == ChatRoomType.league && room.leagueId != null) {
       return user.leagueIds.contains(room.leagueId);
     }
-    // Event rooms: visible to anyone in the org.
+    // League-attached event rooms are scoped to that league.
+    if (room.type == ChatRoomType.event && room.leagueId != null) {
+      return user.leagueIds.contains(room.leagueId);
+    }
+    // Unscoped event rooms: visible to anyone in the org.
     return true;
   }
 

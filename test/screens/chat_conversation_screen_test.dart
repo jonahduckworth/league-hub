@@ -8,6 +8,7 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/chat_conversation_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/avatar_widget.dart';
 
 void main() {
   group('ChatConversationScreen', () {
@@ -72,6 +73,23 @@ void main() {
           chatRoomProvider('room-1').overrideWith(
             (ref) => Stream.value(room ?? testRoom),
           ),
+          orgUsersProvider.overrideWith(
+            (ref) => Stream.value([
+              user ?? testUser,
+              AppUser(
+                id: 'user-2',
+                email: 'other@example.com',
+                displayName: 'Other User',
+                avatarUrl: 'https://example.com/other.jpg',
+                role: UserRole.staff,
+                orgId: 'org-1',
+                hubIds: [],
+                teamIds: [],
+                createdAt: DateTime(2024),
+                isActive: true,
+              ),
+            ]),
+          ),
           messagesProvider('room-1').overrideWith(
             (ref) => Stream.value(messages ?? testMessages),
           ),
@@ -112,10 +130,41 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('2 members'), findsOneWidget);
       });
+
+      testWidgets('uses only the peer name for a direct message header',
+          (WidgetTester tester) async {
+        final dmRoom = ChatRoom(
+          id: 'room-1',
+          orgId: 'org-1',
+          name: 'Test User & Other User',
+          type: ChatRoomType.direct,
+          participants: ['user-1', 'user-2'],
+          createdAt: DateTime.now(),
+          isArchived: false,
+        );
+
+        await tester.pumpWidget(createTestWidget(room: dmRoom, messages: []));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Other User'), findsOneWidget);
+        expect(find.text('Test User & Other User'), findsNothing);
+        expect(find.text('Direct Message'), findsOneWidget);
+        expect(find.text('2 members'), findsNothing);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is AvatarWidget &&
+                widget.imageUrl == 'https://example.com/other.jpg',
+          ),
+          findsOneWidget,
+        );
+      });
     });
 
     group('Message List', () {
-      testWidgets('displays message list with messages', (WidgetTester tester) async {
+      testWidgets('displays message list with messages',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -123,7 +172,8 @@ void main() {
         expect(find.text('Hi there!'), findsOneWidget);
       });
 
-      testWidgets('shows empty state when no messages', (WidgetTester tester) async {
+      testWidgets('shows empty state when no messages',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(messages: []));
         await tester.pump();
         await tester.pumpAndSettle();
@@ -131,7 +181,8 @@ void main() {
         expect(find.text('Be the first to say something!'), findsOneWidget);
       });
 
-      testWidgets('displays sender name in messages', (WidgetTester tester) async {
+      testWidgets('displays sender name in messages',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -139,7 +190,8 @@ void main() {
         expect(find.text('Other User'), findsOneWidget);
       });
 
-      testWidgets('shows typing indicator when users are typing', (WidgetTester tester) async {
+      testWidgets('shows typing indicator when users are typing',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(typingUsers: ['Other User']));
         await tester.pump();
         await tester.pumpAndSettle();
@@ -155,7 +207,8 @@ void main() {
         expect(find.byType(TextField), findsOneWidget);
       });
 
-      testWidgets('displays hint text for new message', (WidgetTester tester) async {
+      testWidgets('displays hint text for new message',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -179,7 +232,8 @@ void main() {
         expect(find.byIcon(Icons.send), findsOneWidget);
       });
 
-      testWidgets('send button has correct appearance', (WidgetTester tester) async {
+      testWidgets('send button has correct appearance',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -189,7 +243,8 @@ void main() {
     });
 
     group('Image Attachment', () {
-      testWidgets('image attachment button is present', (WidgetTester tester) async {
+      testWidgets('image attachment button is present',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -208,7 +263,8 @@ void main() {
     });
 
     group('Editing', () {
-      testWidgets('shows edit banner when editing message', (WidgetTester tester) async {
+      testWidgets('shows edit banner when editing message',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -217,7 +273,8 @@ void main() {
         expect(find.byType(ChatConversationScreen), findsOneWidget);
       });
 
-      testWidgets('displays edit hint in input field during edit', (WidgetTester tester) async {
+      testWidgets('displays edit hint in input field during edit',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
