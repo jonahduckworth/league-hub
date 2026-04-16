@@ -1,9 +1,72 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Test-mode: allow all reads and writes
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && userDoc().isActive == true;
+    }
+
+    function sameOrg(orgId) {
+      return isActive() && userDoc().orgId == orgId;
+    }
+
+    function isManagerAdmin() {
+      return isActive()
+        && userDoc().role in ['platformOwner', 'superAdmin', 'managerAdmin'];
+    }
+
+    function isSuperAdmin() {
+      return isActive()
+        && userDoc().role in ['platformOwner', 'superAdmin'];
+    }
+
+    function isImageUpload(maxBytes) {
+      return request.resource != null
+        && request.resource.size <= maxBytes
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /orgs/{orgId}/avatars/{fileName} {
+      allow read: if sameOrg(orgId);
+      allow write: if sameOrg(orgId)
+        && fileName == request.auth.uid + '.jpg'
+        && isImageUpload(5 * 1024 * 1024);
+    }
+
+    match /orgs/{orgId}/chat/{roomId}/{fileName} {
+      allow read: if sameOrg(orgId);
+      allow write: if sameOrg(orgId)
+        && request.resource != null
+        && request.resource.size <= 25 * 1024 * 1024;
+    }
+
+    match /organizations/{orgId}/chatRooms/{fileName} {
+      allow read: if sameOrg(orgId);
+      allow write: if sameOrg(orgId)
+        && isManagerAdmin()
+        && isImageUpload(10 * 1024 * 1024);
+    }
+
+    match /organizations/{orgId}/documents/{docId}/{fileName} {
+      allow read: if sameOrg(orgId);
+      allow write: if sameOrg(orgId)
+        && isManagerAdmin()
+        && request.resource != null
+        && request.resource.size <= 50 * 1024 * 1024;
+      allow delete: if sameOrg(orgId) && isSuperAdmin();
+    }
+
     match /{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

@@ -1,9 +1,296 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Test-mode: allow all reads and writes
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function orgPath(orgId) {
+      return /databases/$(database)/documents/organizations/$(orgId);
+    }
+
+    function invitePath(orgId, inviteId) {
+      return /databases/$(database)/documents/organizations/$(orgId)/invitations/$(inviteId);
+    }
+
+    function roomPath(orgId, roomId) {
+      return /databases/$(database)/documents/organizations/$(orgId)/chatRooms/$(roomId);
+    }
+
+    function hasUserDoc() {
+      return signedIn() && exists(userPath(request.auth.uid));
+    }
+
+    function currentUser() {
+      return get(userPath(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return hasUserDoc() && currentUser().isActive == true;
+    }
+
+    function currentOrgId() {
+      return currentUser().orgId;
+    }
+
+    function sameOrg(orgId) {
+      return isActive() && currentOrgId() == orgId;
+    }
+
+    function isPlatformOwner() {
+      return isActive() && currentUser().role == 'platformOwner';
+    }
+
+    function isSuperAdmin() {
+      return isActive() && currentUser().role in ['platformOwner', 'superAdmin'];
+    }
+
+    function isManagerAdmin() {
+      return isActive() && currentUser().role in ['platformOwner', 'superAdmin', 'managerAdmin'];
+    }
+
+    function canManageOrg(orgId) {
+      return sameOrg(orgId) && isSuperAdmin();
+    }
+
+    function canManageContent(orgId) {
+      return sameOrg(orgId) && isManagerAdmin();
+    }
+
+    function canBootstrapOrg(orgId) {
+      return signedIn()
+        && exists(orgPath(orgId))
+        && get(orgPath(orgId)).data.ownerId == request.auth.uid;
+    }
+
+    function canReadOrg(orgId) {
+      return isPlatformOwner() || sameOrg(orgId) || canBootstrapOrg(orgId);
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isValidOwnerUserCreate(userId) {
+      return isSelf(userId)
+        && request.resource.data.id == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'superAdmin'
+        && request.resource.data.isActive == true
+        && request.resource.data.orgId is string
+        && canBootstrapOrg(request.resource.data.orgId);
+    }
+
+    function invitationMatchesNewUser(invite) {
+      return invite.status == 'pending'
+        && invite.email == request.auth.token.email
+        && invite.role == request.resource.data.role
+        && invite.hubIds == request.resource.data.hubIds
+        && invite.teamIds == request.resource.data.teamIds;
+    }
+
+    function isValidInvitedUserCreate(userId) {
+      return isSelf(userId)
+        && request.resource.data.id == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.orgId is string
+        && request.resource.data.acceptedInvitationId is string
+        && request.resource.data.role in ['managerAdmin', 'staff']
+        && request.resource.data.isActive == true
+        && exists(invitePath(
+          request.resource.data.orgId,
+          request.resource.data.acceptedInvitationId
+        ))
+        && invitationMatchesNewUser(get(invitePath(
+          request.resource.data.orgId,
+          request.resource.data.acceptedInvitationId
+        )).data);
+    }
+
+    function selfUpdateFieldsOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'displayName',
+        'email',
+        'avatarUrl',
+        'fcmTokens'
+      ]);
+    }
+
+    function canReadUser(userData) {
+      return isActive()
+        && (isPlatformOwner() || userData.orgId == currentOrgId());
+    }
+
+    function canAdminUpdateUser(userData) {
+      return isActive()
+        && userData.orgId == currentOrgId()
+        && (
+          isSuperAdmin()
+          || (
+            currentUser().role == 'managerAdmin'
+            && userData.role == 'staff'
+            && request.resource.data.role == 'staff'
+          )
+        );
+    }
+
+    function roomIsReadable(room) {
+      return sameOrg(room.orgId)
+        && (
+          isSuperAdmin()
+          || room.type == 'event'
+          || (room.type == 'direct' && request.auth.uid in room.participants)
+          || (
+            room.type == 'league'
+            && (
+              !('leagueId' in room)
+              || room.leagueId == null
+              || room.leagueId in currentUser().leagueIds
+            )
+          )
+        );
+    }
+
+    function canReadRoom(orgId, roomId) {
+      return exists(roomPath(orgId, roomId))
+        && roomIsReadable(get(roomPath(orgId, roomId)).data);
+    }
+
+    function messageCreateIsOwnMessage(roomId) {
+      return request.resource.data.chatRoomId == roomId
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.senderName == currentUser().displayName;
+    }
+
+    function messageReadReceiptOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
+    }
+
+    function ownMessageContentUpdateOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'text',
+        'mediaUrl',
+        'editedAt',
+        'deleted',
+        'deletedAt'
+      ]);
+    }
+
+    match /users/{userId} {
+      allow get: if isSelf(userId) || canReadUser(resource.data);
+      allow list: if canReadUser(resource.data);
+      allow create: if isValidOwnerUserCreate(userId) || isValidInvitedUserCreate(userId);
+      allow update: if (
+        isSelf(userId)
+        && resource.data.orgId == currentOrgId()
+        && selfUpdateFieldsOnly()
+      ) || canAdminUpdateUser(resource.data);
+      allow delete: if false;
+    }
+
+    match /organizations/{orgId} {
+      allow get, list: if canReadOrg(orgId);
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.id == orgId;
+      allow update: if canManageOrg(orgId);
+      allow delete: if isPlatformOwner();
+
+      match /leagues/{leagueId} {
+        allow get, list: if canReadOrg(orgId);
+        allow create: if canManageOrg(orgId);
+        allow update: if canManageOrg(orgId);
+        allow delete: if canManageOrg(orgId);
+
+        match /hubs/{hubId} {
+          allow get, list: if canReadOrg(orgId);
+          allow create: if canManageContent(orgId);
+          allow update: if canManageContent(orgId);
+          allow delete: if canManageOrg(orgId);
+
+          match /teams/{teamId} {
+            allow get, list: if canReadOrg(orgId);
+            allow create: if canManageContent(orgId);
+            allow update: if canManageContent(orgId);
+            allow delete: if canManageContent(orgId);
+          }
+        }
+      }
+
+      match /chatRooms/{roomId} {
+        // Room metadata is readable inside the org because current list screens
+        // query the full room collection before client-side filtering.
+        allow get, list: if sameOrg(orgId);
+        allow create: if canManageContent(orgId);
+        allow update: if canManageContent(orgId);
+        allow delete: if false;
+
+        match /messages/{messageId} {
+          allow get, list: if canReadRoom(orgId, roomId);
+          allow create: if canReadRoom(orgId, roomId)
+            && messageCreateIsOwnMessage(roomId);
+          allow update: if canReadRoom(orgId, roomId)
+            && (
+              messageReadReceiptOnly()
+              || (
+                resource.data.senderId == request.auth.uid
+                && ownMessageContentUpdateOnly()
+              )
+              || canManageOrg(orgId)
+            );
+          allow delete: if canManageOrg(orgId);
+        }
+
+        match /typing/{userId} {
+          allow get, list: if canReadRoom(orgId, roomId);
+          allow create, update, delete: if isSelf(userId)
+            && canReadRoom(orgId, roomId);
+        }
+      }
+
+      match /documents/{documentId} {
+        allow get, list: if sameOrg(orgId);
+        allow create: if canManageContent(orgId)
+          && request.resource.data.uploadedBy == request.auth.uid;
+        allow update: if canManageContent(orgId);
+        allow delete: if canManageOrg(orgId);
+      }
+
+      match /announcements/{announcementId} {
+        allow get, list: if sameOrg(orgId);
+        allow create: if canManageContent(orgId)
+          && request.resource.data.authorId == request.auth.uid;
+        allow update: if canManageContent(orgId)
+          && (
+            resource.data.authorId == request.auth.uid
+            || canManageOrg(orgId)
+          );
+        allow delete: if canManageOrg(orgId);
+      }
+
+      match /invitations/{invitationId} {
+        allow get, list: if canManageContent(orgId)
+          || (resource.data.status == 'pending' && resource.data.token is string);
+        allow create: if canManageContent(orgId)
+          && request.resource.data.invitedBy == request.auth.uid;
+        allow update: if canManageContent(orgId)
+          || (
+            signedIn()
+            && resource.data.status == 'pending'
+            && resource.data.email == request.auth.token.email
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+            && request.resource.data.status == 'accepted'
+          );
+        allow delete: if canManageOrg(orgId);
+      }
+    }
+
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

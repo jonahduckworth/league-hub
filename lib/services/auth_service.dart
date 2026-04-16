@@ -106,9 +106,9 @@ class AuthService {
       createdAt: DateTime.now(),
       isActive: true,
     );
-    await _db
-        .collection(AppConstants.usersCollection)
-        .doc(uid)
-        .set(user.toJson());
+    await _db.collection(AppConstants.usersCollection).doc(uid).set({
+      ...user.toJson(),
+      'acceptedInvitationId': invitation.id,
+    });
   }
 }

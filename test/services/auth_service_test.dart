@@ -140,6 +140,9 @@ void main() {
       expect(appUser.role.name, 'managerAdmin');
       // Hub IDs don't map to real hubs, so leagueIds should be empty.
       expect(appUser.leagueIds, isEmpty);
+
+      final rawDoc = await fakeFirestore.collection('users').doc(uid).get();
+      expect(rawDoc.data()!['acceptedInvitationId'], 'inv-1');
     });
 
     test('derives leagueIds from hubIds when hubs exist', () async {
@@ -313,5 +316,4 @@ void main() {
       expect(true, true);
     });
   });
-
 }
