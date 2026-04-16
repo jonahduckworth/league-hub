@@ -333,7 +333,7 @@ void main() {
           createTestWidget(docId: 'doc-1', document: pdfDocument),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Open / Download'), findsOneWidget);
+        expect(find.text('Open In App'), findsOneWidget);
       });
 
       testWidgets('download button is enabled', (WidgetTester tester) async {
@@ -343,7 +343,7 @@ void main() {
         await tester.pumpAndSettle();
         // The download button uses ElevatedButton.icon which renders with an
         // internal Row. Find it via the button text instead.
-        expect(find.text('Open / Download'), findsOneWidget);
+        expect(find.text('Open In App'), findsOneWidget);
       });
     });
 

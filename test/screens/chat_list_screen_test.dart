@@ -15,6 +15,7 @@ import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/empty_state.dart';
+import 'package:league_hub/widgets/league_filter.dart';
 import 'package:mockito/mockito.dart';
 
 class MockAuthorizedFirestoreService extends Mock
@@ -936,6 +937,14 @@ void main() {
 
         // Should still render properly
         expect(find.byType(ChatListScreen), findsOneWidget);
+      });
+
+      testWidgets('hides league filter when there is only one league',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(LeagueFilter), findsNothing);
       });
     });
 

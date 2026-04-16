@@ -22,18 +22,25 @@ class DocumentsScreen extends ConsumerStatefulWidget {
   ConsumerState<DocumentsScreen> createState() => _DocumentsScreenState();
 }
 
+List<String> buildVisibleDocumentCategories(List<Document> documents) {
+  final existingCategories = documents.map((doc) => doc.category).toSet();
+  return [
+    'All',
+    ..._documentCategories.where(existingCategories.contains),
+  ];
+}
+
+const _documentCategories = [
+  'Rosters',
+  'Waivers',
+  'Schedules',
+  'Policies',
+  'Other',
+];
+
 class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
-
-  static const _categories = [
-    'All',
-    'Rosters',
-    'Waivers',
-    'Schedules',
-    'Policies',
-    'Other',
-  ];
 
   @override
   void dispose() {
@@ -55,6 +62,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     final selectedCategory = ref.watch(selectedCategoryProvider);
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final leagues = leaguesAsync.valueOrNull ?? [];
+    final showLeagueFilter = leagues.length > 1;
+    final visibleCategories =
+        buildVisibleDocumentCategories(docsAsync.valueOrNull ?? const []);
 
     return AppShellScaffold(
       floatingActionButton: _canUpload(currentUser)
@@ -80,19 +90,21 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       stickyContent: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          LeagueFilter(
-            leagues: leagues,
-            selectedLeagueId: selectedLeagueId,
-            onSelected: (id) =>
-                ref.read(selectedLeagueProvider.notifier).state = id,
-          ),
-          const SizedBox(height: 8),
+          if (showLeagueFilter) ...[
+            LeagueFilter(
+              leagues: leagues,
+              selectedLeagueId: selectedLeagueId,
+              onSelected: (id) =>
+                  ref.read(selectedLeagueProvider.notifier).state = id,
+            ),
+            const SizedBox(height: 8),
+          ],
           SizedBox(
             height: 36,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: _categories
+              children: visibleCategories
                   .map((cat) => _CategoryChip(
                         label: cat,
                         isSelected: selectedCategory == cat,

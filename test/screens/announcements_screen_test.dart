@@ -14,6 +14,7 @@ import 'package:league_hub/screens/announcements_screen.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/empty_state.dart';
+import 'package:league_hub/widgets/league_filter.dart';
 import 'package:mockito/mockito.dart';
 
 class MockAuthorizedFirestoreService extends Mock
@@ -632,6 +633,15 @@ void main() {
 
         // Should still render announcements
         expect(find.byType(AnnouncementsScreen), findsOneWidget);
+      });
+
+      testWidgets('hides league filter when there is only one league',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(LeagueFilter), findsNothing);
       });
 
       testWidgets('selecting a league hides unrelated league announcements',

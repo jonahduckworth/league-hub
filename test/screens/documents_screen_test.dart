@@ -8,6 +8,7 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/documents_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/league_filter.dart';
 
 void main() {
   group('DocumentsScreen', () {
@@ -98,6 +99,25 @@ void main() {
         versions: [],
       ),
     ];
+
+    group('document category helpers', () {
+      test('shows All plus only categories that exist in the documents', () {
+        expect(
+          buildVisibleDocumentCategories([testDocuments.first]),
+          ['All', 'Rosters'],
+        );
+      });
+
+      test('keeps categories in configured display order', () {
+        expect(
+          buildVisibleDocumentCategories([
+            testDocuments[1], // Schedules
+            testDocuments.first, // Rosters
+          ]),
+          ['All', 'Rosters', 'Schedules'],
+        );
+      });
+    });
 
     Widget createTestWidget({
       AppUser? user,
@@ -291,20 +311,47 @@ void main() {
         // Should still render properly
         expect(find.byType(DocumentsScreen), findsOneWidget);
       });
+
+      testWidgets('hides league filter when there is only one league',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(LeagueFilter), findsNothing);
+        expect(find.text('All'), findsOneWidget); // Category filter remains.
+      });
     });
 
     group('Category Filter', () {
-      testWidgets('displays all category chips', (WidgetTester tester) async {
+      testWidgets('displays only category chips that have documents',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
         expect(find.text('All'), findsWidgets); // LeagueFilter "All" pill + CategoryFilter "All" chip
         expect(find.text('Rosters'), findsWidgets);
-        expect(find.text('Waivers'), findsOneWidget);
         expect(find.text('Schedules'), findsWidgets);
         expect(find.text('Policies'), findsWidgets);
-        expect(find.text('Other'), findsOneWidget);
+        expect(find.text('Waivers'), findsNothing);
+        expect(find.text('Other'), findsNothing);
+      });
+
+      testWidgets('shows All plus the only existing document category',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createTestWidget(documents: [testDocuments.first], leagues: []),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('All'), findsOneWidget);
+        expect(find.text('Rosters'), findsWidgets);
+        expect(find.text('Waivers'), findsNothing);
+        expect(find.text('Schedules'), findsNothing);
+        expect(find.text('Policies'), findsNothing);
+        expect(find.text('Other'), findsNothing);
       });
 
       testWidgets('All category is selected by default',

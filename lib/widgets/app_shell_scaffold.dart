@@ -28,36 +28,47 @@ class AppShellScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      floatingActionButton: floatingActionButton,
-      body: Column(
+      body: Stack(
         children: [
-          header,
-          Expanded(
-            child: Transform.translate(
-              offset: Offset(0, -overlap),
-              child: SizedBox(
-                width: double.infinity,
-                child: Material(
-                  color: AppColors.background,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(30)),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      SizedBox(height: topSpacing),
-                      if (stickyContent != null) ...[
-                        stickyContent!,
-                        SizedBox(height: stickySpacing),
-                      ],
-                      Expanded(child: child),
-                    ],
+          Column(
+            children: [
+              header,
+              Expanded(
+                child: Transform.translate(
+                  offset: Offset(0, -overlap),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Material(
+                      color: AppColors.background,
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(30)),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          SizedBox(height: topSpacing),
+                          if (stickyContent != null) ...[
+                            stickyContent!,
+                            SizedBox(height: stickySpacing),
+                          ],
+                          Expanded(child: child),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
+          if (floatingActionButton != null)
+            Positioned(
+              right: 16,
+              bottom: bottomInset + 20,
+              child: floatingActionButton!,
+            ),
         ],
       ),
     );

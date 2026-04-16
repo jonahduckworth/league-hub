@@ -495,6 +495,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final chatRoomsAsync = ref.watch(chatRoomsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+    final leagues = leaguesAsync.valueOrNull ?? [];
+    final showLeagueFilter = leagues.length > 1;
 
     return AppShellScaffold(
       floatingActionButton: orgId == null
@@ -516,15 +518,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           hintText: 'Search conversations...',
         ),
       ),
-      stickyContent: leaguesAsync.when(
-        loading: () => const SizedBox(height: 48),
-        error: (_, __) => const SizedBox(height: 48),
-        data: (leagues) => LeagueFilter(
-          leagues: leagues,
-          selectedLeagueId: _selectedLeagueId,
-          onSelected: (id) => setState(() => _selectedLeagueId = id),
-        ),
-      ),
+      stickyContent: showLeagueFilter
+          ? LeagueFilter(
+              leagues: leagues,
+              selectedLeagueId: _selectedLeagueId,
+              onSelected: (id) => setState(() => _selectedLeagueId = id),
+            )
+          : null,
       stickySpacing: 8,
       child: chatRoomsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

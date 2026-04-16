@@ -172,6 +172,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     final canManage =
         currentUser != null && canManageAnnouncements(currentUser.role);
     final summaryItems = buildAnnouncementSummaries(allAnnouncements);
+    final showLeagueFilter = leagues.length > 1;
 
     return AppShellScaffold(
       floatingActionButton: canManage
@@ -196,11 +197,13 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
               .toList(),
         ),
       ),
-      stickyContent: LeagueFilter(
-        leagues: leagues,
-        selectedLeagueId: _selectedLeagueId,
-        onSelected: (id) => setState(() => _selectedLeagueId = id),
-      ),
+      stickyContent: showLeagueFilter
+          ? LeagueFilter(
+              leagues: leagues,
+              selectedLeagueId: _selectedLeagueId,
+              onSelected: (id) => setState(() => _selectedLeagueId = id),
+            )
+          : null,
       child: RefreshIndicator(
         onRefresh: () => refreshAnnouncements(ref),
         child: announcementsAsync.isLoading

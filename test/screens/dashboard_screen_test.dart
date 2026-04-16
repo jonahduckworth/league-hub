@@ -241,57 +241,27 @@ void main() {
       );
     }
 
-    group('Stat Cards', () {
-      testWidgets('displays all stat cards', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        // Check for stat titles
-        expect(find.text('Active Hubs'), findsOneWidget);
-        expect(find.text('Total Teams'), findsOneWidget);
-        expect(find.text('Leagues'), findsOneWidget);
-        expect(find.text('Members'), findsOneWidget);
-      });
-
-      testWidgets('displays correct stat values', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(
-          hubCount: 5,
-          teamCount: 20,
-          memberCount: 100,
-        ));
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('5'), findsWidgets); // Active Hubs
-        expect(find.text('20'), findsWidgets); // Total Teams
-        expect(find.text('100'), findsWidgets); // Members
-        expect(find.text('2'), findsWidgets); // Leagues (from testLeagues)
-      });
-
-      testWidgets('displays zero values correctly',
+    group('Main Content', () {
+      testWidgets('does not render the old stats card grid',
           (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(
-          hubCount: 0,
-          teamCount: 0,
-          memberCount: 0,
-          leagues: [],
-        ));
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('0'), findsWidgets);
-      });
-
-      testWidgets('stat cards have proper icons', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.location_city), findsWidgets); // Hubs
-        expect(find.byIcon(Icons.groups), findsOneWidget); // Teams
-        expect(find.byIcon(Icons.emoji_events), findsOneWidget); // Leagues
-        expect(find.byIcon(Icons.people), findsOneWidget); // Members
+        expect(find.text('Active Hubs'), findsNothing);
+        expect(find.text('Total Teams'), findsNothing);
+        expect(find.text('Leagues'), findsNothing);
+        expect(find.text('Members'), findsNothing);
+      });
+
+      testWidgets('starts main content with announcements',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Announcements'), findsOneWidget);
+        expect(find.text('Welcome Announcement'), findsOneWidget);
       });
     });
 
@@ -408,6 +378,15 @@ void main() {
 
         // Should still render without crashing
         expect(find.byType(DashboardScreen), findsOneWidget);
+      });
+
+      testWidgets('hides league filter when there is only one league',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(LeagueFilter), findsNothing);
       });
     });
 
@@ -710,7 +689,7 @@ void main() {
 
         // Should display with default org name
         expect(find.text('League Hub'), findsWidgets);
-        expect(find.text('0'), findsWidgets); // All stats should be 0
+        expect(find.text('Announcements'), findsOneWidget);
       });
     });
 

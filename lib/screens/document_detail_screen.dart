@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../core/theme.dart';
 import '../core/utils.dart';
@@ -19,6 +21,31 @@ import '../services/storage_service.dart';
 import '../widgets/confirmation_dialog.dart';
 import 'viewers/image_viewer_screen.dart';
 import 'viewers/pdf_viewer_screen.dart';
+
+enum DocumentViewerType {
+  image,
+  pdf,
+  native,
+}
+
+const _imageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
+const _pdfExts = {'pdf'};
+
+DocumentViewerType documentViewerTypeForExt(String ext) {
+  final normalized = ext.toLowerCase();
+  if (_imageExts.contains(normalized)) return DocumentViewerType.image;
+  if (_pdfExts.contains(normalized)) return DocumentViewerType.pdf;
+  return DocumentViewerType.native;
+}
+
+String extractDocumentExtensionFromUrl(String url) {
+  try {
+    final path = Uri.parse(url).path;
+    final lastDot = path.lastIndexOf('.');
+    if (lastDot != -1) return path.substring(lastDot + 1);
+  } catch (_) {}
+  return '';
+}
 
 class DocumentDetailScreen extends ConsumerStatefulWidget {
   final String docId;
@@ -35,21 +62,15 @@ class _DocumentDetailScreenState
   bool _isUploading = false;
   double _uploadProgress = 0;
   bool _isDeleting = false;
+  bool _isOpeningDocument = false;
 
-  bool _canManage(AppUser? user) {
-    if (user == null) return false;
-    return PermissionService.isAtLeast(user.role, UserRole.managerAdmin);
-  }
-
-  static const _imageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
-  static const _pdfExts = {'pdf'};
-
-  /// Opens the document in-app for supported types (PDF, images) or
-  /// falls back to the external browser for other types.
+  /// Opens the document in-app for supported types and uses native preview
+  /// for other document formats after downloading them locally.
   Future<void> _openDocument(String url, {String? fileType, String? title}) async {
-    final ext = (fileType ?? _extractExtFromUrl(url)).toLowerCase();
+    final ext = (fileType ?? extractDocumentExtensionFromUrl(url)).toLowerCase();
+    final viewerType = documentViewerTypeForExt(ext);
 
-    if (_imageExts.contains(ext)) {
+    if (viewerType == DocumentViewerType.image) {
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -62,7 +83,7 @@ class _DocumentDetailScreenState
       return;
     }
 
-    if (_pdfExts.contains(ext)) {
+    if (viewerType == DocumentViewerType.pdf) {
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -75,26 +96,57 @@ class _DocumentDetailScreenState
       return;
     }
 
-    // Unsupported type — fall back to external browser.
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      if (mounted) {
-        AppUtils.showInfoSnackBar(context,
-            'In-app preview not available for .$ext files. Opening in browser.');
+    await _openWithNativePreview(
+      url,
+      fileType: ext,
+      title: title ?? 'Document',
+    );
+  }
+
+  Future<void> _openWithNativePreview(
+    String sourceUrl, {
+    required String fileType,
+    required String title,
+  }) async {
+    if (_isOpeningDocument) return;
+
+    setState(() => _isOpeningDocument = true);
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final extension = fileType.isEmpty ? 'bin' : fileType;
+      final baseName = title.replaceAll(RegExp(r'[^\w\-. ]'), '_');
+      final fileName = baseName.toLowerCase().endsWith('.$extension')
+          ? baseName
+          : '$baseName.$extension';
+      final filePath = '${tempDir.path}/$fileName';
+
+      await Dio().download(sourceUrl, filePath);
+      final result = await OpenFilex.open(filePath);
+
+      if (!mounted) return;
+      if (result.type != ResultType.done) {
+        AppUtils.showErrorSnackBar(
+          context,
+          'Could not preview this document in app.',
+        );
       }
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (mounted) {
-      AppUtils.showInfoSnackBar(context, 'Could not open document.');
+    } catch (e) {
+      if (!mounted) return;
+      AppUtils.showErrorSnackBar(
+        context,
+        'Could not open document: $e',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningDocument = false);
+      }
     }
   }
 
-  String _extractExtFromUrl(String url) {
-    try {
-      final path = Uri.parse(url).path;
-      final lastDot = path.lastIndexOf('.');
-      if (lastDot != -1) return path.substring(lastDot + 1);
-    } catch (_) {}
-    return '';
+  bool _canManage(AppUser? user) {
+    if (user == null) return false;
+    return PermissionService.isAtLeast(user.role, UserRole.managerAdmin);
   }
 
   Future<void> _uploadNewVersion(Document doc) async {
@@ -396,8 +448,17 @@ class _DocumentDetailScreenState
                     fileType: doc.fileType,
                     title: doc.name,
                   ),
-                  icon: const Icon(Icons.open_in_new),
-                  label: const Text('Open / Download'),
+                  icon: _isOpeningDocument
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.visibility_outlined),
+                  label: Text(_isOpeningDocument ? 'Opening...' : 'Open In App'),
                   style: ElevatedButton.styleFrom(
                     padding:
                         const EdgeInsets.symmetric(vertical: 14),
