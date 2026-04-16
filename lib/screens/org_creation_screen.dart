@@ -274,7 +274,6 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
         'displayName': _nameCtrl.text.trim(),
         'role': 'superAdmin',
         'orgId': orgId,
-        'isOwner': true,
         'hubIds': [],
         'teamIds': [],
         'createdAt': now,
