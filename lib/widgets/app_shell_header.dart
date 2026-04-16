@@ -1,12 +1,16 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/theme.dart';
+import '../core/utils.dart';
 
 class AppShellHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
   final String? eyebrow;
   final IconData? leadingIcon;
+  final String? leadingImageUrl;
+  final String? leadingLabel;
   final List<Widget> actions;
   final Widget? bottom;
 
@@ -16,6 +20,8 @@ class AppShellHeader extends StatelessWidget {
     this.subtitle,
     this.eyebrow,
     this.leadingIcon,
+    this.leadingImageUrl,
+    this.leadingLabel,
     this.actions = const [],
     this.bottom,
   });
@@ -57,22 +63,13 @@ class AppShellHeader extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (leadingIcon != null) ...[
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.18),
-                            ),
-                          ),
-                          child: Icon(
-                            leadingIcon,
-                            color: Colors.white,
-                            size: 24,
-                          ),
+                      if (leadingIcon != null ||
+                          (leadingImageUrl != null &&
+                              leadingImageUrl!.isNotEmpty)) ...[
+                        _HeaderLeadingMark(
+                          icon: leadingIcon,
+                          imageUrl: leadingImageUrl,
+                          label: leadingLabel ?? title,
                         ),
                         const SizedBox(width: 14),
                       ],
@@ -129,6 +126,65 @@ class AppShellHeader extends StatelessWidget {
               bottom!,
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderLeadingMark extends StatelessWidget {
+  final IconData? icon;
+  final String? imageUrl;
+  final String label;
+
+  const _HeaderLeadingMark({
+    required this.icon,
+    required this.imageUrl,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.18),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: hasImage
+          ? CachedNetworkImage(
+              imageUrl: imageUrl!,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => _fallback(),
+              errorWidget: (_, __, ___) => _fallback(),
+            )
+          : _fallback(),
+    );
+  }
+
+  Widget _fallback() {
+    if (icon != null) {
+      return Icon(
+        icon,
+        color: Colors.white,
+        size: 24,
+      );
+    }
+
+    return Center(
+      child: Text(
+        AppUtils.getInitials(label),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );

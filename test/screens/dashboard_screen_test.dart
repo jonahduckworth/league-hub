@@ -118,6 +118,7 @@ void main() {
       List<League>? leagues,
       List<Announcement>? announcements,
       List<ChatRoom>? chatRooms,
+      List<AppUser>? users,
       int hubCount = 3,
       int teamCount = 12,
       int memberCount = 45,
@@ -138,6 +139,9 @@ void main() {
           ),
           chatRoomsProvider.overrideWith(
             (ref) => Stream.value(chatRooms ?? testChatRooms),
+          ),
+          orgUsersProvider.overrideWith(
+            (ref) => Stream.value(users ?? [testUser]),
           ),
           hubCountProvider.overrideWith(
             (ref) => hubCount,
@@ -168,6 +172,7 @@ void main() {
       List<League>? leagues,
       List<Announcement>? announcements,
       List<ChatRoom>? chatRooms,
+      List<AppUser>? users,
       int hubCount = 3,
       int teamCount = 12,
       int memberCount = 45,
@@ -225,6 +230,9 @@ void main() {
           ),
           chatRoomsProvider.overrideWith(
             (ref) => Stream.value(chatRooms ?? testChatRooms),
+          ),
+          orgUsersProvider.overrideWith(
+            (ref) => Stream.value(users ?? [testUser]),
           ),
           hubCountProvider.overrideWith((ref) => hubCount),
           teamCountProvider.overrideWith((ref) => teamCount),
@@ -522,7 +530,46 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.forum), findsOneWidget); // League room
-        expect(find.byIcon(Icons.event), findsOneWidget); // Event room
+        expect(find.byIcon(Icons.event_outlined), findsOneWidget); // Event room
+      });
+
+      testWidgets('uses direct message peer details on chat cards',
+          (WidgetTester tester) async {
+        final peer = AppUser(
+          id: 'user-2',
+          email: 'sam@example.com',
+          displayName: 'Sam Orr',
+          avatarUrl: 'https://example.com/sam.jpg',
+          role: UserRole.staff,
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2024),
+          isActive: true,
+        );
+        final directRoom = ChatRoom(
+          id: 'dm-1',
+          orgId: 'org-1',
+          name: 'Test User & Sam Orr',
+          type: ChatRoomType.direct,
+          participants: ['user-1', 'user-2'],
+          createdAt: DateTime.now(),
+          isArchived: false,
+          lastMessage: 'See you there',
+          lastMessageBy: 'Sam Orr',
+          lastMessageAt: DateTime.now(),
+        );
+
+        await tester.pumpWidget(createTestWidget(
+          chatRooms: [directRoom],
+          users: [testUser, peer],
+        ));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Sam Orr'), findsOneWidget);
+        expect(find.text('Test User & Sam Orr'), findsNothing);
+        expect(find.byIcon(Icons.person), findsNothing);
       });
 
       testWidgets('shows empty state when no chats',

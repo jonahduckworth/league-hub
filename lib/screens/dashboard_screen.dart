@@ -1,12 +1,15 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/announcement.dart';
+import '../models/app_user.dart';
 import '../models/chat_room.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../screens/chat_list_screen.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/league_filter.dart';
@@ -29,7 +32,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final orgAsync = ref.watch(organizationProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
 
-    final orgName = orgAsync.valueOrNull?.name ?? 'League Hub';
+    final org = orgAsync.valueOrNull;
+    final orgName = org?.name ?? 'League Hub';
     final userName = userAsync.valueOrNull?.displayName ?? '';
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
@@ -37,6 +41,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return AppShellScaffold(
       header: AppShellHeader(
         leadingIcon: Icons.apartment_rounded,
+        leadingImageUrl: org?.logoUrl,
+        leadingLabel: orgName,
         title: orgName,
         subtitle: userName.isNotEmpty
             ? 'Welcome back, $userName'
@@ -172,6 +178,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildAnnouncementsSection() {
     final announcements = ref.watch(announcementsProvider).valueOrNull ?? [];
+    final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
     final recent = announcements.take(3).toList();
 
     return Column(
@@ -203,13 +210,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           )
         else
-          ...recent.map((a) => _AnnouncementCard(announcement: a)),
+          ...recent.map((a) => _AnnouncementCard(
+                announcement: a,
+                author: _userById(users, a.authorId),
+              )),
       ],
     );
   }
 
   Widget _buildChatsSection() {
     final chatRooms = ref.watch(chatRoomsProvider).valueOrNull ?? [];
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -239,15 +251,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           )
         else
-          ...chatRooms.take(3).map((c) => _ChatCard(chatRoom: c)),
+          ...chatRooms.take(3).map((c) => _ChatCard(
+                chatRoom: c,
+                currentUser: currentUser,
+                users: users,
+              )),
       ],
     );
+  }
+
+  AppUser? _userById(List<AppUser> users, String id) {
+    for (final user in users) {
+      if (user.id == id) return user;
+    }
+    return null;
   }
 }
 
 class _AnnouncementCard extends StatelessWidget {
   final Announcement announcement;
-  const _AnnouncementCard({required this.announcement});
+  final AppUser? author;
+
+  const _AnnouncementCard({
+    required this.announcement,
+    required this.author,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +347,11 @@ class _AnnouncementCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                AvatarWidget(name: announcement.authorName, size: 20),
+                AvatarWidget(
+                  imageUrl: author?.avatarUrl,
+                  name: announcement.authorName,
+                  size: 20,
+                ),
                 const SizedBox(width: 6),
                 Text(announcement.authorName,
                     style: const TextStyle(
@@ -378,10 +410,21 @@ class _SearchChip extends StatelessWidget {
 
 class _ChatCard extends StatelessWidget {
   final ChatRoom chatRoom;
-  const _ChatCard({required this.chatRoom});
+  final AppUser? currentUser;
+  final List<AppUser> users;
+
+  const _ChatCard({
+    required this.chatRoom,
+    required this.currentUser,
+    required this.users,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final displayName = chatRoomDisplayName(chatRoom, currentUser, users);
+    final peer = directMessagePeer(chatRoom, currentUser, users);
+    final preview = chatRoomPreviewText(chatRoom, currentUser: currentUser);
+
     return GestureDetector(
       onTap: () => context.push('/chat/${chatRoom.id}'),
       child: Container(
@@ -394,43 +437,29 @@ class _ChatCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: chatRoom.type == ChatRoomType.direct
-                    ? AppColors.accent.withValues(alpha: 0.15)
-                    : AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                chatRoom.type == ChatRoomType.direct
-                    ? Icons.person
-                    : chatRoom.type == ChatRoomType.event
-                        ? Icons.event
-                        : Icons.forum,
-                color: chatRoom.type == ChatRoomType.direct
-                    ? AppColors.accent
-                    : AppColors.primary,
-                size: 22,
-              ),
+            _DashboardChatAvatar(
+              room: chatRoom,
+              displayName: displayName,
+              peer: peer,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(chatRoom.name,
+                  Text(displayName,
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                           color: AppColors.text)),
-                  const SizedBox(height: 2),
-                  Text(chatRoom.lastMessage ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 13, color: AppColors.textSecondary)),
+                  if (preview != null) ...[
+                    const SizedBox(height: 2),
+                    Text(preview,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13, color: AppColors.textSecondary)),
+                  ],
                 ],
               ),
             ),
@@ -440,6 +469,71 @@ class _ChatCard extends StatelessWidget {
                       fontSize: 11, color: AppColors.textMuted)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DashboardChatAvatar extends StatelessWidget {
+  final ChatRoom room;
+  final String displayName;
+  final AppUser? peer;
+
+  const _DashboardChatAvatar({
+    required this.room,
+    required this.displayName,
+    required this.peer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (room.type == ChatRoomType.direct) {
+      return AvatarWidget(
+        imageUrl: peer?.avatarUrl,
+        name: displayName,
+        size: 44,
+        backgroundColor: AppColors.accent,
+      );
+    }
+
+    final imageUrl = room.roomImageUrl;
+    if (room.type == ChatRoomType.event &&
+        imageUrl != null &&
+        imageUrl.isNotEmpty) {
+      return Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => _iconFallback(),
+          errorWidget: (_, __, ___) => _iconFallback(),
+        ),
+      );
+    }
+
+    return _iconFallback();
+  }
+
+  Widget _iconFallback() {
+    final isEvent = room.type == ChatRoomType.event;
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(
+        isEvent ? iconForChatRoomIconName(room.roomIconName) : Icons.forum,
+        color: AppColors.primary,
+        size: 22,
       ),
     );
   }
