@@ -42,7 +42,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return AppShellScaffold(
       header: AppShellHeader(
-        eyebrow: 'LEAGUE HUB',
         leadingIcon: Icons.apartment_rounded,
         title: orgName,
         subtitle: userName.isNotEmpty
@@ -60,24 +59,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onPressed: () => _showSearchSheet(context),
           ),
         ],
-        bottom: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _HeaderPill(
-              icon: Icons.location_city,
-              label: '$hubCount hubs',
-            ),
-            _HeaderPill(
-              icon: Icons.emoji_events_outlined,
-              label: '$leagueCount leagues',
-            ),
-            _HeaderPill(
-              icon: Icons.groups_2_outlined,
-              label: '$memberCount members',
-            ),
-          ],
-        ),
       ),
       stickyContent: LeagueFilter(
         leagues: leagues,
@@ -366,43 +347,6 @@ class _StatCard extends StatelessWidget {
           Text(title,
               style: const TextStyle(
                   fontSize: 12, color: AppColors.textSecondary)),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _HeaderPill({
-    required this.icon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: Colors.white),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
         ],
       ),
     );
