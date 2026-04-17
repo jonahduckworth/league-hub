@@ -4,6 +4,8 @@ class League {
   final String name;
   final String abbreviation;
   final String? description;
+  final String? logoUrl;
+  final String? iconName;
   final DateTime createdAt;
 
   League({
@@ -12,6 +14,8 @@ class League {
     required this.name,
     required this.abbreviation,
     this.description,
+    this.logoUrl,
+    this.iconName,
     required this.createdAt,
   });
 
@@ -21,6 +25,8 @@ class League {
         name: json['name'] as String,
         abbreviation: json['abbreviation'] as String,
         description: json['description'] as String?,
+        logoUrl: json['logoUrl'] as String?,
+        iconName: json['iconName'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
       );
 
@@ -30,6 +36,8 @@ class League {
         'name': name,
         'abbreviation': abbreviation,
         'description': description,
+        'logoUrl': logoUrl,
+        'iconName': iconName,
         'createdAt': createdAt.toIso8601String(),
       };
 }

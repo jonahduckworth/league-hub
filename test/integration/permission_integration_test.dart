@@ -43,6 +43,7 @@ class MockFirestoreService extends Mock implements FirestoreService {
   @override
   Future<String> createChatRoom(String orgId, String name, ChatRoomType type,
           {String? leagueId,
+          String? hubId,
           List<String> participants = const [],
           String? roomIconName,
           String? roomImageUrl}) =>
@@ -53,6 +54,7 @@ class MockFirestoreService extends Mock implements FirestoreService {
             type
           ], {
             #leagueId: leagueId,
+            #hubId: hubId,
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,

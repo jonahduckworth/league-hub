@@ -4,6 +4,8 @@ class Hub {
   final String orgId;
   final String name;
   final String? location;
+  final String? logoUrl;
+  final String? iconName;
   final DateTime createdAt;
 
   Hub({
@@ -12,6 +14,8 @@ class Hub {
     required this.orgId,
     required this.name,
     this.location,
+    this.logoUrl,
+    this.iconName,
     required this.createdAt,
   });
 
@@ -21,6 +25,8 @@ class Hub {
         orgId: json['orgId'] as String,
         name: json['name'] as String,
         location: json['location'] as String?,
+        logoUrl: json['logoUrl'] as String?,
+        iconName: json['iconName'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
       );
 
@@ -30,6 +36,8 @@ class Hub {
         'orgId': orgId,
         'name': name,
         'location': location,
+        'logoUrl': logoUrl,
+        'iconName': iconName,
         'createdAt': createdAt.toIso8601String(),
       };
 }

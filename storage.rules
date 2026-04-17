@@ -57,6 +57,14 @@ service firebase.storage {
         && request.resource.size <= 25 * 1024 * 1024;
     }
 
+    match /orgs/{orgId}/logos/{entityType}/{entityId}/{userId}/{fileName} {
+      allow read: if sameOrg(orgId);
+      allow write: if sameOrg(orgId)
+        && isManagerAdmin()
+        && request.auth.uid == userId
+        && isImageUpload(10 * 1024 * 1024);
+    }
+
     match /orgs/{orgId}/chat/{roomId}/{fileName} {
       allow read: if sameOrg(orgId);
       allow write: if sameOrg(orgId)

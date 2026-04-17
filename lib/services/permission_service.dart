@@ -368,6 +368,7 @@ class PermissionService {
     }
     // League rooms: visible to users in hubs belonging to that league.
     if (room.type == ChatRoomType.league && room.leagueId != null) {
+      if (room.hubId != null) return user.hubIds.contains(room.hubId);
       return user.leagueIds.contains(room.leagueId);
     }
     // League-attached event rooms are scoped to that league.

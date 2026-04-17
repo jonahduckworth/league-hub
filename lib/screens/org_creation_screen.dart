@@ -2,8 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../core/picked_file.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
+import '../services/storage_service.dart';
+import '../widgets/entity_avatar.dart';
 
 // ---------------------------------------------------------------------------
 // Local data classes used only during the wizard (not persisted to Firestore
@@ -13,21 +16,48 @@ import '../core/utils.dart';
 class _LeagueEntry {
   final String name;
   final String abbreviation;
-  _LeagueEntry({required this.name, required this.abbreviation});
+  final _LogoChoice logoChoice;
+  _LeagueEntry({
+    required this.name,
+    required this.abbreviation,
+    required this.logoChoice,
+  });
 }
 
 class _HubEntry {
   final String name;
   final String location;
-  _HubEntry({required this.name, required this.location});
+  final _LogoChoice logoChoice;
+  _HubEntry({
+    required this.name,
+    required this.location,
+    required this.logoChoice,
+  });
 }
 
 class _TeamEntry {
   final String name;
   final String ageGroup;
   final String division;
-  _TeamEntry(
-      {required this.name, required this.ageGroup, required this.division});
+  final _LogoChoice logoChoice;
+  _TeamEntry({
+    required this.name,
+    required this.ageGroup,
+    required this.division,
+    required this.logoChoice,
+  });
+}
+
+class _LogoChoice {
+  final String? iconName;
+  final PickedFileBytes? image;
+  final bool useInherited;
+
+  const _LogoChoice({
+    this.iconName,
+    this.image,
+    this.useInherited = false,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -59,12 +89,17 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
   final _leagueNameCtrl = TextEditingController();
   final _leagueAbbrevCtrl = TextEditingController();
   final List<_LeagueEntry> _leagues = [];
+  String _leagueIconName = 'league';
+  PickedFileBytes? _leagueLogoImage;
 
   // --- Step 2: Hubs (keyed by league index) ---
   int _selectedLeagueIdx = 0;
   final _hubNameCtrl = TextEditingController();
   final _hubLocationCtrl = TextEditingController();
   final Map<int, List<_HubEntry>> _hubsByLeague = {};
+  String _hubIconName = 'hub';
+  PickedFileBytes? _hubLogoImage;
+  bool _hubUseLeagueLogo = true;
 
   // --- Step 3: Teams (keyed by "leagueIdx-hubIdx") ---
   int _selectedLeagueForTeams = 0;
@@ -73,6 +108,9 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
   final _teamAgeCtrl = TextEditingController();
   final _teamDivCtrl = TextEditingController();
   final Map<String, List<_TeamEntry>> _teamsByHub = {};
+  String _teamIconName = 'team';
+  PickedFileBytes? _teamLogoImage;
+  bool _teamUseParentLogo = true;
 
   @override
   void dispose() {
@@ -166,9 +204,18 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
       return;
     }
     setState(() {
-      _leagues.add(_LeagueEntry(name: name, abbreviation: abbrev));
+      _leagues.add(_LeagueEntry(
+        name: name,
+        abbreviation: abbrev,
+        logoChoice: _LogoChoice(
+          iconName: _leagueLogoImage == null ? _leagueIconName : null,
+          image: _leagueLogoImage,
+        ),
+      ));
       _leagueNameCtrl.clear();
       _leagueAbbrevCtrl.clear();
+      _leagueIconName = 'league';
+      _leagueLogoImage = null;
     });
   }
 
@@ -192,10 +239,21 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
     }
     setState(() {
       _hubsByLeague.putIfAbsent(_selectedLeagueIdx, () => []);
-      _hubsByLeague[_selectedLeagueIdx]!
-          .add(_HubEntry(name: name, location: _hubLocationCtrl.text.trim()));
+      _hubsByLeague[_selectedLeagueIdx]!.add(_HubEntry(
+        name: name,
+        location: _hubLocationCtrl.text.trim(),
+        logoChoice: _LogoChoice(
+          iconName:
+              _hubLogoImage == null && !_hubUseLeagueLogo ? _hubIconName : null,
+          image: _hubLogoImage,
+          useInherited: _hubLogoImage == null && _hubUseLeagueLogo,
+        ),
+      ));
       _hubNameCtrl.clear();
       _hubLocationCtrl.clear();
+      _hubIconName = 'hub';
+      _hubLogoImage = null;
+      _hubUseLeagueLogo = true;
     });
   }
 
@@ -223,15 +281,36 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
         name: name,
         ageGroup: _teamAgeCtrl.text.trim(),
         division: _teamDivCtrl.text.trim(),
+        logoChoice: _LogoChoice(
+          iconName: _teamLogoImage == null && !_teamUseParentLogo
+              ? _teamIconName
+              : null,
+          image: _teamLogoImage,
+          useInherited: _teamLogoImage == null && _teamUseParentLogo,
+        ),
       ));
       _teamNameCtrl.clear();
       _teamAgeCtrl.clear();
       _teamDivCtrl.clear();
+      _teamIconName = 'team';
+      _teamLogoImage = null;
+      _teamUseParentLogo = true;
     });
   }
 
   void _removeTeam(String key, int teamIdx) {
     setState(() => _teamsByHub[key]?.removeAt(teamIdx));
+  }
+
+  String _parentLogoLabel() {
+    final hubs = _hubsByLeague[_selectedLeagueForTeams] ?? [];
+    if (hubs.isEmpty || _selectedHubForTeams >= hubs.length) {
+      return 'Use league logo';
+    }
+    final hub = hubs[_selectedHubForTeams];
+    return hub.logoChoice.useInherited
+        ? 'Use league logo'
+        : 'Use ${hub.name} logo';
   }
 
   // -------------------------------------------------------------------------
@@ -242,8 +321,8 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
     setState(() => _isLoading = true);
     try {
       // 1. Create Firebase Auth account
-      final credential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
+      final credential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text,
       );
@@ -281,46 +360,118 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
       });
 
       // 4. Create leagues → hubs → teams as subcollections
-      final createdLeagues = <Map<String, String>>[];
+      final createdLeagues = <Map<String, String?>>[];
       for (int li = 0; li < _leagues.length; li++) {
         final league = _leagues[li];
         final leagueRef = orgRef.collection('leagues').doc();
         final leagueId = leagueRef.id;
+        final leagueLogoUrl = await _uploadSetupLogo(
+          orgId: orgId,
+          entityType: 'leagues',
+          entityId: leagueId,
+          currentUserId: uid,
+          pickedFile: league.logoChoice.image,
+        );
+        final leagueIconName =
+            leagueLogoUrl == null ? league.logoChoice.iconName : null;
         await leagueRef.set({
           'id': leagueId,
           'orgId': orgId,
           'name': league.name,
           'abbreviation': league.abbreviation,
           'description': null,
+          'logoUrl': leagueLogoUrl,
+          'iconName': leagueIconName,
           'createdAt': now,
         });
-        createdLeagues.add({'id': leagueId, 'name': league.name});
+        createdLeagues.add({
+          'id': leagueId,
+          'name': league.name,
+          'logoUrl': leagueLogoUrl,
+          'iconName': leagueIconName,
+        });
 
         final hubs = _hubsByLeague[li] ?? [];
         for (int hi = 0; hi < hubs.length; hi++) {
           final hub = hubs[hi];
           final hubRef = leagueRef.collection('hubs').doc();
           final hubId = hubRef.id;
+          final uploadedHubLogoUrl = await _uploadSetupLogo(
+            orgId: orgId,
+            entityType: 'hubs',
+            entityId: hubId,
+            currentUserId: uid,
+            pickedFile: hub.logoChoice.image,
+          );
+          final hubLogoUrl = uploadedHubLogoUrl ??
+              (hub.logoChoice.useInherited ? leagueLogoUrl : null);
+          final hubIconName = uploadedHubLogoUrl == null
+              ? (hub.logoChoice.useInherited
+                  ? leagueIconName
+                  : hub.logoChoice.iconName)
+              : null;
           await hubRef.set({
             'id': hubId,
             'leagueId': leagueId,
             'orgId': orgId,
             'name': hub.name,
             'location': hub.location.isEmpty ? null : hub.location,
+            'logoUrl': hubLogoUrl,
+            'iconName': hubIconName,
             'createdAt': now,
+          });
+
+          final hubChatRef = db
+              .collection('organizations')
+              .doc(orgId)
+              .collection('chatRooms')
+              .doc();
+          await hubChatRef.set({
+            'orgId': orgId,
+            'name': '${hub.name} – General',
+            'type': 'league',
+            'leagueId': leagueId,
+            'hubId': hubId,
+            'participants': [],
+            'isArchived': false,
+            'createdAt': FieldValue.serverTimestamp(),
+            'lastMessage': null,
+            'lastMessageAt': FieldValue.serverTimestamp(),
+            'lastMessageBy': null,
+            'roomIconName': hubIconName,
+            'roomImageUrl': hubLogoUrl,
           });
 
           final teams = _teamsByHub['$li-$hi'] ?? [];
           for (final team in teams) {
             final teamRef = hubRef.collection('teams').doc();
+            final teamId = teamRef.id;
+            final uploadedTeamLogoUrl = await _uploadSetupLogo(
+              orgId: orgId,
+              entityType: 'teams',
+              entityId: teamId,
+              currentUserId: uid,
+              pickedFile: team.logoChoice.image,
+            );
+            final teamLogoUrl = uploadedTeamLogoUrl ??
+                (team.logoChoice.useInherited
+                    ? (hubLogoUrl ?? leagueLogoUrl)
+                    : null);
+            final teamIconName = uploadedTeamLogoUrl == null
+                ? (team.logoChoice.useInherited
+                    ? (hubIconName ?? leagueIconName)
+                    : team.logoChoice.iconName)
+                : null;
             await teamRef.set({
-              'id': teamRef.id,
+              'id': teamId,
               'hubId': hubId,
               'leagueId': leagueId,
               'orgId': orgId,
               'name': team.name,
               'ageGroup': team.ageGroup.isEmpty ? null : team.ageGroup,
               'division': team.division.isEmpty ? null : team.division,
+              'logoUrl': teamLogoUrl,
+              'iconName': teamIconName,
               'createdAt': now,
             });
           }
@@ -329,7 +480,11 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
 
       // 5. Auto-create a General chat room for each league.
       for (final league in createdLeagues) {
-        final chatRef = db.collection('organizations').doc(orgId).collection('chatRooms').doc();
+        final chatRef = db
+            .collection('organizations')
+            .doc(orgId)
+            .collection('chatRooms')
+            .doc();
         await chatRef.set({
           'orgId': orgId,
           'name': '${league['name']} – General',
@@ -341,6 +496,9 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
           'lastMessage': null,
           'lastMessageAt': FieldValue.serverTimestamp(),
           'lastMessageBy': null,
+          'hubId': null,
+          'roomIconName': league['iconName'],
+          'roomImageUrl': league['logoUrl'],
         });
       }
 
@@ -537,8 +695,7 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeader(
-            icon: Icons.emoji_events_outlined, title: 'Add Leagues'),
+        _SectionHeader(icon: Icons.emoji_events_outlined, title: 'Add Leagues'),
         const SizedBox(height: 4),
         const Text(
           'Add all the leagues in your organization.',
@@ -587,6 +744,21 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 14),
+          _LogoPicker(
+            title: 'League logo',
+            subtitle: 'Choose an icon or upload a league logo.',
+            iconName: _leagueIconName,
+            pickedImage: _leagueLogoImage,
+            fallbackIcon: Icons.emoji_events_outlined,
+            onIconSelected: (iconName) => setState(() {
+              _leagueIconName = iconName;
+              _leagueLogoImage = null;
+            }),
+            onImagePicked: (image) => setState(() {
+              _leagueLogoImage = image;
+            }),
           ),
         ]),
         const SizedBox(height: 16),
@@ -638,6 +810,9 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
               _selectedLeagueIdx = i;
               _hubNameCtrl.clear();
               _hubLocationCtrl.clear();
+              _hubIconName = 'hub';
+              _hubLogoImage = null;
+              _hubUseLeagueLogo = true;
             }),
           ),
           const SizedBox(height: 16),
@@ -683,6 +858,31 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 14),
+          _LogoPicker(
+            title: 'Hub logo',
+            subtitle:
+                'Use the league logo, choose an icon, or upload a hub logo.',
+            iconName: _hubIconName,
+            pickedImage: _hubLogoImage,
+            fallbackIcon: Icons.location_on_outlined,
+            inheritedLabel:
+                'Use ${_leagues[_selectedLeagueIdx].abbreviation} logo',
+            useInherited: _hubUseLeagueLogo,
+            onInheritedChanged: (value) => setState(() {
+              _hubUseLeagueLogo = value;
+              if (value) _hubLogoImage = null;
+            }),
+            onIconSelected: (iconName) => setState(() {
+              _hubUseLeagueLogo = false;
+              _hubIconName = iconName;
+              _hubLogoImage = null;
+            }),
+            onImagePicked: (image) => setState(() {
+              _hubUseLeagueLogo = false;
+              _hubLogoImage = image;
+            }),
           ),
         ]),
         const SizedBox(height: 16),
@@ -740,6 +940,9 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
               _teamNameCtrl.clear();
               _teamAgeCtrl.clear();
               _teamDivCtrl.clear();
+              _teamIconName = 'team';
+              _teamLogoImage = null;
+              _teamUseParentLogo = true;
             }),
           ),
           const SizedBox(height: 16),
@@ -750,7 +953,8 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
             decoration: BoxDecoration(
               color: AppColors.warning.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+              border:
+                  Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
             ),
             child: const Row(
               children: [
@@ -781,6 +985,9 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
               _teamNameCtrl.clear();
               _teamAgeCtrl.clear();
               _teamDivCtrl.clear();
+              _teamIconName = 'team';
+              _teamLogoImage = null;
+              _teamUseParentLogo = true;
             }),
           ),
           const SizedBox(height: 16),
@@ -818,6 +1025,30 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            _LogoPicker(
+              title: 'Team logo',
+              subtitle:
+                  'Use the hub or league logo, choose an icon, or upload a team logo.',
+              iconName: _teamIconName,
+              pickedImage: _teamLogoImage,
+              fallbackIcon: Icons.groups_outlined,
+              inheritedLabel: _parentLogoLabel(),
+              useInherited: _teamUseParentLogo,
+              onInheritedChanged: (value) => setState(() {
+                _teamUseParentLogo = value;
+                if (value) _teamLogoImage = null;
+              }),
+              onIconSelected: (iconName) => setState(() {
+                _teamUseParentLogo = false;
+                _teamIconName = iconName;
+                _teamLogoImage = null;
+              }),
+              onImagePicked: (image) => setState(() {
+                _teamUseParentLogo = false;
+                _teamLogoImage = image;
+              }),
             ),
             const SizedBox(height: 14),
             OutlinedButton.icon(
@@ -923,12 +1154,10 @@ class _StepIndicator extends StatelessWidget {
                         label,
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isActive
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: isActive
-                              ? AppColors.accent
-                              : AppColors.textMuted,
+                          fontWeight:
+                              isActive ? FontWeight.bold : FontWeight.normal,
+                          color:
+                              isActive ? AppColors.accent : AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -949,9 +1178,7 @@ class _LeagueSelector extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onChanged;
   const _LeagueSelector(
-      {required this.leagues,
-      required this.selected,
-      required this.onChanged});
+      {required this.leagues, required this.selected, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -967,8 +1194,7 @@ class _LeagueSelector extends StatelessWidget {
             onTap: () => onChanged(i),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? AppColors.primary : Colors.white,
                 borderRadius: BorderRadius.circular(8),
@@ -1012,15 +1238,13 @@ class _HubSelector extends StatelessWidget {
             onTap: () => onChanged(i),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? AppColors.primaryLight : Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: isSelected
-                        ? AppColors.primaryLight
-                        : AppColors.border),
+                    color:
+                        isSelected ? AppColors.primaryLight : AppColors.border),
               ),
               child: Text(
                 hubs[i].name,
@@ -1055,23 +1279,17 @@ class _LeagueChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(league.abbreviation,
-                style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold)),
+          EntityAvatar(
+            name: league.abbreviation,
+            iconName: league.logoChoice.iconName,
+            fallbackIcon: Icons.emoji_events_outlined,
+            textFallback: league.abbreviation,
+            size: 36,
           ),
           const SizedBox(width: 12),
           Expanded(
               child: Text(league.name,
-                  style:
-                      const TextStyle(fontSize: 14, color: AppColors.text))),
+                  style: const TextStyle(fontSize: 14, color: AppColors.text))),
           IconButton(
             icon: const Icon(Icons.close, size: 18, color: AppColors.textMuted),
             onPressed: onDelete,
@@ -1101,8 +1319,12 @@ class _HubChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.location_on_outlined,
-              size: 18, color: AppColors.primaryLight),
+          EntityAvatar(
+            name: hub.name,
+            iconName: hub.logoChoice.iconName,
+            fallbackIcon: Icons.location_on_outlined,
+            size: 34,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1149,8 +1371,12 @@ class _TeamChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.groups_outlined,
-              size: 18, color: AppColors.accent),
+          EntityAvatar(
+            name: team.name,
+            iconName: team.logoChoice.iconName,
+            fallbackIcon: Icons.groups_outlined,
+            size: 34,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1182,4 +1408,165 @@ class _TeamChip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LogoPicker extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String iconName;
+  final PickedFileBytes? pickedImage;
+  final IconData fallbackIcon;
+  final String? inheritedLabel;
+  final bool useInherited;
+  final ValueChanged<bool>? onInheritedChanged;
+  final ValueChanged<String> onIconSelected;
+  final ValueChanged<PickedFileBytes> onImagePicked;
+
+  const _LogoPicker({
+    required this.title,
+    required this.subtitle,
+    required this.iconName,
+    required this.pickedImage,
+    required this.fallbackIcon,
+    required this.onIconSelected,
+    required this.onImagePicked,
+    this.inheritedLabel,
+    this.useInherited = false,
+    this.onInheritedChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final previewName = pickedImage?.name ?? title;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              EntityAvatar(
+                name: previewName,
+                iconName:
+                    pickedImage == null && !useInherited ? iconName : null,
+                fallbackIcon: fallbackIcon,
+                size: 46,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            color: AppColors.text,
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (inheritedLabel != null && onInheritedChanged != null) ...[
+            const SizedBox(height: 12),
+            ChoiceChip(
+              label: Text(inheritedLabel!),
+              selected: useInherited,
+              onSelected: onInheritedChanged,
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _setupLogoIcons.entries.map((entry) {
+              final selected =
+                  pickedImage == null && !useInherited && iconName == entry.key;
+              return ChoiceChip(
+                avatar: Icon(entry.value, size: 18),
+                label: Text(_setupIconLabel(entry.key)),
+                selected: selected,
+                onSelected: (_) => onIconSelected(entry.key),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final picked = await pickImageBytes();
+              if (picked == null) return;
+              onImagePicked(picked);
+            },
+            icon: const Icon(Icons.image_outlined),
+            label: Text(
+              pickedImage == null ? 'Upload image' : pickedImage!.name,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const _setupLogoIcons = {
+  'league': Icons.emoji_events_outlined,
+  'hub': Icons.location_on_outlined,
+  'team': Icons.groups_2_outlined,
+  'calendar': Icons.event_outlined,
+  'trophy': Icons.emoji_events_outlined,
+  'shield': Icons.shield_outlined,
+};
+
+String _setupIconLabel(String key) {
+  switch (key) {
+    case 'league':
+      return 'League';
+    case 'hub':
+      return 'Hub';
+    case 'team':
+      return 'Team';
+    case 'calendar':
+      return 'Event';
+    case 'trophy':
+      return 'Trophy';
+    case 'shield':
+      return 'Shield';
+  }
+  return key;
+}
+
+Future<String?> _uploadSetupLogo({
+  required String orgId,
+  required String entityType,
+  required String entityId,
+  required String currentUserId,
+  required PickedFileBytes? pickedFile,
+}) async {
+  if (pickedFile == null) return null;
+
+  final extension = pickedFile.name.split('.').last.toLowerCase();
+  final contentType = switch (extension) {
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'webp' => 'image/webp',
+    'gif' => 'image/gif',
+    _ => 'image/png',
+  };
+  final safeName = pickedFile.name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+  final path =
+      'orgs/$orgId/logos/$entityType/$entityId/$currentUserId/${DateTime.now().microsecondsSinceEpoch}_$safeName';
+
+  return StorageService().uploadBytes(
+    bytes: pickedFile.bytes,
+    path: path,
+    contentType: contentType,
+  );
 }

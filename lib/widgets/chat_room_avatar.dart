@@ -5,12 +5,19 @@ import '../core/theme.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
 import 'avatar_widget.dart';
+import 'entity_avatar.dart';
 
 const chatRoomIconOptions = <String, IconData>{
   'event': Icons.event_outlined,
   'trophy': Icons.emoji_events_outlined,
   'group': Icons.groups_2_outlined,
   'schedule': Icons.schedule_outlined,
+  'league': Icons.emoji_events_outlined,
+  'hub': Icons.location_on_outlined,
+  'team': Icons.groups_2_outlined,
+  'forum': Icons.forum,
+  'calendar': Icons.event_outlined,
+  'shield': Icons.shield_outlined,
 };
 
 IconData iconForChatRoomIconName(String? iconName) {
@@ -72,25 +79,14 @@ class ChatRoomAvatar extends StatelessWidget {
   }
 
   Widget _iconFallback() {
-    final isEvent = room.type == ChatRoomType.event;
-    final fallbackIcon = isEvent
-        ? iconForChatRoomIconName(room.roomIconName)
-        : room.roomIconName != null
-            ? iconForChatRoomIconName(room.roomIconName)
-            : Icons.forum;
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
-      child: Icon(
-        fallbackIcon,
-        color: AppColors.primary,
-        size: iconSize,
-      ),
+    return EntityAvatar(
+      name: displayName,
+      iconName: room.roomIconName ??
+          (room.type == ChatRoomType.event ? 'event' : 'forum'),
+      fallbackIcon:
+          room.type == ChatRoomType.event ? Icons.event_outlined : Icons.forum,
+      size: size,
+      borderRadius: borderRadius,
     );
   }
 }

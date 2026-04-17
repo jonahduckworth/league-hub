@@ -6,6 +6,7 @@ class ChatRoom {
   final String name;
   final ChatRoomType type;
   final String? leagueId;
+  final String? hubId;
   final List<String> participants;
   final DateTime createdAt;
   final bool isArchived;
@@ -22,6 +23,7 @@ class ChatRoom {
     required this.name,
     required this.type,
     this.leagueId,
+    this.hubId,
     required this.participants,
     required this.createdAt,
     required this.isArchived,
@@ -42,6 +44,7 @@ class ChatRoom {
           orElse: () => ChatRoomType.league,
         ),
         leagueId: json['leagueId'] as String?,
+        hubId: json['hubId'] as String?,
         participants: List<String>.from(json['participants'] as List? ?? []),
         createdAt: DateTime.parse(json['createdAt'] as String),
         isArchived: json['isArchived'] as bool? ?? false,
@@ -62,6 +65,7 @@ class ChatRoom {
         'name': name,
         'type': type.name,
         'leagueId': leagueId,
+        'hubId': hubId,
         'participants': participants,
         'createdAt': createdAt.toIso8601String(),
         'isArchived': isArchived,

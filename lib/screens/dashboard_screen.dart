@@ -6,12 +6,14 @@ import '../core/utils.dart';
 import '../models/announcement.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
+import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../screens/chat_list_screen.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/chat_room_avatar.dart';
+import '../widgets/entity_avatar.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/avatar_widget.dart';
 
@@ -37,13 +39,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final userName = userAsync.valueOrNull?.displayName ?? '';
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
+    final headerLeague = _selectedLeagueId == null
+        ? (leagues.length == 1 ? leagues.first : null)
+        : _leagueById(leagues, _selectedLeagueId);
+    final headerImageUrl = headerLeague?.logoUrl ?? org?.logoUrl;
+    final headerIcon = headerLeague == null
+        ? Icons.apartment_rounded
+        : iconForEntityIconName(
+            headerLeague.iconName,
+            Icons.emoji_events_outlined,
+          );
 
     return AppShellScaffold(
       header: AppShellHeader(
-        leadingIcon: Icons.apartment_rounded,
-        leadingImageUrl: org?.logoUrl,
-        leadingLabel: orgName,
-        title: orgName,
+        leadingIcon: headerIcon,
+        leadingImageUrl: headerImageUrl,
+        leadingLabel: headerLeague?.name ?? orgName,
+        title: headerLeague?.abbreviation ?? orgName,
         subtitle: userName.isNotEmpty
             ? 'Welcome back, $userName'
             : 'Your organization overview for today',
@@ -79,6 +91,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  League? _leagueById(List<League> leagues, String? id) {
+    if (id == null) return null;
+    for (final league in leagues) {
+      if (league.id == id) return league;
+    }
+    return null;
   }
 
   void _showSearchSheet(BuildContext context) {

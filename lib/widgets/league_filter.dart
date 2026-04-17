@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../models/league.dart';
+import 'entity_avatar.dart';
 
 class LeagueFilter extends StatelessWidget {
   final List<League> leagues;
@@ -29,6 +30,7 @@ class LeagueFilter extends StatelessWidget {
           ),
           ...leagues.map((league) => _FilterPill(
                 label: league.abbreviation,
+                league: league,
                 isSelected: selectedLeagueId == league.id,
                 onTap: () => onSelected(league.id),
               )),
@@ -40,11 +42,13 @@ class LeagueFilter extends StatelessWidget {
 
 class _FilterPill extends StatelessWidget {
   final String label;
+  final League? league;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _FilterPill({
     required this.label,
+    this.league,
     required this.isSelected,
     required this.onTap,
   });
@@ -63,13 +67,30 @@ class _FilterPill extends StatelessWidget {
             color: isSelected ? AppColors.primary : AppColors.border,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : AppColors.textSecondary,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (league != null) ...[
+              EntityAvatar(
+                name: league!.abbreviation,
+                imageUrl: league!.logoUrl,
+                iconName: league!.iconName,
+                fallbackIcon: Icons.emoji_events_outlined,
+                size: 22,
+                borderRadius: 8,
+                color: isSelected ? Colors.white : AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
     );

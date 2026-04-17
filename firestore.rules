@@ -147,9 +147,20 @@ service cloud.firestore {
           || (
             room.type == 'league'
             && (
-              !('leagueId' in room)
-              || room.leagueId == null
-              || room.leagueId in currentUser().leagueIds
+              (
+                'hubId' in room
+                && room.hubId != null
+                && room.hubId in currentUser().hubIds
+              )
+              ||
+              (
+                (!('hubId' in room) || room.hubId == null)
+                && (
+                  !('leagueId' in room)
+                  || room.leagueId == null
+                  || room.leagueId in currentUser().leagueIds
+                )
+              )
             )
           )
         );

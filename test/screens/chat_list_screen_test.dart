@@ -29,6 +29,7 @@ class MockAuthorizedFirestoreService extends Mock
     String name,
     ChatRoomType type, {
     String? leagueId,
+    String? hubId,
     List<String> participants = const [],
     String? roomIconName,
     String? roomImageUrl,
@@ -39,6 +40,7 @@ class MockAuthorizedFirestoreService extends Mock
           [actor, orgId, name, type],
           {
             #leagueId: leagueId,
+            #hubId: hubId,
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
