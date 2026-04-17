@@ -29,9 +29,8 @@ class ManageLeaguesScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Manage Leagues & Hubs')),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'manage_leagues_fab',
-        onPressed: org == null
-            ? null
-            : () => _showAddLeagueSheet(context, ref, org.id),
+        onPressed:
+            org == null ? null : () => context.push('/settings/leagues/new'),
         icon: const Icon(Icons.add),
         label: const Text('Add League'),
         backgroundColor: AppColors.primary,
@@ -65,84 +64,68 @@ class ManageLeaguesScreen extends ConsumerWidget {
       ),
     );
   }
-
-  static Future<void> _showAddLeagueSheet(
-      BuildContext context, WidgetRef ref, String orgId) async {
-    final nameCtrl = TextEditingController();
-    final abbrevCtrl = TextEditingController();
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetCtx) => _AddLeagueSheet(
-          nameCtrl: nameCtrl, abbrevCtrl: abbrevCtrl, orgId: orgId, ref: ref),
-    );
-
-    nameCtrl.dispose();
-    abbrevCtrl.dispose();
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Add League bottom sheet (stateful to handle loading)
+// Add League screen
 // ---------------------------------------------------------------------------
 
-class _AddLeagueSheet extends StatefulWidget {
-  final TextEditingController nameCtrl;
-  final TextEditingController abbrevCtrl;
-  final String orgId;
-  final WidgetRef ref;
-  const _AddLeagueSheet(
-      {required this.nameCtrl,
-      required this.abbrevCtrl,
-      required this.orgId,
-      required this.ref});
+class AddLeagueScreen extends ConsumerStatefulWidget {
+  const AddLeagueScreen({super.key});
 
   @override
-  State<_AddLeagueSheet> createState() => _AddLeagueSheetState();
+  ConsumerState<AddLeagueScreen> createState() => _AddLeagueScreenState();
 }
 
-class _AddLeagueSheetState extends State<_AddLeagueSheet> {
+class _AddLeagueScreenState extends ConsumerState<AddLeagueScreen> {
+  final _nameCtrl = TextEditingController();
+  final _abbrevCtrl = TextEditingController();
   bool _saving = false;
   final _identity = _IdentitySelection(defaultIconName: 'league');
 
   @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _abbrevCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 24,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24),
+    final org = ref.watch(organizationProvider).valueOrNull;
+
+    return _StructureFormScaffold(
+      title: 'New League',
+      eyebrow: 'League setup',
+      heading: 'Create a league',
+      subtitle: 'Add the competition or program your hubs and teams belong to.',
+      icon: Icons.emoji_events_outlined,
+      actionLabel: 'Create League',
+      saving: _saving,
+      onSubmit: org == null ? null : _save,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Add League',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.text)),
-          const SizedBox(height: 20),
-          TextField(
-            controller: widget.nameCtrl,
-            autofocus: true,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-                labelText: 'League Name', hintText: 'e.g. Hockey Super League'),
+          _FormCard(
+            children: [
+              TextField(
+                controller: _nameCtrl,
+                autofocus: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                    labelText: 'League Name',
+                    hintText: 'e.g. Hockey Super League'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _abbrevCtrl,
+                textCapitalization: TextCapitalization.characters,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                    labelText: 'Abbreviation', hintText: 'HSL'),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: widget.abbrevCtrl,
-            textCapitalization: TextCapitalization.characters,
-            textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-                labelText: 'Abbreviation', hintText: 'HSL'),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _IdentityPicker(
             title: 'League logo',
             subtitle: 'Choose an icon or upload a logo for this league.',
@@ -150,36 +133,27 @@ class _AddLeagueSheetState extends State<_AddLeagueSheet> {
             fallbackIcon: Icons.emoji_events_outlined,
             onChanged: () => setState(() {}),
           ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                : const Text('Add League'),
-          ),
         ],
       ),
     );
   }
 
   Future<void> _save() async {
-    final name = widget.nameCtrl.text.trim();
-    final abbrev = widget.abbrevCtrl.text.trim();
+    final org = ref.read(organizationProvider).valueOrNull;
+    final name = _nameCtrl.text.trim();
+    final abbrev = _abbrevCtrl.text.trim();
+    if (org == null) return;
     if (name.isEmpty || abbrev.isEmpty) return;
     setState(() => _saving = true);
     try {
-      final rawDb = widget.ref.read(firestoreServiceProvider);
-      final authDb = widget.ref.read(authorizedFirestoreServiceProvider);
-      final currentUser = widget.ref.read(currentUserProvider).value;
+      final rawDb = ref.read(firestoreServiceProvider);
+      final authDb = ref.read(authorizedFirestoreServiceProvider);
+      final currentUser = ref.read(currentUserProvider).value;
       if (currentUser == null) return;
 
-      final id = rawDb.newLeagueId(widget.orgId);
+      final id = rawDb.newLeagueId(org.id);
       final logoUrl = await _uploadIdentityLogo(
-        orgId: widget.orgId,
+        orgId: org.id,
         entityType: 'leagues',
         entityId: id,
         currentUserId: currentUser.id,
@@ -187,24 +161,24 @@ class _AddLeagueSheetState extends State<_AddLeagueSheet> {
       );
       final league = League(
         id: id,
-        orgId: widget.orgId,
+        orgId: org.id,
         name: name,
         abbreviation: abbrev,
         logoUrl: logoUrl,
         iconName: logoUrl == null ? _identity.iconName : null,
         createdAt: DateTime.now(),
       );
-      await authDb.createLeague(currentUser, widget.orgId, league);
+      await authDb.createLeague(currentUser, org.id, league);
       await authDb.createChatRoom(
         currentUser,
-        widget.orgId,
+        org.id,
         '$name – General',
         ChatRoomType.league,
         leagueId: id,
         roomIconName: league.iconName,
         roomImageUrl: league.logoUrl,
       );
-      if (mounted) Navigator.pop(context);
+      if (mounted) context.pop();
     } on PermissionDeniedException {
       if (mounted) {
         AppUtils.showErrorSnackBar(
@@ -268,7 +242,10 @@ class _LeagueTile extends ConsumerWidget {
                 icon: const Icon(Icons.add_location_alt_outlined,
                     color: AppColors.primaryLight, size: 20),
                 tooltip: 'Add Hub',
-                onPressed: () => _showAddHubSheet(context, ref, orgId, league),
+                onPressed: () => context.push(
+                  '/settings/leagues/${league.id}/hubs/new',
+                  extra: league,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline,
@@ -344,157 +321,154 @@ class _LeagueTile extends ConsumerWidget {
       }
     }
   }
-
-  static Future<void> _showAddHubSheet(
-      BuildContext context, WidgetRef ref, String orgId, League league) async {
-    final nameCtrl = TextEditingController();
-    final locationCtrl = TextEditingController();
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetCtx) => _AddHubSheet(
-          nameCtrl: nameCtrl,
-          locationCtrl: locationCtrl,
-          orgId: orgId,
-          league: league,
-          ref: ref),
-    );
-    nameCtrl.dispose();
-    locationCtrl.dispose();
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Add Hub bottom sheet
+// Add Hub screen
 // ---------------------------------------------------------------------------
 
-class _AddHubSheet extends StatefulWidget {
-  final TextEditingController nameCtrl;
-  final TextEditingController locationCtrl;
-  final String orgId;
-  final League league;
-  final WidgetRef ref;
-  const _AddHubSheet(
-      {required this.nameCtrl,
-      required this.locationCtrl,
-      required this.orgId,
-      required this.league,
-      required this.ref});
+class AddHubScreen extends ConsumerStatefulWidget {
+  final String leagueId;
+  final League? initialLeague;
+  const AddHubScreen({
+    super.key,
+    required this.leagueId,
+    this.initialLeague,
+  });
 
   @override
-  State<_AddHubSheet> createState() => _AddHubSheetState();
+  ConsumerState<AddHubScreen> createState() => _AddHubScreenState();
 }
 
-class _AddHubSheetState extends State<_AddHubSheet> {
+class _AddHubScreenState extends ConsumerState<AddHubScreen> {
+  final _nameCtrl = TextEditingController();
+  final _locationCtrl = TextEditingController();
   bool _saving = false;
-  late final _identity = _IdentitySelection(
-    defaultIconName: 'hub',
-    inheritedImageUrl: widget.league.logoUrl,
-    inheritedIconName: widget.league.iconName,
-    inheritedLabel: 'Use league logo',
-  );
+  _IdentitySelection? _identity;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _locationCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 24,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text('Add Hub',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.text)),
-          const SizedBox(height: 20),
-          TextField(
-            controller: widget.nameCtrl,
-            autofocus: true,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-                labelText: 'Hub Name', hintText: 'e.g. Calgary'),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: widget.locationCtrl,
-            textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-                labelText: 'Location', hintText: 'Calgary, AB'),
-          ),
-          const SizedBox(height: 20),
-          _IdentityPicker(
-            title: 'Hub logo',
-            subtitle: 'Use the league logo or choose a hub-specific look.',
-            selection: _identity,
-            fallbackIcon: Icons.location_on_outlined,
-            onChanged: () => setState(() {}),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                : const Text('Add Hub'),
-          ),
-        ],
+    final org = ref.watch(organizationProvider).valueOrNull;
+    final leagueAsync = ref.watch(leaguesProvider);
+
+    return leagueAsync.when(
+      loading: () => const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
       ),
+      error: (e, _) => _LoadErrorScaffold(message: 'Could not load league: $e'),
+      data: (leagues) {
+        final league = widget.initialLeague ??
+            leagues.cast<League?>().firstWhere(
+                  (league) => league?.id == widget.leagueId,
+                  orElse: () => null,
+                );
+        if (league == null) {
+          return const _LoadErrorScaffold(message: 'League not found.');
+        }
+
+        final identity = _identity ??= _IdentitySelection(
+          defaultIconName: 'hub',
+          inheritedImageUrl: league.logoUrl,
+          inheritedIconName: league.iconName,
+          inheritedLabel: 'Use league logo',
+        );
+
+        return _StructureFormScaffold(
+          title: 'New Hub',
+          eyebrow: league.abbreviation,
+          heading: 'Add a hub',
+          subtitle: 'Create a location or operating hub inside ${league.name}.',
+          icon: Icons.location_on_outlined,
+          actionLabel: 'Create Hub',
+          saving: _saving,
+          onSubmit: org == null ? null : () => _save(org.id, league),
+          child: Column(
+            children: [
+              _FormCard(
+                children: [
+                  TextField(
+                    controller: _nameCtrl,
+                    autofocus: true,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                        labelText: 'Hub Name', hintText: 'e.g. Calgary'),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _locationCtrl,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(
+                        labelText: 'Location', hintText: 'Calgary, AB'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _IdentityPicker(
+                title: 'Hub logo',
+                subtitle: 'Use the league logo or choose a hub-specific look.',
+                selection: identity,
+                fallbackIcon: Icons.location_on_outlined,
+                onChanged: () => setState(() {}),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Future<void> _save() async {
-    final name = widget.nameCtrl.text.trim();
+  Future<void> _save(String orgId, League league) async {
+    final identity = _identity;
+    final name = _nameCtrl.text.trim();
+    if (identity == null) return;
     if (name.isEmpty) return;
     setState(() => _saving = true);
     try {
-      final rawDb = widget.ref.read(firestoreServiceProvider);
-      final authDb = widget.ref.read(authorizedFirestoreServiceProvider);
-      final currentUser = widget.ref.read(currentUserProvider).value;
+      final rawDb = ref.read(firestoreServiceProvider);
+      final authDb = ref.read(authorizedFirestoreServiceProvider);
+      final currentUser = ref.read(currentUserProvider).value;
       if (currentUser == null) return;
 
-      final id = rawDb.newHubId(widget.orgId, widget.league.id);
+      final id = rawDb.newHubId(orgId, league.id);
       final logoUrl = await _uploadIdentityLogo(
-        orgId: widget.orgId,
+        orgId: orgId,
         entityType: 'hubs',
         entityId: id,
         currentUserId: currentUser.id,
-        pickedFile: _identity.pickedImage,
+        pickedFile: identity.pickedImage,
       );
       final hub = Hub(
         id: id,
-        leagueId: widget.league.id,
-        orgId: widget.orgId,
+        leagueId: league.id,
+        orgId: orgId,
         name: name,
-        location: widget.locationCtrl.text.trim().isEmpty
+        location: _locationCtrl.text.trim().isEmpty
             ? null
-            : widget.locationCtrl.text.trim(),
-        logoUrl: logoUrl ?? _identity.effectiveInheritedImageUrl,
-        iconName: logoUrl == null ? _identity.effectiveIconName : null,
+            : _locationCtrl.text.trim(),
+        logoUrl: logoUrl ?? identity.effectiveInheritedImageUrl,
+        iconName: logoUrl == null ? identity.effectiveIconName : null,
         createdAt: DateTime.now(),
       );
-      await authDb.createHub(currentUser, widget.orgId, widget.league.id, hub);
+      await authDb.createHub(currentUser, orgId, league.id, hub);
       await authDb.createChatRoom(
         currentUser,
-        widget.orgId,
+        orgId,
         '$name – General',
         ChatRoomType.league,
-        leagueId: widget.league.id,
+        leagueId: league.id,
         hubId: id,
         roomIconName: hub.iconName,
         roomImageUrl: hub.logoUrl,
       );
-      if (mounted) Navigator.pop(context);
+      if (mounted) context.pop();
     } on PermissionDeniedException {
       if (mounted) {
         AppUtils.showErrorSnackBar(
@@ -567,8 +541,10 @@ class _HubTile extends ConsumerWidget {
                 icon: const Icon(Icons.group_add_outlined,
                     color: AppColors.accent, size: 18),
                 tooltip: 'Add Team',
-                onPressed: () =>
-                    _showAddTeamSheet(context, ref, orgId, league, hub),
+                onPressed: () => context.push(
+                  '/settings/leagues/${league.id}/hubs/${hub.id}/teams/new',
+                  extra: (league: league, hub: hub),
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline,
@@ -651,178 +627,183 @@ class _HubTile extends ConsumerWidget {
       }
     }
   }
-
-  static Future<void> _showAddTeamSheet(BuildContext context, WidgetRef ref,
-      String orgId, League league, Hub hub) async {
-    final nameCtrl = TextEditingController();
-    final ageCtrl = TextEditingController();
-    final divCtrl = TextEditingController();
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (sheetCtx) => _AddTeamSheet(
-          nameCtrl: nameCtrl,
-          ageCtrl: ageCtrl,
-          divCtrl: divCtrl,
-          orgId: orgId,
-          league: league,
-          hub: hub,
-          ref: ref),
-    );
-    nameCtrl.dispose();
-    ageCtrl.dispose();
-    divCtrl.dispose();
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Add Team bottom sheet
+// Add Team screen
 // ---------------------------------------------------------------------------
 
-class _AddTeamSheet extends StatefulWidget {
-  final TextEditingController nameCtrl;
-  final TextEditingController ageCtrl;
-  final TextEditingController divCtrl;
-  final String orgId;
-  final League league;
-  final Hub hub;
-  final WidgetRef ref;
-  const _AddTeamSheet(
-      {required this.nameCtrl,
-      required this.ageCtrl,
-      required this.divCtrl,
-      required this.orgId,
-      required this.league,
-      required this.hub,
-      required this.ref});
+class AddTeamScreen extends ConsumerStatefulWidget {
+  final String leagueId;
+  final String hubId;
+  final League? initialLeague;
+  final Hub? initialHub;
+
+  const AddTeamScreen({
+    super.key,
+    required this.leagueId,
+    required this.hubId,
+    this.initialLeague,
+    this.initialHub,
+  });
 
   @override
-  State<_AddTeamSheet> createState() => _AddTeamSheetState();
+  ConsumerState<AddTeamScreen> createState() => _AddTeamScreenState();
 }
 
-class _AddTeamSheetState extends State<_AddTeamSheet> {
+class _AddTeamScreenState extends ConsumerState<AddTeamScreen> {
+  final _nameCtrl = TextEditingController();
+  final _ageCtrl = TextEditingController();
+  final _divCtrl = TextEditingController();
   bool _saving = false;
-  late final _identity = _IdentitySelection(
-    defaultIconName: 'team',
-    inheritedImageUrl: widget.hub.logoUrl ?? widget.league.logoUrl,
-    inheritedIconName: widget.hub.iconName ?? widget.league.iconName,
-    inheritedLabel: widget.hub.logoUrl != null || widget.hub.iconName != null
-        ? 'Use hub logo'
-        : 'Use league logo',
-  );
+  _IdentitySelection? _identity;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _ageCtrl.dispose();
+    _divCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 24,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24),
+    final org = ref.watch(organizationProvider).valueOrNull;
+    final leaguesAsync = ref.watch(leaguesProvider);
+    final hubsAsync = ref.watch(hubsProvider(widget.leagueId));
+
+    if (leaguesAsync.isLoading || hubsAsync.isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (leaguesAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load league: ${leaguesAsync.error}');
+    }
+    if (hubsAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load hub: ${hubsAsync.error}');
+    }
+
+    final leagues = leaguesAsync.valueOrNull ?? const <League>[];
+    final hubs = hubsAsync.valueOrNull ?? const <Hub>[];
+    final league = widget.initialLeague ??
+        leagues.cast<League?>().firstWhere(
+              (league) => league?.id == widget.leagueId,
+              orElse: () => null,
+            );
+    final hub = widget.initialHub ??
+        hubs.cast<Hub?>().firstWhere(
+              (hub) => hub?.id == widget.hubId,
+              orElse: () => null,
+            );
+    if (league == null || hub == null) {
+      return const _LoadErrorScaffold(message: 'Team parent not found.');
+    }
+
+    final identity = _identity ??= _IdentitySelection(
+      defaultIconName: 'team',
+      inheritedImageUrl: hub.logoUrl ?? league.logoUrl,
+      inheritedIconName: hub.iconName ?? league.iconName,
+      inheritedLabel: hub.logoUrl != null || hub.iconName != null
+          ? 'Use hub logo'
+          : 'Use league logo',
+    );
+
+    return _StructureFormScaffold(
+      title: 'New Team',
+      eyebrow: hub.name,
+      heading: 'Add a team',
+      subtitle: 'Create a roster container inside ${hub.name}.',
+      icon: Icons.groups_2_outlined,
+      actionLabel: 'Create Team',
+      saving: _saving,
+      onSubmit: org == null ? null : () => _save(org.id, league, hub),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Add Team',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.text)),
-          const SizedBox(height: 20),
-          TextField(
-            controller: widget.nameCtrl,
-            autofocus: true,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-                labelText: 'Team Name', hintText: 'e.g. Calgary U11 AA'),
-          ),
-          const SizedBox(height: 14),
-          Row(
+          _FormCard(
             children: [
-              Expanded(
-                child: TextField(
-                  controller: widget.ageCtrl,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                      labelText: 'Age Group', hintText: 'U11'),
-                ),
+              TextField(
+                controller: _nameCtrl,
+                autofocus: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                    labelText: 'Team Name', hintText: 'e.g. Calgary U11 AA'),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: widget.divCtrl,
-                  textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                      labelText: 'Division', hintText: 'AA'),
-                ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ageCtrl,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                          labelText: 'Age Group', hintText: 'U11'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _divCtrl,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                          labelText: 'Division', hintText: 'AA'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _IdentityPicker(
             title: 'Team logo',
             subtitle:
                 'Use the hub or league logo, or choose one for this team.',
-            selection: _identity,
+            selection: identity,
             fallbackIcon: Icons.groups_2_outlined,
             onChanged: () => setState(() {}),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                : const Text('Add Team'),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _save() async {
-    final name = widget.nameCtrl.text.trim();
+  Future<void> _save(String orgId, League league, Hub hub) async {
+    final identity = _identity;
+    final name = _nameCtrl.text.trim();
+    if (identity == null) return;
     if (name.isEmpty) return;
     setState(() => _saving = true);
     try {
-      final rawDb = widget.ref.read(firestoreServiceProvider);
-      final authDb = widget.ref.read(authorizedFirestoreServiceProvider);
-      final currentUser = widget.ref.read(currentUserProvider).value;
+      final rawDb = ref.read(firestoreServiceProvider);
+      final authDb = ref.read(authorizedFirestoreServiceProvider);
+      final currentUser = ref.read(currentUserProvider).value;
       if (currentUser == null) return;
 
-      final id = rawDb.newTeamId(widget.orgId, widget.league.id, widget.hub.id);
+      final id = rawDb.newTeamId(orgId, league.id, hub.id);
       final logoUrl = await _uploadIdentityLogo(
-        orgId: widget.orgId,
+        orgId: orgId,
         entityType: 'teams',
         entityId: id,
         currentUserId: currentUser.id,
-        pickedFile: _identity.pickedImage,
+        pickedFile: identity.pickedImage,
       );
       final team = Team(
         id: id,
-        hubId: widget.hub.id,
-        leagueId: widget.league.id,
-        orgId: widget.orgId,
+        hubId: hub.id,
+        leagueId: league.id,
+        orgId: orgId,
         name: name,
-        ageGroup: widget.ageCtrl.text.trim().isEmpty
-            ? null
-            : widget.ageCtrl.text.trim(),
-        division: widget.divCtrl.text.trim().isEmpty
-            ? null
-            : widget.divCtrl.text.trim(),
-        logoUrl: logoUrl ?? _identity.effectiveInheritedImageUrl,
-        iconName: logoUrl == null ? _identity.effectiveIconName : null,
+        ageGroup: _ageCtrl.text.trim().isEmpty ? null : _ageCtrl.text.trim(),
+        division: _divCtrl.text.trim().isEmpty ? null : _divCtrl.text.trim(),
+        logoUrl: logoUrl ?? identity.effectiveInheritedImageUrl,
+        iconName: logoUrl == null ? identity.effectiveIconName : null,
         createdAt: DateTime.now(),
       );
-      await authDb.createTeam(
-          currentUser, widget.orgId, widget.league.id, widget.hub.id, team);
-      if (mounted) Navigator.pop(context);
+      await authDb.createTeam(currentUser, orgId, league.id, hub.id, team);
+      if (mounted) context.pop();
     } on PermissionDeniedException {
       if (mounted) {
         AppUtils.showErrorSnackBar(
@@ -898,6 +879,200 @@ class _TeamRow extends StatelessWidget {
                       fontSize: 11, color: AppColors.textSecondary),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StructureFormScaffold extends StatelessWidget {
+  final String title;
+  final String eyebrow;
+  final String heading;
+  final String subtitle;
+  final IconData icon;
+  final String actionLabel;
+  final bool saving;
+  final VoidCallback? onSubmit;
+  final Widget child;
+
+  const _StructureFormScaffold({
+    required this.title,
+    required this.eyebrow,
+    required this.heading,
+    required this.subtitle,
+    required this.icon,
+    required this.actionLabel,
+    required this.saving,
+    required this.onSubmit,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: Text(title)),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary,
+                          AppColors.primaryLight,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.16),
+                          blurRadius: 24,
+                          offset: const Offset(0, 14),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Icon(icon, color: Colors.white, size: 28),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                eyebrow.toUpperCase(),
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.72),
+                                  fontSize: 11,
+                                  letterSpacing: 1.1,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                heading,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 23,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.05,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Text(
+                                subtitle,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.78),
+                                  fontSize: 13,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  child,
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: AppColors.border)),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: saving ? null : onSubmit,
+                  child: saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
+                      : Text(actionLabel),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FormCard extends StatelessWidget {
+  final List<Widget> children;
+
+  const _FormCard({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    );
+  }
+}
+
+class _LoadErrorScaffold extends StatelessWidget {
+  final String message;
+
+  const _LoadErrorScaffold({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Manage Structure')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            message,
+            style: const TextStyle(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
           ),
         ),
       ),

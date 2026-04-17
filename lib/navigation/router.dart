@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/app_user.dart';
+import '../models/hub.dart';
+import '../models/league.dart';
 import '../services/permission_service.dart';
 import '../core/constants.dart';
 import '../screens/login_screen.dart';
@@ -205,6 +207,35 @@ final router = GoRouter(
                 GoRoute(
                   path: 'leagues',
                   builder: (context, state) => const ManageLeaguesScreen(),
+                ),
+                GoRoute(
+                  path: 'leagues/new',
+                  builder: (context, state) => const AddLeagueScreen(),
+                ),
+                GoRoute(
+                  path: 'leagues/:leagueId/hubs/new',
+                  builder: (context, state) => AddHubScreen(
+                    leagueId: state.pathParameters['leagueId']!,
+                    initialLeague:
+                        state.extra is League ? state.extra! as League : null,
+                  ),
+                ),
+                GoRoute(
+                  path: 'leagues/:leagueId/hubs/:hubId/teams/new',
+                  builder: (context, state) {
+                    final extra = state.extra;
+                    final league = extra is ({League league, Hub hub})
+                        ? extra.league
+                        : null;
+                    final hub =
+                        extra is ({League league, Hub hub}) ? extra.hub : null;
+                    return AddTeamScreen(
+                      leagueId: state.pathParameters['leagueId']!,
+                      hubId: state.pathParameters['hubId']!,
+                      initialLeague: league,
+                      initialHub: hub,
+                    );
+                  },
                 ),
               ],
             ),
