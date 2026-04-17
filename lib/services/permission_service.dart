@@ -115,6 +115,9 @@ class PermissionService {
     if (normalised.startsWith('/settings/users/')) {
       return isAtLeast(user.role, UserRole.managerAdmin);
     }
+    if (normalised.startsWith('/settings/leagues/')) {
+      return isAtLeast(user.role, UserRole.superAdmin);
+    }
     // Team detail — accessible to all active users.
     if (normalised.startsWith('/teams/')) return true;
 

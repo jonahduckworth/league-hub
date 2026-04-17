@@ -63,6 +63,12 @@ class AuthorizedFirestoreService {
     return _fs.createLeague(orgId, league);
   }
 
+  Future<void> updateLeagueFields(
+      AppUser actor, String orgId, String leagueId, Map<String, dynamic> data) {
+    if (!_ps.canCreateLeague(actor)) _deny('updateLeagueFields', actor);
+    return _fs.updateLeagueFields(orgId, leagueId, data);
+  }
+
   Future<void> deleteLeague(AppUser actor, String orgId, String leagueId) {
     if (!_ps.canDeleteLeague(actor)) _deny('deleteLeague', actor);
     return _fs.deleteLeague(orgId, leagueId);
@@ -93,6 +99,14 @@ class AuthorizedFirestoreService {
       _deny('createHub', actor);
     }
     return _fs.createHub(orgId, leagueId, hub);
+  }
+
+  Future<void> updateHubFields(AppUser actor, String orgId, String leagueId,
+      String hubId, Map<String, dynamic> data) {
+    if (!_ps.canCreateHub(actor, leagueId: leagueId)) {
+      _deny('updateHubFields', actor);
+    }
+    return _fs.updateHubFields(orgId, leagueId, hubId, data);
   }
 
   Future<void> deleteHub(

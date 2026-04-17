@@ -213,12 +213,37 @@ final router = GoRouter(
                   builder: (context, state) => const AddLeagueScreen(),
                 ),
                 GoRoute(
+                  path: 'leagues/:leagueId/edit',
+                  builder: (context, state) => EditLeagueScreen(
+                    leagueId: state.pathParameters['leagueId']!,
+                    initialLeague:
+                        state.extra is League ? state.extra! as League : null,
+                  ),
+                ),
+                GoRoute(
                   path: 'leagues/:leagueId/hubs/new',
                   builder: (context, state) => AddHubScreen(
                     leagueId: state.pathParameters['leagueId']!,
                     initialLeague:
                         state.extra is League ? state.extra! as League : null,
                   ),
+                ),
+                GoRoute(
+                  path: 'leagues/:leagueId/hubs/:hubId/edit',
+                  builder: (context, state) {
+                    final extra = state.extra;
+                    final league = extra is ({League league, Hub hub})
+                        ? extra.league
+                        : null;
+                    final hub =
+                        extra is ({League league, Hub hub}) ? extra.hub : null;
+                    return EditHubScreen(
+                      leagueId: state.pathParameters['leagueId']!,
+                      hubId: state.pathParameters['hubId']!,
+                      initialLeague: league,
+                      initialHub: hub,
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'leagues/:leagueId/hubs/:hubId/teams/new',
@@ -250,6 +275,16 @@ final router = GoRouter(
         leagueId: state.uri.queryParameters['leagueId'] ?? '',
         hubId: state.uri.queryParameters['hubId'] ?? '',
       ),
+      routes: [
+        GoRoute(
+          path: 'edit',
+          builder: (context, state) => EditTeamScreen(
+            teamId: state.pathParameters['teamId']!,
+            leagueId: state.uri.queryParameters['leagueId'] ?? '',
+            hubId: state.uri.queryParameters['hubId'] ?? '',
+          ),
+        ),
+      ],
     ),
     GoRoute(
       path: '/chat/new',

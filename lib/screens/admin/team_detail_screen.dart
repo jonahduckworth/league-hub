@@ -11,6 +11,7 @@ import '../../services/authorized_firestore_service.dart';
 import '../../services/permission_service.dart';
 import '../../widgets/avatar_widget.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/entity_avatar.dart';
 
 /// Displays team details, roster management, and a link to the team chat room.
 class TeamDetailScreen extends ConsumerStatefulWidget {
@@ -82,14 +83,13 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.groups,
-                        color: AppColors.accent, size: 24),
+                  EntityAvatar(
+                    name: team.name,
+                    imageUrl: team.logoUrl,
+                    iconName: team.iconName,
+                    fallbackIcon: Icons.groups_2_outlined,
+                    size: 54,
+                    color: AppColors.accent,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -112,6 +112,15 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                       ],
                     ),
                   ),
+                  if (canManage)
+                    IconButton(
+                      tooltip: 'Edit Team',
+                      icon: const Icon(Icons.edit_outlined,
+                          color: AppColors.textSecondary),
+                      onPressed: () => context.push(
+                        '/teams/${team.id}/edit?leagueId=${team.leagueId}&hubId=${team.hubId}',
+                      ),
+                    ),
                 ],
               ),
             ],

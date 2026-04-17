@@ -190,6 +190,156 @@ class _AddLeagueScreenState extends ConsumerState<AddLeagueScreen> {
   }
 }
 
+class EditLeagueScreen extends ConsumerStatefulWidget {
+  final String leagueId;
+  final League? initialLeague;
+
+  const EditLeagueScreen({
+    super.key,
+    required this.leagueId,
+    this.initialLeague,
+  });
+
+  @override
+  ConsumerState<EditLeagueScreen> createState() => _EditLeagueScreenState();
+}
+
+class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
+  final _nameCtrl = TextEditingController();
+  final _abbrevCtrl = TextEditingController();
+  bool _saving = false;
+  bool _seeded = false;
+  _IdentitySelection? _identity;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _abbrevCtrl.dispose();
+    super.dispose();
+  }
+
+  void _seed(League league) {
+    if (_seeded) return;
+    _nameCtrl.text = league.name;
+    _abbrevCtrl.text = league.abbreviation;
+    _identity = _IdentitySelection(
+      defaultIconName: 'league',
+      initialImageUrl: league.logoUrl,
+      initialIconName: league.iconName,
+    );
+    _seeded = true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final org = ref.watch(organizationProvider).valueOrNull;
+    final leaguesAsync = ref.watch(leaguesProvider);
+
+    return leaguesAsync.when(
+      loading: () => const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => _LoadErrorScaffold(message: 'Could not load league: $e'),
+      data: (leagues) {
+        final league = widget.initialLeague ??
+            leagues.cast<League?>().firstWhere(
+                  (league) => league?.id == widget.leagueId,
+                  orElse: () => null,
+                );
+        if (league == null) {
+          return const _LoadErrorScaffold(message: 'League not found.');
+        }
+        _seed(league);
+        final identity = _identity!;
+
+        return _StructureFormScaffold(
+          title: 'Edit League',
+          eyebrow: league.abbreviation,
+          heading: 'Update league details',
+          subtitle: 'Keep the league name, abbreviation, and logo current.',
+          icon: Icons.emoji_events_outlined,
+          actionLabel: 'Save League',
+          saving: _saving,
+          onSubmit: org == null ? null : () => _save(org.id, league),
+          child: Column(
+            children: [
+              _FormCard(
+                children: [
+                  TextField(
+                    controller: _nameCtrl,
+                    autofocus: true,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'League Name',
+                      hintText: 'e.g. Hockey Super League',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _abbrevCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(
+                      labelText: 'Abbreviation',
+                      hintText: 'HSL',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _IdentityPicker(
+                title: 'League logo',
+                subtitle: 'Keep the current logo or choose a new look.',
+                selection: identity,
+                fallbackIcon: Icons.emoji_events_outlined,
+                onChanged: () => setState(() {}),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _save(String orgId, League league) async {
+    final identity = _identity;
+    final name = _nameCtrl.text.trim();
+    final abbrev = _abbrevCtrl.text.trim();
+    if (identity == null) return;
+    if (name.isEmpty || abbrev.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final authDb = ref.read(authorizedFirestoreServiceProvider);
+      final currentUser = ref.read(currentUserProvider).value;
+      if (currentUser == null) return;
+      final logoUrl = await _uploadIdentityLogo(
+        orgId: orgId,
+        entityType: 'leagues',
+        entityId: league.id,
+        currentUserId: currentUser.id,
+        pickedFile: identity.pickedImage,
+      );
+      final effectiveLogoUrl = logoUrl ?? identity.effectiveImageUrl;
+      await authDb.updateLeagueFields(currentUser, orgId, league.id, {
+        'name': name,
+        'abbreviation': abbrev,
+        'logoUrl': effectiveLogoUrl,
+        'iconName':
+            effectiveLogoUrl == null ? identity.effectiveIconName : null,
+      });
+      if (mounted) context.pop();
+    } on PermissionDeniedException {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to edit leagues');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // League tile (expands to show hubs)
 // ---------------------------------------------------------------------------
@@ -238,6 +388,15 @@ class _LeagueTile extends ConsumerWidget {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined,
+                    color: AppColors.textSecondary, size: 20),
+                tooltip: 'Edit League',
+                onPressed: () => context.push(
+                  '/settings/leagues/${league.id}/edit',
+                  extra: league,
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.add_location_alt_outlined,
                     color: AppColors.primaryLight, size: 20),
@@ -445,6 +604,7 @@ class _AddHubScreenState extends ConsumerState<AddHubScreen> {
         currentUserId: currentUser.id,
         pickedFile: identity.pickedImage,
       );
+      final effectiveLogoUrl = logoUrl ?? identity.effectiveImageUrl;
       final hub = Hub(
         id: id,
         leagueId: league.id,
@@ -453,8 +613,8 @@ class _AddHubScreenState extends ConsumerState<AddHubScreen> {
         location: _locationCtrl.text.trim().isEmpty
             ? null
             : _locationCtrl.text.trim(),
-        logoUrl: logoUrl ?? identity.effectiveInheritedImageUrl,
-        iconName: logoUrl == null ? identity.effectiveIconName : null,
+        logoUrl: effectiveLogoUrl,
+        iconName: effectiveLogoUrl == null ? identity.effectiveIconName : null,
         createdAt: DateTime.now(),
       );
       await authDb.createHub(currentUser, orgId, league.id, hub);
@@ -473,6 +633,177 @@ class _AddHubScreenState extends ConsumerState<AddHubScreen> {
       if (mounted) {
         AppUtils.showErrorSnackBar(
             context, 'You do not have permission to create hubs');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+}
+
+class EditHubScreen extends ConsumerStatefulWidget {
+  final String leagueId;
+  final String hubId;
+  final League? initialLeague;
+  final Hub? initialHub;
+
+  const EditHubScreen({
+    super.key,
+    required this.leagueId,
+    required this.hubId,
+    this.initialLeague,
+    this.initialHub,
+  });
+
+  @override
+  ConsumerState<EditHubScreen> createState() => _EditHubScreenState();
+}
+
+class _EditHubScreenState extends ConsumerState<EditHubScreen> {
+  final _nameCtrl = TextEditingController();
+  final _locationCtrl = TextEditingController();
+  bool _saving = false;
+  bool _seeded = false;
+  _IdentitySelection? _identity;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _locationCtrl.dispose();
+    super.dispose();
+  }
+
+  void _seed(Hub hub, League league) {
+    if (_seeded) return;
+    _nameCtrl.text = hub.name;
+    _locationCtrl.text = hub.location ?? '';
+    _identity = _IdentitySelection(
+      defaultIconName: 'hub',
+      initialImageUrl: hub.logoUrl,
+      initialIconName: hub.iconName,
+      inheritedImageUrl: league.logoUrl,
+      inheritedIconName: league.iconName,
+      inheritedLabel: 'Use league logo',
+    )..useInherited = false;
+    _seeded = true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final org = ref.watch(organizationProvider).valueOrNull;
+    final leaguesAsync = ref.watch(leaguesProvider);
+    final hubsAsync = ref.watch(hubsProvider(widget.leagueId));
+
+    if (leaguesAsync.isLoading || hubsAsync.isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (leaguesAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load league: ${leaguesAsync.error}');
+    }
+    if (hubsAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load hub: ${hubsAsync.error}');
+    }
+
+    final leagues = leaguesAsync.valueOrNull ?? const <League>[];
+    final hubs = hubsAsync.valueOrNull ?? const <Hub>[];
+    final league = widget.initialLeague ??
+        leagues.cast<League?>().firstWhere(
+              (league) => league?.id == widget.leagueId,
+              orElse: () => null,
+            );
+    final hub = widget.initialHub ??
+        hubs.cast<Hub?>().firstWhere(
+              (hub) => hub?.id == widget.hubId,
+              orElse: () => null,
+            );
+    if (league == null || hub == null) {
+      return const _LoadErrorScaffold(message: 'Hub not found.');
+    }
+    _seed(hub, league);
+    final identity = _identity!;
+
+    return _StructureFormScaffold(
+      title: 'Edit Hub',
+      eyebrow: league.abbreviation,
+      heading: 'Update hub details',
+      subtitle: 'Adjust the hub name, location, and logo.',
+      icon: Icons.location_on_outlined,
+      actionLabel: 'Save Hub',
+      saving: _saving,
+      onSubmit: org == null ? null : () => _save(org.id, league, hub),
+      child: Column(
+        children: [
+          _FormCard(
+            children: [
+              TextField(
+                controller: _nameCtrl,
+                autofocus: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Hub Name',
+                  hintText: 'e.g. Calgary',
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _locationCtrl,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Location',
+                  hintText: 'Calgary, AB',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _IdentityPicker(
+            title: 'Hub logo',
+            subtitle: 'Keep this hub logo, inherit the league, or choose new.',
+            selection: identity,
+            fallbackIcon: Icons.location_on_outlined,
+            onChanged: () => setState(() {}),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save(String orgId, League league, Hub hub) async {
+    final identity = _identity;
+    final name = _nameCtrl.text.trim();
+    if (identity == null) return;
+    if (name.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final authDb = ref.read(authorizedFirestoreServiceProvider);
+      final currentUser = ref.read(currentUserProvider).value;
+      if (currentUser == null) return;
+      final logoUrl = await _uploadIdentityLogo(
+        orgId: orgId,
+        entityType: 'hubs',
+        entityId: hub.id,
+        currentUserId: currentUser.id,
+        pickedFile: identity.pickedImage,
+      );
+      final effectiveLogoUrl = logoUrl ?? identity.effectiveImageUrl;
+      await authDb.updateHubFields(currentUser, orgId, league.id, hub.id, {
+        'name': name,
+        'location': _locationCtrl.text.trim().isEmpty
+            ? null
+            : _locationCtrl.text.trim(),
+        'logoUrl': effectiveLogoUrl,
+        'iconName':
+            effectiveLogoUrl == null ? identity.effectiveIconName : null,
+      });
+      if (mounted) context.pop();
+    } on PermissionDeniedException {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to edit hubs');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -537,6 +868,15 @@ class _HubTile extends ConsumerWidget {
                 orElse: () => const SizedBox.shrink(),
               ),
               const SizedBox(width: 2),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined,
+                    color: AppColors.textSecondary, size: 18),
+                tooltip: 'Edit Hub',
+                onPressed: () => context.push(
+                  '/settings/leagues/${league.id}/hubs/${hub.id}/edit',
+                  extra: (league: league, hub: hub),
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.group_add_outlined,
                     color: AppColors.accent, size: 18),
@@ -790,6 +1130,7 @@ class _AddTeamScreenState extends ConsumerState<AddTeamScreen> {
         currentUserId: currentUser.id,
         pickedFile: identity.pickedImage,
       );
+      final effectiveLogoUrl = logoUrl ?? identity.effectiveImageUrl;
       final team = Team(
         id: id,
         hubId: hub.id,
@@ -798,8 +1139,8 @@ class _AddTeamScreenState extends ConsumerState<AddTeamScreen> {
         name: name,
         ageGroup: _ageCtrl.text.trim().isEmpty ? null : _ageCtrl.text.trim(),
         division: _divCtrl.text.trim().isEmpty ? null : _divCtrl.text.trim(),
-        logoUrl: logoUrl ?? identity.effectiveInheritedImageUrl,
-        iconName: logoUrl == null ? identity.effectiveIconName : null,
+        logoUrl: effectiveLogoUrl,
+        iconName: effectiveLogoUrl == null ? identity.effectiveIconName : null,
         createdAt: DateTime.now(),
       );
       await authDb.createTeam(currentUser, orgId, league.id, hub.id, team);
@@ -808,6 +1149,201 @@ class _AddTeamScreenState extends ConsumerState<AddTeamScreen> {
       if (mounted) {
         AppUtils.showErrorSnackBar(
             context, 'You do not have permission to create teams');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+}
+
+class EditTeamScreen extends ConsumerStatefulWidget {
+  final String teamId;
+  final String leagueId;
+  final String hubId;
+
+  const EditTeamScreen({
+    super.key,
+    required this.teamId,
+    required this.leagueId,
+    required this.hubId,
+  });
+
+  @override
+  ConsumerState<EditTeamScreen> createState() => _EditTeamScreenState();
+}
+
+class _EditTeamScreenState extends ConsumerState<EditTeamScreen> {
+  final _nameCtrl = TextEditingController();
+  final _ageCtrl = TextEditingController();
+  final _divCtrl = TextEditingController();
+  bool _saving = false;
+  bool _seeded = false;
+  _IdentitySelection? _identity;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _ageCtrl.dispose();
+    _divCtrl.dispose();
+    super.dispose();
+  }
+
+  void _seed(Team team, League league, Hub hub) {
+    if (_seeded) return;
+    _nameCtrl.text = team.name;
+    _ageCtrl.text = team.ageGroup ?? '';
+    _divCtrl.text = team.division ?? '';
+    _identity = _IdentitySelection(
+      defaultIconName: 'team',
+      initialImageUrl: team.logoUrl,
+      initialIconName: team.iconName,
+      inheritedImageUrl: hub.logoUrl ?? league.logoUrl,
+      inheritedIconName: hub.iconName ?? league.iconName,
+      inheritedLabel: hub.logoUrl != null || hub.iconName != null
+          ? 'Use hub logo'
+          : 'Use league logo',
+    )..useInherited = false;
+    _seeded = true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final org = ref.watch(organizationProvider).valueOrNull;
+    final leaguesAsync = ref.watch(leaguesProvider);
+    final hubsAsync = ref.watch(hubsProvider(widget.leagueId));
+    final teamsAsync = ref
+        .watch(teamsProvider((leagueId: widget.leagueId, hubId: widget.hubId)));
+
+    if (leaguesAsync.isLoading || hubsAsync.isLoading || teamsAsync.isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (leaguesAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load league: ${leaguesAsync.error}');
+    }
+    if (hubsAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load hub: ${hubsAsync.error}');
+    }
+    if (teamsAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load team: ${teamsAsync.error}');
+    }
+
+    final league = (leaguesAsync.valueOrNull ?? const <League>[])
+        .cast<League?>()
+        .firstWhere((league) => league?.id == widget.leagueId,
+            orElse: () => null);
+    final hub = (hubsAsync.valueOrNull ?? const <Hub>[])
+        .cast<Hub?>()
+        .firstWhere((hub) => hub?.id == widget.hubId, orElse: () => null);
+    final team = (teamsAsync.valueOrNull ?? const <Team>[])
+        .cast<Team?>()
+        .firstWhere((team) => team?.id == widget.teamId, orElse: () => null);
+    if (league == null || hub == null || team == null) {
+      return const _LoadErrorScaffold(message: 'Team not found.');
+    }
+    _seed(team, league, hub);
+    final identity = _identity!;
+
+    return _StructureFormScaffold(
+      title: 'Edit Team',
+      eyebrow: hub.name,
+      heading: 'Update team details',
+      subtitle: 'Edit the roster container name, level, and logo.',
+      icon: Icons.groups_2_outlined,
+      actionLabel: 'Save Team',
+      saving: _saving,
+      onSubmit: org == null ? null : () => _save(org.id, league, hub, team),
+      child: Column(
+        children: [
+          _FormCard(
+            children: [
+              TextField(
+                controller: _nameCtrl,
+                autofocus: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Team Name',
+                  hintText: 'e.g. Calgary U11 AA',
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ageCtrl,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Age Group',
+                        hintText: 'U11',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _divCtrl,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        labelText: 'Division',
+                        hintText: 'AA',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _IdentityPicker(
+            title: 'Team logo',
+            subtitle: 'Keep this team logo, inherit a parent, or choose new.',
+            selection: identity,
+            fallbackIcon: Icons.groups_2_outlined,
+            onChanged: () => setState(() {}),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save(String orgId, League league, Hub hub, Team team) async {
+    final identity = _identity;
+    final name = _nameCtrl.text.trim();
+    if (identity == null) return;
+    if (name.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final authDb = ref.read(authorizedFirestoreServiceProvider);
+      final currentUser = ref.read(currentUserProvider).value;
+      if (currentUser == null) return;
+      final logoUrl = await _uploadIdentityLogo(
+        orgId: orgId,
+        entityType: 'teams',
+        entityId: team.id,
+        currentUserId: currentUser.id,
+        pickedFile: identity.pickedImage,
+      );
+      final effectiveLogoUrl = logoUrl ?? identity.effectiveImageUrl;
+      await authDb
+          .updateTeamFields(currentUser, orgId, league.id, hub.id, team.id, {
+        'name': name,
+        'ageGroup': _ageCtrl.text.trim().isEmpty ? null : _ageCtrl.text.trim(),
+        'division': _divCtrl.text.trim().isEmpty ? null : _divCtrl.text.trim(),
+        'logoUrl': effectiveLogoUrl,
+        'iconName':
+            effectiveLogoUrl == null ? identity.effectiveIconName : null,
+      });
+      if (mounted) context.pop();
+    } on PermissionDeniedException {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(
+            context, 'You do not have permission to edit teams');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1085,23 +1621,32 @@ class _IdentitySelection {
   final String? inheritedImageUrl;
   final String? inheritedIconName;
   final String? inheritedLabel;
+  String? imageUrl;
   String? iconName;
   PickedFileBytes? pickedImage;
   bool useInherited;
 
   _IdentitySelection({
     required this.defaultIconName,
+    String? initialImageUrl,
+    String? initialIconName,
     this.inheritedImageUrl,
     this.inheritedIconName,
     this.inheritedLabel,
-  })  : iconName = defaultIconName,
+  })  : imageUrl = initialImageUrl,
+        iconName = initialIconName ?? defaultIconName,
         useInherited = inheritedImageUrl != null || inheritedIconName != null;
 
   String? get effectiveInheritedImageUrl =>
       useInherited ? inheritedImageUrl : null;
 
+  String? get effectiveImageUrl => useInherited ? inheritedImageUrl : imageUrl;
+
   String? get effectiveIconName {
     if (pickedImage != null) return null;
+    if (effectiveImageUrl != null && effectiveImageUrl!.isNotEmpty) {
+      return null;
+    }
     if (useInherited) return inheritedIconName ?? defaultIconName;
     return iconName ?? defaultIconName;
   }
@@ -1125,8 +1670,7 @@ class _IdentityPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final previewName = selection.pickedImage?.name ?? title;
-    final previewImageUrl =
-        selection.useInherited ? selection.inheritedImageUrl : null;
+    final previewImageUrl = selection.effectiveImageUrl;
     final previewIconName = selection.useInherited
         ? selection.inheritedIconName
         : selection.iconName;
@@ -1196,6 +1740,7 @@ class _IdentityPicker extends StatelessWidget {
                 onSelected: (_) {
                   selection.useInherited = false;
                   selection.pickedImage = null;
+                  selection.imageUrl = null;
                   selection.iconName = entry.key;
                   onChanged();
                 },
@@ -1208,6 +1753,7 @@ class _IdentityPicker extends StatelessWidget {
               final picked = await pickImageBytes();
               if (picked == null) return;
               selection.useInherited = false;
+              selection.imageUrl = null;
               selection.pickedImage = picked;
               onChanged();
             },

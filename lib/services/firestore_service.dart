@@ -92,6 +92,10 @@ class FirestoreService {
   Future<void> createLeague(String orgId, League league) =>
       _leaguesRef(orgId).doc(league.id).set(league.toJson());
 
+  Future<void> updateLeagueFields(
+          String orgId, String leagueId, Map<String, dynamic> data) =>
+      _leaguesRef(orgId).doc(leagueId).set(data, SetOptions(merge: true));
+
   Future<void> deleteLeague(String orgId, String leagueId) =>
       _leaguesRef(orgId).doc(leagueId).delete();
 
@@ -117,6 +121,10 @@ class FirestoreService {
 
   Future<void> createHub(String orgId, String leagueId, Hub hub) =>
       _hubsRef(orgId, leagueId).doc(hub.id).set(hub.toJson());
+
+  Future<void> updateHubFields(String orgId, String leagueId, String hubId,
+          Map<String, dynamic> data) =>
+      _hubsRef(orgId, leagueId).doc(hubId).set(data, SetOptions(merge: true));
 
   Future<void> deleteHub(String orgId, String leagueId, String hubId) =>
       _hubsRef(orgId, leagueId).doc(hubId).delete();
