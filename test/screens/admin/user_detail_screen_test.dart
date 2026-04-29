@@ -5,6 +5,7 @@ import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/organization.dart';
+import 'package:league_hub/models/team.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/admin/user_detail_screen.dart';
@@ -15,9 +16,11 @@ import 'package:league_hub/services/firestore_service.dart';
 class MockFirestoreService extends FirestoreService {
   final AppUser? userToReturn;
   final List<Hub> hubsToReturn;
+  final List<Team> teamsToReturn;
 
-  MockFirestoreService({this.userToReturn, List<Hub>? hubs})
+  MockFirestoreService({this.userToReturn, List<Hub>? hubs, List<Team>? teams})
       : hubsToReturn = hubs ?? [],
+        teamsToReturn = teams ?? [],
         super(firestore: FakeFirebaseFirestore());
 
   @override
@@ -28,6 +31,11 @@ class MockFirestoreService extends FirestoreService {
   @override
   Future<List<Hub>> getAllHubsFlat(String orgId) async {
     return hubsToReturn;
+  }
+
+  @override
+  Future<List<Team>> getAllTeamsFlat(String orgId) async {
+    return teamsToReturn;
   }
 }
 
@@ -62,7 +70,7 @@ void main() {
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: ['hub-1', 'hub-2'],
-      teamIds: [],
+      teamIds: ['team-1'],
       createdAt: DateTime.now().subtract(Duration(days: 30)),
       isActive: true,
     );
@@ -94,6 +102,30 @@ void main() {
       ),
     ];
 
+    final testTeams = [
+      Team(
+        id: 'team-1',
+        hubId: 'hub-1',
+        leagueId: 'league-1',
+        orgId: 'org-1',
+        name: 'Calgary U18',
+        ageGroup: 'U18',
+        division: 'AAA',
+        memberIds: ['user-1'],
+        createdAt: DateTime.now(),
+      ),
+      Team(
+        id: 'team-2',
+        hubId: 'hub-2',
+        leagueId: 'league-1',
+        orgId: 'org-1',
+        name: 'Edmonton U15',
+        ageGroup: 'U15',
+        division: 'AA',
+        createdAt: DateTime.now(),
+      ),
+    ];
+
     Widget createTestWidget({
       AppUser? user,
       AppUser? targetUserData,
@@ -113,6 +145,7 @@ void main() {
             MockFirestoreService(
               userToReturn: nullUser ? null : (targetUserData ?? targetUser),
               hubs: testHubs,
+              teams: testTeams,
             ),
           ),
         ],
@@ -126,6 +159,11 @@ void main() {
           ),
         ),
       );
+    }
+
+    Future<void> scrollDown(WidgetTester tester) async {
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pumpAndSettle();
     }
 
     group('Screen Rendering', () {
@@ -252,7 +290,8 @@ void main() {
     });
 
     group('Hub Assignment Section', () {
-      testWidgets('displays hub assignments section', (WidgetTester tester) async {
+      testWidgets('displays hub assignments section',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -304,6 +343,50 @@ void main() {
       });
     });
 
+    group('Team Assignment Section', () {
+      testWidgets('displays team assignments section',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('TEAM ASSIGNMENTS'), findsOneWidget);
+      });
+
+      testWidgets('shows assigned teams with parent hub details',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Calgary U18'), findsOneWidget);
+        expect(find.text('Calgary Hub · U18 · AAA'), findsOneWidget);
+      });
+
+      testWidgets('shows empty state when no teams assigned',
+          (WidgetTester tester) async {
+        final noTeamsUser = AppUser(
+          id: 'user-2',
+          email: 'noteams@example.com',
+          displayName: 'No Teams User',
+          role: UserRole.staff,
+          orgId: 'org-1',
+          hubIds: ['hub-1'],
+          teamIds: [],
+          createdAt: DateTime.now(),
+          isActive: true,
+        );
+
+        await tester.pumpWidget(
+          createTestWidget(targetUserData: noTeamsUser),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('No teams assigned'), findsOneWidget);
+      });
+    });
+
     group('Edit Mode', () {
       testWidgets('shows Edit button when viewing own details',
           (WidgetTester tester) async {
@@ -341,6 +424,20 @@ void main() {
         // Should show checkboxes for hubs
         expect(find.byType(CheckboxListTile), findsWidgets);
       });
+
+      testWidgets('can toggle team assignment in edit mode',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Edit'));
+        await tester.pump();
+        await tester.pumpAndSettle();
+        await scrollDown(tester);
+
+        expect(find.text('Edmonton U15'), findsOneWidget);
+      });
     });
 
     group('Deactivate Button', () {
@@ -349,6 +446,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
+        await scrollDown(tester);
 
         expect(find.text('Deactivate User'), findsOneWidget);
       });
@@ -372,6 +470,7 @@ void main() {
         );
         await tester.pump();
         await tester.pumpAndSettle();
+        await scrollDown(tester);
 
         expect(find.text('Reactivate User'), findsOneWidget);
       });
@@ -383,6 +482,7 @@ void main() {
         );
         await tester.pump();
         await tester.pumpAndSettle();
+        await scrollDown(tester);
 
         expect(find.text('Deactivate User'), findsOneWidget);
       });
@@ -409,7 +509,8 @@ void main() {
     });
 
     group('Section Cards', () {
-      testWidgets('displays Role & Access section', (WidgetTester tester) async {
+      testWidgets('displays Role & Access section',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -436,7 +537,8 @@ void main() {
     });
 
     group('User Not Found', () {
-      testWidgets('shows error when user not found', (WidgetTester tester) async {
+      testWidgets('shows error when user not found',
+          (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(nullUser: true),
         );
@@ -460,7 +562,8 @@ void main() {
     });
 
     group('Avatar Display', () {
-      testWidgets('displays user avatar in header', (WidgetTester tester) async {
+      testWidgets('displays user avatar in header',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -496,7 +599,8 @@ void main() {
     });
 
     group('Layout Structure', () {
-      testWidgets('uses ListView for main content', (WidgetTester tester) async {
+      testWidgets('uses ListView for main content',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -513,6 +617,7 @@ void main() {
         // All sections should be visible
         expect(find.text('ROLE & ACCESS'), findsOneWidget);
         expect(find.text('HUB ASSIGNMENTS'), findsOneWidget);
+        expect(find.text('TEAM ASSIGNMENTS'), findsOneWidget);
         expect(find.text('DATES'), findsOneWidget);
       });
     });

@@ -16,7 +16,12 @@ service firebase.storage {
     }
 
     function sameOrg(orgId) {
-      return isActive() && userDoc().orgId == orgId;
+      return isPlatformOwner() || (isActive() && userDoc().orgId == orgId);
+    }
+
+    function isPlatformOwner() {
+      return isActive()
+        && userDoc().role == 'platformOwner';
     }
 
     function isManagerAdmin() {

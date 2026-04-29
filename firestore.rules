@@ -38,7 +38,7 @@ service cloud.firestore {
     }
 
     function sameOrg(orgId) {
-      return isActive() && currentOrgId() == orgId;
+      return isPlatformOwner() || (isActive() && currentOrgId() == orgId);
     }
 
     function isPlatformOwner() {
@@ -127,13 +127,18 @@ service cloud.firestore {
 
     function canAdminUpdateUser(userData) {
       return isActive()
-        && userData.orgId == currentOrgId()
         && (
-          isSuperAdmin()
+          isPlatformOwner()
           || (
-            currentUser().role == 'managerAdmin'
-            && userData.role == 'staff'
-            && request.resource.data.role == 'staff'
+            userData.orgId == currentOrgId()
+            && (
+              isSuperAdmin()
+              || (
+                currentUser().role == 'managerAdmin'
+                && userData.role == 'staff'
+                && request.resource.data.role == 'staff'
+              )
+            )
           )
         );
     }

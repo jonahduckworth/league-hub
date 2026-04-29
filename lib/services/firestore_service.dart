@@ -829,6 +829,24 @@ class FirestoreService {
     return hubs;
   }
 
+  Future<List<Team>> getAllTeamsFlat(String orgId) async {
+    final leagueSnap = await _leaguesRef(orgId).get();
+    final teams = <Team>[];
+    for (final leagueDoc in leagueSnap.docs) {
+      final hubSnap = await _hubsRef(orgId, leagueDoc.id).get();
+      for (final hubDoc in hubSnap.docs) {
+        final teamSnap = await _teamsRef(orgId, leagueDoc.id, hubDoc.id).get();
+        for (final teamDoc in teamSnap.docs) {
+          teams.add(Team.fromJson({
+            'id': teamDoc.id,
+            ..._convertTimestamps(teamDoc.data() as Map<String, dynamic>)
+          }));
+        }
+      }
+    }
+    return teams;
+  }
+
   /// Derives the unique league IDs for a set of hub IDs by scanning all hubs.
   Future<List<String>> deriveLeagueIdsFromHubs(
       String orgId, List<String> hubIds) async {

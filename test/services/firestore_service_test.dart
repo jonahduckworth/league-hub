@@ -956,6 +956,23 @@ void main() {
       expect(hubs, hasLength(3));
     });
 
+    test('getAllTeamsFlat returns all teams across leagues and hubs', () async {
+      await svc.createOrganization(makeOrg());
+      const lg1 = 'lg-1';
+      const lg2 = 'lg-2';
+      await svc.createLeague(orgId, makeLeague(lg1));
+      await svc.createLeague(orgId, makeLeague(lg2));
+      await svc.createHub(orgId, lg1, makeHub('h1', lg1));
+      await svc.createHub(orgId, lg2, makeHub('h2', lg2));
+      await svc.createTeam(orgId, lg1, 'h1', makeTeam('t1', lg1, 'h1'));
+      await svc.createTeam(orgId, lg1, 'h1', makeTeam('t2', lg1, 'h1'));
+      await svc.createTeam(orgId, lg2, 'h2', makeTeam('t3', lg2, 'h2'));
+
+      final teams = await svc.getAllTeamsFlat(orgId);
+      expect(teams, hasLength(3));
+      expect(teams.map((team) => team.id), containsAll(['t1', 't2', 't3']));
+    });
+
     test('getActiveUserCount returns count of active users', () async {
       await svc.updateUser(makeUser('active-1'));
       await svc.updateUser(makeUser('active-2'));

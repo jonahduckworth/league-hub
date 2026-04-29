@@ -184,6 +184,10 @@ class _AddLeagueScreenState extends ConsumerState<AddLeagueScreen> {
         AppUtils.showErrorSnackBar(
             context, 'You do not have permission to create leagues');
       }
+    } catch (e) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(context, 'Could not create league: $e');
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -333,6 +337,10 @@ class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
       if (mounted) {
         AppUtils.showErrorSnackBar(
             context, 'You do not have permission to edit leagues');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(context, 'Could not save league: $e');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -634,6 +642,10 @@ class _AddHubScreenState extends ConsumerState<AddHubScreen> {
         AppUtils.showErrorSnackBar(
             context, 'You do not have permission to create hubs');
       }
+    } catch (e) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(context, 'Could not create hub: $e');
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -804,6 +816,10 @@ class _EditHubScreenState extends ConsumerState<EditHubScreen> {
       if (mounted) {
         AppUtils.showErrorSnackBar(
             context, 'You do not have permission to edit hubs');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(context, 'Could not save hub: $e');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1150,6 +1166,10 @@ class _AddTeamScreenState extends ConsumerState<AddTeamScreen> {
         AppUtils.showErrorSnackBar(
             context, 'You do not have permission to create teams');
       }
+    } catch (e) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(context, 'Could not create team: $e');
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -1344,6 +1364,10 @@ class _EditTeamScreenState extends ConsumerState<EditTeamScreen> {
       if (mounted) {
         AppUtils.showErrorSnackBar(
             context, 'You do not have permission to edit teams');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(context, 'Could not save team: $e');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
