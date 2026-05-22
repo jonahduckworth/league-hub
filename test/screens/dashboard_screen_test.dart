@@ -250,6 +250,15 @@ void main() {
     }
 
     group('Main Content', () {
+      test('maps time of day to dashboard greeting', () {
+        expect(dashboardGreetingForHour(8).label, 'Good morning');
+        expect(dashboardGreetingForHour(13).label, 'Good afternoon');
+        expect(dashboardGreetingForHour(20).label, 'Good evening');
+        expect(dashboardGreetingForHour(8).icon, Icons.wb_sunny_outlined);
+        expect(dashboardGreetingForHour(13).icon, Icons.wb_sunny);
+        expect(dashboardGreetingForHour(20).icon, Icons.nightlight_outlined);
+      });
+
       testWidgets('does not render the old stats card grid',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
@@ -274,7 +283,7 @@ void main() {
     });
 
     group('AppBar and Header', () {
-      testWidgets('displays organization name in header',
+      testWidgets('displays greeting instead of organization name in header',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(
           org: Organization(
@@ -290,16 +299,24 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Custom Org Name'), findsOneWidget);
+        expect(
+          find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
+          findsOneWidget,
+        );
+        expect(find.text('Custom Org Name'), findsNothing);
       });
 
-      testWidgets('uses a compact organization header without greeting copy',
+      testWidgets('uses a compact greeting header without welcome copy',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Test Organization'), findsOneWidget);
+        expect(
+          find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
+          findsOneWidget,
+        );
+        expect(find.text('Test Organization'), findsNothing);
         expect(find.text('Welcome back, Test User'), findsNothing);
       });
 
@@ -735,8 +752,11 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Should display with default org name
-        expect(find.text('League Hub'), findsWidgets);
+        expect(
+          find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
+          findsOneWidget,
+        );
+        expect(find.text('League Hub'), findsNothing);
         expect(find.text('Announcements'), findsOneWidget);
       });
     });
