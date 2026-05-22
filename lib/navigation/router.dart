@@ -12,7 +12,7 @@ import '../screens/dashboard_screen.dart';
 import '../screens/chat_list_screen.dart';
 import '../screens/chat_conversation_screen.dart';
 import '../screens/new_chat_screen.dart';
-import '../screens/documents_screen.dart';
+import '../screens/policy_screen.dart';
 import '../screens/announcements_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/org_creation_screen.dart';
@@ -21,8 +21,8 @@ import '../screens/admin/user_management_screen.dart';
 import '../screens/admin/user_detail_screen.dart';
 import '../screens/create_announcement_screen.dart';
 import '../screens/announcement_detail_screen.dart';
-import '../screens/upload_document_screen.dart';
-import '../screens/document_detail_screen.dart';
+import '../screens/upload_policy_screen.dart';
+import '../screens/policy_detail_screen.dart';
 import '../screens/settings/edit_profile_screen.dart';
 import '../screens/settings/roles_permissions_screen.dart';
 import '../screens/settings/branding_screen.dart';
@@ -151,8 +151,8 @@ final router = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/documents',
-              builder: (context, state) => const DocumentsScreen(),
+              path: '/policy',
+              builder: (context, state) => const PolicyScreen(),
             ),
           ],
         ),
@@ -302,15 +302,15 @@ final router = GoRouter(
         roomId: state.pathParameters['roomId']!,
       ),
     ),
-    // Document routes — outside ShellRoute (no bottom nav)
+    // Policy routes — outside ShellRoute (no bottom nav)
     GoRoute(
-      path: '/documents/upload',
-      builder: (context, state) => const UploadDocumentScreen(),
+      path: '/policy/upload',
+      builder: (context, state) => const UploadPolicyScreen(),
     ),
     GoRoute(
-      path: '/documents/:id',
-      builder: (context, state) => DocumentDetailScreen(
-        docId: state.pathParameters['id']!,
+      path: '/policy/:id',
+      builder: (context, state) => PolicyDetailScreen(
+        policyId: state.pathParameters['id']!,
       ),
     ),
     // Announcement routes — outside ShellRoute (no bottom nav)

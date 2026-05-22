@@ -138,8 +138,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('server-side setup'),
-          findsOneWidget);
+      expect(find.textContaining('server-side setup'), findsOneWidget);
       expect(find.text('OK'), findsOneWidget);
     });
 

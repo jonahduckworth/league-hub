@@ -301,34 +301,34 @@ class AuthorizedFirestoreService {
   }
 
   // -------------------------------------------------------------------------
-  // Documents
+  // Policy
   // -------------------------------------------------------------------------
 
-  Future<String> createDocument(
-      AppUser actor, String orgId, Map<String, dynamic> docData,
-      {String? docId}) {
-    if (!_ps.canUploadDocument(actor)) _deny('createDocument', actor);
-    return _fs.createDocument(orgId, docData, docId: docId);
+  Future<String> createPolicy(
+      AppUser actor, String orgId, Map<String, dynamic> policyData,
+      {String? policyId}) {
+    if (!_ps.canUploadPolicy(actor)) _deny('createPolicy', actor);
+    return _fs.createPolicy(orgId, policyData, policyId: policyId);
   }
 
-  Future<void> updateDocument(
-      AppUser actor, String orgId, String docId, Map<String, dynamic> data,
+  Future<void> updatePolicy(
+      AppUser actor, String orgId, String policyId, Map<String, dynamic> data,
       {required String uploadedBy}) {
-    if (!_ps.canEditDocument(actor, uploadedBy: uploadedBy)) {
-      _deny('updateDocument', actor);
+    if (!_ps.canEditPolicy(actor, uploadedBy: uploadedBy)) {
+      _deny('updatePolicy', actor);
     }
-    return _fs.updateDocument(orgId, docId, data);
+    return _fs.updatePolicy(orgId, policyId, data);
   }
 
-  Future<void> deleteDocument(AppUser actor, String orgId, String docId) {
-    if (!_ps.canDeleteDocument(actor)) _deny('deleteDocument', actor);
-    return _fs.deleteDocument(orgId, docId);
+  Future<void> deletePolicy(AppUser actor, String orgId, String policyId) {
+    if (!_ps.canDeletePolicy(actor)) _deny('deletePolicy', actor);
+    return _fs.deletePolicy(orgId, policyId);
   }
 
-  Future<void> addDocumentVersion(
-      AppUser actor, String orgId, String docId, Map<String, dynamic> data) {
-    if (!_ps.canUploadDocument(actor)) _deny('addDocumentVersion', actor);
-    return _fs.addDocumentVersion(orgId, docId, data);
+  Future<void> addPolicyVersion(
+      AppUser actor, String orgId, String policyId, Map<String, dynamic> data) {
+    if (!_ps.canUploadPolicy(actor)) _deny('addPolicyVersion', actor);
+    return _fs.addPolicyVersion(orgId, policyId, data);
   }
 
   // -------------------------------------------------------------------------

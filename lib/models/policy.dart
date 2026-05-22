@@ -1,4 +1,4 @@
-class DocumentVersion {
+class PolicyVersion {
   final String fileUrl;
   final int version;
   final DateTime uploadedAt;
@@ -6,7 +6,7 @@ class DocumentVersion {
   final String uploadedByName;
   final int fileSize;
 
-  DocumentVersion({
+  PolicyVersion({
     required this.fileUrl,
     required this.version,
     required this.uploadedAt,
@@ -15,8 +15,7 @@ class DocumentVersion {
     required this.fileSize,
   });
 
-  factory DocumentVersion.fromJson(Map<String, dynamic> json) =>
-      DocumentVersion(
+  factory PolicyVersion.fromJson(Map<String, dynamic> json) => PolicyVersion(
         fileUrl: (json['url'] ?? json['fileUrl'] ?? '') as String,
         version: (json['version'] as num?)?.toInt() ?? 1,
         uploadedAt: DateTime.parse(json['uploadedAt'] as String),
@@ -35,7 +34,7 @@ class DocumentVersion {
       };
 }
 
-class Document {
+class Policy {
   final String id;
   final String orgId;
   final String? leagueId;
@@ -47,11 +46,11 @@ class Document {
   final String category;
   final String uploadedBy;
   final String uploadedByName;
-  final List<DocumentVersion> versions;
+  final List<PolicyVersion> versions;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  Document({
+  Policy({
     required this.id,
     required this.orgId,
     this.leagueId,
@@ -68,7 +67,7 @@ class Document {
     required this.updatedAt,
   });
 
-  factory Document.fromJson(Map<String, dynamic> json) => Document(
+  factory Policy.fromJson(Map<String, dynamic> json) => Policy(
         id: json['id'] as String,
         orgId: json['orgId'] as String? ?? '',
         leagueId: json['leagueId'] as String?,
@@ -81,7 +80,7 @@ class Document {
         uploadedBy: json['uploadedBy'] as String,
         uploadedByName: json['uploadedByName'] as String? ?? '',
         versions: (json['versions'] as List? ?? [])
-            .map((v) => DocumentVersion.fromJson(v as Map<String, dynamic>))
+            .map((v) => PolicyVersion.fromJson(v as Map<String, dynamic>))
             .toList(),
         createdAt: DateTime.parse(json['createdAt'] as String),
         updatedAt: DateTime.parse(json['updatedAt'] as String),

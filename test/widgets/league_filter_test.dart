@@ -72,7 +72,8 @@ void main() {
       expect(selected, isNull);
     });
 
-    testWidgets('calls onSelected with league id when pill tapped', (tester) async {
+    testWidgets('calls onSelected with league id when pill tapped',
+        (tester) async {
       String? selected;
 
       await tester.pumpWidget(
@@ -91,7 +92,8 @@ void main() {
       expect(selected, 'l1');
     });
 
-    testWidgets('renders only All pill when leagues list is empty', (tester) async {
+    testWidgets('renders only All pill when leagues list is empty',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

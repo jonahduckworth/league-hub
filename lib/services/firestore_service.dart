@@ -8,7 +8,7 @@ import '../models/team.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
 import '../models/message.dart';
-import '../models/document.dart';
+import '../models/policy.dart';
 import '../models/announcement.dart';
 import '../models/invitation.dart';
 import '../core/constants.dart';
@@ -583,62 +583,61 @@ class FirestoreService {
     await batch.commit();
   }
 
-  // --- Documents ---
+  // --- Policy ---
 
-  CollectionReference _documentsRef(String orgId) => _db
+  CollectionReference _policiesRef(String orgId) => _db
       .collection(AppConstants.orgsCollection)
       .doc(orgId)
-      .collection('documents');
+      .collection(AppConstants.policiesCollection);
 
-  String newDocumentId(String orgId) => _documentsRef(orgId).doc().id;
+  String newPolicyId(String orgId) => _policiesRef(orgId).doc().id;
 
-  Document _docFromSnap(DocumentSnapshot d, String orgId) => Document.fromJson({
+  Policy _policyFromSnap(DocumentSnapshot d, String orgId) => Policy.fromJson({
         'id': d.id,
         'orgId': orgId,
         ..._convertTimestamps(d.data() as Map<String, dynamic>)
       });
 
-  /// Stream of all documents for an org, client-side filtered by leagueId/category.
-  Stream<List<Document>> documentsStream(String orgId,
+  /// Stream of all policies for an org, client-side filtered by leagueId/category.
+  Stream<List<Policy>> policiesStream(String orgId,
       {String? leagueId, String? category}) {
-    return _documentsRef(orgId)
+    return _policiesRef(orgId)
         .orderBy('updatedAt', descending: true)
         .snapshots()
         .map((snap) {
-      var docs = snap.docs.map((d) => _docFromSnap(d, orgId)).toList();
+      var policies = snap.docs.map((d) => _policyFromSnap(d, orgId)).toList();
       if (leagueId != null) {
-        docs = docs.where((d) => d.leagueId == leagueId).toList();
+        policies = policies.where((p) => p.leagueId == leagueId).toList();
       }
       if (category != null) {
-        docs = docs.where((d) => d.category == category).toList();
+        policies = policies.where((p) => p.category == category).toList();
       }
-      return docs;
+      return policies;
     });
   }
 
-  Stream<List<Document>> getDocuments(String orgId) => documentsStream(orgId);
+  Stream<List<Policy>> getPolicies(String orgId) => policiesStream(orgId);
 
-  Stream<List<Document>> getDocumentsByLeague(String orgId, String leagueId) =>
-      documentsStream(orgId, leagueId: leagueId);
+  Stream<List<Policy>> getPoliciesByLeague(String orgId, String leagueId) =>
+      policiesStream(orgId, leagueId: leagueId);
 
-  Stream<List<Document>> getDocumentsByCategory(
-          String orgId, String category) =>
-      documentsStream(orgId, category: category);
+  Stream<List<Policy>> getPoliciesByCategory(String orgId, String category) =>
+      policiesStream(orgId, category: category);
 
-  Stream<Document?> getDocumentById(String orgId, String docId) {
-    return _documentsRef(orgId).doc(docId).snapshots().map((snap) {
+  Stream<Policy?> getPolicyById(String orgId, String policyId) {
+    return _policiesRef(orgId).doc(policyId).snapshots().map((snap) {
       if (!snap.exists) return null;
-      return _docFromSnap(snap, orgId);
+      return _policyFromSnap(snap, orgId);
     });
   }
 
-  Future<String> createDocument(String orgId, Map<String, dynamic> docData,
-      {String? docId}) async {
-    final ref = docId != null
-        ? _documentsRef(orgId).doc(docId)
-        : _documentsRef(orgId).doc();
+  Future<String> createPolicy(String orgId, Map<String, dynamic> policyData,
+      {String? policyId}) async {
+    final ref = policyId != null
+        ? _policiesRef(orgId).doc(policyId)
+        : _policiesRef(orgId).doc();
     await ref.set({
-      ...docData,
+      ...policyData,
       'orgId': orgId,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -646,23 +645,23 @@ class FirestoreService {
     return ref.id;
   }
 
-  Future<void> updateDocument(
-      String orgId, String docId, Map<String, dynamic> data) async {
-    await _documentsRef(orgId).doc(docId).update({
+  Future<void> updatePolicy(
+      String orgId, String policyId, Map<String, dynamic> data) async {
+    await _policiesRef(orgId).doc(policyId).update({
       ...data,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  Future<void> deleteDocument(String orgId, String docId) async {
-    await _documentsRef(orgId).doc(docId).delete();
+  Future<void> deletePolicy(String orgId, String policyId) async {
+    await _policiesRef(orgId).doc(policyId).delete();
   }
 
-  Future<void> addDocumentVersion(
-      String orgId, String docId, Map<String, dynamic> versionData) async {
+  Future<void> addPolicyVersion(
+      String orgId, String policyId, Map<String, dynamic> versionData) async {
     await _db.runTransaction((transaction) async {
-      final docRef = _documentsRef(orgId).doc(docId);
-      final snap = await transaction.get(docRef);
+      final policyRef = _policiesRef(orgId).doc(policyId);
+      final snap = await transaction.get(policyRef);
       final data = snap.data() as Map<String, dynamic>? ?? {};
       final currentVersions =
           List<Map<String, dynamic>>.from(data['versions'] as List? ?? []);
@@ -670,7 +669,7 @@ class FirestoreService {
         ...versionData,
         'version': currentVersions.length + 1,
       };
-      transaction.update(docRef, {
+      transaction.update(policyRef, {
         'versions': [...currentVersions, newVersion],
         'fileUrl': versionData['url'],
         'fileSize': versionData['fileSize'],

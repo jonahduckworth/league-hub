@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
-import 'package:league_hub/models/document.dart';
+import 'package:league_hub/models/policy.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
-import 'package:league_hub/screens/document_detail_screen.dart';
+import 'package:league_hub/screens/policy_detail_screen.dart';
 import 'package:league_hub/core/theme.dart';
 
 void main() {
-  group('DocumentDetailScreen', () {
+  group('PolicyDetailScreen', () {
     final staffUser = AppUser(
       id: 'user-1',
       email: 'staff@example.com',
@@ -57,8 +57,8 @@ void main() {
       ),
     ];
 
-    final version1 = DocumentVersion(
-      fileUrl: 'https://storage.example.com/doc-1/v1.pdf',
+    final version1 = PolicyVersion(
+      fileUrl: 'https://storage.example.com/policy-1/v1.pdf',
       version: 1,
       uploadedAt: DateTime.now().subtract(Duration(days: 5)),
       uploadedBy: 'uploader-1',
@@ -66,8 +66,8 @@ void main() {
       fileSize: 1024000,
     );
 
-    final version2 = DocumentVersion(
-      fileUrl: 'https://storage.example.com/doc-1/v2.pdf',
+    final version2 = PolicyVersion(
+      fileUrl: 'https://storage.example.com/policy-1/v2.pdf',
       version: 2,
       uploadedAt: DateTime.now().subtract(Duration(days: 2)),
       uploadedBy: 'uploader-1',
@@ -75,15 +75,15 @@ void main() {
       fileSize: 1024500,
     );
 
-    final pdfDocument = Document(
-      id: 'doc-1',
+    final pdfPolicy = Policy(
+      id: 'policy-1',
       orgId: 'org-1',
       leagueId: 'league-1',
-      name: 'Team Roster',
-      fileUrl: 'https://storage.example.com/doc-1/v2.pdf',
+      name: 'Code of Conduct Policy',
+      fileUrl: 'https://storage.example.com/policy-1/v2.pdf',
       fileType: 'pdf',
       fileSize: 1024500,
-      category: 'Rosters',
+      category: 'Code of Conduct',
       uploadedBy: 'uploader-1',
       uploadedByName: 'Manager Admin',
       versions: [version1, version2],
@@ -91,19 +91,19 @@ void main() {
       updatedAt: DateTime.now().subtract(Duration(days: 2)),
     );
 
-    final docxDocument = Document(
-      id: 'doc-2',
+    final docxPolicy = Policy(
+      id: 'policy-2',
       orgId: 'org-1',
-      name: 'Game Rules',
-      fileUrl: 'https://storage.example.com/doc-2/v1.docx',
+      name: 'Overage Policy',
+      fileUrl: 'https://storage.example.com/policy-2/v1.docx',
       fileType: 'docx',
       fileSize: 512000,
-      category: 'Policies',
+      category: 'Policy',
       uploadedBy: 'uploader-1',
       uploadedByName: 'Manager Admin',
       versions: [
-        DocumentVersion(
-          fileUrl: 'https://storage.example.com/doc-2/v1.docx',
+        PolicyVersion(
+          fileUrl: 'https://storage.example.com/policy-2/v1.docx',
           version: 1,
           uploadedAt: DateTime.now(),
           uploadedBy: 'uploader-1',
@@ -115,19 +115,19 @@ void main() {
       updatedAt: DateTime.now(),
     );
 
-    final imageDocument = Document(
-      id: 'doc-3',
+    final imagePolicy = Policy(
+      id: 'policy-3',
       orgId: 'org-1',
-      name: 'Team Photo',
-      fileUrl: 'https://storage.example.com/doc-3/v1.jpg',
+      name: 'Policy Attachment',
+      fileUrl: 'https://storage.example.com/policy-3/v1.jpg',
       fileType: 'jpg',
       fileSize: 2048000,
       category: 'Other',
       uploadedBy: 'uploader-1',
       uploadedByName: 'Manager Admin',
       versions: [
-        DocumentVersion(
-          fileUrl: 'https://storage.example.com/doc-3/v1.jpg',
+        PolicyVersion(
+          fileUrl: 'https://storage.example.com/policy-3/v1.jpg',
           version: 1,
           uploadedAt: DateTime.now(),
           uploadedBy: 'uploader-1',
@@ -140,9 +140,9 @@ void main() {
     );
 
     Widget createTestWidget({
-      required String docId,
+      required String policyId,
       AppUser? user,
-      Document? document,
+      Policy? policy,
       List<League>? leagues,
     }) {
       return ProviderScope(
@@ -150,15 +150,15 @@ void main() {
           currentUserProvider.overrideWith(
             (ref) => user ?? staffUser,
           ),
-          documentProvider(docId).overrideWith(
-            (ref) => Stream.value(document),
+          policyProvider(policyId).overrideWith(
+            (ref) => Stream.value(policy),
           ),
           leaguesProvider.overrideWith(
             (ref) => Stream.value(leagues ?? testLeagues),
           ),
         ],
         child: MaterialApp(
-          home: DocumentDetailScreen(docId: docId),
+          home: PolicyDetailScreen(policyId: policyId),
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
@@ -170,52 +170,52 @@ void main() {
     }
 
     group('Screen Rendering', () {
-      testWidgets('renders document details without crashing',
+      testWidgets('renders policy details without crashing',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Team Roster'), findsOneWidget);
+        expect(find.text('Code of Conduct Policy'), findsOneWidget);
       });
 
-      testWidgets('displays document title', (WidgetTester tester) async {
+      testWidgets('displays policy title', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Team Roster'), findsOneWidget);
+        expect(find.text('Code of Conduct Policy'), findsOneWidget);
       });
 
-      testWidgets('displays document category', (WidgetTester tester) async {
+      testWidgets('displays policy category', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Rosters'), findsOneWidget);
+        expect(find.text('Code of Conduct'), findsOneWidget);
       });
 
-      testWidgets('displays document file type', (WidgetTester tester) async {
+      testWidgets('displays policy file type', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('PDF'), findsOneWidget);
       });
 
-      testWidgets('displays document not found message when missing',
+      testWidgets('displays policy not found message when missing',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'non-existent', document: null),
+          createTestWidget(policyId: 'non-existent', policy: null),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Document not found.'), findsOneWidget);
+        expect(find.text('Policy not found.'), findsOneWidget);
       });
 
       testWidgets('displays loading indicator while fetching',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: null),
+          createTestWidget(policyId: 'policy-1', policy: null),
         );
         // Before pumpAndSettle, loading indicator should be visible
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -225,7 +225,7 @@ void main() {
     group('File Metadata Display', () {
       testWidgets('displays file size', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('File size'), findsOneWidget);
@@ -233,7 +233,7 @@ void main() {
 
       testWidgets('displays upload date', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('Uploaded by'), findsOneWidget);
@@ -241,7 +241,7 @@ void main() {
 
       testWidgets('displays creation date', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('Created'), findsOneWidget);
@@ -249,7 +249,7 @@ void main() {
 
       testWidgets('displays last updated date', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('Last updated'), findsOneWidget);
@@ -257,7 +257,7 @@ void main() {
 
       testWidgets('displays uploader name', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         // "Manager Admin" may appear in both metadata and version history
@@ -269,7 +269,7 @@ void main() {
       testWidgets('displays version history section when versions exist',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('Version History'), findsOneWidget);
@@ -278,7 +278,7 @@ void main() {
       testWidgets('displays multiple version entries',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         // Should show multiple versions
@@ -288,7 +288,7 @@ void main() {
       testWidgets('marks latest version as latest',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('Latest'), findsOneWidget);
@@ -296,7 +296,7 @@ void main() {
 
       testWidgets('displays version count', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('Versions'), findsOneWidget);
@@ -304,11 +304,11 @@ void main() {
 
       testWidgets('hides version history when no versions',
           (WidgetTester tester) async {
-        final noVersionDoc = Document(
-          id: 'doc-no-ver',
+        final noVersionPolicy = Policy(
+          id: 'policy-no-ver',
           orgId: 'org-1',
           name: 'No Versions',
-          fileUrl: 'https://storage.example.com/doc/v1.pdf',
+          fileUrl: 'https://storage.example.com/policy/v1.pdf',
           fileType: 'pdf',
           fileSize: 1024000,
           category: 'Other',
@@ -320,28 +320,28 @@ void main() {
         );
 
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-no-ver', document: noVersionDoc),
+          createTestWidget(policyId: 'policy-no-ver', policy: noVersionPolicy),
         );
         await tester.pumpAndSettle();
         // Version history section should not be present if empty
       });
     });
 
-    group('Download Button', () {
-      testWidgets('displays download button', (WidgetTester tester) async {
+    group('Open Button', () {
+      testWidgets('displays open button', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('Open In App'), findsOneWidget);
       });
 
-      testWidgets('download button is enabled', (WidgetTester tester) async {
+      testWidgets('open button is enabled', (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
-        // The download button uses ElevatedButton.icon which renders with an
+        // The open button uses ElevatedButton.icon which renders with an
         // internal Row. Find it via the button text instead.
         expect(find.text('Open In App'), findsOneWidget);
       });
@@ -352,9 +352,9 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
-            docId: 'doc-1',
+            policyId: 'policy-1',
             user: superAdminUser,
-            document: pdfDocument,
+            policy: pdfPolicy,
           ),
         );
         await tester.pumpAndSettle();
@@ -365,9 +365,9 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
-            docId: 'doc-1',
+            policyId: 'policy-1',
             user: uploaderUser,
-            document: pdfDocument,
+            policy: pdfPolicy,
           ),
         );
         await tester.pumpAndSettle();
@@ -378,9 +378,9 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
-            docId: 'doc-1',
+            policyId: 'policy-1',
             user: staffUser,
-            document: pdfDocument,
+            policy: pdfPolicy,
           ),
         );
         await tester.pumpAndSettle();
@@ -393,9 +393,9 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
-            docId: 'doc-1',
+            policyId: 'policy-1',
             user: superAdminUser,
-            document: pdfDocument,
+            policy: pdfPolicy,
           ),
         );
         await tester.pumpAndSettle();
@@ -406,9 +406,9 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
-            docId: 'doc-1',
+            policyId: 'policy-1',
             user: uploaderUser,
-            document: pdfDocument,
+            policy: pdfPolicy,
           ),
         );
         await tester.pumpAndSettle();
@@ -419,9 +419,9 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
-            docId: 'doc-1',
+            policyId: 'policy-1',
             user: staffUser,
-            document: pdfDocument,
+            policy: pdfPolicy,
           ),
         );
         await tester.pumpAndSettle();
@@ -433,7 +433,7 @@ void main() {
       testWidgets('displays correct icon for PDF files',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
@@ -442,7 +442,7 @@ void main() {
       testWidgets('displays correct icon for DOCX files',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-2', document: docxDocument),
+          createTestWidget(policyId: 'policy-2', policy: docxPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.description), findsOneWidget);
@@ -451,7 +451,7 @@ void main() {
       testWidgets('displays correct icon for image files',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-3', document: imageDocument),
+          createTestWidget(policyId: 'policy-3', policy: imagePolicy),
         );
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.image), findsOneWidget);
@@ -459,30 +459,30 @@ void main() {
     });
 
     group('League Display', () {
-      testWidgets('displays league name if document is league-scoped',
+      testWidgets('displays league name if policy is league-scoped',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
         expect(find.text('Spring League'), findsOneWidget);
       });
 
-      testWidgets('does not display league if document has no league scope',
+      testWidgets('does not display league if policy has no league scope',
           (WidgetTester tester) async {
-        final noLeagueDoc = Document(
-          id: 'doc-org',
+        final noLeaguePolicy = Policy(
+          id: 'policy-org',
           orgId: 'org-1',
-          name: 'Org Document',
-          fileUrl: 'https://storage.example.com/doc/v1.pdf',
+          name: 'Org Policy',
+          fileUrl: 'https://storage.example.com/policy/v1.pdf',
           fileType: 'pdf',
           fileSize: 1024000,
           category: 'Other',
           uploadedBy: 'uploader-1',
           uploadedByName: 'Manager Admin',
           versions: [
-            DocumentVersion(
-              fileUrl: 'https://storage.example.com/doc/v1.pdf',
+            PolicyVersion(
+              fileUrl: 'https://storage.example.com/policy/v1.pdf',
               version: 1,
               uploadedAt: DateTime.now(),
               uploadedBy: 'uploader-1',
@@ -495,20 +495,20 @@ void main() {
         );
 
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-org', document: noLeagueDoc),
+          createTestWidget(policyId: 'policy-org', policy: noLeaguePolicy),
         );
         await tester.pumpAndSettle();
       });
     });
 
     group('App Bar', () {
-      testWidgets('displays document as title in app bar',
+      testWidgets('displays policy as title in app bar',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(docId: 'doc-1', document: pdfDocument),
+          createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Document'), findsOneWidget);
+        expect(find.text('Policy'), findsOneWidget);
       });
     });
   });

@@ -2,18 +2,18 @@ import { onDocumentCreated as onFirestoreCreated } from "firebase-functions/v2/f
 import { getOrgTokens, sendNotification } from "../helpers";
 
 /**
- * Triggers when a new document is uploaded.
- * Path: organizations/{orgId}/documents/{documentId}
+ * Triggers when a new policy is uploaded.
+ * Path: organizations/{orgId}/policies/{policyId}
  */
-export const onDocumentCreated = onFirestoreCreated(
-  "organizations/{orgId}/documents/{documentId}",
+export const onPolicyCreated = onFirestoreCreated(
+  "organizations/{orgId}/policies/{policyId}",
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) return;
 
     const data = snapshot.data();
     const orgId = event.params.orgId;
-    const docName = (data.name as string) || "New Document";
+    const policyName = (data.name as string) || "New Policy";
     const uploaderName = (data.uploadedByName as string) || "Someone";
     const category = (data.category as string) || "";
 
@@ -22,12 +22,12 @@ export const onDocumentCreated = onFirestoreCreated(
     await sendNotification(
       tokens,
       {
-        title: "New Document Uploaded",
-        body: `${uploaderName} uploaded "${docName}"${category ? ` in ${category}` : ""}`,
+        title: "New Policy Uploaded",
+        body: `${uploaderName} uploaded "${policyName}"${category ? ` in ${category}` : ""}`,
       },
       {
-        type: "document",
-        documentId: event.params.documentId,
+        type: "policy",
+        policyId: event.params.policyId,
         orgId,
       },
     );

@@ -65,8 +65,8 @@ void main() {
         overrides: [
           currentUserProvider.overrideWith((ref) async => _adminUser()),
           organizationProvider.overrideWith((ref) async => _testOrg()),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -82,8 +82,8 @@ void main() {
         overrides: [
           currentUserProvider.overrideWith((ref) async => _adminUser()),
           organizationProvider.overrideWith((ref) async => _testOrg()),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -96,8 +96,8 @@ void main() {
         overrides: [
           currentUserProvider.overrideWith((ref) async => _staffUser()),
           organizationProvider.overrideWith((ref) async => _testOrg()),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -110,8 +110,8 @@ void main() {
         overrides: [
           currentUserProvider.overrideWith((ref) async => _adminUser()),
           organizationProvider.overrideWith((ref) async => _testOrg()),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -124,8 +124,8 @@ void main() {
         overrides: [
           currentUserProvider.overrideWith((ref) async => _adminUser()),
           organizationProvider.overrideWith((ref) async => _testOrg()),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -142,8 +142,8 @@ void main() {
         overrides: [
           currentUserProvider.overrideWith((ref) async => _adminUser()),
           organizationProvider.overrideWith((ref) async => _testOrg()),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();

@@ -192,7 +192,8 @@ void main() {
         readBy: ['user1', 'user2'],
       );
 
-      final restored = Message.fromJson({'id': original.id, ...original.toJson()});
+      final restored =
+          Message.fromJson({'id': original.id, ...original.toJson()});
 
       expect(restored.id, original.id);
       expect(restored.chatRoomId, original.chatRoomId);

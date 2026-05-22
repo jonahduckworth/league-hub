@@ -21,7 +21,7 @@ void main() {
   late StorageService storage;
 
   const orgId = 'test-org-storage';
-  const docId = 'test-doc-001';
+  const policyId = 'test-policy-001';
 
   setUpAll(FirebaseIntegrationHelper.setupAll);
   setUp(FirebaseIntegrationHelper.clearData);
@@ -32,16 +32,16 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // uploadDocument
+  // uploadPolicy
   // ---------------------------------------------------------------------------
 
-  group('uploadDocument', () {
+  group('uploadPolicy', () {
     test('uploads bytes and returns a non-empty download URL', () async {
       final bytes = Uint8List.fromList('hello world'.codeUnits);
 
-      final url = await storage.uploadDocument(
+      final url = await storage.uploadPolicy(
         orgId,
-        docId,
+        policyId,
         bytes,
         'test.txt',
         'text/plain',
@@ -55,9 +55,9 @@ void main() {
       final bytes = Uint8List.fromList(List.filled(1024, 0));
       double? lastProgress;
 
-      await storage.uploadDocument(
+      await storage.uploadPolicy(
         orgId,
-        docId,
+        policyId,
         bytes,
         'large.bin',
         'application/octet-stream',
@@ -88,24 +88,24 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // deleteDocumentFile
+  // deletePolicyFile
   // ---------------------------------------------------------------------------
 
-  group('deleteDocumentFile', () {
+  group('deletePolicyFile', () {
     test('deletes an existing file without error', () async {
       final bytes = Uint8List.fromList('to delete'.codeUnits);
-      await storage.uploadDocument(orgId, docId, bytes, 'delete-me.txt',
-          'text/plain');
+      await storage.uploadPolicy(
+          orgId, policyId, bytes, 'delete-me.txt', 'text/plain');
 
       await expectLater(
-        storage.deleteDocumentFile(orgId, docId, 'delete-me.txt'),
+        storage.deletePolicyFile(orgId, policyId, 'delete-me.txt'),
         completes,
       );
     });
 
     test('does not throw when file does not exist', () async {
       await expectLater(
-        storage.deleteDocumentFile(orgId, docId, 'nonexistent.txt'),
+        storage.deletePolicyFile(orgId, policyId, 'nonexistent.txt'),
         completes,
       );
     });

@@ -89,7 +89,7 @@ class MessagingService {
   // Token Management
   // ---------------------------------------------------------------------------
 
-  /// Registers the current FCM token in the user's Firestore document.
+  /// Registers the current FCM token in the user's Firestore policy.
   Future<void> _registerToken(String userId) async {
     try {
       // On iOS, we need to wait for the APNS token before requesting the FCM
@@ -160,7 +160,7 @@ class MessagingService {
     final topicMap = {
       'announcements': 'org_${orgId}_announcements',
       'chat_messages': 'org_${orgId}_chat',
-      'document_uploads': 'org_${orgId}_documents',
+      'policy_uploads': 'org_${orgId}_policies',
       'team_updates': 'org_${orgId}_teams',
       'event_reminders': 'org_${orgId}_events',
       'admin_alerts': 'org_${orgId}_admin',
@@ -258,9 +258,9 @@ class MessagingService {
         if (roomId != null) router!.push('/chat/$roomId');
         break;
 
-      case 'document':
-        final docId = data['documentId'] as String?;
-        if (docId != null) router!.push('/documents/$docId');
+      case 'policy':
+        final policyId = data['policyId'] as String?;
+        if (policyId != null) router!.push('/policy/$policyId');
         break;
 
       case 'team_update':

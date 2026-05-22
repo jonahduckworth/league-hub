@@ -37,9 +37,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await ref
-          .read(authServiceProvider)
-          .signInWithEmail(email, password);
+      await ref.read(authServiceProvider).signInWithEmail(email, password);
       // Router will redirect automatically via auth guard
     } on FirebaseAuthException catch (e) {
       _showError(_authErrorMessage(e.code));
@@ -111,8 +109,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     .sendPasswordResetEmail(email);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
-                  AppUtils.showSuccessSnackBar(context,
-                      'Password reset email sent. Check your inbox.');
+                  AppUtils.showSuccessSnackBar(
+                      context, 'Password reset email sent. Check your inbox.');
                 }
               } on FirebaseAuthException catch (e) {
                 _showError(_authErrorMessage(e.code));

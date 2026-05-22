@@ -156,7 +156,8 @@ void main() {
     });
 
     group('Role Badges', () {
-      testWidgets('displays role badges for users', (WidgetTester tester) async {
+      testWidgets('displays role badges for users',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -220,7 +221,8 @@ void main() {
         expect(find.text('Invite User'), findsOneWidget);
       });
 
-      testWidgets('FAB is visible for managerAdmin', (WidgetTester tester) async {
+      testWidgets('FAB is visible for managerAdmin',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: managerAdmin));
         await tester.pump();
         await tester.pumpAndSettle();
@@ -230,7 +232,8 @@ void main() {
     });
 
     group('Empty State', () {
-      testWidgets('shows empty state when no users', (WidgetTester tester) async {
+      testWidgets('shows empty state when no users',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(users: []));
         await tester.pump();
         await tester.pumpAndSettle();
@@ -284,7 +287,8 @@ void main() {
     });
 
     group('Pending Invitations Badge', () {
-      testWidgets('shows pending invite count badge', (WidgetTester tester) async {
+      testWidgets('shows pending invite count badge',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -340,7 +344,8 @@ void main() {
     });
 
     group('Multiple Users', () {
-      testWidgets('displays multiple users in list', (WidgetTester tester) async {
+      testWidgets('displays multiple users in list',
+          (WidgetTester tester) async {
         final manyUsers = [
           AppUser(
             id: 'user-1',
@@ -388,7 +393,8 @@ void main() {
     });
 
     group('Invite Tab', () {
-      testWidgets('shows proper layout for user list', (WidgetTester tester) async {
+      testWidgets('shows proper layout for user list',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();

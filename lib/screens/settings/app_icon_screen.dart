@@ -142,7 +142,8 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: _iconOptions[_selectedIndex].color.withValues(alpha: 0.3),
+                  color:
+                      _iconOptions[_selectedIndex].color.withValues(alpha: 0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -182,7 +183,9 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
                 final option = _iconOptions[index];
                 final isSelected = index == _selectedIndex;
                 return GestureDetector(
-                  onTap: canEdit ? () => setState(() => _selectedIndex = index) : null,
+                  onTap: canEdit
+                      ? () => setState(() => _selectedIndex = index)
+                      : null,
                   child: Column(
                     children: [
                       Container(
@@ -204,8 +207,7 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
                                 ]
                               : null,
                         ),
-                        child: Icon(option.icon,
-                            color: Colors.white, size: 28),
+                        child: Icon(option.icon, color: Colors.white, size: 28),
                       ),
                       const SizedBox(height: 4),
                       Text(

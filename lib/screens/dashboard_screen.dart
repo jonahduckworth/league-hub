@@ -30,13 +30,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomContentPadding = appShellBottomPadding(context);
-    final userAsync = ref.watch(currentUserProvider);
     final orgAsync = ref.watch(organizationProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
 
     final org = orgAsync.valueOrNull;
     final orgName = org?.name ?? 'League Hub';
-    final userName = userAsync.valueOrNull?.displayName ?? '';
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
     final headerLeague = _selectedLeagueId == null
@@ -56,9 +54,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         leadingImageUrl: headerImageUrl,
         leadingLabel: headerLeague?.name ?? orgName,
         title: headerLeague?.abbreviation ?? orgName,
-        subtitle: userName.isNotEmpty
-            ? 'Welcome back, $userName'
-            : 'Your organization overview for today',
         actions: [
           AppHeaderIconButton(
             icon: Icons.notifications_outlined,
@@ -131,7 +126,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             TextField(
               autofocus: true,
               decoration: InputDecoration(
-                hintText: 'Search announcements, chats, documents...',
+                hintText: 'Search announcements, chats, policies...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -180,11 +175,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 const SizedBox(width: 8),
                 _SearchChip(
-                  label: 'Documents',
+                  label: 'Policy',
                   icon: Icons.description,
                   onTap: () {
                     Navigator.pop(ctx);
-                    context.go('/documents');
+                    context.go('/policy');
                   },
                 ),
               ],

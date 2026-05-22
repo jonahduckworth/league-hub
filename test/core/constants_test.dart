@@ -42,8 +42,8 @@ void main() {
         expect(AppConstants.messagesCollection, 'messages');
       });
 
-      test('documentsCollection is "documents"', () {
-        expect(AppConstants.documentsCollection, 'documents');
+      test('policiesCollection is "policies"', () {
+        expect(AppConstants.policiesCollection, 'policies');
       });
 
       test('announcementsCollection is "announcements"', () {
@@ -59,7 +59,7 @@ void main() {
           AppConstants.teamsCollection,
           AppConstants.chatRoomsCollection,
           AppConstants.messagesCollection,
-          AppConstants.documentsCollection,
+          AppConstants.policiesCollection,
           AppConstants.announcementsCollection,
         ];
         for (final c in collections) {
@@ -86,8 +86,8 @@ void main() {
         expect(AppConstants.chatConversationRoute, '/chat/:roomId');
       });
 
-      test('documentsRoute is /documents', () {
-        expect(AppConstants.documentsRoute, '/documents');
+      test('policyRoute is /policy', () {
+        expect(AppConstants.policyRoute, '/policy');
       });
 
       test('announcementsRoute is /announcements', () {
@@ -104,7 +104,7 @@ void main() {
           AppConstants.dashboardRoute,
           AppConstants.chatRoute,
           AppConstants.chatConversationRoute,
-          AppConstants.documentsRoute,
+          AppConstants.policyRoute,
           AppConstants.announcementsRoute,
           AppConstants.settingsRoute,
         ];

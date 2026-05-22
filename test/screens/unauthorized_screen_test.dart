@@ -8,7 +8,6 @@ class MockGoRouter extends Mock implements GoRouter {}
 
 void main() {
   group('UnauthorizedScreen', () {
-
     Widget buildTestWidget() {
       return MaterialApp(
         home: UnauthorizedScreen(),
@@ -50,7 +49,8 @@ void main() {
         expect(centerFinder, findsWidgets);
       });
 
-      testWidgets('renders Column with MainAxisSize.min', (WidgetTester tester) async {
+      testWidgets('renders Column with MainAxisSize.min',
+          (WidgetTester tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -122,7 +122,8 @@ void main() {
         expect(find.text('Access Denied'), findsOneWidget);
       });
 
-      testWidgets('Access Denied uses headline small style', (WidgetTester tester) async {
+      testWidgets('Access Denied uses headline small style',
+          (WidgetTester tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -177,7 +178,8 @@ void main() {
         );
       });
 
-      testWidgets('help text mentions contacting administrator', (WidgetTester tester) async {
+      testWidgets('help text mentions contacting administrator',
+          (WidgetTester tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -202,13 +204,13 @@ void main() {
         );
 
         if (helpTextFinder.evaluate().isNotEmpty) {
-          final textWidget =
-              helpTextFinder.evaluate().first.widget as Text;
+          final textWidget = helpTextFinder.evaluate().first.widget as Text;
           expect(textWidget.textAlign, equals(TextAlign.center));
         }
       });
 
-      testWidgets('help text uses body medium style', (WidgetTester tester) async {
+      testWidgets('help text uses body medium style',
+          (WidgetTester tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -232,7 +234,8 @@ void main() {
     // =========================================================================
 
     group('Go to Dashboard button', () {
-      testWidgets('displays button with correct label', (WidgetTester tester) async {
+      testWidgets('displays button with correct label',
+          (WidgetTester tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -261,7 +264,8 @@ void main() {
         expect(find.byIcon(Icons.home_outlined), findsOneWidget);
       });
 
-      testWidgets('button icon and label are present', (WidgetTester tester) async {
+      testWidgets('button icon and label are present',
+          (WidgetTester tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -304,7 +308,8 @@ void main() {
         expect(find.byType(FilledButton), findsOneWidget);
       });
 
-      testWidgets('button is enabled (not disabled)', (WidgetTester tester) async {
+      testWidgets('button is enabled (not disabled)',
+          (WidgetTester tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -374,7 +379,8 @@ void main() {
         // Both should exist (order is implicitly correct in Column)
       });
 
-      testWidgets('button appears after help text', (WidgetTester tester) async {
+      testWidgets('button appears after help text',
+          (WidgetTester tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -395,9 +401,7 @@ void main() {
         // Find all SizedBox widgets
         final sizedBoxes = find
             .byWidgetPredicate(
-              (widget) =>
-                  widget is SizedBox &&
-                  widget.height == 32,
+              (widget) => widget is SizedBox && widget.height == 32,
             )
             .evaluate();
 
@@ -411,7 +415,8 @@ void main() {
     // =========================================================================
 
     group('theme integration', () {
-      testWidgets('uses theme colors from context', (WidgetTester tester) async {
+      testWidgets('uses theme colors from context',
+          (WidgetTester tester) async {
         final testTheme = ThemeData(
           useMaterial3: true,
         );
@@ -461,7 +466,8 @@ void main() {
     // =========================================================================
 
     group('accessibility', () {
-      testWidgets('all text is readable (not empty)', (WidgetTester tester) async {
+      testWidgets('all text is readable (not empty)',
+          (WidgetTester tester) async {
         await tester.pumpWidget(buildTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();

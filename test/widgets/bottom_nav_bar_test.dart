@@ -18,7 +18,7 @@ void main() {
 
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Chat'), findsOneWidget);
-      expect(find.text('Docs'), findsOneWidget);
+      expect(find.text('Policy'), findsOneWidget);
       expect(find.text('News'), findsOneWidget);
       expect(find.text('More'), findsOneWidget);
     });
@@ -92,7 +92,8 @@ void main() {
       expect(find.byType(BottomNavigationBar), findsOneWidget);
     });
 
-    testWidgets('current index is reflected in the navigation bar', (tester) async {
+    testWidgets('current index is reflected in the navigation bar',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

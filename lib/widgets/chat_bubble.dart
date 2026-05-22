@@ -49,7 +49,8 @@ class ChatBubble extends StatelessWidget {
               ),
             if (onDelete != null)
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: AppColors.danger),
+                leading:
+                    const Icon(Icons.delete_outline, color: AppColors.danger),
                 title: const Text('Delete message',
                     style: TextStyle(color: AppColors.danger)),
                 onTap: () {
@@ -76,7 +77,8 @@ class ChatBubble extends StatelessWidget {
         bottom: 4,
       ),
       child: Row(
-        mainAxisAlignment: isSelf ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isSelf ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isSelf) ...[
@@ -87,7 +89,8 @@ class ChatBubble extends StatelessWidget {
             child: GestureDetector(
               onLongPress: () => _showActions(context),
               child: Column(
-                crossAxisAlignment: isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   if (!isSelf)
                     Padding(
@@ -102,7 +105,8 @@ class ChatBubble extends StatelessWidget {
                       ),
                     ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: isDeleted
                           ? Colors.grey.shade100
@@ -193,9 +197,13 @@ class ChatBubble extends StatelessWidget {
                       if (isSelf && !isDeleted) ...[
                         const SizedBox(width: 4),
                         Icon(
-                          message.readBy.length > 1 ? Icons.done_all : Icons.done,
+                          message.readBy.length > 1
+                              ? Icons.done_all
+                              : Icons.done,
                           size: 14,
-                          color: message.readBy.length > 1 ? AppColors.accent : AppColors.textMuted,
+                          color: message.readBy.length > 1
+                              ? AppColors.accent
+                              : AppColors.textMuted,
                         ),
                       ],
                     ],

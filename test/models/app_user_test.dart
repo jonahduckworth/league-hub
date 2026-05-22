@@ -184,7 +184,8 @@ void main() {
         isActive: true,
       );
 
-      final restored = AppUser.fromJson({'id': original.id, ...original.toJson()});
+      final restored =
+          AppUser.fromJson({'id': original.id, ...original.toJson()});
 
       expect(restored.id, original.id);
       expect(restored.email, original.email);

@@ -15,19 +15,17 @@ import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../services/storage_service.dart';
 
-class UploadDocumentScreen extends ConsumerStatefulWidget {
-  const UploadDocumentScreen({super.key});
+class UploadPolicyScreen extends ConsumerStatefulWidget {
+  const UploadPolicyScreen({super.key});
 
   @override
-  ConsumerState<UploadDocumentScreen> createState() =>
-      _UploadDocumentScreenState();
+  ConsumerState<UploadPolicyScreen> createState() => _UploadPolicyScreenState();
 }
 
-class _UploadDocumentScreenState
-    extends ConsumerState<UploadDocumentScreen> {
+class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
   final _nameCtrl = TextEditingController();
 
-  String _category = 'Rosters';
+  String _category = 'Policy';
   String? _selectedLeagueId;
   String? _selectedHubId;
   PlatformFile? _pickedFile;
@@ -36,10 +34,9 @@ class _UploadDocumentScreenState
   double _progress = 0;
 
   static const _categories = [
-    'Rosters',
-    'Waivers',
-    'Schedules',
-    'Policies',
+    'Policy',
+    'Protocol',
+    'Code of Conduct',
     'Other',
   ];
 
@@ -107,8 +104,9 @@ class _UploadDocumentScreenState
 
     if (file.size > maxSize) {
       if (mounted) {
-        AppUtils.showErrorSnackBar(context,
-            'File too large. Max size for ${_isImageExtension(ext) ? 'images' : 'documents'}: '
+        AppUtils.showErrorSnackBar(
+            context,
+            'File too large. Max size for ${_isImageExtension(ext) ? 'images' : 'policies'}: '
             '${_isImageExtension(ext) ? '10 MB' : '25 MB'}');
       }
       return;
@@ -149,7 +147,7 @@ class _UploadDocumentScreenState
 
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      AppUtils.showInfoSnackBar(context, 'Please enter a document name.');
+      AppUtils.showInfoSnackBar(context, 'Please enter a policy name.');
       return;
     }
 
@@ -167,14 +165,14 @@ class _UploadDocumentScreenState
       final authorizedFirestore = ref.read(authorizedFirestoreServiceProvider);
       final storage = StorageService();
 
-      final docId = firestore.newDocumentId(orgId);
+      final policyId = firestore.newPolicyId(orgId);
       final ext = file.name.split('.').last.toLowerCase();
       final contentType = _contentType(ext);
       final now = DateTime.now();
 
-      final fileUrl = await storage.uploadDocument(
+      final fileUrl = await storage.uploadPolicy(
         orgId,
-        docId,
+        policyId,
         bytes,
         file.name,
         contentType,
@@ -190,7 +188,7 @@ class _UploadDocumentScreenState
         'fileSize': file.size,
       };
 
-      await authorizedFirestore.createDocument(
+      await authorizedFirestore.createPolicy(
         currentUser,
         orgId,
         {
@@ -205,17 +203,17 @@ class _UploadDocumentScreenState
           'uploadedByName': currentUser.displayName,
           'versions': [versionEntry],
         },
-        docId: docId,
+        policyId: policyId,
       );
 
       if (mounted) {
-        AppUtils.showSuccessSnackBar(context, 'Document uploaded successfully.');
+        AppUtils.showSuccessSnackBar(context, 'Policy uploaded successfully.');
         context.pop();
       }
     } on PermissionDeniedException {
       if (mounted) {
         AppUtils.showErrorSnackBar(
-            context, 'Permission denied. You cannot upload documents.');
+            context, 'Permission denied. You cannot upload policies.');
       }
     } catch (e) {
       if (mounted) {
@@ -256,7 +254,7 @@ class _UploadDocumentScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Upload Document'),
+        title: const Text('Upload Policy'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
@@ -289,10 +287,8 @@ class _UploadDocumentScreenState
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              mainAxisAlignment:
-                                  MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
                                   _pickedFile!.name,
@@ -304,8 +300,7 @@ class _UploadDocumentScreenState
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  AppUtils.formatFileSize(
-                                      _pickedFile!.size),
+                                  AppUtils.formatFileSize(_pickedFile!.size),
                                   style: const TextStyle(
                                     color: AppColors.textMuted,
                                     fontSize: 12,
@@ -335,12 +330,11 @@ class _UploadDocumentScreenState
                         SizedBox(height: 8),
                         Text(
                           'Tap to select a file',
-                          style:
-                              TextStyle(color: AppColors.textSecondary),
+                          style: TextStyle(color: AppColors.textSecondary),
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'PDF, DOCX, XLSX, images • Docs: 25 MB, Images: 10 MB',
+                          'PDF, DOCX, XLSX, images • Files: 25 MB, Images: 10 MB',
                           style: TextStyle(
                               fontSize: 11, color: AppColors.textMuted),
                           textAlign: TextAlign.center,
@@ -351,13 +345,13 @@ class _UploadDocumentScreenState
           ),
           const SizedBox(height: 16),
 
-          // Document name
-          _SectionLabel('Document Name'),
+          // Policy name
+          _SectionLabel('Policy Name'),
           const SizedBox(height: 8),
           TextFormField(
             controller: _nameCtrl,
             enabled: !_isUploading,
-            decoration: _inputDecoration('Enter document name'),
+            decoration: _inputDecoration('Enter policy name'),
           ),
           const SizedBox(height: 16),
 
@@ -372,8 +366,7 @@ class _UploadDocumentScreenState
                 isExpanded: true,
                 isDense: true,
                 items: _categories
-                    .map((c) =>
-                        DropdownMenuItem(value: c, child: Text(c)))
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
                 onChanged: _isUploading
                     ? null
@@ -447,8 +440,8 @@ class _UploadDocumentScreenState
               child: LinearProgressIndicator(
                 value: _progress > 0 ? _progress : null,
                 backgroundColor: AppColors.border,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.primary),
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
             ),
             const SizedBox(height: 8),
@@ -457,8 +450,8 @@ class _UploadDocumentScreenState
                   ? 'Uploading... ${(_progress * 100).toStringAsFixed(0)}%'
                   : 'Preparing upload...',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
           ],
@@ -479,9 +472,9 @@ class _UploadDocumentScreenState
                           strokeWidth: 2, color: Colors.white),
                     )
                   : const Text(
-                      'Upload Document',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600),
+                      'Upload Policy',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
             ),
           ),

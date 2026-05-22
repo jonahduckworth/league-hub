@@ -6,11 +6,56 @@ import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings/roles_permissions_screen.dart';
 
 List<AppUser> _testUsers() => [
-      AppUser(id: 'u1', email: 'owner@test.com', displayName: 'Owner', role: UserRole.platformOwner, orgId: 'org-1', hubIds: [], teamIds: [], createdAt: DateTime(2025, 1, 1), isActive: true),
-      AppUser(id: 'u2', email: 'admin@test.com', displayName: 'Admin', role: UserRole.superAdmin, orgId: 'org-1', hubIds: [], teamIds: [], createdAt: DateTime(2025, 1, 1), isActive: true),
-      AppUser(id: 'u3', email: 'manager@test.com', displayName: 'Manager', role: UserRole.managerAdmin, orgId: 'org-1', hubIds: [], teamIds: [], createdAt: DateTime(2025, 1, 1), isActive: true),
-      AppUser(id: 'u4', email: 'staff1@test.com', displayName: 'Staff 1', role: UserRole.staff, orgId: 'org-1', hubIds: [], teamIds: [], createdAt: DateTime(2025, 1, 1), isActive: true),
-      AppUser(id: 'u5', email: 'staff2@test.com', displayName: 'Staff 2', role: UserRole.staff, orgId: 'org-1', hubIds: [], teamIds: [], createdAt: DateTime(2025, 1, 1), isActive: true),
+      AppUser(
+          id: 'u1',
+          email: 'owner@test.com',
+          displayName: 'Owner',
+          role: UserRole.platformOwner,
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2025, 1, 1),
+          isActive: true),
+      AppUser(
+          id: 'u2',
+          email: 'admin@test.com',
+          displayName: 'Admin',
+          role: UserRole.superAdmin,
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2025, 1, 1),
+          isActive: true),
+      AppUser(
+          id: 'u3',
+          email: 'manager@test.com',
+          displayName: 'Manager',
+          role: UserRole.managerAdmin,
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2025, 1, 1),
+          isActive: true),
+      AppUser(
+          id: 'u4',
+          email: 'staff1@test.com',
+          displayName: 'Staff 1',
+          role: UserRole.staff,
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2025, 1, 1),
+          isActive: true),
+      AppUser(
+          id: 'u5',
+          email: 'staff2@test.com',
+          displayName: 'Staff 2',
+          role: UserRole.staff,
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2025, 1, 1),
+          isActive: true),
     ];
 
 Widget _buildTestWidget({required List<Override> overrides}) {
@@ -47,7 +92,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('1 member'), findsNWidgets(3)); // owner, superAdmin, manager each 1
+      expect(find.text('1 member'),
+          findsNWidgets(3)); // owner, superAdmin, manager each 1
       expect(find.text('2 members'), findsOneWidget); // 2 staff
     });
 
@@ -76,8 +122,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(
-          find.textContaining('Full access to all organization settings'),
+      expect(find.textContaining('Full access to all organization settings'),
           findsOneWidget);
     });
 

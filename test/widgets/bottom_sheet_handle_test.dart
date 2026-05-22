@@ -25,12 +25,14 @@ void main() {
         ),
       );
 
-      final container = tester.widgetList<Container>(
-        find.descendant(
-          of: find.byType(BottomSheetHandle),
-          matching: find.byType(Container),
-        ),
-      ).first;
+      final container = tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byType(BottomSheetHandle),
+              matching: find.byType(Container),
+            ),
+          )
+          .first;
 
       expect(container.constraints?.maxWidth, 40);
       expect(container.constraints?.maxHeight, 4);
@@ -45,12 +47,14 @@ void main() {
         ),
       );
 
-      final container = tester.widgetList<Container>(
-        find.descendant(
-          of: find.byType(BottomSheetHandle),
-          matching: find.byType(Container),
-        ),
-      ).first;
+      final container = tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byType(BottomSheetHandle),
+              matching: find.byType(Container),
+            ),
+          )
+          .first;
 
       final decoration = container.decoration as BoxDecoration;
       expect(decoration.borderRadius, BorderRadius.circular(2));
@@ -65,12 +69,14 @@ void main() {
         ),
       );
 
-      final container = tester.widgetList<Container>(
-        find.descendant(
-          of: find.byType(BottomSheetHandle),
-          matching: find.byType(Container),
-        ),
-      ).first;
+      final container = tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byType(BottomSheetHandle),
+              matching: find.byType(Container),
+            ),
+          )
+          .first;
 
       expect(container.margin, const EdgeInsets.only(bottom: 12));
     });

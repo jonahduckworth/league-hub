@@ -452,7 +452,8 @@ void main() {
           (WidgetTester tester) async {
         final authService = MockAuthService();
         final messagingService = MockMessagingService();
-        when(messagingService.removeToken(testUser.id)).thenAnswer((_) async {});
+        when(messagingService.removeToken(testUser.id))
+            .thenAnswer((_) async {});
         when(authService.signOut()).thenAnswer((_) async {});
 
         await tester.pumpWidget(
@@ -626,13 +627,19 @@ void main() {
       testWidgets('preference tile navigates to notifications route',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
+        final notificationsTile = find.widgetWithText(
+          ListTile,
+          'Notifications',
+        );
 
         await tester.scrollUntilVisible(
-          find.text('Notifications'),
+          notificationsTile,
           300,
           scrollable: find.byType(Scrollable).last,
         );
-        await tester.tap(find.text('Notifications'));
+        await tester.drag(find.byType(Scrollable).last, const Offset(0, -160));
+        await tester.pumpAndSettle();
+        await tester.tap(notificationsTile);
         await tester.pumpAndSettle();
         expect(find.text('Notifications Route'), findsOneWidget);
       });
@@ -640,13 +647,19 @@ void main() {
       testWidgets('preference tile navigates to privacy route',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
+        final privacyTile = find.widgetWithText(
+          ListTile,
+          'Privacy & Security',
+        );
 
         await tester.scrollUntilVisible(
-          find.text('Privacy & Security'),
+          privacyTile,
           300,
           scrollable: find.byType(Scrollable).last,
         );
-        await tester.tap(find.text('Privacy & Security'));
+        await tester.drag(find.byType(Scrollable).last, const Offset(0, -160));
+        await tester.pumpAndSettle();
+        await tester.tap(privacyTile);
         await tester.pumpAndSettle();
         expect(find.text('Privacy Route'), findsOneWidget);
       });

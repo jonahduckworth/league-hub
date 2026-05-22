@@ -172,7 +172,6 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     final currentUser = userAsync.valueOrNull;
     final canManage =
         currentUser != null && canManageAnnouncements(currentUser.role);
-    final summaryItems = buildAnnouncementSummaries(allAnnouncements);
     final showLeagueFilter = leagues.length > 1;
 
     return AppShellScaffold(
@@ -185,18 +184,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
             )
           : null,
       header: AppShellHeader(
-        eyebrow: 'UPDATES',
         leadingIcon: Icons.campaign_outlined,
         title: 'Announcements',
-        subtitle:
-            'Keep teams, staff, and families aligned with the latest updates.',
-        bottom: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: summaryItems
-              .map((item) => _InfoChip(icon: item.icon, label: item.label))
-              .toList(),
-        ),
       ),
       stickyContent: showLeagueFilter
           ? LeagueFilter(
@@ -479,42 +468,5 @@ class _ScopeTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StatusBadge(label: _label, color: _color);
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: Colors.white),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

@@ -112,7 +112,8 @@ void main() {
       expect(inv1!.email, inv2!.email);
     });
 
-    test('3. Cascade delete empty league (no hubs): should not error', () async {
+    test('3. Cascade delete empty league (no hubs): should not error',
+        () async {
       final orgId = 'org3';
 
       // Create organization
@@ -230,7 +231,8 @@ void main() {
       await fs.createOrganization(org);
 
       // Create room
-      final actualRoomId = await fs.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
+      final actualRoomId =
+          await fs.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
 
       // Send message with empty text
       await fs.sendMessage(
@@ -247,7 +249,8 @@ void main() {
       expect(room!.lastMessage, '');
     });
 
-    test('7. DM room lookup with sorted participant order: order-independent', () async {
+    test('7. DM room lookup with sorted participant order: order-independent',
+        () async {
       final orgId = 'org7';
       final uid1 = 'user1';
       const uid2 = 'user2';
@@ -265,10 +268,12 @@ void main() {
       await fs.createOrganization(org);
 
       // Create DM room with uid1, uid2
-      final room1 = await fs.getOrCreateDMRoom(orgId, uid1, uid2, 'User1', 'User2');
+      final room1 =
+          await fs.getOrCreateDMRoom(orgId, uid1, uid2, 'User1', 'User2');
 
       // Try to get same room with reversed order
-      final room2 = await fs.getOrCreateDMRoom(orgId, uid2, uid1, 'User2', 'User1');
+      final room2 =
+          await fs.getOrCreateDMRoom(orgId, uid2, uid1, 'User2', 'User1');
 
       // Should be same room
       expect(room1.id, room2.id);
@@ -276,7 +281,8 @@ void main() {
       expect(room2.participants.contains(uid2), isTrue);
     });
 
-    test('8. getOrCreateDMRoom called twice with same users: returns same room', () async {
+    test('8. getOrCreateDMRoom called twice with same users: returns same room',
+        () async {
       final orgId = 'org8';
       const uid1 = 'user1';
       const uid2 = 'user2';
@@ -294,15 +300,18 @@ void main() {
       await fs.createOrganization(org);
 
       // Create DM room twice
-      final room1 = await fs.getOrCreateDMRoom(orgId, uid1, uid2, 'User1', 'User2');
-      final room2 = await fs.getOrCreateDMRoom(orgId, uid1, uid2, 'User1', 'User2');
+      final room1 =
+          await fs.getOrCreateDMRoom(orgId, uid1, uid2, 'User1', 'User2');
+      final room2 =
+          await fs.getOrCreateDMRoom(orgId, uid1, uid2, 'User1', 'User2');
 
       // Should return exact same room
       expect(room1.id, room2.id);
       expect(room1.createdAt, room2.createdAt);
     });
 
-    test('9. markMessagesAsRead when no unread messages: should not error', () async {
+    test('9. markMessagesAsRead when no unread messages: should not error',
+        () async {
       final orgId = 'org9';
       const userId = 'user9';
 
@@ -319,7 +328,8 @@ void main() {
       await fs.createOrganization(org);
 
       // Create room
-      final roomId = await fs.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
+      final roomId =
+          await fs.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
 
       // Send message already read by user
       await fs.sendMessage(
@@ -337,7 +347,8 @@ void main() {
       );
     });
 
-    test('10. unreadCountStream for room with no messages: returns 0', () async {
+    test('10. unreadCountStream for room with no messages: returns 0',
+        () async {
       final orgId = 'org10';
       const userId = 'user10';
 
@@ -354,10 +365,12 @@ void main() {
       await fs.createOrganization(org);
 
       // Create empty room
-      final roomId = await fs.createChatRoom(orgId, 'Empty Room', ChatRoomType.league);
+      final roomId =
+          await fs.createChatRoom(orgId, 'Empty Room', ChatRoomType.league);
 
       // Unread count should be 0
-      final unreadCount = await fs.unreadCountStream(orgId, roomId, userId).first;
+      final unreadCount =
+          await fs.unreadCountStream(orgId, roomId, userId).first;
       expect(unreadCount, 0);
     });
 

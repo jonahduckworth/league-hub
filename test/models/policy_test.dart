@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:league_hub/models/document.dart';
+import 'package:league_hub/models/policy.dart';
 
 void main() {
-  group('DocumentVersion', () {
+  group('PolicyVersion', () {
     final testDate = DateTime(2024, 8, 10, 11, 0);
     final testDateStr = testDate.toIso8601String();
 
@@ -17,7 +17,7 @@ void main() {
           'fileSize': 2048,
         };
 
-        final version = DocumentVersion.fromJson(json);
+        final version = PolicyVersion.fromJson(json);
 
         expect(version.fileUrl, 'https://example.com/file.pdf');
         expect(version.version, 1);
@@ -37,7 +37,7 @@ void main() {
           'fileSize': 4096,
         };
 
-        final version = DocumentVersion.fromJson(json);
+        final version = PolicyVersion.fromJson(json);
 
         expect(version.fileUrl, 'https://example.com/file-v2.pdf');
       });
@@ -51,7 +51,7 @@ void main() {
           'fileSize': 1024,
         };
 
-        expect(DocumentVersion.fromJson(json).version, 1);
+        expect(PolicyVersion.fromJson(json).version, 1);
       });
 
       test('defaults uploadedBy/Name to empty string when not provided', () {
@@ -62,7 +62,7 @@ void main() {
           'fileSize': 1024,
         };
 
-        final version = DocumentVersion.fromJson(json);
+        final version = PolicyVersion.fromJson(json);
 
         expect(version.uploadedBy, '');
         expect(version.uploadedByName, '');
@@ -77,14 +77,14 @@ void main() {
           'uploadedByName': 'Alice',
         };
 
-        expect(DocumentVersion.fromJson(json).fileSize, 0);
+        expect(PolicyVersion.fromJson(json).fileSize, 0);
       });
     });
 
     group('toJson', () {
       test('serializes all fields correctly', () {
-        final version = DocumentVersion(
-          fileUrl: 'https://example.com/doc.pdf',
+        final version = PolicyVersion(
+          fileUrl: 'https://example.com/policy.pdf',
           version: 3,
           uploadedAt: testDate,
           uploadedBy: 'user1',
@@ -94,7 +94,7 @@ void main() {
 
         final json = version.toJson();
 
-        expect(json['url'], 'https://example.com/doc.pdf');
+        expect(json['url'], 'https://example.com/policy.pdf');
         expect(json['version'], 3);
         expect(json['uploadedAt'], testDateStr);
         expect(json['uploadedBy'], 'user1');
@@ -104,7 +104,7 @@ void main() {
     });
   });
 
-  group('Document', () {
+  group('Policy', () {
     final testDate = DateTime(2024, 9, 5, 16, 0);
     final testDateStr = testDate.toIso8601String();
     final updateDate = DateTime(2024, 9, 10, 10, 0);
@@ -113,7 +113,7 @@ void main() {
     group('fromJson', () {
       test('parses all fields correctly', () {
         final json = {
-          'id': 'doc1',
+          'id': 'policy1',
           'orgId': 'org1',
           'leagueId': 'league1',
           'hubId': 'hub1',
@@ -138,27 +138,27 @@ void main() {
           'updatedAt': updateDateStr,
         };
 
-        final doc = Document.fromJson(json);
+        final policy = Policy.fromJson(json);
 
-        expect(doc.id, 'doc1');
-        expect(doc.orgId, 'org1');
-        expect(doc.leagueId, 'league1');
-        expect(doc.hubId, 'hub1');
-        expect(doc.name, 'Player Handbook');
-        expect(doc.fileUrl, 'https://example.com/handbook.pdf');
-        expect(doc.fileType, 'pdf');
-        expect(doc.fileSize, 102400);
-        expect(doc.category, 'Handbooks');
-        expect(doc.uploadedBy, 'user1');
-        expect(doc.uploadedByName, 'Admin');
-        expect(doc.versions.length, 1);
-        expect(doc.createdAt, testDate);
-        expect(doc.updatedAt, updateDate);
+        expect(policy.id, 'policy1');
+        expect(policy.orgId, 'org1');
+        expect(policy.leagueId, 'league1');
+        expect(policy.hubId, 'hub1');
+        expect(policy.name, 'Player Handbook');
+        expect(policy.fileUrl, 'https://example.com/handbook.pdf');
+        expect(policy.fileType, 'pdf');
+        expect(policy.fileSize, 102400);
+        expect(policy.category, 'Handbooks');
+        expect(policy.uploadedBy, 'user1');
+        expect(policy.uploadedByName, 'Admin');
+        expect(policy.versions.length, 1);
+        expect(policy.createdAt, testDate);
+        expect(policy.updatedAt, updateDate);
       });
 
       test('leagueId and hubId are null when not provided', () {
         final json = {
-          'id': 'doc1',
+          'id': 'policy1',
           'orgId': 'org1',
           'name': 'Rules',
           'fileUrl': 'https://example.com/rules.pdf',
@@ -172,15 +172,15 @@ void main() {
           'updatedAt': updateDateStr,
         };
 
-        final doc = Document.fromJson(json);
+        final policy = Policy.fromJson(json);
 
-        expect(doc.leagueId, isNull);
-        expect(doc.hubId, isNull);
+        expect(policy.leagueId, isNull);
+        expect(policy.hubId, isNull);
       });
 
       test('defaults versions to empty list', () {
         final json = {
-          'id': 'doc1',
+          'id': 'policy1',
           'orgId': 'org1',
           'name': 'Rules',
           'fileUrl': 'https://example.com/rules.pdf',
@@ -193,12 +193,12 @@ void main() {
           'updatedAt': updateDateStr,
         };
 
-        expect(Document.fromJson(json).versions, isEmpty);
+        expect(Policy.fromJson(json).versions, isEmpty);
       });
 
       test('defaults orgId to empty string', () {
         final json = {
-          'id': 'doc1',
+          'id': 'policy1',
           'name': 'Rules',
           'fileUrl': 'https://example.com/rules.pdf',
           'fileType': 'pdf',
@@ -211,12 +211,12 @@ void main() {
           'updatedAt': updateDateStr,
         };
 
-        expect(Document.fromJson(json).orgId, '');
+        expect(Policy.fromJson(json).orgId, '');
       });
 
       test('defaults fileSize to 0', () {
         final json = {
-          'id': 'doc1',
+          'id': 'policy1',
           'orgId': 'org1',
           'name': 'Rules',
           'fileUrl': 'https://example.com/rules.pdf',
@@ -229,13 +229,13 @@ void main() {
           'updatedAt': updateDateStr,
         };
 
-        expect(Document.fromJson(json).fileSize, 0);
+        expect(Policy.fromJson(json).fileSize, 0);
       });
     });
 
     group('toJson', () {
       test('serializes all fields correctly', () {
-        final version = DocumentVersion(
+        final version = PolicyVersion(
           fileUrl: 'https://example.com/file.pdf',
           version: 1,
           uploadedAt: testDate,
@@ -243,16 +243,16 @@ void main() {
           uploadedByName: 'Alice',
           fileSize: 512,
         );
-        final doc = Document(
-          id: 'doc1',
+        final policy = Policy(
+          id: 'policy1',
           orgId: 'org1',
           leagueId: 'l1',
           hubId: 'h1',
-          name: 'Test Doc',
+          name: 'Test Policy',
           fileUrl: 'https://example.com/file.pdf',
           fileType: 'pdf',
           fileSize: 512,
-          category: 'Forms',
+          category: 'Policy',
           uploadedBy: 'user1',
           uploadedByName: 'Alice',
           versions: [version],
@@ -260,16 +260,16 @@ void main() {
           updatedAt: updateDate,
         );
 
-        final json = doc.toJson();
+        final json = policy.toJson();
 
         expect(json['orgId'], 'org1');
         expect(json['leagueId'], 'l1');
         expect(json['hubId'], 'h1');
-        expect(json['name'], 'Test Doc');
+        expect(json['name'], 'Test Policy');
         expect(json['fileUrl'], 'https://example.com/file.pdf');
         expect(json['fileType'], 'pdf');
         expect(json['fileSize'], 512);
-        expect(json['category'], 'Forms');
+        expect(json['category'], 'Policy');
         expect(json['uploadedBy'], 'user1');
         expect(json['uploadedByName'], 'Alice');
         expect(json['versions'].length, 1);
@@ -278,8 +278,8 @@ void main() {
       });
 
       test('id is NOT included in toJson (Firestore stores it separately)', () {
-        final doc = Document(
-          id: 'doc1',
+        final policy = Policy(
+          id: 'policy1',
           orgId: 'org1',
           name: 'Test',
           fileUrl: 'https://example.com/f.pdf',
@@ -293,7 +293,7 @@ void main() {
           updatedAt: updateDate,
         );
 
-        expect(doc.toJson().containsKey('id'), false);
+        expect(policy.toJson().containsKey('id'), false);
       });
     });
   });

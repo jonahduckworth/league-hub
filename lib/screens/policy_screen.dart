@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
-import '../models/document.dart';
+import '../models/policy.dart';
 import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
@@ -15,39 +15,29 @@ import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/status_badge.dart';
 
-class DocumentsScreen extends ConsumerStatefulWidget {
-  const DocumentsScreen({super.key});
+class PolicyScreen extends ConsumerStatefulWidget {
+  const PolicyScreen({super.key});
 
   @override
-  ConsumerState<DocumentsScreen> createState() => _DocumentsScreenState();
+  ConsumerState<PolicyScreen> createState() => _PolicyScreenState();
 }
 
-List<String> buildVisibleDocumentCategories(List<Document> documents) {
-  final existingCategories = documents.map((doc) => doc.category).toSet();
+List<String> buildVisiblePolicyCategories(List<Policy> policies) {
+  final existingCategories = policies.map((policy) => policy.category).toSet();
   return [
     'All',
-    ..._documentCategories.where(existingCategories.contains),
+    ..._policyCategories.where(existingCategories.contains),
   ];
 }
 
-const _documentCategories = [
-  'Rosters',
-  'Waivers',
-  'Schedules',
-  'Policies',
+const _policyCategories = [
+  'Policy',
+  'Protocol',
+  'Code of Conduct',
   'Other',
 ];
 
-class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
-  final _searchController = TextEditingController();
-  String _searchQuery = '';
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
+class _PolicyScreenState extends ConsumerState<PolicyScreen> {
   bool _canUpload(AppUser? user) {
     if (user == null) return false;
     return PermissionService.isAtLeast(user.role, UserRole.managerAdmin);
@@ -56,36 +46,28 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomContentPadding = appShellBottomPadding(context);
-    final docsAsync = ref.watch(documentsProvider);
+    final policiesAsync = ref.watch(policiesProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final selectedLeagueId = ref.watch(selectedLeagueProvider);
-    final selectedCategory = ref.watch(selectedCategoryProvider);
+    final selectedCategory = ref.watch(selectedPolicyCategoryProvider);
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
     final visibleCategories =
-        buildVisibleDocumentCategories(docsAsync.valueOrNull ?? const []);
+        buildVisiblePolicyCategories(policiesAsync.valueOrNull ?? const []);
 
     return AppShellScaffold(
       floatingActionButton: _canUpload(currentUser)
           ? FloatingActionButton(
-              heroTag: 'documents_fab',
-              onPressed: () => context.push('/documents/upload'),
+              heroTag: 'policy_fab',
+              onPressed: () => context.push('/policy/upload'),
               backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
       header: AppShellHeader(
-        eyebrow: 'DOCS',
         leadingIcon: Icons.folder_copy_outlined,
-        title: 'Documents',
-        subtitle:
-            'Policies, rosters, schedules, and shared files for your league.',
-        bottom: AppHeaderSearchField(
-          controller: _searchController,
-          hintText: 'Search documents...',
-          onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-        ),
+        title: 'Policy',
       ),
       stickyContent: Column(
         mainAxisSize: MainAxisSize.min,
@@ -109,7 +91,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                         label: cat,
                         isSelected: selectedCategory == cat,
                         onTap: () => ref
-                            .read(selectedCategoryProvider.notifier)
+                            .read(selectedPolicyCategoryProvider.notifier)
                             .state = cat,
                       ))
                   .toList(),
@@ -117,42 +99,38 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           ),
         ],
       ),
-      child: docsAsync.when(
+      child: policiesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Text('Error: $e',
               style: const TextStyle(color: AppColors.danger)),
         ),
-        data: (docs) {
-          final filtered = _searchQuery.isEmpty
-              ? docs
-              : docs
-                  .where((d) => d.name.toLowerCase().contains(_searchQuery))
-                  .toList();
+        data: (policies) {
+          final filtered = policies;
 
           if (filtered.isEmpty) {
             return EmptyState(
               icon: Icons.folder_open,
-              title: 'No documents found',
+              title: 'No policies found',
               action: _canUpload(currentUser)
                   ? ElevatedButton.icon(
-                      onPressed: () => context.push('/documents/upload'),
+                      onPressed: () => context.push('/policy/upload'),
                       icon: const Icon(Icons.upload_file),
-                      label: const Text('Upload Document'),
+                      label: const Text('Upload Policy'),
                     )
                   : null,
             );
           }
 
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(documentsProvider),
+            onRefresh: () async => ref.invalidate(policiesProvider),
             child: ListView.builder(
               padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
               itemCount: filtered.length,
-              itemBuilder: (context, index) => _DocumentTile(
-                doc: filtered[index],
+              itemBuilder: (context, index) => _PolicyTile(
+                policy: filtered[index],
                 leagues: leagues,
-                onTap: () => context.push('/documents/${filtered[index].id}'),
+                onTap: () => context.push('/policy/${filtered[index].id}'),
               ),
             ),
           );
@@ -199,19 +177,19 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
-class _DocumentTile extends StatelessWidget {
-  final Document doc;
+class _PolicyTile extends StatelessWidget {
+  final Policy policy;
   final List<League> leagues;
   final VoidCallback onTap;
 
-  const _DocumentTile({
-    required this.doc,
+  const _PolicyTile({
+    required this.policy,
     required this.leagues,
     required this.onTap,
   });
 
   IconData get _fileIcon {
-    switch (doc.fileType.toLowerCase()) {
+    switch (policy.fileType.toLowerCase()) {
       case 'pdf':
         return Icons.picture_as_pdf;
       case 'xlsx':
@@ -232,7 +210,7 @@ class _DocumentTile extends StatelessWidget {
   }
 
   Color get _fileColor {
-    switch (doc.fileType.toLowerCase()) {
+    switch (policy.fileType.toLowerCase()) {
       case 'pdf':
         return AppColors.danger;
       case 'xlsx':
@@ -253,16 +231,16 @@ class _DocumentTile extends StatelessWidget {
   }
 
   String? get _leagueName {
-    if (doc.leagueId == null) return null;
+    if (policy.leagueId == null) return null;
     return leagues
-        .where((l) => l.id == doc.leagueId)
+        .where((l) => l.id == policy.leagueId)
         .map((l) => l.abbreviation)
         .firstOrNull;
   }
 
   @override
   Widget build(BuildContext context) {
-    final versionCount = doc.versions.isEmpty ? 1 : doc.versions.length;
+    final versionCount = policy.versions.isEmpty ? 1 : policy.versions.length;
     final leagueName = _leagueName;
 
     return GestureDetector(
@@ -292,7 +270,7 @@ class _DocumentTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    doc.name,
+                    policy.name,
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
@@ -307,7 +285,7 @@ class _DocumentTile extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       StatusBadge(
-                          label: doc.category,
+                          label: policy.category,
                           color: AppColors.primary,
                           fontSize: 11,
                           showBorder: false),
@@ -318,7 +296,7 @@ class _DocumentTile extends StatelessWidget {
                             fontSize: 11,
                             showBorder: false),
                       Text(
-                        '${doc.fileType.toUpperCase()} • ${AppUtils.formatFileSize(doc.fileSize)}',
+                        '${policy.fileType.toUpperCase()} • ${AppUtils.formatFileSize(policy.fileSize)}',
                         style: const TextStyle(
                             fontSize: 11, color: AppColors.textMuted),
                       ),
@@ -332,7 +310,7 @@ class _DocumentTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  AppUtils.formatDateTime(doc.updatedAt),
+                  AppUtils.formatDateTime(policy.updatedAt),
                   style:
                       const TextStyle(fontSize: 11, color: AppColors.textMuted),
                 ),

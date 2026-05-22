@@ -4,7 +4,7 @@ import 'package:mockito/mockito.dart';
 import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
-import 'package:league_hub/models/document.dart';
+import 'package:league_hub/models/policy.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
@@ -13,19 +13,17 @@ import 'package:league_hub/services/firestore_service.dart';
 // Manual mock with proper null-safe return values via noSuchMethod overrides.
 class MockFirestoreService extends Mock implements FirestoreService {
   @override
-  Stream<List<ChatRoom>> getChatRooms(String orgId) =>
-      (super.noSuchMethod(Invocation.method(#getChatRooms, [orgId]),
-              returnValue: Stream<List<ChatRoom>>.value([]))
-          as Stream<List<ChatRoom>>);
+  Stream<List<ChatRoom>> getChatRooms(String orgId) => (super.noSuchMethod(
+      Invocation.method(#getChatRooms, [orgId]),
+      returnValue: Stream<List<ChatRoom>>.value([])) as Stream<List<ChatRoom>>);
 
   @override
-  Stream<List<Document>> documentsStream(String orgId,
+  Stream<List<Policy>> policiesStream(String orgId,
           {String? leagueId, String? category}) =>
       (super.noSuchMethod(
-              Invocation.method(#documentsStream, [orgId],
-                  {#leagueId: leagueId, #category: category}),
-              returnValue: Stream<List<Document>>.value([]))
-          as Stream<List<Document>>);
+          Invocation.method(#policiesStream, [orgId],
+              {#leagueId: leagueId, #category: category}),
+          returnValue: Stream<List<Policy>>.value([])) as Stream<List<Policy>>);
 
   @override
   Stream<List<Announcement>> getAnnouncements(String orgId) =>
@@ -223,8 +221,8 @@ void main() {
       });
     });
 
-    group('documentsProvider filtering', () {
-      test('staff user: only sees docs in their hubs', () async {
+    group('policiesProvider filtering', () {
+      test('staff user: only sees policies in their hubs', () async {
         final staffUser = AppUser(
           id: 'staff1',
           email: 'staff@example.com',
@@ -247,8 +245,8 @@ void main() {
           ownerId: 'owner1',
         );
 
-        final docInHub = Document(
-          id: 'doc1',
+        final policyInHub = Policy(
+          id: 'policy1',
           orgId: 'org1',
           hubId: 'h1',
           name: 'Rules in H1',
@@ -263,8 +261,8 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        final docInOtherHub = Document(
-          id: 'doc2',
+        final policyInOtherHub = Policy(
+          id: 'policy2',
           orgId: 'org1',
           hubId: 'h2',
           name: 'Rules in H2',
@@ -279,8 +277,8 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        when(mockFs.documentsStream('org1'))
-            .thenAnswer((_) => Stream.value([docInHub, docInOtherHub]));
+        when(mockFs.policiesStream('org1'))
+            .thenAnswer((_) => Stream.value([policyInHub, policyInOtherHub]));
 
         container = ProviderContainer(
           overrides: [
@@ -290,14 +288,14 @@ void main() {
           ],
         );
 
-        final result = await container.read(documentsProvider.future);
+        final result = await container.read(policiesProvider.future);
 
-        // Staff should only see doc in h1
+        // Staff should only see the policy in h1.
         expect(result, hasLength(1));
-        expect(result.first.id, 'doc1');
+        expect(result.first.id, 'policy1');
       });
 
-      test('superAdmin: sees all docs', () async {
+      test('superAdmin: sees all policies', () async {
         final superAdmin = AppUser(
           id: 'admin1',
           email: 'admin@example.com',
@@ -320,7 +318,7 @@ void main() {
           ownerId: 'owner1',
         );
 
-        final doc1 = Document(
+        final doc1 = Policy(
           id: 'doc1',
           orgId: 'org1',
           hubId: 'h1',
@@ -336,7 +334,7 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        final doc2 = Document(
+        final doc2 = Policy(
           id: 'doc2',
           orgId: 'org1',
           hubId: 'h2',
@@ -352,7 +350,7 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        when(mockFs.documentsStream('org1'))
+        when(mockFs.policiesStream('org1'))
             .thenAnswer((_) => Stream.value([doc1, doc2]));
 
         container = ProviderContainer(
@@ -363,7 +361,7 @@ void main() {
           ],
         );
 
-        final result = await container.read(documentsProvider.future);
+        final result = await container.read(policiesProvider.future);
 
         // SuperAdmin sees all
         expect(result, hasLength(2));
@@ -371,7 +369,9 @@ void main() {
     });
 
     group('announcementsProvider filtering', () {
-      test('staff user: sees org-wide and hub-scoped announcements in their hubs', () async {
+      test(
+          'staff user: sees org-wide and hub-scoped announcements in their hubs',
+          () async {
         final staffUser = AppUser(
           id: 'staff1',
           email: 'staff@example.com',
@@ -438,8 +438,8 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.getAnnouncements('org1'))
-            .thenAnswer((_) => Stream.value([orgWideAnn, hubAnnInTheirHub, hubAnnInOtherHub]));
+        when(mockFs.getAnnouncements('org1')).thenAnswer((_) =>
+            Stream.value([orgWideAnn, hubAnnInTheirHub, hubAnnInOtherHub]));
 
         container = ProviderContainer(
           overrides: [
@@ -508,7 +508,8 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.getAnnouncements('org1')).thenAnswer((_) => Stream.value([ann1, ann2]));
+        when(mockFs.getAnnouncements('org1'))
+            .thenAnswer((_) => Stream.value([ann1, ann2]));
 
         container = ProviderContainer(
           overrides: [
@@ -637,7 +638,7 @@ void main() {
         expect(result, isEmpty);
       });
 
-      test('staff with matching leagueIds sees league-scoped documents',
+      test('staff with matching leagueIds sees league-scoped policies',
           () async {
         final staffUser = AppUser(
           id: 'staff1',
@@ -652,7 +653,7 @@ void main() {
           isActive: true,
         );
 
-        final leagueDoc = Document(
+        final leagueDoc = Policy(
           id: 'doc1',
           orgId: 'org1',
           leagueId: 'l1',
@@ -668,7 +669,7 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        final otherLeagueDoc = Document(
+        final otherLeagueDoc = Policy(
           id: 'doc2',
           orgId: 'org1',
           leagueId: 'l2',
@@ -684,7 +685,7 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        when(mockFs.documentsStream('org1'))
+        when(mockFs.policiesStream('org1'))
             .thenAnswer((_) => Stream.value([leagueDoc, otherLeagueDoc]));
 
         container = ProviderContainer(
@@ -695,7 +696,7 @@ void main() {
           ],
         );
 
-        final result = await container.read(documentsProvider.future);
+        final result = await container.read(policiesProvider.future);
         expect(result, hasLength(1));
         expect(result.first.id, 'doc1');
       });

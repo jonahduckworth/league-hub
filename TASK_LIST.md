@@ -41,19 +41,19 @@
 | 11 | Build user role change audit trail | Not started | No logging when a Super Admin changes someone's role |
 | 12 | Add bulk invite flow (CSV upload of staff) | Not started | Only single invitations supported |
 | 13 | Add league chat room auto-creation on league create | Partial | `createLeagueChatRooms` exists but isn't always called from ManageLeaguesScreen |
-| 14 | Add cascade delete for leagues (delete hubs → teams → chat rooms → documents scoped to league) | Not started | `deleteLeague` only deletes the league doc, orphaning children |
+| 14 | Add cascade delete for leagues (delete hubs → teams → chat rooms → policies scoped to league) | Not started | `deleteLeague` only deletes the league doc, orphaning children |
 | 15 | Add cascade delete for hubs (delete teams under hub) | Not started | Same orphan problem |
 | 16 | Build org-wide announcement push notification trigger | Not started | TODO in `firestore_service.dart` line 508 — no FCM send on announcement create |
-| 17 | Build document upload notification to relevant users | Not started | No notification on new document |
+| 17 | Build policy upload notification to relevant users | Not started | No notification on new policy |
 
 ### 1.3 Manager Admin Flows
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 18 | Scope Manager Admin's view to only their assigned hubs/teams | Not started | Manager Admins currently see ALL hubs, teams, chat rooms, and documents in the org |
+| 18 | Scope Manager Admin's view to only their assigned hubs/teams | Not started | Manager Admins currently see ALL hubs, teams, chat rooms, and policies in the org |
 | 19 | Restrict Manager Admin from editing leagues they aren't assigned to | Not started | No hub/league ownership check on ManageLeaguesScreen |
 | 20 | Restrict Manager Admin announcement scope to their hubs only | Partial | CreateAnnouncementScreen blocks org-wide scope for Manager Admin, but doesn't verify hub ownership for hub-scoped announcements |
-| 21 | Restrict Manager Admin document uploads to their assigned hubs/leagues | Not started | UploadDocumentScreen has no scoping logic |
+| 21 | Restrict Manager Admin policy uploads to their assigned hubs/leagues | Not started | UploadPolicyScreen has no scoping logic |
 | 22 | Add Manager Admin ability to manage staff within their hubs | Not started | UserManagementScreen shows all org users with no hub-level filtering |
 | 23 | Restrict Manager Admin chat room creation to their league/hub scope | Not started | ChatListScreen allows creating event rooms for any league |
 | 24 | Add Manager Admin dashboard filtered to their hubs | Not started | DashboardScreen shows org-wide stats |
@@ -65,7 +65,7 @@
 | 25 | Scope Staff view to only their assigned hubs/teams | Not started | Staff sees everything in the org |
 | 26 | Hide admin settings tiles (Manage Leagues, User Management, Branding, App Icon) from Staff | Not started | SettingsScreen shows all tiles to all roles |
 | 27 | Restrict Staff from creating announcements | Partial | FAB hidden for staff role, but no server-side enforcement |
-| 28 | Restrict Staff from uploading documents | Partial | FAB hidden for staff, but no server-side enforcement |
+| 28 | Restrict Staff from uploading policies | Partial | FAB hidden for staff, but no server-side enforcement |
 | 29 | Restrict Staff from archiving chat rooms | Not started | No role check on archive action |
 | 30 | Restrict Staff from deactivating/reactivating users | Not started | Long-press deactivate available to anyone on UserManagementScreen |
 | 31 | Add Staff profile self-edit flow (only own profile) | Partial | EditProfileScreen exists but no enforcement preventing editing other users |
@@ -80,9 +80,9 @@
 | 35 | Build chat message editing/deletion | Not started | Messages are write-only — no edit or delete |
 | 36 | Build chat media/image sharing flow | Not started | Message model supports `mediaUrl` and `mediaType` but no UI to attach/send media |
 | 37 | Build chat link preview generation | Not started | Message model has `linkPreview` but no URL detection or preview fetching |
-| 38 | Build document version history UI in DocumentDetailScreen | Not started | Model supports versions array but detail screen doesn't display version list or allow rollback |
-| 39 | Build document download flow | Not started | No download button or handler in DocumentDetailScreen |
-| 40 | Build document search (full-text) | Not started | DocumentsScreen has a search bar but only filters by title client-side |
+| 38 | Build policy version history UI in PolicyDetailScreen | Not started | Model supports versions array but detail screen doesn't display version list or allow rollback |
+| 39 | Build policy download flow | Not started | No download button or handler in PolicyDetailScreen |
+| 40 | Build policy search (full-text) | Not started | PolicyScreen has a search bar but only filters by title client-side |
 | 41 | Build announcement attachment upload flow | Not started | Announcement model supports `attachments` list but CreateAnnouncementScreen has no file picker |
 | 42 | Build read receipts UI for chat (who read the message) | Partial | Message model has `readBy` array and ChatBubble shows checkmarks, but no tap-to-see-readers |
 | 43 | Build mark-messages-as-read logic | Not started | No service method to update `readBy` when a user views a message |
@@ -107,13 +107,13 @@ Every service method currently operates without any role or ownership verificati
 | 53 | Add role check to `createHub`, `deleteHub` | platformOwner, superAdmin, managerAdmin (own leagues only) |
 | 54 | Add role check to `createTeam`, `deleteTeam` | platformOwner, superAdmin, managerAdmin (own hubs only) |
 | 55 | Add role check to `createAnnouncement`, `updateAnnouncement`, `deleteAnnouncement`, `togglePin` | platformOwner, superAdmin, managerAdmin (scoped) |
-| 56 | Add role check to `createDocument`, `updateDocument`, `deleteDocument` | platformOwner, superAdmin, managerAdmin (scoped) |
+| 56 | Add role check to `createPolicy`, `updatePolicy`, `deletePolicy` | platformOwner, superAdmin, managerAdmin (scoped) |
 | 57 | Add role check to `deactivateUser`, `reactivateUser`, `updateUserFields` | platformOwner, superAdmin only (managerAdmin for own hub staff) |
 | 58 | Add role check to `createInvitation` | platformOwner, superAdmin, managerAdmin (scoped to own hubs) |
 | 59 | Add role check to `archiveChatRoom` | platformOwner, superAdmin, managerAdmin |
 | 60 | Add ownership verification to `sendMessage` — validate senderId matches authenticated user | Prevent impersonation |
 | 61 | Add scope filtering to `getChatRooms` — staff/managerAdmin only see rooms for their leagues/hubs | Currently returns all org rooms |
-| 62 | Add scope filtering to `documentsStream` — staff only see docs for their assigned leagues/hubs | Currently fetches all org docs |
+| 62 | Add scope filtering to `policiesStream` — staff only see policies for their assigned leagues/hubs | Currently fetches all org policies |
 | 63 | Add scope filtering to `getAnnouncements` — staff only see announcements for their scope | Currently returns all org announcements |
 | 64 | Add Firestore Security Rules file (`firestore.rules`) | No rules file exists in the repo |
 
@@ -128,7 +128,7 @@ Every service method currently operates without any role or ownership verificati
 | 67 | Guard `/settings/roles` — platformOwner, superAdmin only | Manager Admins and Staff should not see role config |
 | 68 | Guard `/settings/branding` — platformOwner, superAdmin only | |
 | 69 | Guard `/settings/app-icon` — platformOwner, superAdmin only | |
-| 70 | Guard `/documents/upload` — block staff at route level | Currently only hides FAB |
+| 70 | Guard `/policy/upload` — block staff at route level | Currently only hides FAB |
 | 71 | Guard `/announcements/create` and `/announcements/:id/edit` — block staff at route level | Currently only hides FAB |
 | 72 | Add "unauthorized" screen/redirect for role-blocked routes | No 403-style screen exists |
 
@@ -147,15 +147,15 @@ Every service method currently operates without any role or ownership verificati
 | 77 | `FirestoreService` — Users | `getUser`, `updateUser`, `getOrgUsers`, `deactivateUser`, `reactivateUser`, `updateUserFields` |
 | 78 | `FirestoreService` — Chat Rooms | `createChatRoom`, `archiveChatRoom`, `getChatRooms`, `getOrCreateDMRoom`, `createLeagueChatRooms` |
 | 79 | `FirestoreService` — Messages | `getMessages`, `sendMessage` (including lastMessage update atomicity) |
-| 80 | `FirestoreService` — Documents | `documentsStream`, `createDocument`, `updateDocument`, `deleteDocument`, `addDocumentVersion`, `getDocumentsByLeague`, `getDocumentsByCategory` |
+| 80 | `FirestoreService` — Policies | `policiesStream`, `createPolicy`, `updatePolicy`, `deletePolicy`, `addPolicyVersion`, `getPoliciesByLeague`, `getPoliciesByCategory` |
 | 81 | `FirestoreService` — Announcements | `getAnnouncements`, `getAnnouncementsByLeague`, `createAnnouncement`, `updateAnnouncement`, `deleteAnnouncement`, `togglePin` |
 | 82 | `FirestoreService` — Invitations | `createInvitation`, `getInvitations`, `getInvitationByToken`, `acceptInvitation`, token generation |
 | 83 | `AuthService` — Sign in | `signInWithEmail` including auto user doc creation |
 | 84 | `AuthService` — Account creation | `createAccount`, verify no Firestore doc created |
 | 85 | `AuthService` — Invite flow | `createAccountFromInvite` with role/hub/team propagation |
 | 86 | `AuthService` — Edge cases | `sendPasswordResetEmail`, `getCurrentAppUser`, `signOut` |
-| 87 | `StorageService` — Upload | `uploadFile`, `uploadBytes`, `uploadDocument` with progress callback |
-| 88 | `StorageService` — Delete | `deleteDocumentFile`, `deleteFile` (including silent error handling) |
+| 87 | `StorageService` — Upload | `uploadFile`, `uploadBytes`, `uploadPolicy` with progress callback |
+| 88 | `StorageService` — Delete | `deletePolicyFile`, `deleteFile` (including silent error handling) |
 | 89 | `StorageService` — Download | `getDownloadUrl` |
 | 90 | `MessagingService` — Token management | `_registerToken`, `_saveToken`, `removeToken` |
 | 91 | `MessagingService` — Topic subscriptions | `subscribeToTopic`, `unsubscribeFromTopic`, `syncPreferences` |
@@ -173,9 +173,9 @@ Every service method currently operates without any role or ownership verificati
 | 98 | `ChatListScreen` | Room list rendering, search filtering, section grouping (league/event/DM), FAB actions, new room creation, new DM creation |
 | 99 | `ChatConversationScreen` | Message list rendering, send message flow, auto-scroll, date dividers, empty state, error on send |
 | 100 | `ChatRoomInfoScreen` | Room details display, participant list, archive action (role-conditional) |
-| 101 | `DocumentsScreen` | Document list, league filter, category chips, search, FAB visibility by role, empty state |
-| 102 | `UploadDocumentScreen` | File picker, category selection, league association, upload progress, success/error |
-| 103 | `DocumentDetailScreen` | Document info display, version history, download action, edit/delete by role |
+| 101 | `PolicyScreen` | Policy list, league filter, category chips, search, FAB visibility by role, empty state |
+| 102 | `UploadPolicyScreen` | File picker, category selection, league association, upload progress, success/error |
+| 103 | `PolicyDetailScreen` | Policy info display, version history, download action, edit/delete by role |
 | 104 | `AnnouncementsScreen` | Announcement list, pinned-first ordering, FAB visibility by role, pin toggle, edit/delete actions, scope tags |
 | 105 | `AnnouncementDetailScreen` | Full announcement display, attachments, edit/delete buttons by role |
 | 106 | `CreateAnnouncementScreen` | Form validation, scope picker (role-restricted), league/hub selector, create vs edit mode, submission |
@@ -191,7 +191,7 @@ Every service method currently operates without any role or ownership verificati
 | 111 | `organizationProvider` | Fetches org from Firestore based on current user's orgId, handles null orgId |
 | 112 | `hubCountProvider` / `teamCountProvider` | Correct counts returned, handles empty org |
 | 113 | `activeUserCountProvider` | Counts only active users |
-| 114 | `documentsProvider` | Filters by selectedLeague AND selectedCategory simultaneously |
+| 114 | `policiesProvider` | Filters by selectedLeague AND selectedCategory simultaneously |
 | 115 | Auth providers (`currentUserProvider`, `authStateProvider`) | Auth state changes, null user handling |
 
 ### 4.4 Integration / E2E Tests Needed
@@ -201,7 +201,7 @@ Every service method currently operates without any role or ownership verificati
 | 116 | Full sign-up → org creation → first login | End-to-end onboarding with Firebase emulator |
 | 117 | Invite → accept → first login as Staff | Invitation token flow through to authenticated staff session |
 | 118 | Create league → auto-create chat room → post message | Content creation pipeline |
-| 119 | Upload document → view in list → open detail → download | Document lifecycle |
+| 119 | Upload policy → view in list → open detail → download | Policy lifecycle |
 | 120 | Create announcement → push notification → deep link open | Announcement delivery pipeline |
 | 121 | Role change → UI updates → permission enforcement | Admin changes staff to managerAdmin, verify access changes |
 | 122 | Deactivate user → verify blocked access | Deactivated user should not be able to interact |
@@ -212,7 +212,7 @@ Every service method currently operates without any role or ownership verificati
 
 | # | Scenario | What to Test |
 |---|----------|--------------|
-| 125 | Network failure during document upload | Progress callback, retry, error state |
+| 125 | Network failure during policy upload | Progress callback, retry, error state |
 | 126 | Concurrent message sends in same chat room | Firestore transaction atomicity on lastMessage |
 | 127 | Duplicate invitation to same email | Prevention or handling |
 | 128 | Expired invitation token acceptance | Graceful error message |
@@ -220,7 +220,7 @@ Every service method currently operates without any role or ownership verificati
 | 130 | User removed from hub/team still has stale local state | Provider refresh after assignment change |
 | 131 | Large message list performance (100+ messages in room) | Pagination, scroll performance |
 | 132 | File upload exceeding size limits | Error handling, user feedback |
-| 133 | Invalid file types on document upload | Validation before upload |
+| 133 | Invalid file types on policy upload | Validation before upload |
 | 134 | Timestamp conversion edge cases in `_convertValue` | Null timestamps, invalid formats |
 
 ---

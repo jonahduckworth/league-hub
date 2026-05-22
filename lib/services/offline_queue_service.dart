@@ -75,8 +75,8 @@ class OfflineQueueService {
   }
 
   void _onConnectivityChanged(List<ConnectivityResult> results) {
-    final online = results.isNotEmpty &&
-        results.any((r) => r != ConnectivityResult.none);
+    final online =
+        results.isNotEmpty && results.any((r) => r != ConnectivityResult.none);
     if (online && !_isReplaying && pendingCount > 0) {
       replayQueue();
     }
@@ -193,25 +193,25 @@ class OfflineQueueService {
         );
         break;
 
-      case 'createDocument':
-        await _firestoreService.createDocument(
+      case 'createPolicy':
+        await _firestoreService.createPolicy(
           p['orgId'] as String,
           Map<String, dynamic>.from(p['data'] as Map),
         );
         break;
 
-      case 'updateDocument':
-        await _firestoreService.updateDocument(
+      case 'updatePolicy':
+        await _firestoreService.updatePolicy(
           p['orgId'] as String,
-          p['docId'] as String,
+          p['policyId'] as String,
           Map<String, dynamic>.from(p['data'] as Map),
         );
         break;
 
-      case 'deleteDocument':
-        await _firestoreService.deleteDocument(
+      case 'deletePolicy':
+        await _firestoreService.deletePolicy(
           p['orgId'] as String,
-          p['docId'] as String,
+          p['policyId'] as String,
         );
         break;
 

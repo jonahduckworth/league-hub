@@ -42,7 +42,7 @@ class RolesPermissionsScreen extends ConsumerWidget {
               'Manage leagues, hubs & teams',
               'Manage users & invitations',
               'Create & manage announcements',
-              'Manage documents & chat rooms',
+              'Manage policies & chat rooms',
               'All Manager Admin permissions',
             ],
             users: users,
@@ -52,11 +52,11 @@ class RolesPermissionsScreen extends ConsumerWidget {
             role: UserRole.managerAdmin,
             title: 'Manager Admin',
             description:
-                'Manage assigned hubs and teams. Can create announcements and manage documents within their scope.',
+                'Manage assigned hubs and teams. Can create announcements and manage policies within their scope.',
             permissions: [
               'Manage assigned hubs & teams',
               'Create scoped announcements',
-              'Upload & manage documents',
+              'Upload & manage policies',
               'Manage chat rooms in assigned hubs',
               'View all members in assigned hubs',
             ],
@@ -67,10 +67,10 @@ class RolesPermissionsScreen extends ConsumerWidget {
             role: UserRole.staff,
             title: 'Staff',
             description:
-                'View content, participate in chat rooms, and access shared documents.',
+                'View content, participate in chat rooms, and access shared policies.',
             permissions: [
               'View announcements',
-              'View & download documents',
+              'View & download policies',
               'Participate in chat rooms',
               'View team rosters',
               'Update own profile',
@@ -130,8 +130,8 @@ class RolesPermissionsScreen extends ConsumerWidget {
           ],
         ),
         subtitle: Text(description,
-            style: const TextStyle(
-                fontSize: 12, color: AppColors.textSecondary)),
+            style:
+                const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         childrenPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [

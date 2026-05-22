@@ -96,7 +96,7 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('Organizations', () {
-    test('createOrganization writes the document', () async {
+    test('createOrganization writes the policy', () async {
       final org = makeOrg();
       await svc.createOrganization(org);
 
@@ -138,7 +138,7 @@ void main() {
       expect(leagues.first.abbreviation, 'NL');
     });
 
-    test('deleteLeague removes the document', () async {
+    test('deleteLeague removes the policy', () async {
       await svc.createLeague(orgId, makeLeague('league-del'));
       await svc.deleteLeague(orgId, 'league-del');
 
@@ -192,7 +192,7 @@ void main() {
       expect(hubs.first.name, 'East Hub');
     });
 
-    test('deleteHub removes the document', () async {
+    test('deleteHub removes the policy', () async {
       await svc.createHub(orgId, leagueId, makeHub('hub-del', leagueId));
       await svc.deleteHub(orgId, leagueId, 'hub-del');
 
@@ -245,7 +245,7 @@ void main() {
       expect(teams.first.ageGroup, 'U12');
     });
 
-    test('deleteTeam removes the document', () async {
+    test('deleteTeam removes the policy', () async {
       await svc.createTeam(
           orgId, leagueId, hubId, makeTeam('team-del', leagueId, hubId));
       await svc.deleteTeam(orgId, leagueId, hubId, 'team-del');
@@ -378,8 +378,8 @@ void main() {
 
     test('archiveChatRoom sets isArchived and room disappears from stream',
         () async {
-      final roomId = await svc.createChatRoom(
-          orgId, 'To Archive', ChatRoomType.league);
+      final roomId =
+          await svc.createChatRoom(orgId, 'To Archive', ChatRoomType.league);
 
       await svc.archiveChatRoom(orgId, roomId);
 
@@ -422,13 +422,13 @@ void main() {
 
     test('getOrCreateDMRoom creates a new DM then finds the same one',
         () async {
-      final room1 = await svc.getOrCreateDMRoom(
-          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
+      final room1 =
+          await svc.getOrCreateDMRoom(orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
       expect(room1.type, ChatRoomType.direct);
       expect(room1.name, 'Alice & Bob');
 
-      final room2 = await svc.getOrCreateDMRoom(
-          orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
+      final room2 =
+          await svc.getOrCreateDMRoom(orgId, 'uid-a', 'uid-b', 'Alice', 'Bob');
       expect(room2.id, room1.id);
     });
   });
@@ -442,14 +442,13 @@ void main() {
 
     setUp(() async {
       await svc.createOrganization(makeOrg());
-      roomId = await svc.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
+      roomId =
+          await svc.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
     });
 
     test('sendMessage creates message and updates room lastMessage', () async {
       await svc.sendMessage(orgId, roomId,
-          senderId: 'sender-1',
-          senderName: 'Alice',
-          text: 'Hello emulator!');
+          senderId: 'sender-1', senderName: 'Alice', text: 'Hello emulator!');
 
       await Future<void>.delayed(const Duration(milliseconds: 300));
       final messages = await svc.getMessages(orgId, roomId).first;
@@ -556,13 +555,13 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Documents
+  // Policy
   // ---------------------------------------------------------------------------
 
-  group('Documents', () {
+  group('Policy', () {
     setUp(() => svc.createOrganization(makeOrg()));
 
-    Map<String, dynamic> docData({
+    Map<String, dynamic> policyData({
       String name = 'Rulebook',
       String? leagueId,
       String category = 'general',
@@ -579,41 +578,42 @@ void main() {
           'versions': [],
         };
 
-    test('createDocument returns an ID and getDocuments stream returns it',
+    test('createPolicy returns an ID and getPolicies stream returns it',
         () async {
-      final id = await svc.createDocument(orgId, docData());
+      final id = await svc.createPolicy(orgId, policyData());
       expect(id, isNotEmpty);
 
       await Future<void>.delayed(const Duration(milliseconds: 300));
-      final docs = await svc.getDocuments(orgId).first;
-      expect(docs, hasLength(1));
-      expect(docs.first.name, 'Rulebook');
+      final policies = await svc.getPolicies(orgId).first;
+      expect(policies, hasLength(1));
+      expect(policies.first.name, 'Rulebook');
     });
 
-    test('getDocumentsByLeague filters correctly', () async {
-      await svc.createDocument(orgId, docData(leagueId: 'lg-1'));
-      await svc.createDocument(orgId, docData(name: 'Other', leagueId: 'lg-2'));
+    test('getPoliciesByLeague filters correctly', () async {
+      await svc.createPolicy(orgId, policyData(leagueId: 'lg-1'));
+      await svc.createPolicy(
+          orgId, policyData(name: 'Other', leagueId: 'lg-2'));
 
       await Future<void>.delayed(const Duration(milliseconds: 300));
-      final docs = await svc.getDocumentsByLeague(orgId, 'lg-1').first;
-      expect(docs, hasLength(1));
-      expect(docs.first.leagueId, 'lg-1');
+      final policies = await svc.getPoliciesByLeague(orgId, 'lg-1').first;
+      expect(policies, hasLength(1));
+      expect(policies.first.leagueId, 'lg-1');
     });
 
-    test('getDocumentsByCategory filters correctly', () async {
-      await svc.createDocument(orgId, docData(category: 'rules'));
-      await svc.createDocument(
-          orgId, docData(name: 'Other', category: 'forms'));
+    test('getPoliciesByCategory filters correctly', () async {
+      await svc.createPolicy(orgId, policyData(category: 'rules'));
+      await svc.createPolicy(
+          orgId, policyData(name: 'Other', category: 'forms'));
 
       await Future<void>.delayed(const Duration(milliseconds: 300));
-      final docs = await svc.getDocumentsByCategory(orgId, 'rules').first;
-      expect(docs, hasLength(1));
-      expect(docs.first.category, 'rules');
+      final policies = await svc.getPoliciesByCategory(orgId, 'rules').first;
+      expect(policies, hasLength(1));
+      expect(policies.first.category, 'rules');
     });
 
-    test('addDocumentVersion appends to versions array', () async {
-      final id = await svc.createDocument(orgId, docData());
-      await svc.addDocumentVersion(orgId, id, {
+    test('addPolicyVersion appends to versions array', () async {
+      final id = await svc.createPolicy(orgId, policyData());
+      await svc.addPolicyVersion(orgId, id, {
         'url': 'https://example.com/v2.pdf',
         'fileSize': 2048,
         'uploadedAt': DateTime.now().toIso8601String(),
@@ -622,21 +622,22 @@ void main() {
       });
 
       // Wait for the stream to emit a snapshot that reflects the transaction.
-      final docs = await svc
-          .getDocuments(orgId)
-          .firstWhere((list) => list.isNotEmpty && list.first.versions.isNotEmpty)
+      final policies = await svc
+          .getPolicies(orgId)
+          .firstWhere(
+              (list) => list.isNotEmpty && list.first.versions.isNotEmpty)
           .timeout(const Duration(seconds: 10));
-      expect(docs.first.versions, hasLength(1));
-      expect(docs.first.versions.first.version, 1);
+      expect(policies.first.versions, hasLength(1));
+      expect(policies.first.versions.first.version, 1);
     });
 
-    test('deleteDocument removes the doc', () async {
-      final id = await svc.createDocument(orgId, docData());
-      await svc.deleteDocument(orgId, id);
+    test('deletePolicy removes the policy', () async {
+      final id = await svc.createPolicy(orgId, policyData());
+      await svc.deletePolicy(orgId, id);
 
       await Future<void>.delayed(const Duration(milliseconds: 300));
-      final docs = await svc.getDocuments(orgId).first;
-      expect(docs, isEmpty);
+      final policies = await svc.getPolicies(orgId).first;
+      expect(policies, isEmpty);
     });
   });
 

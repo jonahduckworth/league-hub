@@ -34,7 +34,8 @@ void main() {
     });
 
     group('Step 0: Organization Details', () {
-      testWidgets('displays organization name field', (WidgetTester tester) async {
+      testWidgets('displays organization name field',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -62,7 +63,8 @@ void main() {
         expect(find.byType(TextField), findsWidgets);
       });
 
-      testWidgets('displays confirm password field', (WidgetTester tester) async {
+      testWidgets('displays confirm password field',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -153,7 +155,8 @@ void main() {
     });
 
     group('League Creation Section', () {
-      testWidgets('step 1 includes league creation', (WidgetTester tester) async {
+      testWidgets('step 1 includes league creation',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -194,7 +197,8 @@ void main() {
         expect(find.byType(OrgCreationScreen), findsOneWidget);
       });
 
-      testWidgets('prevents proceeding without leagues', (WidgetTester tester) async {
+      testWidgets('prevents proceeding without leagues',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();

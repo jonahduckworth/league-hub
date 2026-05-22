@@ -95,12 +95,12 @@ void main() {
     });
 
     test('pendingMutations returns mutations sorted by createdAt', () async {
-      await queueService.enqueue(
-          makeMutation(id: 'mut-2', createdAt: DateTime(2024, 1, 3)));
-      await queueService.enqueue(
-          makeMutation(id: 'mut-1', createdAt: DateTime(2024, 1, 1)));
-      await queueService.enqueue(
-          makeMutation(id: 'mut-3', createdAt: DateTime(2024, 1, 2)));
+      await queueService
+          .enqueue(makeMutation(id: 'mut-2', createdAt: DateTime(2024, 1, 3)));
+      await queueService
+          .enqueue(makeMutation(id: 'mut-1', createdAt: DateTime(2024, 1, 1)));
+      await queueService
+          .enqueue(makeMutation(id: 'mut-3', createdAt: DateTime(2024, 1, 2)));
 
       final mutations = queueService.pendingMutations;
       expect(mutations[0].id, 'mut-1');

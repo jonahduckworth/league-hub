@@ -70,8 +70,8 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: StatusBadge(
-                label: 'Custom', color: Colors.blue, fontSize: 14),
+            body:
+                StatusBadge(label: 'Custom', color: Colors.blue, fontSize: 14),
           ),
         ),
       );

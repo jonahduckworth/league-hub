@@ -13,7 +13,7 @@ import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../services/permission_service.dart';
-import '../models/document.dart';
+import '../models/policy.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
@@ -22,7 +22,7 @@ import '../widgets/confirmation_dialog.dart';
 import 'viewers/image_viewer_screen.dart';
 import 'viewers/pdf_viewer_screen.dart';
 
-enum DocumentViewerType {
+enum PolicyViewerType {
   image,
   pdf,
   native,
@@ -31,14 +31,14 @@ enum DocumentViewerType {
 const _imageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
 const _pdfExts = {'pdf'};
 
-DocumentViewerType documentViewerTypeForExt(String ext) {
+PolicyViewerType policyViewerTypeForExt(String ext) {
   final normalized = ext.toLowerCase();
-  if (_imageExts.contains(normalized)) return DocumentViewerType.image;
-  if (_pdfExts.contains(normalized)) return DocumentViewerType.pdf;
-  return DocumentViewerType.native;
+  if (_imageExts.contains(normalized)) return PolicyViewerType.image;
+  if (_pdfExts.contains(normalized)) return PolicyViewerType.pdf;
+  return PolicyViewerType.native;
 }
 
-String extractDocumentExtensionFromUrl(String url) {
+String extractPolicyExtensionFromUrl(String url) {
   try {
     final path = Uri.parse(url).path;
     final lastDot = path.lastIndexOf('.');
@@ -47,30 +47,29 @@ String extractDocumentExtensionFromUrl(String url) {
   return '';
 }
 
-class DocumentDetailScreen extends ConsumerStatefulWidget {
-  final String docId;
+class PolicyDetailScreen extends ConsumerStatefulWidget {
+  final String policyId;
 
-  const DocumentDetailScreen({super.key, required this.docId});
+  const PolicyDetailScreen({super.key, required this.policyId});
 
   @override
-  ConsumerState<DocumentDetailScreen> createState() =>
-      _DocumentDetailScreenState();
+  ConsumerState<PolicyDetailScreen> createState() => _PolicyDetailScreenState();
 }
 
-class _DocumentDetailScreenState
-    extends ConsumerState<DocumentDetailScreen> {
+class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
   bool _isUploading = false;
   double _uploadProgress = 0;
   bool _isDeleting = false;
-  bool _isOpeningDocument = false;
+  bool _isOpeningPolicy = false;
 
-  /// Opens the document in-app for supported types and uses native preview
-  /// for other document formats after downloading them locally.
-  Future<void> _openDocument(String url, {String? fileType, String? title}) async {
-    final ext = (fileType ?? extractDocumentExtensionFromUrl(url)).toLowerCase();
-    final viewerType = documentViewerTypeForExt(ext);
+  /// Opens the policy in-app for supported types and uses native preview
+  /// for other policy formats after downloading them locally.
+  Future<void> _openPolicy(String url,
+      {String? fileType, String? title}) async {
+    final ext = (fileType ?? extractPolicyExtensionFromUrl(url)).toLowerCase();
+    final viewerType = policyViewerTypeForExt(ext);
 
-    if (viewerType == DocumentViewerType.image) {
+    if (viewerType == PolicyViewerType.image) {
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -83,7 +82,7 @@ class _DocumentDetailScreenState
       return;
     }
 
-    if (viewerType == DocumentViewerType.pdf) {
+    if (viewerType == PolicyViewerType.pdf) {
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -99,7 +98,7 @@ class _DocumentDetailScreenState
     await _openWithNativePreview(
       url,
       fileType: ext,
-      title: title ?? 'Document',
+      title: title ?? 'Policy',
     );
   }
 
@@ -108,9 +107,9 @@ class _DocumentDetailScreenState
     required String fileType,
     required String title,
   }) async {
-    if (_isOpeningDocument) return;
+    if (_isOpeningPolicy) return;
 
-    setState(() => _isOpeningDocument = true);
+    setState(() => _isOpeningPolicy = true);
 
     try {
       final tempDir = await getTemporaryDirectory();
@@ -128,18 +127,18 @@ class _DocumentDetailScreenState
       if (result.type != ResultType.done) {
         AppUtils.showErrorSnackBar(
           context,
-          'Could not preview this document in app.',
+          'Could not preview this policy in app.',
         );
       }
     } catch (e) {
       if (!mounted) return;
       AppUtils.showErrorSnackBar(
         context,
-        'Could not open document: $e',
+        'Could not open policy: $e',
       );
     } finally {
       if (mounted) {
-        setState(() => _isOpeningDocument = false);
+        setState(() => _isOpeningPolicy = false);
       }
     }
   }
@@ -149,12 +148,20 @@ class _DocumentDetailScreenState
     return PermissionService.isAtLeast(user.role, UserRole.managerAdmin);
   }
 
-  Future<void> _uploadNewVersion(Document doc) async {
+  Future<void> _uploadNewVersion(Policy policy) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: [
-        'pdf', 'doc', 'docx', 'xlsx', 'xls', 'csv',
-        'png', 'jpg', 'jpeg', 'gif',
+        'pdf',
+        'doc',
+        'docx',
+        'xlsx',
+        'xls',
+        'csv',
+        'png',
+        'jpg',
+        'jpeg',
+        'gif',
       ],
       withData: true,
     );
@@ -180,8 +187,8 @@ class _DocumentDetailScreenState
 
     if (file.size > maxSize) {
       if (mounted) {
-        AppUtils.showErrorSnackBar(context,
-            'File too large. Max: ${isImage ? '10 MB' : '25 MB'}');
+        AppUtils.showErrorSnackBar(
+            context, 'File too large. Max: ${isImage ? '10 MB' : '25 MB'}');
       }
       return;
     }
@@ -202,9 +209,9 @@ class _DocumentDetailScreenState
       final contentType = _contentType(ext);
       final now = DateTime.now();
 
-      final fileUrl = await storage.uploadDocument(
+      final fileUrl = await storage.uploadPolicy(
         orgId,
-        doc.id,
+        policy.id,
         bytes,
         file.name,
         contentType,
@@ -219,8 +226,8 @@ class _DocumentDetailScreenState
         'fileSize': file.size,
       };
 
-      await authorizedFirestore.addDocumentVersion(
-          currentUser, orgId, doc.id, versionEntry);
+      await authorizedFirestore.addPolicyVersion(
+          currentUser, orgId, policy.id, versionEntry);
 
       if (mounted) {
         AppUtils.showSuccessSnackBar(context, 'New version uploaded.');
@@ -239,11 +246,12 @@ class _DocumentDetailScreenState
     }
   }
 
-  Future<void> _deleteDocument(Document doc) async {
+  Future<void> _deletePolicy(Policy policy) async {
     final confirmed = await showConfirmationDialog(
       context,
-      title: 'Delete Document',
-      message: 'Are you sure you want to delete "${doc.name}"? This cannot be undone.',
+      title: 'Delete Policy',
+      message:
+          'Are you sure you want to delete "${policy.name}"? This cannot be undone.',
       confirmLabel: 'Delete',
       confirmColor: AppColors.danger,
     );
@@ -263,16 +271,16 @@ class _DocumentDetailScreenState
 
       await ref
           .read(authorizedFirestoreServiceProvider)
-          .deleteDocument(currentUser, orgId, doc.id);
+          .deletePolicy(currentUser, orgId, policy.id);
 
       if (mounted) {
-        AppUtils.showSuccessSnackBar(context, 'Document deleted.');
+        AppUtils.showSuccessSnackBar(context, 'Policy deleted.');
         context.pop();
       }
     } on PermissionDeniedException {
       if (mounted) {
         AppUtils.showErrorSnackBar(
-            context, 'Permission denied. You cannot delete this document.');
+            context, 'Permission denied. You cannot delete this policy.');
         setState(() => _isDeleting = false);
       }
     } catch (e) {
@@ -311,8 +319,7 @@ class _DocumentDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    final docAsync =
-        ref.watch(documentProvider(widget.docId));
+    final policyAsync = ref.watch(policyProvider(widget.policyId));
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final leaguesAsync = ref.watch(leaguesProvider);
     final leagues = leaguesAsync.valueOrNull ?? [];
@@ -320,48 +327,46 @@ class _DocumentDetailScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Document'),
+        title: const Text('Policy'),
         actions: [
           if (_canManage(currentUser))
-            docAsync.whenData((doc) {
-              if (doc == null) return const SizedBox.shrink();
-              return IconButton(
-                icon: _isDeleting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.delete_outline),
-                onPressed:
-                    _isDeleting ? null : () => _deleteDocument(doc),
-                tooltip: 'Delete',
-              );
-            }).valueOrNull ??
+            policyAsync.whenData((policy) {
+                  if (policy == null) return const SizedBox.shrink();
+                  return IconButton(
+                    icon: _isDeleting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.delete_outline),
+                    onPressed: _isDeleting ? null : () => _deletePolicy(policy),
+                    tooltip: 'Delete',
+                  );
+                }).valueOrNull ??
                 const SizedBox.shrink(),
         ],
       ),
-      body: docAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+      body: policyAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Text('Error: $e',
               style: const TextStyle(color: AppColors.danger)),
         ),
-        data: (doc) {
-          if (doc == null) {
-            return const Center(child: Text('Document not found.'));
+        data: (policy) {
+          if (policy == null) {
+            return const Center(child: Text('Policy not found.'));
           }
 
-          final leagueName = doc.leagueId != null
+          final leagueName = policy.leagueId != null
               ? leagues
-                  .where((l) => l.id == doc.leagueId)
+                  .where((l) => l.id == policy.leagueId)
                   .map((l) => l.name)
                   .firstOrNull
               : null;
 
-          final versions = List<DocumentVersion>.from(doc.versions);
+          final versions = List<PolicyVersion>.from(policy.versions);
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -378,24 +383,23 @@ class _DocumentDetailScreenState
                           width: 56,
                           height: 56,
                           decoration: BoxDecoration(
-                            color: _fileColor(doc.fileType)
+                            color: _fileColor(policy.fileType)
                                 .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            _fileIcon(doc.fileType),
-                            color: _fileColor(doc.fileType),
+                            _fileIcon(policy.fileType),
+                            color: _fileColor(policy.fileType),
                             size: 28,
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                doc.name,
+                                policy.name,
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -407,12 +411,9 @@ class _DocumentDetailScreenState
                                 spacing: 6,
                                 runSpacing: 4,
                                 children: [
-                                  _Badge(
-                                      doc.category,
-                                      AppColors.primary),
+                                  _Badge(policy.category, AppColors.primary),
                                   if (leagueName != null)
-                                    _Badge(leagueName,
-                                        AppColors.accent),
+                                    _Badge(leagueName, AppColors.accent),
                                 ],
                               ),
                             ],
@@ -423,15 +424,13 @@ class _DocumentDetailScreenState
                     const SizedBox(height: 16),
                     const Divider(color: AppColors.border),
                     const SizedBox(height: 12),
-                    _InfoRow('File type',
-                        doc.fileType.toUpperCase()),
-                    _InfoRow('File size',
-                        AppUtils.formatFileSize(doc.fileSize)),
-                    _InfoRow('Uploaded by', doc.uploadedByName),
-                    _InfoRow('Created',
-                        AppUtils.formatDate(doc.createdAt)),
-                    _InfoRow('Last updated',
-                        AppUtils.formatDate(doc.updatedAt)),
+                    _InfoRow('File type', policy.fileType.toUpperCase()),
+                    _InfoRow(
+                        'File size', AppUtils.formatFileSize(policy.fileSize)),
+                    _InfoRow('Uploaded by', policy.uploadedByName),
+                    _InfoRow('Created', AppUtils.formatDate(policy.createdAt)),
+                    _InfoRow(
+                        'Last updated', AppUtils.formatDate(policy.updatedAt)),
                     _InfoRow('Versions',
                         'v${versions.isEmpty ? 1 : versions.length}'),
                   ],
@@ -443,12 +442,12 @@ class _DocumentDetailScreenState
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _openDocument(
-                    doc.fileUrl,
-                    fileType: doc.fileType,
-                    title: doc.name,
+                  onPressed: () => _openPolicy(
+                    policy.fileUrl,
+                    fileType: policy.fileType,
+                    title: policy.name,
                   ),
-                  icon: _isOpeningDocument
+                  icon: _isOpeningPolicy
                       ? const SizedBox(
                           width: 18,
                           height: 18,
@@ -458,10 +457,9 @@ class _DocumentDetailScreenState
                           ),
                         )
                       : const Icon(Icons.visibility_outlined),
-                  label: Text(_isOpeningDocument ? 'Opening...' : 'Open In App'),
+                  label: Text(_isOpeningPolicy ? 'Opening...' : 'Open In App'),
                   style: ElevatedButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
               ),
@@ -472,23 +470,20 @@ class _DocumentDetailScreenState
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: _isUploading
-                        ? null
-                        : () => _uploadNewVersion(doc),
+                    onPressed:
+                        _isUploading ? null : () => _uploadNewVersion(policy),
                     icon: _isUploading
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.upload_file),
                     label: Text(_isUploading
                         ? 'Uploading ${(_uploadProgress * 100).toStringAsFixed(0)}%...'
                         : 'Upload New Version'),
                     style: OutlinedButton.styleFrom(
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       side: const BorderSide(color: AppColors.primary),
                       foregroundColor: AppColors.primary,
                     ),
@@ -499,9 +494,7 @@ class _DocumentDetailScreenState
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: _uploadProgress > 0
-                          ? _uploadProgress
-                          : null,
+                      value: _uploadProgress > 0 ? _uploadProgress : null,
                       backgroundColor: AppColors.border,
                       valueColor: const AlwaysStoppedAnimation<Color>(
                           AppColors.primary),
@@ -525,17 +518,16 @@ class _DocumentDetailScreenState
                 ...versions.reversed.toList().asMap().entries.map(
                   (entry) {
                     final v = entry.value;
-                    final displayVersion =
-                        versions.length - entry.key;
+                    final displayVersion = versions.length - entry.key;
                     final isLatest = entry.key == 0;
                     return _VersionTile(
                       version: v,
                       displayVersion: displayVersion,
                       isLatest: isLatest,
-                      onTap: () => _openDocument(
+                      onTap: () => _openPolicy(
                         v.fileUrl,
-                        fileType: doc.fileType,
-                        title: '${doc.name} v$displayVersion',
+                        fileType: policy.fileType,
+                        title: '${policy.name} v$displayVersion',
                       ),
                     );
                   },
@@ -592,7 +584,7 @@ class _DocumentDetailScreenState
 }
 
 class _VersionTile extends StatelessWidget {
-  final DocumentVersion version;
+  final PolicyVersion version;
   final int displayVersion;
   final bool isLatest;
   final VoidCallback onTap;
@@ -626,9 +618,7 @@ class _VersionTile extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: isLatest
-                    ? AppColors.primary
-                    : AppColors.background,
+                color: isLatest ? AppColors.primary : AppColors.background,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
@@ -637,9 +627,7 @@ class _VersionTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: isLatest
-                        ? Colors.white
-                        : AppColors.textSecondary,
+                    color: isLatest ? Colors.white : AppColors.textSecondary,
                   ),
                 ),
               ),
@@ -691,8 +679,7 @@ class _VersionTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.open_in_new,
-                size: 16, color: AppColors.textMuted),
+            const Icon(Icons.open_in_new, size: 16, color: AppColors.textMuted),
           ],
         ),
       ),

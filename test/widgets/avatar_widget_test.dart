@@ -65,7 +65,8 @@ void main() {
       expect(find.byType(AvatarWidget), findsOneWidget);
     });
 
-    testWidgets('renders initials when imageUrl is empty string', (tester) async {
+    testWidgets('renders initials when imageUrl is empty string',
+        (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -103,7 +104,8 @@ void main() {
 
       final containers = tester.widgetList<Container>(find.byType(Container));
       final circleContainer = containers.firstWhere(
-        (c) => c.decoration is BoxDecoration &&
+        (c) =>
+            c.decoration is BoxDecoration &&
             (c.decoration as BoxDecoration).shape == BoxShape.circle,
         orElse: () => throw TestFailure('No circle container found'),
       );
@@ -123,7 +125,8 @@ void main() {
       expect(find.text('JM'), findsOneWidget);
     });
 
-    testWidgets('container has correct width and height for size 40', (tester) async {
+    testWidgets('container has correct width and height for size 40',
+        (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -140,7 +143,8 @@ void main() {
       expect(renderBox.size.height, 40.0);
     });
 
-    testWidgets('container has correct width and height for custom size', (tester) async {
+    testWidgets('container has correct width and height for custom size',
+        (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(

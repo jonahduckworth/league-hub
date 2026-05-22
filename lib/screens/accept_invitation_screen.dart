@@ -171,7 +171,8 @@ class _AcceptInvitationScreenState
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                border:
+                    Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -203,8 +204,8 @@ class _AcceptInvitationScreenState
             if (_lookupError != null) ...[
               const SizedBox(height: 8),
               Text(_lookupError!,
-                  style: const TextStyle(
-                      color: AppColors.danger, fontSize: 13)),
+                  style:
+                      const TextStyle(color: AppColors.danger, fontSize: 13)),
             ],
             const SizedBox(height: 12),
             if (_invitation == null)
@@ -325,8 +326,7 @@ class _AcceptInvitationScreenState
           const SizedBox(height: 6),
           _PreviewRow(label: 'Role', value: invite.roleLabel),
           const SizedBox(height: 6),
-          _PreviewRow(
-              label: 'Invited by', value: invite.invitedByName),
+          _PreviewRow(label: 'Invited by', value: invite.invitedByName),
           if (invite.hubIds.isNotEmpty) ...[
             const SizedBox(height: 6),
             _PreviewRow(

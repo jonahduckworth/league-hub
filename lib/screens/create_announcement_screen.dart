@@ -46,9 +46,8 @@ class _CreateAnnouncementScreenState
   /// Pre-populate fields when editing.
   void _populate(List<Announcement> announcements) {
     if (_populated || !_isEditing) return;
-    final a = announcements
-        .where((x) => x.id == widget.announcementId)
-        .firstOrNull;
+    final a =
+        announcements.where((x) => x.id == widget.announcementId).firstOrNull;
     if (a == null) return;
     _populated = true;
     _titleCtrl.text = a.title;
@@ -93,7 +92,8 @@ class _CreateAnnouncementScreenState
         'title': _titleCtrl.text.trim(),
         'body': _bodyCtrl.text.trim(),
         'scope': _scope.name,
-        'leagueId': _scope == AnnouncementScope.orgWide ? null : _selectedLeagueId,
+        'leagueId':
+            _scope == AnnouncementScope.orgWide ? null : _selectedLeagueId,
         'hubId': _scope == AnnouncementScope.hub ? _selectedHubId : null,
         'authorId': currentUser.id,
         'authorName': currentUser.displayName,
@@ -209,8 +209,8 @@ class _CreateAnnouncementScreenState
                     isDense: true,
                     hint: const Text('Select league'),
                     items: leagues
-                        .map((l) => DropdownMenuItem(
-                            value: l.id, child: Text(l.name)))
+                        .map((l) =>
+                            DropdownMenuItem(value: l.id, child: Text(l.name)))
                         .toList(),
                     onChanged: (v) => setState(() {
                       _selectedLeagueId = v;
@@ -234,8 +234,8 @@ class _CreateAnnouncementScreenState
                     isDense: true,
                     hint: const Text('Select hub'),
                     items: hubs
-                        .map((h) => DropdownMenuItem(
-                            value: h.id, child: Text(h.name)))
+                        .map((h) =>
+                            DropdownMenuItem(value: h.id, child: Text(h.name)))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedHubId = v),
                   ),
@@ -280,8 +280,7 @@ class _CreateAnnouncementScreenState
                 title: const Text('Pin this announcement',
                     style: TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: const Text('Pinned posts appear at the top',
-                    style:
-                        TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                 value: _isPinned,
                 activeTrackColor: AppColors.warning,
                 onChanged: (v) => setState(() => _isPinned = v),
@@ -304,7 +303,9 @@ class _CreateAnnouncementScreenState
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : Text(
-                        _isEditing ? 'Update Announcement' : 'Post Announcement',
+                        _isEditing
+                            ? 'Update Announcement'
+                            : 'Post Announcement',
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600)),
               ),
@@ -360,8 +361,7 @@ class _ScopePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = [
-      if (isSuperOrOwner)
-        (AnnouncementScope.orgWide, 'Org-Wide', Icons.public),
+      if (isSuperOrOwner) (AnnouncementScope.orgWide, 'Org-Wide', Icons.public),
       (AnnouncementScope.league, 'League', Icons.emoji_events_outlined),
       (AnnouncementScope.hub, 'Hub', Icons.location_city_outlined),
     ];
@@ -377,22 +377,18 @@ class _ScopePicker extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color:
-                    isSelected ? AppColors.primary : Colors.white,
+                color: isSelected ? AppColors.primary : Colors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.border,
+                  color: isSelected ? AppColors.primary : AppColors.border,
                 ),
               ),
               child: Column(
                 children: [
                   Icon(icon,
                       size: 20,
-                      color: isSelected
-                          ? Colors.white
-                          : AppColors.textSecondary),
+                      color:
+                          isSelected ? Colors.white : AppColors.textSecondary),
                   const SizedBox(height: 4),
                   Text(label,
                       style: TextStyle(

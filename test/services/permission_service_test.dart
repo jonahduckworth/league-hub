@@ -207,8 +207,8 @@ void main() {
       expect(service.canDeleteTeam(inactive), isFalse);
       expect(service.canCreateAnnouncement(inactive), isFalse);
       expect(service.canDeleteAnnouncement(inactive), isFalse);
-      expect(service.canUploadDocument(inactive), isFalse);
-      expect(service.canDeleteDocument(inactive), isFalse);
+      expect(service.canUploadPolicy(inactive), isFalse);
+      expect(service.canDeletePolicy(inactive), isFalse);
       expect(service.canCreateChatRoom(inactive), isFalse);
       expect(service.canArchiveChatRoom(inactive), isFalse);
       expect(service.canSendMessage(inactive), isFalse);
@@ -236,7 +236,7 @@ void main() {
       for (final route in [
         '/',
         '/chat',
-        '/documents',
+        '/policy',
         '/announcements',
         '/settings',
         '/settings/profile',
@@ -294,7 +294,7 @@ void main() {
     });
 
     group('content creation routes', () {
-      for (final route in ['/documents/upload', '/announcements/create']) {
+      for (final route in ['/policy/upload', '/announcements/create']) {
         test('$route accessible to managerAdmin', () {
           expect(service.canAccessRoute(manager(), route), isTrue);
         });
@@ -310,8 +310,8 @@ void main() {
         expect(service.canAccessRoute(staff(), '/chat/room123'), isTrue);
       });
 
-      test('document detail accessible to all active users', () {
-        expect(service.canAccessRoute(staff(), '/documents/doc123'), isTrue);
+      test('policy detail accessible to all active users', () {
+        expect(service.canAccessRoute(staff(), '/policy/doc123'), isTrue);
       });
 
       test('announcement detail accessible to all active users', () {
@@ -721,76 +721,73 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // Documents
+  // Policy
   // -------------------------------------------------------------------------
 
-  group('documents', () {
-    test('canUploadDocument requires managerAdmin+', () {
-      expect(service.canUploadDocument(owner()), isTrue);
-      expect(service.canUploadDocument(superAdmin()), isTrue);
-      expect(service.canUploadDocument(manager()), isTrue);
-      expect(service.canUploadDocument(staff()), isFalse);
+  group('policies', () {
+    test('canUploadPolicy requires managerAdmin+', () {
+      expect(service.canUploadPolicy(owner()), isTrue);
+      expect(service.canUploadPolicy(superAdmin()), isTrue);
+      expect(service.canUploadPolicy(manager()), isTrue);
+      expect(service.canUploadPolicy(staff()), isFalse);
     });
 
-    test('canUploadDocumentToHub: managerAdmin only own hubs', () {
+    test('canUploadPolicyToHub: managerAdmin only own hubs', () {
       final ma = manager(hubIds: ['h1']);
-      expect(service.canUploadDocumentToHub(ma, 'h1'), isTrue);
-      expect(service.canUploadDocumentToHub(ma, 'h2'), isFalse);
-      expect(service.canUploadDocumentToHub(superAdmin(), 'h_any'), isTrue);
+      expect(service.canUploadPolicyToHub(ma, 'h1'), isTrue);
+      expect(service.canUploadPolicyToHub(ma, 'h2'), isFalse);
+      expect(service.canUploadPolicyToHub(superAdmin(), 'h_any'), isTrue);
     });
 
-    group('canEditDocument', () {
+    group('canEditPolicy', () {
       test('superAdmin+ can edit any', () {
-        expect(service.canEditDocument(superAdmin(), uploadedBy: 'x'), isTrue);
+        expect(service.canEditPolicy(superAdmin(), uploadedBy: 'x'), isTrue);
       });
 
       test('managerAdmin can edit own uploads', () {
         final ma = manager();
-        expect(service.canEditDocument(ma, uploadedBy: ma.id), isTrue);
+        expect(service.canEditPolicy(ma, uploadedBy: ma.id), isTrue);
       });
 
       test('managerAdmin cannot edit others uploads', () {
-        expect(
-            service.canEditDocument(manager(), uploadedBy: 'other'), isFalse);
+        expect(service.canEditPolicy(manager(), uploadedBy: 'other'), isFalse);
       });
 
       test('staff cannot edit', () {
-        expect(service.canEditDocument(staff(), uploadedBy: 'staff'), isFalse);
+        expect(service.canEditPolicy(staff(), uploadedBy: 'staff'), isFalse);
       });
     });
 
-    test('canDeleteDocument requires superAdmin+', () {
-      expect(service.canDeleteDocument(owner()), isTrue);
-      expect(service.canDeleteDocument(superAdmin()), isTrue);
-      expect(service.canDeleteDocument(manager()), isFalse);
-      expect(service.canDeleteDocument(staff()), isFalse);
+    test('canDeletePolicy requires superAdmin+', () {
+      expect(service.canDeletePolicy(owner()), isTrue);
+      expect(service.canDeletePolicy(superAdmin()), isTrue);
+      expect(service.canDeletePolicy(manager()), isFalse);
+      expect(service.canDeletePolicy(staff()), isFalse);
     });
 
-    group('canViewDocument', () {
+    group('canViewPolicy', () {
       test('superAdmin sees all', () {
-        expect(service.canViewDocument(superAdmin(), hubId: 'h99'), isTrue);
+        expect(service.canViewPolicy(superAdmin(), hubId: 'h99'), isTrue);
       });
 
-      test('hub-scoped doc visible if user is in hub', () {
+      test('hub-scoped policy visible if user is in hub', () {
         final s = makeUser(role: UserRole.staff, hubIds: ['h1']);
-        expect(service.canViewDocument(s, hubId: 'h1'), isTrue);
-        expect(service.canViewDocument(s, hubId: 'h2'), isFalse);
+        expect(service.canViewPolicy(s, hubId: 'h1'), isTrue);
+        expect(service.canViewPolicy(s, hubId: 'h2'), isFalse);
       });
 
-      test('league-scoped doc visible to user in that league', () {
-        expect(
-            service.canViewDocument(staff(leagueIds: ['l1']), leagueId: 'l1'),
+      test('league-scoped policy visible to user in that league', () {
+        expect(service.canViewPolicy(staff(leagueIds: ['l1']), leagueId: 'l1'),
             isTrue);
       });
 
-      test('league-scoped doc NOT visible to user outside that league', () {
-        expect(
-            service.canViewDocument(staff(leagueIds: ['l2']), leagueId: 'l1'),
+      test('league-scoped policy NOT visible to user outside that league', () {
+        expect(service.canViewPolicy(staff(leagueIds: ['l2']), leagueId: 'l1'),
             isFalse);
       });
 
-      test('unscoped doc visible to everyone', () {
-        expect(service.canViewDocument(staff()), isTrue);
+      test('unscoped policy visible to everyone', () {
+        expect(service.canViewPolicy(staff()), isTrue);
       });
     });
   });

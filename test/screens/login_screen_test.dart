@@ -71,7 +71,8 @@ void main() {
         expect(find.byType(TextField), findsWidgets);
       });
 
-      testWidgets('email field disables autocorrect', (WidgetTester tester) async {
+      testWidgets('email field disables autocorrect',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
         // Email field should not autocorrect
@@ -101,14 +102,16 @@ void main() {
         expect(find.byType(TextField), findsWidgets);
       });
 
-      testWidgets('password is obscured by default', (WidgetTester tester) async {
+      testWidgets('password is obscured by default',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
         // Should have visibility toggle button
         expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
       });
 
-      testWidgets('can toggle password visibility', (WidgetTester tester) async {
+      testWidgets('can toggle password visibility',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
         // Find and tap the visibility toggle

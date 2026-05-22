@@ -98,10 +98,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
           _buildFilterChips(),
           Expanded(
             child: usersAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('Error loading users: $e')),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error loading users: $e')),
               data: (users) {
                 final filtered = _filtered(users);
                 if (filtered.isEmpty) {
@@ -111,8 +109,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   );
                 }
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: filtered.length,
                   itemBuilder: (context, index) =>
                       _UserCard(user: filtered[index]),
@@ -174,8 +172,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
               checkmarkColor: AppColors.primary,
               labelStyle: TextStyle(
                 color: selected ? AppColors.primary : AppColors.textSecondary,
-                fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           );
@@ -221,7 +218,9 @@ class _UserCard extends ConsumerWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: user.isActive ? AppColors.border : AppColors.danger.withValues(alpha: 0.3),
+            color: user.isActive
+                ? AppColors.border
+                : AppColors.danger.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
@@ -232,7 +231,8 @@ class _UserCard extends ConsumerWidget {
                   name: user.displayName,
                   imageUrl: user.avatarUrl,
                   size: 48,
-                  backgroundColor: AppUtils.roleColor(user.role).withValues(alpha: 0.15),
+                  backgroundColor:
+                      AppUtils.roleColor(user.role).withValues(alpha: 0.15),
                 ),
                 if (!user.isActive)
                   Positioned(
@@ -305,7 +305,8 @@ class _UserCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _showDeactivateDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showDeactivateDialog(
+      BuildContext context, WidgetRef ref) async {
     final action = user.isActive ? 'Deactivate' : 'Reactivate';
     final ok = await showConfirmationDialog(
       context,
@@ -374,8 +375,8 @@ class _PendingInvitationsSheet extends ConsumerWidget {
               child: Row(
                 children: [
                   Text('Pending Invitations',
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -390,7 +391,8 @@ class _PendingInvitationsSheet extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: pending.length,
                       separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (_, i) => _InvitationTile(invite: pending[i]),
+                      itemBuilder: (_, i) =>
+                          _InvitationTile(invite: pending[i]),
                     ),
             ),
           ],
@@ -414,7 +416,8 @@ class _InvitationTile extends StatelessWidget {
       ),
       title: Text(invite.email,
           style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text('${invite.roleLabel} · Invited by ${invite.invitedByName}'),
+      subtitle:
+          Text('${invite.roleLabel} · Invited by ${invite.invitedByName}'),
       trailing: IconButton(
         icon: const Icon(Icons.copy, color: AppColors.textMuted),
         onPressed: () {
@@ -508,7 +511,8 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
       );
 
       final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
-      final token = await authorizedSvc.createInvitation(currentUser, org.id, invitation);
+      final token =
+          await authorizedSvc.createInvitation(currentUser, org.id, invitation);
       if (!mounted) return;
       Navigator.pop(context);
       _showSuccessDialog(context, token);
@@ -595,13 +599,12 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
             const SizedBox(height: 8),
             const BottomSheetHandle(),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
                 children: [
                   const Text('Invite User',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -664,8 +667,7 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
                               )
                             : const Text('Send Invite',
                                 style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600)),
+                                    fontSize: 16, fontWeight: FontWeight.w600)),
                       ),
                     ),
                   ],
@@ -741,8 +743,7 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
         children: [
           for (final entry in hubsByLeague.entries) ...[
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: Text(
                 _leagues
                     .firstWhere((l) => l.id == entry.key,

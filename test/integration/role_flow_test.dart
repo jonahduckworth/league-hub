@@ -247,8 +247,9 @@ void main() {
         scope: AnnouncementScope.orgWide,
       );
 
-      await authFs.updateAnnouncement(admin, 'org1', id,
-          {'title': 'Updated Title'}, authorId: admin.id);
+      await authFs.updateAnnouncement(
+          admin, 'org1', id, {'title': 'Updated Title'},
+          authorId: admin.id);
 
       final doc = await fakeDb
           .collection('organizations')
@@ -261,7 +262,7 @@ void main() {
   });
 
   // =========================================================================
-  // managerAdmin: Chat + document flows
+  // managerAdmin: Chat + policy flows
   // =========================================================================
 
   group('managerAdmin flow', () {
@@ -274,8 +275,8 @@ void main() {
 
     test('send message in chat room', () async {
       // Create chat room
-      final roomId =
-          await authFs.createChatRoom(manager, 'org1', 'General', ChatRoomType.league);
+      final roomId = await authFs.createChatRoom(
+          manager, 'org1', 'General', ChatRoomType.league);
       expect(roomId, isNotEmpty);
 
       // Send message
@@ -288,8 +289,8 @@ void main() {
       expect(messages.first.senderId, 'mgr');
     });
 
-    test('create and delete document', () async {
-      final docId = await authFs.createDocument(manager, 'org1', {
+    test('create and delete policy', () async {
+      final policyId = await authFs.createPolicy(manager, 'org1', {
         'name': 'Policy.pdf',
         'fileUrl': 'https://example.com/file.pdf',
         'fileType': 'pdf',
@@ -301,11 +302,11 @@ void main() {
         'createdAt': DateTime.now().toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
       });
-      expect(docId, isNotEmpty);
+      expect(policyId, isNotEmpty);
 
       // Verify
-      final docs = await fs.documentsStream('org1').first;
-      expect(docs.any((d) => d.name == 'Policy.pdf'), isTrue);
+      final policies = await fs.policiesStream('org1').first;
+      expect(policies.any((policy) => policy.name == 'Policy.pdf'), isTrue);
     });
   });
 
@@ -386,9 +387,9 @@ void main() {
       expect(messages, hasLength(1));
     });
 
-    test('staff cannot upload documents', () {
+    test('staff cannot upload policies', () {
       expect(
-        () => authFs.createDocument(staffUser, 'org1', {
+        () => authFs.createPolicy(staffUser, 'org1', {
           'name': 'test.pdf',
           'fileUrl': 'https://example.com/test.pdf',
           'fileType': 'pdf',
@@ -397,9 +398,9 @@ void main() {
       );
     });
 
-    test('staff cannot delete documents', () {
+    test('staff cannot delete policies', () {
       expect(
-        () => authFs.deleteDocument(staffUser, 'org1', 'doc1'),
+        () => authFs.deletePolicy(staffUser, 'org1', 'doc1'),
         throwsA(isA<PermissionDeniedException>()),
       );
     });
@@ -427,12 +428,12 @@ void main() {
       );
     });
 
-    test('staff can view documents in their hub', () {
-      expect(ps.canViewDocument(staffUser, hubId: 'h1'), isTrue);
+    test('staff can view policies in their hub', () {
+      expect(ps.canViewPolicy(staffUser, hubId: 'h1'), isTrue);
     });
 
-    test('staff cannot view documents in other hubs', () {
-      expect(ps.canViewDocument(staffUser, hubId: 'h2'), isFalse);
+    test('staff cannot view policies in other hubs', () {
+      expect(ps.canViewPolicy(staffUser, hubId: 'h2'), isFalse);
     });
   });
 
@@ -516,7 +517,7 @@ void main() {
       for (final u in [owner, admin, manager, staff]) {
         expect(ps.canAccessRoute(u, '/'), isTrue);
         expect(ps.canAccessRoute(u, '/chat'), isTrue);
-        expect(ps.canAccessRoute(u, '/documents'), isTrue);
+        expect(ps.canAccessRoute(u, '/policy'), isTrue);
         expect(ps.canAccessRoute(u, '/announcements'), isTrue);
       }
     });

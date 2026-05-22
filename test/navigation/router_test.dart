@@ -31,7 +31,7 @@ void main() {
 
   // Shorthand factories for each role
   AppUser platformOwner(
-      {bool isActive = true, List<String> hubIds = const []}) =>
+          {bool isActive = true, List<String> hubIds = const []}) =>
       makeUser(
         id: 'owner',
         role: UserRole.platformOwner,
@@ -39,8 +39,7 @@ void main() {
         hubIds: hubIds,
       );
 
-  AppUser superAdmin(
-      {bool isActive = true, List<String> hubIds = const []}) =>
+  AppUser superAdmin({bool isActive = true, List<String> hubIds = const []}) =>
       makeUser(
         id: 'superadmin',
         role: UserRole.superAdmin,
@@ -49,7 +48,7 @@ void main() {
       );
 
   AppUser managerAdmin(
-      {bool isActive = true, List<String> hubIds = const []}) =>
+          {bool isActive = true, List<String> hubIds = const []}) =>
       makeUser(
         id: 'manager',
         role: UserRole.managerAdmin,
@@ -65,8 +64,7 @@ void main() {
         hubIds: hubIds,
       );
 
-  AppUser inactiveUser({UserRole role = UserRole.staff}) =>
-      makeUser(
+  AppUser inactiveUser({UserRole role = UserRole.staff}) => makeUser(
         id: 'inactive',
         role: role,
         isActive: false,
@@ -80,7 +78,7 @@ void main() {
     const publicRoutes = [
       '/',
       '/chat',
-      '/documents',
+      '/policy',
       '/announcements',
       '/settings',
       '/settings/profile',
@@ -218,7 +216,7 @@ void main() {
 
   group('Content creation routes', () {
     const contentRoutes = [
-      '/documents/upload',
+      '/policy/upload',
       '/announcements/create',
     ];
 
@@ -316,15 +314,15 @@ void main() {
   // DYNAMIC DOCUMENT ROUTES
   // =========================================================================
 
-  group('Dynamic document routes', () {
-    const documentDetailRoutes = [
-      '/documents/doc123',
-      '/documents/abc-def-789',
-      '/documents/mydoc',
+  group('Dynamic policy routes', () {
+    const policyDetailRoutes = [
+      '/policy/doc123',
+      '/policy/abc-def-789',
+      '/policy/mydoc',
     ];
 
     group('all roles can access detail views', () {
-      for (final route in documentDetailRoutes) {
+      for (final route in policyDetailRoutes) {
         test('$route - platformOwner', () {
           expect(ps.canAccessRoute(platformOwner(), route), isTrue);
         });
@@ -343,10 +341,10 @@ void main() {
       }
     });
 
-    test('upload route does not match /documents/upload for detail access', () {
-      // /documents/upload is a static route, not a detail route
+    test('upload route does not match /policy/upload for detail access', () {
+      // /policy/upload is a static route, not a detail route
       // It should be handled by the content creation routes
-      expect(ps.canAccessRoute(staff(), '/documents/upload'), isFalse);
+      expect(ps.canAccessRoute(staff(), '/policy/upload'), isFalse);
     });
   });
 
@@ -420,7 +418,8 @@ void main() {
       });
     });
 
-    test('create route does not match /announcements/create for detail access', () {
+    test('create route does not match /announcements/create for detail access',
+        () {
       // /announcements/create is a static route, not a detail route
       expect(ps.canAccessRoute(staff(), '/announcements/create'), isFalse);
     });
@@ -478,7 +477,7 @@ void main() {
     final routes = [
       '/',
       '/chat',
-      '/documents',
+      '/policy',
       '/announcements',
       '/settings',
       '/settings/profile',
@@ -489,10 +488,10 @@ void main() {
       '/settings/branding',
       '/settings/app-icon',
       '/settings/leagues',
-      '/documents/upload',
+      '/policy/upload',
       '/announcements/create',
       '/chat/room123',
-      '/documents/doc123',
+      '/policy/doc123',
       '/announcements/ann123',
       '/announcements/ann123/edit',
       '/settings/users/user123',
@@ -511,12 +510,15 @@ void main() {
       });
 
       test('inactive superAdmin cannot access $route', () {
-        expect(ps.canAccessRoute(inactiveUser(role: UserRole.superAdmin), route),
+        expect(
+            ps.canAccessRoute(inactiveUser(role: UserRole.superAdmin), route),
             isFalse);
       });
 
       test('inactive platformOwner cannot access $route', () {
-        expect(ps.canAccessRoute(inactiveUser(role: UserRole.platformOwner), route),
+        expect(
+            ps.canAccessRoute(
+                inactiveUser(role: UserRole.platformOwner), route),
             isFalse);
       });
     }
@@ -527,9 +529,9 @@ void main() {
   // =========================================================================
 
   group('Unknown routes', () {
-    // Note: /chat/room123/unknown and /documents/doc123/unknown are NOT
+    // Note: /chat/room123/unknown and /policy/doc123/unknown are NOT
     // included here because canAccessRoute uses startsWith('/chat/') and
-    // startsWith('/documents/') which match these paths by design — the
+    // startsWith('/policy/') which match these paths by design — the
     // router itself handles 404s for invalid sub-paths.
     const unknownRoutes = [
       '/admin',
@@ -614,7 +616,7 @@ void main() {
     const allRoutes = [
       '/',
       '/chat',
-      '/documents',
+      '/policy',
       '/announcements',
       '/settings',
       '/settings/profile',
@@ -625,10 +627,10 @@ void main() {
       '/settings/branding',
       '/settings/app-icon',
       '/settings/leagues',
-      '/documents/upload',
+      '/policy/upload',
       '/announcements/create',
       '/chat/room123',
-      '/documents/doc123',
+      '/policy/doc123',
       '/announcements/ann123',
       '/announcements/ann123/edit',
       '/settings/users/user123',
@@ -644,19 +646,22 @@ void main() {
         // If staff can access, manager should too
         if (staffAccess) {
           expect(managerAccess, isTrue,
-              reason: 'managerAdmin should have at least staff access to $route');
+              reason:
+                  'managerAdmin should have at least staff access to $route');
         }
 
         // If manager can access, admin should too
         if (managerAccess) {
           expect(adminAccess, isTrue,
-              reason: 'superAdmin should have at least managerAdmin access to $route');
+              reason:
+                  'superAdmin should have at least managerAdmin access to $route');
         }
 
         // If admin can access, owner should too
         if (adminAccess) {
           expect(ownerAccess, isTrue,
-              reason: 'platformOwner should have at least superAdmin access to $route');
+              reason:
+                  'platformOwner should have at least superAdmin access to $route');
         }
       });
     }
@@ -671,14 +676,14 @@ void main() {
       final staffAccessible = [
         '/',
         '/chat',
-        '/documents',
+        '/policy',
         '/announcements',
         '/settings',
         '/settings/profile',
         '/settings/notifications',
         '/settings/privacy',
         '/chat/room123',
-        '/documents/doc123',
+        '/policy/doc123',
         '/announcements/ann123',
       ];
 
@@ -688,7 +693,7 @@ void main() {
         '/settings/branding',
         '/settings/app-icon',
         '/settings/leagues',
-        '/documents/upload',
+        '/policy/upload',
         '/announcements/create',
         '/announcements/ann123/edit',
         '/settings/users/user123',
@@ -709,17 +714,17 @@ void main() {
       final managerAccessible = [
         '/',
         '/chat',
-        '/documents',
+        '/policy',
         '/announcements',
         '/settings',
         '/settings/profile',
         '/settings/notifications',
         '/settings/privacy',
         '/settings/users',
-        '/documents/upload',
+        '/policy/upload',
         '/announcements/create',
         '/chat/room123',
-        '/documents/doc123',
+        '/policy/doc123',
         '/announcements/ann123',
         '/announcements/ann123/edit',
         '/settings/users/user123',
@@ -743,11 +748,12 @@ void main() {
       }
     });
 
-    test('superAdmin can access all defined routes except login/org creation', () {
+    test('superAdmin can access all defined routes except login/org creation',
+        () {
       final adminAccessible = [
         '/',
         '/chat',
-        '/documents',
+        '/policy',
         '/announcements',
         '/settings',
         '/settings/profile',
@@ -758,10 +764,10 @@ void main() {
         '/settings/branding',
         '/settings/app-icon',
         '/settings/leagues',
-        '/documents/upload',
+        '/policy/upload',
         '/announcements/create',
         '/chat/room123',
-        '/documents/doc123',
+        '/policy/doc123',
         '/announcements/ann123',
         '/announcements/ann123/edit',
         '/settings/users/user123',
@@ -773,11 +779,13 @@ void main() {
       }
     });
 
-    test('platformOwner can access all defined routes except login/org creation', () {
+    test(
+        'platformOwner can access all defined routes except login/org creation',
+        () {
       final ownerAccessible = [
         '/',
         '/chat',
-        '/documents',
+        '/policy',
         '/announcements',
         '/settings',
         '/settings/profile',
@@ -788,10 +796,10 @@ void main() {
         '/settings/branding',
         '/settings/app-icon',
         '/settings/leagues',
-        '/documents/upload',
+        '/policy/upload',
         '/announcements/create',
         '/chat/room123',
-        '/documents/doc123',
+        '/policy/doc123',
         '/announcements/ann123',
         '/announcements/ann123/edit',
         '/settings/users/user123',

@@ -9,7 +9,7 @@ void main() {
   late StorageService storage;
 
   const orgId = 'test-org-storage';
-  const docId = 'test-doc-001';
+  const policyId = 'test-policy-001';
 
   setUp(() {
     mockStorage = MockFirebaseStorage();
@@ -17,16 +17,16 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // uploadDocument
+  // uploadPolicy
   // ---------------------------------------------------------------------------
 
-  group('uploadDocument', () {
+  group('uploadPolicy', () {
     test('uploads bytes and returns a non-empty download URL', () async {
       final bytes = Uint8List.fromList('hello world'.codeUnits);
 
-      final url = await storage.uploadDocument(
+      final url = await storage.uploadPolicy(
         orgId,
-        docId,
+        policyId,
         bytes,
         'test.txt',
         'text/plain',
@@ -38,9 +38,9 @@ void main() {
     test('upload without progress callback completes', () async {
       final bytes = Uint8List.fromList(List.filled(1024, 0));
 
-      final url = await storage.uploadDocument(
+      final url = await storage.uploadPolicy(
         orgId,
-        docId,
+        policyId,
         bytes,
         'large.bin',
         'application/octet-stream',
@@ -69,24 +69,24 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // deleteDocumentFile
+  // deletePolicyFile
   // ---------------------------------------------------------------------------
 
-  group('deleteDocumentFile', () {
+  group('deletePolicyFile', () {
     test('deletes an existing file without error', () async {
       final bytes = Uint8List.fromList('to delete'.codeUnits);
-      await storage.uploadDocument(orgId, docId, bytes, 'delete-me.txt',
-          'text/plain');
+      await storage.uploadPolicy(
+          orgId, policyId, bytes, 'delete-me.txt', 'text/plain');
 
       await expectLater(
-        storage.deleteDocumentFile(orgId, docId, 'delete-me.txt'),
+        storage.deletePolicyFile(orgId, policyId, 'delete-me.txt'),
         completes,
       );
     });
 
     test('does not throw when file does not exist', () async {
       await expectLater(
-        storage.deleteDocumentFile(orgId, docId, 'nonexistent.txt'),
+        storage.deletePolicyFile(orgId, policyId, 'nonexistent.txt'),
         completes,
       );
     });
@@ -117,7 +117,7 @@ void main() {
       final bytes = Uint8List.fromList(List.filled(100, 0x25)); // %PDF-like
       final url = await storage.uploadBytes(
         bytes: bytes,
-        path: 'test/docs/report.pdf',
+        path: 'test/policies/report.pdf',
         contentType: 'application/pdf',
       );
       expect(url, isNotEmpty);
@@ -147,8 +147,9 @@ void main() {
       final bytes = Uint8List.fromList(List.filled(300, 0x50));
       final url = await storage.uploadBytes(
         bytes: bytes,
-        path: 'test/docs/data.xlsx',
-        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        path: 'test/policies/data.xlsx',
+        contentType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
       expect(url, isNotEmpty);
     });
@@ -157,31 +158,31 @@ void main() {
   group('file size handling', () {
     test('uploads small file (< 1KB)', () async {
       final bytes = Uint8List.fromList([1, 2, 3, 4, 5]);
-      final url = await storage.uploadDocument(
-          orgId, docId, bytes, 'tiny.txt', 'text/plain');
+      final url = await storage.uploadPolicy(
+          orgId, policyId, bytes, 'tiny.txt', 'text/plain');
       expect(url, isNotEmpty);
     });
 
     test('uploads medium file (100KB)', () async {
       final bytes = Uint8List.fromList(List.filled(100 * 1024, 0xAA));
-      final url = await storage.uploadDocument(
-          orgId, docId, bytes, 'medium.bin', 'application/octet-stream');
+      final url = await storage.uploadPolicy(
+          orgId, policyId, bytes, 'medium.bin', 'application/octet-stream');
       expect(url, isNotEmpty);
     });
 
     test('uploads empty file', () async {
       final bytes = Uint8List(0);
-      final url = await storage.uploadDocument(
-          orgId, docId, bytes, 'empty.txt', 'text/plain');
+      final url = await storage.uploadPolicy(
+          orgId, policyId, bytes, 'empty.txt', 'text/plain');
       expect(url, isNotEmpty);
     });
   });
 
   group('path handling', () {
-    test('uploadDocument uses correct path pattern', () async {
+    test('uploadPolicy uses correct path pattern', () async {
       final bytes = Uint8List.fromList('test'.codeUnits);
-      final url = await storage.uploadDocument(
-          'org-abc', 'doc-123', bytes, 'file.pdf', 'application/pdf');
+      final url = await storage.uploadPolicy(
+          'org-abc', 'policy-123', bytes, 'file.pdf', 'application/pdf');
       // Mock returns a URL; just verify it completes
       expect(url, isNotEmpty);
     });

@@ -200,9 +200,9 @@ void main() {
                 const Scaffold(body: Text('Chat Route')),
           ),
           GoRoute(
-            path: '/documents',
+            path: '/policy',
             builder: (context, state) =>
-                const Scaffold(body: Text('Documents Route')),
+                const Scaffold(body: Text('Policy Route')),
           ),
           GoRoute(
             path: '/announcements/:id',
@@ -293,13 +293,14 @@ void main() {
         expect(find.text('Custom Org Name'), findsOneWidget);
       });
 
-      testWidgets('displays greeting with user name',
+      testWidgets('uses a compact organization header without greeting copy',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Welcome back, Test User'), findsOneWidget);
+        expect(find.text('Test Organization'), findsOneWidget);
+        expect(find.text('Welcome back, Test User'), findsNothing);
       });
 
       testWidgets('has notification button', (WidgetTester tester) async {
@@ -341,12 +342,12 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.text('Search announcements, chats, documents...'),
+          find.text('Search announcements, chats, policies...'),
           findsOneWidget,
         );
         expect(find.text('Announcements'), findsWidgets);
         expect(find.text('Chats'), findsOneWidget);
-        expect(find.text('Documents'), findsOneWidget);
+        expect(find.text('Policy'), findsOneWidget);
       });
 
       testWidgets('search submit shows coming soon dialog',

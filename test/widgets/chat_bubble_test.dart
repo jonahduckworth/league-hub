@@ -54,7 +54,8 @@ void main() {
       expect(find.text('Bob'), findsOneWidget);
     });
 
-    testWidgets('does NOT show sender name when isSelf is true', (tester) async {
+    testWidgets('does NOT show sender name when isSelf is true',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -101,7 +102,8 @@ void main() {
       expect(find.text('A'), findsNothing);
     });
 
-    testWidgets('shows single checkmark when only sender has read', (tester) async {
+    testWidgets('shows single checkmark when only sender has read',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -117,7 +119,8 @@ void main() {
       expect(find.byIcon(Icons.done_all), findsNothing);
     });
 
-    testWidgets('shows double checkmark when multiple people have read', (tester) async {
+    testWidgets('shows double checkmark when multiple people have read',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -133,7 +136,8 @@ void main() {
       expect(find.byIcon(Icons.done), findsNothing);
     });
 
-    testWidgets('does NOT show read receipt icons when isSelf is false', (tester) async {
+    testWidgets('does NOT show read receipt icons when isSelf is false',
+        (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

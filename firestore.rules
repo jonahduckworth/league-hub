@@ -268,7 +268,7 @@ service cloud.firestore {
         }
       }
 
-      match /documents/{documentId} {
+      match /policies/{policyId} {
         allow get, list: if sameOrg(orgId);
         allow create: if canManageContent(orgId)
           && request.resource.data.uploadedBy == request.auth.uid;

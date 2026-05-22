@@ -65,7 +65,8 @@ class FirebaseTestHelper {
         _authInitialized = true;
       } on PlatformException catch (e) {
         // ignore: avoid_print
-        print('FirebaseAuth emulator unavailable (no native channel): ${e.message}');
+        print(
+            'FirebaseAuth emulator unavailable (no native channel): ${e.message}');
       } catch (e) {
         // ignore: avoid_print
         print('FirebaseAuth emulator unavailable: $e');
@@ -77,7 +78,8 @@ class FirebaseTestHelper {
         _storageInitialized = true;
       } on PlatformException catch (e) {
         // ignore: avoid_print
-        print('FirebaseStorage emulator unavailable (no native channel): ${e.message}');
+        print(
+            'FirebaseStorage emulator unavailable (no native channel): ${e.message}');
       } catch (e) {
         // ignore: avoid_print
         print('FirebaseStorage emulator unavailable: $e');
@@ -113,7 +115,7 @@ class FirebaseTestHelper {
       final request = await client.deleteUrl(
         Uri.parse(
           'http://localhost:8081/emulator/v1/projects/$_projectId'
-          '/databases/(default)/documents',
+          '/databases/(default)/policy',
         ),
       );
       request.headers.set('Content-Type', 'application/json');

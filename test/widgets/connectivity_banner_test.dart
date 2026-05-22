@@ -50,7 +50,8 @@ void main() {
       expect(resolved.single.address, '1.1.1.1');
     });
 
-    test('shouldHideOnlineBannerImmediately depends on prior offline state', () {
+    test('shouldHideOnlineBannerImmediately depends on prior offline state',
+        () {
       expect(shouldHideOnlineBannerImmediately(false), isTrue);
       expect(shouldHideOnlineBannerImmediately(true), isFalse);
     });
@@ -184,7 +185,8 @@ void main() {
       expect(slide.position.value.dy, -1);
     });
 
-    testWidgets('stays hidden when already online and a reconnect event arrives',
+    testWidgets(
+        'stays hidden when already online and a reconnect event arrives',
         (WidgetTester tester) async {
       final controller = StreamController<List<ConnectivityResult>>.broadcast();
       addTearDown(controller.close);

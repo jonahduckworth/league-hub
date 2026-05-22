@@ -6,11 +6,11 @@ import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
-import 'package:league_hub/screens/upload_document_screen.dart';
+import 'package:league_hub/screens/upload_policy_screen.dart';
 import 'package:league_hub/core/theme.dart';
 
 void main() {
-  group('UploadDocumentScreen', () {
+  group('UploadPolicyScreen', () {
     final staffUser = AppUser(
       id: 'user-1',
       email: 'staff@example.com',
@@ -74,7 +74,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
-          home: const UploadDocumentScreen(),
+          home: const UploadPolicyScreen(),
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
@@ -86,7 +86,7 @@ void main() {
     }
 
     group('Screen Rendering', () {
-      testWidgets('renders upload document form without crashing',
+      testWidgets('renders upload policy form without crashing',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
@@ -115,10 +115,10 @@ void main() {
         expect(find.text('Tap to select a file'), findsOneWidget);
       });
 
-      testWidgets('displays document name field', (WidgetTester tester) async {
+      testWidgets('displays policy name field', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('Document Name'), findsOneWidget);
+        expect(find.text('Policy Name'), findsOneWidget);
       });
 
       testWidgets('displays category selector', (WidgetTester tester) async {
@@ -156,8 +156,8 @@ void main() {
       testWidgets('displays upload button', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        // 'Upload Document' appears in both AppBar title and button
-        expect(find.text('Upload Document'), findsAtLeastNWidgets(1));
+        // 'Upload Policy' appears in both AppBar title and button
+        expect(find.text('Upload Policy'), findsAtLeastNWidgets(1));
       });
 
       testWidgets('upload button is present on screen',
@@ -202,15 +202,14 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
         expect(find.text('Category'), findsOneWidget);
-        // Default category should be 'Rosters'
+        // Default category should be 'Policy'
       });
 
-      testWidgets('has multiple category options',
-          (WidgetTester tester) async {
+      testWidgets('has multiple category options', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        // Categories: Rosters, Waivers, Schedules, Policies, Other
+        // Categories: Policy, Protocol, Code of Conduct, Other
         // These should be accessible in the dropdown
       });
     });
@@ -246,17 +245,16 @@ void main() {
         await tester.pumpAndSettle();
 
         // Check for all major sections
-        expect(find.text('Document Name'), findsOneWidget);
+        expect(find.text('Policy Name'), findsOneWidget);
         expect(find.text('Category'), findsOneWidget);
         expect(find.text('League (Optional)'), findsOneWidget);
       });
 
-      testWidgets('all input fields are present',
-          (WidgetTester tester) async {
+      testWidgets('all input fields are present', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        // Should have text field for document name
+        // Should have text field for policy name
         final textFields = find.byType(TextFormField);
         expect(textFields, findsOneWidget);
       });
@@ -269,7 +267,7 @@ void main() {
         await tester.pumpAndSettle();
         // Check for file format help text
         expect(
-          find.text('PDF, DOCX, XLSX, images • Docs: 25 MB, Images: 10 MB'),
+          find.text('PDF, DOCX, XLSX, images • Files: 25 MB, Images: 10 MB'),
           findsOneWidget,
         );
       });

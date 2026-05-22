@@ -118,11 +118,8 @@ class SettingsScreen extends ConsumerWidget {
 
     return AppShellScaffold(
       header: const AppShellHeader(
-        eyebrow: 'ACCOUNT',
         leadingIcon: Icons.settings_outlined,
         title: 'Settings',
-        subtitle:
-            'Manage your profile, organization tools, and app preferences.',
       ),
       child: ListView(
         padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
