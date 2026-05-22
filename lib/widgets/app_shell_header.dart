@@ -40,13 +40,13 @@ class AppShellHeader extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.primary, AppColors.primaryLight],
+            colors: [Color(0xFF111111), Color(0xFF000000)],
           ),
           boxShadow: [
             BoxShadow(
-              color: Color(0x1A1A3A5C),
-              blurRadius: 24,
-              offset: Offset(0, 10),
+              color: Color(0x33000000),
+              blurRadius: 20,
+              offset: Offset(0, 8),
             ),
           ],
         ),
@@ -60,29 +60,29 @@ class AppShellHeader extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      if (leadingIcon != null ||
-                          (leadingImageUrl != null &&
-                              leadingImageUrl!.isNotEmpty)) ...[
-                        _HeaderLeadingMark(
-                          icon: leadingIcon,
-                          imageUrl: leadingImageUrl,
-                          label: leadingLabel ?? title,
-                        ),
-                        const SizedBox(width: 12),
-                      ],
                       Expanded(
                         child: Text(
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xE6FFFFFF),
                             height: 1.1,
                           ),
                         ),
                       ),
+                      if (leadingIcon != null ||
+                          (leadingImageUrl != null &&
+                              leadingImageUrl!.isNotEmpty)) ...[
+                        const SizedBox(width: 10),
+                        _HeaderLeadingMark(
+                          icon: leadingIcon,
+                          imageUrl: leadingImageUrl,
+                          label: leadingLabel ?? title,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -119,13 +119,13 @@ class _HeaderLeadingMark extends StatelessWidget {
     final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
 
     return Container(
-      width: 42,
-      height: 42,
+      width: 30,
+      height: 30,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
+          color: Colors.white.withValues(alpha: 0.14),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -144,8 +144,8 @@ class _HeaderLeadingMark extends StatelessWidget {
     if (icon != null) {
       return Icon(
         icon,
-        color: Colors.white,
-        size: 22,
+        color: Colors.white.withValues(alpha: 0.9),
+        size: 17,
       );
     }
 
@@ -154,8 +154,8 @@ class _HeaderLeadingMark extends StatelessWidget {
         AppUtils.getInitials(label),
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 15,
-          fontWeight: FontWeight.w800,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -226,16 +226,16 @@ class AppHeaderIconButton extends StatelessWidget {
     final iconChild = SizedBox(
       width: 40,
       height: 40,
-      child: Icon(icon, color: Colors.white),
+      child: Icon(icon, color: Colors.white.withValues(alpha: 0.92), size: 19),
     );
 
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: Material(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           onTap: onPressed,
           child: tooltip == null
               ? iconChild
