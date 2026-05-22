@@ -45,17 +45,17 @@ class StorageService {
     return await ref.getDownloadURL();
   }
 
-  /// Uploads a document file to organizations/{orgId}/documents/{docId}/{filename}.
+  /// Uploads a policy file to organizations/{orgId}/policies/{policyId}/{filename}.
   /// Returns the download URL.
-  Future<String> uploadDocument(
+  Future<String> uploadPolicy(
     String orgId,
-    String docId,
+    String policyId,
     Uint8List bytes,
     String filename,
     String contentType, {
     void Function(double)? onProgress,
   }) async {
-    final path = 'organizations/$orgId/documents/$docId/$filename';
+    final path = 'organizations/$orgId/policies/$policyId/$filename';
     final ref = _storage.ref().child(path);
     final task = ref.putData(bytes, SettableMetadata(contentType: contentType));
     StreamSubscription? sub;
@@ -77,10 +77,10 @@ class StorageService {
     }
   }
 
-  /// Deletes a document file from Storage. Silently ignores if not found.
-  Future<void> deleteDocumentFile(
-      String orgId, String docId, String filename) async {
-    final path = 'organizations/$orgId/documents/$docId/$filename';
+  /// Deletes a policy file from Storage. Silently ignores if not found.
+  Future<void> deletePolicyFile(
+      String orgId, String policyId, String filename) async {
+    final path = 'organizations/$orgId/policies/$policyId/$filename';
     try {
       await _storage.ref().child(path).delete();
     } catch (_) {}

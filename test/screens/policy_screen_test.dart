@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
-import 'package:league_hub/models/document.dart';
+import 'package:league_hub/models/policy.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
-import 'package:league_hub/screens/documents_screen.dart';
+import 'package:league_hub/screens/policy_screen.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 
 void main() {
-  group('DocumentsScreen', () {
+  group('PolicyScreen', () {
     final testUser = AppUser(
       id: 'user-1',
       email: 'user@example.com',
@@ -53,13 +53,13 @@ void main() {
       ),
     ];
 
-    final testDocuments = [
-      Document(
-        id: 'doc-1',
+    final testPolicies = [
+      Policy(
+        id: 'policy-1',
         orgId: 'org-1',
-        name: 'Spring Roster.xlsx',
-        category: 'Rosters',
-        fileType: 'xlsx',
+        name: 'Code of Conduct.pdf',
+        category: 'Code of Conduct',
+        fileType: 'pdf',
         fileSize: 25600,
         fileUrl: 'https://example.com/file.pdf',
         leagueId: 'league-1',
@@ -69,11 +69,11 @@ void main() {
         updatedAt: DateTime.now().subtract(Duration(days: 2)),
         versions: [],
       ),
-      Document(
-        id: 'doc-2',
+      Policy(
+        id: 'policy-2',
         orgId: 'org-1',
-        name: 'Tournament Schedule.pdf',
-        category: 'Schedules',
+        name: 'Concussion Protocol.pdf',
+        category: 'Protocol',
         fileType: 'pdf',
         fileSize: 102400,
         fileUrl: 'https://example.com/file.pdf',
@@ -84,11 +84,11 @@ void main() {
         updatedAt: DateTime.now().subtract(Duration(hours: 4)),
         versions: [],
       ),
-      Document(
-        id: 'doc-3',
+      Policy(
+        id: 'policy-3',
         orgId: 'org-1',
-        name: 'League Policies.docx',
-        category: 'Policies',
+        name: 'Recruitment Policy.docx',
+        category: 'Policy',
         fileType: 'docx',
         fileSize: 51200,
         fileUrl: 'https://example.com/file.pdf',
@@ -100,28 +100,28 @@ void main() {
       ),
     ];
 
-    group('document category helpers', () {
-      test('shows All plus only categories that exist in the documents', () {
+    group('policy category helpers', () {
+      test('shows All plus only categories that exist in the policies', () {
         expect(
-          buildVisibleDocumentCategories([testDocuments.first]),
-          ['All', 'Rosters'],
+          buildVisiblePolicyCategories([testPolicies.first]),
+          ['All', 'Code of Conduct'],
         );
       });
 
       test('keeps categories in configured display order', () {
         expect(
-          buildVisibleDocumentCategories([
-            testDocuments[1], // Schedules
-            testDocuments.first, // Rosters
+          buildVisiblePolicyCategories([
+            testPolicies[1],
+            testPolicies.first,
           ]),
-          ['All', 'Rosters', 'Schedules'],
+          ['All', 'Protocol', 'Code of Conduct'],
         );
       });
     });
 
     Widget createTestWidget({
       AppUser? user,
-      List<Document>? documents,
+      List<Policy>? policies,
       List<League>? leagues,
     }) {
       return ProviderScope(
@@ -129,8 +129,8 @@ void main() {
           currentUserProvider.overrideWith(
             (ref) => user ?? testUser,
           ),
-          documentsProvider.overrideWith(
-            (ref) => Stream.value(documents ?? testDocuments),
+          policiesProvider.overrideWith(
+            (ref) => Stream.value(policies ?? testPolicies),
           ),
           leaguesProvider.overrideWith(
             (ref) => Stream.value(leagues ?? testLeagues),
@@ -138,12 +138,12 @@ void main() {
           selectedLeagueProvider.overrideWith(
             (ref) => null,
           ),
-          selectedCategoryProvider.overrideWith(
+          selectedPolicyCategoryProvider.overrideWith(
             (ref) => 'All',
           ),
         ],
         child: MaterialApp(
-          home: DocumentsScreen(),
+          home: PolicyScreen(),
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
@@ -159,22 +159,23 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
-        expect(find.byType(DocumentsScreen), findsOneWidget);
+        expect(find.byType(PolicyScreen), findsOneWidget);
       });
 
-      testWidgets('displays title Documents', (WidgetTester tester) async {
+      testWidgets('displays title Policy', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
-        expect(find.text('Documents'), findsOneWidget);
+        expect(find.text('Policy'), findsWidgets);
       });
 
-      testWidgets('has search field', (WidgetTester tester) async {
+      testWidgets('does not show a header search field',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
-        expect(find.byIcon(Icons.search), findsOneWidget);
-        expect(find.text('Search documents...'), findsOneWidget);
+        expect(find.byIcon(Icons.search), findsNothing);
+        expect(find.text('Search policies...'), findsNothing);
       });
     });
 
@@ -232,25 +233,25 @@ void main() {
       });
     });
 
-    group('Document List Rendering', () {
-      testWidgets('displays all documents', (WidgetTester tester) async {
+    group('Policy List Rendering', () {
+      testWidgets('displays all policies', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Spring Roster.xlsx'), findsOneWidget);
-        expect(find.text('Tournament Schedule.pdf'), findsOneWidget);
-        expect(find.text('League Policies.docx'), findsOneWidget);
+        expect(find.text('Code of Conduct.pdf'), findsOneWidget);
+        expect(find.text('Concussion Protocol.pdf'), findsOneWidget);
+        expect(find.text('Recruitment Policy.docx'), findsOneWidget);
       });
 
-      testWidgets('displays document categories', (WidgetTester tester) async {
+      testWidgets('displays policy categories', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Rosters'), findsWidgets);
-        expect(find.text('Schedules'), findsWidgets);
-        expect(find.text('Policies'), findsWidgets);
+        expect(find.text('Code of Conduct'), findsWidgets);
+        expect(find.text('Protocol'), findsWidgets);
+        expect(find.text('Policy'), findsWidgets);
       });
 
       testWidgets('displays file types', (WidgetTester tester) async {
@@ -258,8 +259,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // File types appear in combined text like "XLSX • 25.0 KB"
-        expect(find.textContaining('XLSX'), findsOneWidget);
+        // File types appear in combined text like "PDF • 25.0 KB"
         expect(find.textContaining('PDF'), findsWidgets);
         expect(find.textContaining('DOCX'), findsOneWidget);
       });
@@ -269,17 +269,20 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // All test documents have empty versions list, so versionCount=1, showing 'v1'
+        // All test policies have empty versions list, so versionCount=1, showing 'v1'
         expect(find.text('v1'), findsWidgets);
       });
 
-      testWidgets('displays league association tags', (WidgetTester tester) async {
+      testWidgets('displays league association tags',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('SL'), findsWidgets); // Spring League (filter + document tag)
-        expect(find.text('FL'), findsWidgets); // Fall League (filter + document tag)
+        expect(find.text('SL'),
+            findsWidgets); // Spring League (filter + policy tag)
+        expect(
+            find.text('FL'), findsWidgets); // Fall League (filter + policy tag)
       });
 
       testWidgets('shows correct file icons', (WidgetTester tester) async {
@@ -287,8 +290,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget); // PDF
-        expect(find.byIcon(Icons.table_chart), findsOneWidget); // Excel
+        expect(find.byIcon(Icons.picture_as_pdf), findsWidgets); // PDF
         expect(find.byIcon(Icons.description), findsOneWidget); // Word
       });
     });
@@ -309,7 +311,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Should still render properly
-        expect(find.byType(DocumentsScreen), findsOneWidget);
+        expect(find.byType(PolicyScreen), findsOneWidget);
       });
 
       testWidgets('hides league filter when there is only one league',
@@ -324,33 +326,32 @@ void main() {
     });
 
     group('Category Filter', () {
-      testWidgets('displays only category chips that have documents',
+      testWidgets('displays only category chips that have policies',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('All'), findsWidgets); // LeagueFilter "All" pill + CategoryFilter "All" chip
-        expect(find.text('Rosters'), findsWidgets);
-        expect(find.text('Schedules'), findsWidgets);
-        expect(find.text('Policies'), findsWidgets);
-        expect(find.text('Waivers'), findsNothing);
+        expect(find.text('All'),
+            findsWidgets); // LeagueFilter "All" pill + CategoryFilter "All" chip
+        expect(find.text('Policy'), findsWidgets);
+        expect(find.text('Protocol'), findsWidgets);
+        expect(find.text('Code of Conduct'), findsWidgets);
         expect(find.text('Other'), findsNothing);
       });
 
-      testWidgets('shows All plus the only existing document category',
+      testWidgets('shows All plus the only existing policy category',
           (WidgetTester tester) async {
         await tester.pumpWidget(
-          createTestWidget(documents: [testDocuments.first], leagues: []),
+          createTestWidget(policies: [testPolicies.first], leagues: []),
         );
         await tester.pump();
         await tester.pumpAndSettle();
 
         expect(find.text('All'), findsOneWidget);
-        expect(find.text('Rosters'), findsWidgets);
-        expect(find.text('Waivers'), findsNothing);
-        expect(find.text('Schedules'), findsNothing);
-        expect(find.text('Policies'), findsNothing);
+        expect(find.text('Code of Conduct'), findsWidgets);
+        expect(find.text('Policy'), findsOneWidget); // Screen title only.
+        expect(find.text('Protocol'), findsNothing);
         expect(find.text('Other'), findsNothing);
       });
 
@@ -376,13 +377,13 @@ void main() {
     });
 
     group('Empty State', () {
-      testWidgets('shows empty state when no documents',
+      testWidgets('shows empty state when no policies',
           (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(documents: []));
+        await tester.pumpWidget(createTestWidget(policies: []));
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('No documents found'), findsOneWidget);
+        expect(find.text('No policies found'), findsOneWidget);
         expect(find.byIcon(Icons.folder_open), findsOneWidget);
       });
 
@@ -390,108 +391,54 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
-            documents: [],
+            policies: [],
             user: adminUser,
           ),
         );
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Upload Document'), findsOneWidget);
+        expect(find.text('Upload Policy'), findsOneWidget);
       });
 
       testWidgets('no upload button in empty state for staff',
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
-            documents: [],
+            policies: [],
             user: testUser,
           ),
         );
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Upload Document'), findsNothing);
+        expect(find.text('Upload Policy'), findsNothing);
       });
     });
 
-    group('Search Functionality', () {
-      testWidgets('search field accepts input', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        final searchField = find.byType(TextField);
-        await tester.enterText(searchField.first, 'Roster');
-        await tester.pumpAndSettle();
-
-        // After searching, matching document should be visible
-        expect(find.text('Spring Roster.xlsx'), findsOneWidget);
-      });
-
-      testWidgets('search filters documents by name',
+    group('Header Search Removal', () {
+      testWidgets('does not render a search text field',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        final searchField = find.byType(TextField);
-        await tester.enterText(searchField.first, 'Tournament');
-        await tester.pumpAndSettle();
-
-        // Only tournament document should be visible
-        expect(find.text('Tournament Schedule.pdf'), findsOneWidget);
-        expect(find.text('Spring Roster.xlsx'), findsNothing);
+        expect(find.byType(TextField), findsNothing);
       });
 
-      testWidgets('search is case insensitive', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        final searchField = find.byType(TextField);
-        await tester.enterText(searchField.first, 'spring');
-        await tester.pumpAndSettle();
-
-        expect(find.text('Spring Roster.xlsx'), findsOneWidget);
-      });
-
-      testWidgets('clearing search shows all documents',
+      testWidgets('shows policies without name filtering',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        final searchField = find.byType(TextField);
-
-        // Search for something
-        await tester.enterText(searchField.first, 'Tournament');
-        await tester.pumpAndSettle();
-
-        // Clear search
-        await tester.enterText(searchField.first, '');
-        await tester.pumpAndSettle();
-
-        // All documents should be visible
-        expect(find.text('Spring Roster.xlsx'), findsOneWidget);
-        expect(find.text('Tournament Schedule.pdf'), findsOneWidget);
-        expect(find.text('League Policies.docx'), findsOneWidget);
-      });
-
-      testWidgets('search finds no results', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        final searchField = find.byType(TextField);
-        await tester.enterText(searchField.first, 'NonexistentDocument');
-        await tester.pumpAndSettle();
-
-        expect(find.text('No documents found'), findsOneWidget);
+        expect(find.text('Code of Conduct.pdf'), findsOneWidget);
+        expect(find.text('Concussion Protocol.pdf'), findsOneWidget);
+        expect(find.text('Recruitment Policy.docx'), findsOneWidget);
       });
     });
 
-    group('Document Tile Information', () {
+    group('Policy Tile Information', () {
       testWidgets('tile displays file size', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -516,20 +463,20 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // Documents with league association should show abbreviation
-        // (filter pills + document tag chips both show abbreviations)
+        // Policy with league association should show abbreviation
+        // (filter pills + policy tag chips both show abbreviations)
         expect(find.text('SL'), findsWidgets);
         expect(find.text('FL'), findsWidgets);
       });
 
-      testWidgets('tile does not show league for org-wide docs',
+      testWidgets('tile does not show league for org-wide policies',
           (WidgetTester tester) async {
-        // League Policies has no leagueId
+        // Recruitment Policy has no leagueId
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('League Policies.docx'), findsOneWidget);
+        expect(find.text('Recruitment Policy.docx'), findsOneWidget);
       });
     });
 
@@ -539,15 +486,16 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
+        expect(find.byIcon(Icons.picture_as_pdf), findsWidgets);
       });
 
-      testWidgets('Excel shows green icon', (WidgetTester tester) async {
+      testWidgets('multiple PDF policies show PDF icons',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.table_chart), findsOneWidget);
+        expect(find.byIcon(Icons.picture_as_pdf), findsWidgets);
       });
 
       testWidgets('Word shows icon', (WidgetTester tester) async {
@@ -569,16 +517,16 @@ void main() {
       });
     });
 
-    group('Multiple Documents with Same Category', () {
-      testWidgets('displays multiple rosters in list',
+    group('Multiple Policies with Same Category', () {
+      testWidgets('displays multiple policies in list',
           (WidgetTester tester) async {
-        final multipleRosters = [
-          Document(
-            id: 'doc-1',
+        final multiplePolicies = [
+          Policy(
+            id: 'policy-1',
             orgId: 'org-1',
-            name: 'Spring Roster.xlsx',
-            category: 'Rosters',
-            fileType: 'xlsx',
+            name: 'Overage Policy.pdf',
+            category: 'Policy',
+            fileType: 'pdf',
             fileSize: 25600,
             fileUrl: 'https://example.com/file.pdf',
             leagueId: 'league-1',
@@ -588,12 +536,12 @@ void main() {
             updatedAt: DateTime.now(),
             versions: [],
           ),
-          Document(
-            id: 'doc-2',
+          Policy(
+            id: 'policy-2',
             orgId: 'org-1',
-            name: 'Fall Roster.xlsx',
-            category: 'Rosters',
-            fileType: 'xlsx',
+            name: 'Rivalry Game Policy.pdf',
+            category: 'Policy',
+            fileType: 'pdf',
             fileSize: 28160,
             fileUrl: 'https://example.com/file.pdf',
             leagueId: 'league-2',
@@ -605,17 +553,17 @@ void main() {
           ),
         ];
 
-        await tester.pumpWidget(createTestWidget(documents: multipleRosters));
+        await tester.pumpWidget(createTestWidget(policies: multiplePolicies));
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Spring Roster.xlsx'), findsOneWidget);
-        expect(find.text('Fall Roster.xlsx'), findsOneWidget);
+        expect(find.text('Overage Policy.pdf'), findsOneWidget);
+        expect(find.text('Rivalry Game Policy.pdf'), findsOneWidget);
       });
     });
 
-    group('Document Navigation', () {
-      testWidgets('document tiles are tappable', (WidgetTester tester) async {
+    group('Policy Navigation', () {
+      testWidgets('policy tiles are tappable', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -626,12 +574,12 @@ void main() {
 
     group('Scrolling and Pagination', () {
       testWidgets('long list is scrollable', (WidgetTester tester) async {
-        final manyDocs = List.generate(
+        final manyPolicies = List.generate(
           20,
-          (i) => Document(
-            id: 'doc-$i',
+          (i) => Policy(
+            id: 'policy-$i',
             orgId: 'org-1',
-            name: 'Document $i.pdf',
+            name: 'Policy $i.pdf',
             category: 'Other',
             fileType: 'pdf',
             fileSize: 102400,
@@ -644,7 +592,7 @@ void main() {
           ),
         );
 
-        await tester.pumpWidget(createTestWidget(documents: manyDocs));
+        await tester.pumpWidget(createTestWidget(policies: manyPolicies));
         await tester.pump();
         await tester.pumpAndSettle();
 
@@ -653,14 +601,14 @@ void main() {
     });
 
     group('No League Association Display', () {
-      testWidgets('org-wide document shows no league tag',
+      testWidgets('org-wide policy shows no league tag',
           (WidgetTester tester) async {
-        final orgWideDoc = [
-          Document(
-            id: 'doc-1',
+        final orgWidePolicy = [
+          Policy(
+            id: 'policy-1',
             orgId: 'org-1',
-            name: 'Company Handbook.pdf',
-            category: 'Policies',
+            name: 'League Code of Conduct.pdf',
+            category: 'Code of Conduct',
             fileType: 'pdf',
             fileSize: 102400,
             fileUrl: 'https://example.com/file.pdf',
@@ -674,15 +622,15 @@ void main() {
 
         await tester.pumpWidget(
           createTestWidget(
-            documents: orgWideDoc,
+            policies: orgWidePolicy,
             leagues: testLeagues,
           ),
         );
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Company Handbook.pdf'), findsOneWidget);
-        // Should not show any league abbreviation for this document
+        expect(find.text('League Code of Conduct.pdf'), findsOneWidget);
+        // Should not show any league abbreviation for this policy
       });
     });
   });

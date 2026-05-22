@@ -59,7 +59,7 @@ class FirebaseIntegrationHelper {
       final request = await client.deleteUrl(
         Uri.parse(
           'http://localhost:8081/emulator/v1/projects/$projectId'
-          '/databases/(default)/documents',
+          '/databases/(default)/policy',
         ),
       );
       request.headers.set('Content-Type', 'application/json');

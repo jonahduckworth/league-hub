@@ -67,10 +67,11 @@ class MockFirestoreService extends Mock implements FirestoreService {
           returnValue: Future<String>.value('')) as Future<String>);
 
   @override
-  Future<String> createDocument(String orgId, Map<String, dynamic> docData,
-          {String? docId}) =>
+  Future<String> createPolicy(String orgId, Map<String, dynamic> policyData,
+          {String? policyId}) =>
       (super.noSuchMethod(
-          Invocation.method(#createDocument, [orgId, docData], {#docId: docId}),
+          Invocation.method(
+              #createPolicy, [orgId, policyData], {#policyId: policyId}),
           returnValue: Future<String>.value('')) as Future<String>);
 
   @override
@@ -266,7 +267,7 @@ void main() {
         expect(annId, 'ann1');
       });
 
-      test('can create document', () async {
+      test('can create policy', () async {
         final actor = AppUser(
           id: 'po1',
           email: 'po@example.com',
@@ -279,12 +280,12 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.createDocument('org1', {'name': 'Document'}, docId: null))
+        when(mockFs.createPolicy('org1', {'name': 'Policy'}, policyId: null))
             .thenAnswer((_) => Future.value('doc1'));
 
-        final docId =
-            await afs.createDocument(actor, 'org1', {'name': 'Document'});
-        expect(docId, 'doc1');
+        final policyId =
+            await afs.createPolicy(actor, 'org1', {'name': 'Policy'});
+        expect(policyId, 'doc1');
       });
     });
 
@@ -670,7 +671,7 @@ void main() {
         );
       });
 
-      test('cannot create document', () async {
+      test('cannot create policy', () async {
         final actor = AppUser(
           id: 'st1',
           email: 'staff@example.com',
@@ -684,7 +685,7 @@ void main() {
         );
 
         expect(
-          () => afs.createDocument(actor, 'org1', {'name': 'Document'}),
+          () => afs.createPolicy(actor, 'org1', {'name': 'Policy'}),
           throwsA(isA<PermissionDeniedException>()),
         );
       });

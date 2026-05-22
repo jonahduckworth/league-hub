@@ -31,7 +31,7 @@ void main() {
 
       expect(find.text('Announcements'), findsOneWidget);
       expect(find.text('Chat Messages'), findsOneWidget);
-      expect(find.text('Document Uploads'), findsOneWidget);
+      expect(find.text('Policy Uploads'), findsOneWidget);
       expect(find.text('Team Updates'), findsOneWidget);
       expect(find.text('Event Reminders'), findsOneWidget);
       expect(find.text('Admin Alerts'), findsOneWidget);
@@ -84,7 +84,8 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Notification preferences sync with FCM topics'),
+      expect(
+          find.textContaining('Notification preferences sync with FCM topics'),
           findsOneWidget);
     });
 
@@ -95,7 +96,7 @@ void main() {
 
       expect(find.text('New and pinned announcements'), findsOneWidget);
       expect(find.text('New messages in your chat rooms'), findsOneWidget);
-      expect(find.text('New documents shared with you'), findsOneWidget);
+      expect(find.text('New policies shared with you'), findsOneWidget);
       expect(find.text('Roster changes and team news'), findsOneWidget);
       expect(find.text('Upcoming games and practices'), findsOneWidget);
       expect(find.text('User management and system alerts'), findsOneWidget);
@@ -152,8 +153,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify the chat switch is now off
-      final updatedSwitch =
-          tester.widget<Switch>(chatSwitch);
+      final updatedSwitch = tester.widget<Switch>(chatSwitch);
       expect(updatedSwitch.value, isFalse);
     });
 
@@ -196,7 +196,7 @@ void main() {
 
       expect(prefs['announcements'], isTrue);
       expect(prefs['chat_messages'], isTrue);
-      expect(prefs['document_uploads'], isTrue);
+      expect(prefs['policy_uploads'], isTrue);
       expect(prefs['team_updates'], isTrue);
       expect(prefs['event_reminders'], isTrue);
       expect(prefs['admin_alerts'], isTrue);
@@ -218,7 +218,8 @@ void main() {
       addTearDown(container.dispose);
 
       final notifier = container.read(notificationPrefsProvider.notifier);
-      expect(container.read(notificationPrefsProvider)['announcements'], isTrue);
+      expect(
+          container.read(notificationPrefsProvider)['announcements'], isTrue);
 
       notifier.toggle('announcements');
       expect(
@@ -259,8 +260,7 @@ void main() {
       final notifier = container.read(notificationPrefsProvider.notifier);
       // Toggling a key not in initial state: (state[key] ?? true) → false
       notifier.toggle('unknown_key');
-      expect(
-          container.read(notificationPrefsProvider)['unknown_key'], isFalse);
+      expect(container.read(notificationPrefsProvider)['unknown_key'], isFalse);
     });
 
     test('multiple different keys can be toggled independently', () {
@@ -278,7 +278,7 @@ void main() {
       expect(prefs['badge_count'], isFalse);
       // Untouched remain true
       expect(prefs['chat_messages'], isTrue);
-      expect(prefs['document_uploads'], isTrue);
+      expect(prefs['policy_uploads'], isTrue);
       expect(prefs['sound'], isTrue);
     });
   });

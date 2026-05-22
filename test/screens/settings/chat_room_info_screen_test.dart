@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
+import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings/chat_room_info_screen.dart';
+import 'package:league_hub/services/authorized_firestore_service.dart';
+import 'package:league_hub/services/firestore_service.dart';
+import 'package:league_hub/services/permission_service.dart';
 import 'package:league_hub/widgets/avatar_widget.dart';
 
 ChatRoom _leagueRoom() => ChatRoom(
@@ -83,6 +88,16 @@ AppUser _staffUser() => AppUser(
       avatarUrl: 'https://example.com/staff.png',
     );
 
+Organization _organization() => Organization(
+      id: 'org-1',
+      name: 'Test Org',
+      primaryColor: '#1A3A5C',
+      secondaryColor: '#2E75B6',
+      accentColor: '#4DA3FF',
+      createdAt: DateTime(2025, 1, 1),
+      ownerId: 'u1',
+    );
+
 Widget _buildTestWidget({
   required String roomId,
   required List<Override> overrides,
@@ -93,6 +108,28 @@ Widget _buildTestWidget({
       home: ChatRoomInfoScreen(roomId: roomId),
     ),
   );
+}
+
+class _FakeAuthorizedFirestoreService extends AuthorizedFirestoreService {
+  _FakeAuthorizedFirestoreService()
+      : super(
+          FirestoreService(firestore: FakeFirebaseFirestore()),
+          const PermissionService(),
+        );
+
+  String? updatedRoomId;
+  Map<String, dynamic>? updatedData;
+
+  @override
+  Future<void> updateChatRoomFields(
+    AppUser actor,
+    String orgId,
+    String roomId,
+    Map<String, dynamic> data,
+  ) async {
+    updatedRoomId = roomId;
+    updatedData = data;
+  }
 }
 
 void main() {
@@ -251,6 +288,41 @@ void main() {
 
       expect(find.text('Archive Chat Room'), findsOneWidget);
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    });
+
+    testWidgets('saves room edits without using a disposed controller',
+        (tester) async {
+      final room = _eventRoomWithIcon();
+      final fakeService = _FakeAuthorizedFirestoreService();
+
+      await tester.pumpWidget(_buildTestWidget(
+        roomId: room.id,
+        overrides: [
+          chatRoomProvider(room.id).overrideWith((ref) => Stream.value(room)),
+          orgUsersProvider.overrideWith(
+              (ref) => Stream.value([_adminUser(), _staffUser()])),
+          currentUserProvider.overrideWith((ref) async => _adminUser()),
+          organizationProvider.overrideWith((ref) async => _organization()),
+          authorizedFirestoreServiceProvider.overrideWithValue(fakeService),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Spring Tournament'),
+        'Updated Tournament',
+      );
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Edit Room'), findsNothing);
+      expect(fakeService.updatedRoomId, room.id);
+      expect(fakeService.updatedData?['name'], 'Updated Tournament');
+      expect(fakeService.updatedData?['roomIconName'], 'trophy');
     });
 
     testWidgets('hides archive button on DM rooms', (tester) async {

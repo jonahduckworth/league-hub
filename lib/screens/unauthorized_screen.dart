@@ -16,7 +16,8 @@ class UnauthorizedScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.lock_outline, size: 64, color: theme.colorScheme.error),
+              Icon(Icons.lock_outline,
+                  size: 64, color: theme.colorScheme.error),
               const SizedBox(height: 24),
               Text(
                 'Access Denied',

@@ -84,7 +84,7 @@ service firebase.storage {
         && isImageUpload(10 * 1024 * 1024);
     }
 
-    match /organizations/{orgId}/documents/{docId}/{fileName} {
+    match /organizations/{orgId}/policies/{policyId}/{fileName} {
       allow read: if sameOrg(orgId);
       allow write: if sameOrg(orgId)
         && isManagerAdmin()

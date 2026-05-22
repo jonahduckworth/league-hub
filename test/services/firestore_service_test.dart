@@ -166,7 +166,7 @@ void main() {
       expect(doc.data()!['name'], 'North League');
     });
 
-    test('deleteLeague removes document', () async {
+    test('deleteLeague removes policy', () async {
       await svc.createLeague(orgId, makeLeague('league-del'));
       await svc.deleteLeague(orgId, 'league-del');
 
@@ -231,7 +231,7 @@ void main() {
       expect(doc.data()!['name'], 'East Hub');
     });
 
-    test('deleteHub removes document', () async {
+    test('deleteHub removes policy', () async {
       await svc.createHub(orgId, leagueId, makeHub('hub-del', leagueId));
       await svc.deleteHub(orgId, leagueId, 'hub-del');
 
@@ -323,7 +323,7 @@ void main() {
       expect(doc.data()!['name'], 'Red Hawks');
     });
 
-    test('deleteTeam removes document', () async {
+    test('deleteTeam removes policy', () async {
       await svc.createTeam(
           orgId, leagueId, hubId, makeTeam('team-del', leagueId, hubId));
       await svc.deleteTeam(orgId, leagueId, hubId, 'team-del');
@@ -760,13 +760,13 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Documents
+  // Policy
   // ---------------------------------------------------------------------------
 
-  group('Documents', () {
+  group('Policy', () {
     setUp(() => svc.createOrganization(makeOrg()));
 
-    Map<String, dynamic> docData({
+    Map<String, dynamic> policyData({
       String name = 'Rulebook',
       String? leagueId,
       String category = 'general',
@@ -783,41 +783,42 @@ void main() {
           'versions': [],
         };
 
-    test('documentsStream returns all docs', () async {
-      await svc.createDocument(orgId, docData(name: 'Doc 1'));
-      await svc.createDocument(orgId, docData(name: 'Doc 2'));
+    test('policiesStream returns all policies', () async {
+      await svc.createPolicy(orgId, policyData(name: 'Policy 1'));
+      await svc.createPolicy(orgId, policyData(name: 'Policy 2'));
 
-      final docs = await svc.documentsStream(orgId).first;
-      expect(docs, hasLength(2));
+      final policies = await svc.policiesStream(orgId).first;
+      expect(policies, hasLength(2));
     });
 
-    test('documentsStream filters by leagueId', () async {
-      await svc.createDocument(orgId, docData(leagueId: 'lg-1'));
-      await svc.createDocument(orgId, docData(name: 'Other', leagueId: 'lg-2'));
+    test('policiesStream filters by leagueId', () async {
+      await svc.createPolicy(orgId, policyData(leagueId: 'lg-1'));
+      await svc.createPolicy(
+          orgId, policyData(name: 'Other', leagueId: 'lg-2'));
 
-      final docs = await svc.documentsStream(orgId, leagueId: 'lg-1').first;
-      expect(docs, hasLength(1));
-      expect(docs.first.leagueId, 'lg-1');
+      final policies = await svc.policiesStream(orgId, leagueId: 'lg-1').first;
+      expect(policies, hasLength(1));
+      expect(policies.first.leagueId, 'lg-1');
     });
 
-    test('documentsStream filters by category', () async {
-      await svc.createDocument(orgId, docData(category: 'rules'));
-      await svc.createDocument(
-          orgId, docData(name: 'Other', category: 'forms'));
+    test('policiesStream filters by category', () async {
+      await svc.createPolicy(orgId, policyData(category: 'rules'));
+      await svc.createPolicy(
+          orgId, policyData(name: 'Other', category: 'forms'));
 
-      final docs = await svc.documentsStream(orgId, category: 'rules').first;
-      expect(docs, hasLength(1));
-      expect(docs.first.category, 'rules');
+      final policies = await svc.policiesStream(orgId, category: 'rules').first;
+      expect(policies, hasLength(1));
+      expect(policies.first.category, 'rules');
     });
 
-    test('createDocument creates with timestamps', () async {
-      final id = await svc.createDocument(orgId, docData());
+    test('createPolicy creates with timestamps', () async {
+      final id = await svc.createPolicy(orgId, policyData());
       expect(id, isNotEmpty);
 
       final doc = await fakeFirestore
           .collection(AppConstants.orgsCollection)
           .doc(orgId)
-          .collection('documents')
+          .collection('policies')
           .doc(id)
           .get();
 
@@ -825,31 +826,31 @@ void main() {
       expect(doc.data()!['name'], 'Rulebook');
     });
 
-    test('updateDocument updates with timestamp', () async {
-      final id = await svc.createDocument(orgId, docData());
-      await svc.updateDocument(orgId, id, {'name': 'Updated Name'});
+    test('updatePolicy updates with timestamp', () async {
+      final id = await svc.createPolicy(orgId, policyData());
+      await svc.updatePolicy(orgId, id, {'name': 'Updated Name'});
 
       final doc = await fakeFirestore
           .collection(AppConstants.orgsCollection)
           .doc(orgId)
-          .collection('documents')
+          .collection('policies')
           .doc(id)
           .get();
 
       expect(doc.data()!['name'], 'Updated Name');
     });
 
-    test('deleteDocument removes doc', () async {
-      final id = await svc.createDocument(orgId, docData());
-      await svc.deleteDocument(orgId, id);
+    test('deletePolicy removes policy', () async {
+      final id = await svc.createPolicy(orgId, policyData());
+      await svc.deletePolicy(orgId, id);
 
-      final docs = await svc.documentsStream(orgId).first;
-      expect(docs, isEmpty);
+      final policies = await svc.policiesStream(orgId).first;
+      expect(policies, isEmpty);
     });
 
-    test('addDocumentVersion appends to versions array', () async {
-      final id = await svc.createDocument(orgId, docData());
-      await svc.addDocumentVersion(orgId, id, {
+    test('addPolicyVersion appends to versions array', () async {
+      final id = await svc.createPolicy(orgId, policyData());
+      await svc.addPolicyVersion(orgId, id, {
         'url': 'https://example.com/v2.pdf',
         'fileSize': 2048,
         'uploadedAt': DateTime.now().toIso8601String(),
@@ -857,15 +858,15 @@ void main() {
         'uploadedByName': 'Alice',
       });
 
-      final docs = await svc.getDocuments(orgId).first;
-      expect(docs.first.versions, hasLength(1));
-      expect(docs.first.versions.first.version, 1);
+      final policies = await svc.getPolicies(orgId).first;
+      expect(policies.first.versions, hasLength(1));
+      expect(policies.first.versions.first.version, 1);
     });
 
-    test('getDocumentById streams single doc', () async {
-      final id = await svc.createDocument(orgId, docData());
+    test('getPolicyById streams single policy', () async {
+      final id = await svc.createPolicy(orgId, policyData());
 
-      final doc = await svc.getDocumentById(orgId, id).first;
+      final doc = await svc.getPolicyById(orgId, id).first;
       expect(doc, isNotNull);
       expect(doc!.name, 'Rulebook');
     });

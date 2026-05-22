@@ -57,7 +57,7 @@ void main() {
     test('round-trip serialization preserves all fields', () {
       final original = QueuedMutation(
         id: 'mut-3',
-        method: 'createDocument',
+        method: 'createPolicy',
         params: {
           'orgId': 'org1',
           'data': {'name': 'test.pdf', 'category': 'Policy'},
@@ -124,13 +124,13 @@ void main() {
     test('toString contains method and id', () {
       final mutation = QueuedMutation(
         id: 'mut-7',
-        method: 'deleteDocument',
+        method: 'deletePolicy',
         params: {},
         createdAt: DateTime(2024),
       );
 
       expect(mutation.toString(), contains('mut-7'));
-      expect(mutation.toString(), contains('deleteDocument'));
+      expect(mutation.toString(), contains('deletePolicy'));
     });
 
     test('params can contain nested maps', () {

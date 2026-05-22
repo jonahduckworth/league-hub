@@ -96,9 +96,7 @@ class _AddLeagueScreenState extends ConsumerState<AddLeagueScreen> {
 
     return _StructureFormScaffold(
       title: 'New League',
-      eyebrow: 'League setup',
       heading: 'Create a league',
-      subtitle: 'Add the competition or program your hubs and teams belong to.',
       icon: Icons.emoji_events_outlined,
       actionLabel: 'Create League',
       saving: _saving,
@@ -259,9 +257,7 @@ class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
 
         return _StructureFormScaffold(
           title: 'Edit League',
-          eyebrow: league.abbreviation,
           heading: 'Update league details',
-          subtitle: 'Keep the league name, abbreviation, and logo current.',
           icon: Icons.emoji_events_outlined,
           actionLabel: 'Save League',
           saving: _saving,
@@ -550,9 +546,7 @@ class _AddHubScreenState extends ConsumerState<AddHubScreen> {
 
         return _StructureFormScaffold(
           title: 'New Hub',
-          eyebrow: league.abbreviation,
           heading: 'Add a hub',
-          subtitle: 'Create a location or operating hub inside ${league.name}.',
           icon: Icons.location_on_outlined,
           actionLabel: 'Create Hub',
           saving: _saving,
@@ -740,9 +734,7 @@ class _EditHubScreenState extends ConsumerState<EditHubScreen> {
 
     return _StructureFormScaffold(
       title: 'Edit Hub',
-      eyebrow: league.abbreviation,
       heading: 'Update hub details',
-      subtitle: 'Adjust the hub name, location, and logo.',
       icon: Icons.location_on_outlined,
       actionLabel: 'Save Hub',
       saving: _saving,
@@ -1070,9 +1062,7 @@ class _AddTeamScreenState extends ConsumerState<AddTeamScreen> {
 
     return _StructureFormScaffold(
       title: 'New Team',
-      eyebrow: hub.name,
       heading: 'Add a team',
-      subtitle: 'Create a roster container inside ${hub.name}.',
       icon: Icons.groups_2_outlined,
       actionLabel: 'Create Team',
       saving: _saving,
@@ -1271,9 +1261,7 @@ class _EditTeamScreenState extends ConsumerState<EditTeamScreen> {
 
     return _StructureFormScaffold(
       title: 'Edit Team',
-      eyebrow: hub.name,
       heading: 'Update team details',
-      subtitle: 'Edit the roster container name, level, and logo.',
       icon: Icons.groups_2_outlined,
       actionLabel: 'Save Team',
       saving: _saving,
@@ -1448,9 +1436,7 @@ class _TeamRow extends StatelessWidget {
 
 class _StructureFormScaffold extends StatelessWidget {
   final String title;
-  final String eyebrow;
   final String heading;
-  final String subtitle;
   final IconData icon;
   final String actionLabel;
   final bool saving;
@@ -1459,9 +1445,7 @@ class _StructureFormScaffold extends StatelessWidget {
 
   const _StructureFormScaffold({
     required this.title,
-    required this.eyebrow,
     required this.heading,
-    required this.subtitle,
     required this.icon,
     required this.actionLabel,
     required this.saving,
@@ -1479,10 +1463,10 @@ class _StructureFormScaffold extends StatelessWidget {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(18),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -1504,57 +1488,35 @@ class _StructureFormScaffold extends StatelessWidget {
                     child: Row(
                       children: [
                         Container(
-                          width: 54,
-                          height: 54,
+                          width: 42,
+                          height: 42,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: Colors.white.withValues(alpha: 0.2),
                             ),
                           ),
-                          child: Icon(icon, color: Colors.white, size: 28),
+                          child: Icon(icon, color: Colors.white, size: 22),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                eyebrow.toUpperCase(),
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.72),
-                                  fontSize: 11,
-                                  letterSpacing: 1.1,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                heading,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 23,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.05,
-                                ),
-                              ),
-                              const SizedBox(height: 7),
-                              Text(
-                                subtitle,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.78),
-                                  fontSize: 13,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            heading,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   child,
                 ],
               ),

@@ -27,12 +27,12 @@ class MockAuthorizedFirestoreService extends Mock
     bool isPinned,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(
-              #togglePin,
-              [actor, orgId, announcementId, isPinned],
-            ),
-            returnValue: Future<void>.value(),
-          ) as Future<void>);
+        Invocation.method(
+          #togglePin,
+          [actor, orgId, announcementId, isPinned],
+        ),
+        returnValue: Future<void>.value(),
+      ) as Future<void>);
 
   @override
   Future<void> deleteAnnouncement(
@@ -41,12 +41,12 @@ class MockAuthorizedFirestoreService extends Mock
     String announcementId,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(
-              #deleteAnnouncement,
-              [actor, orgId, announcementId],
-            ),
-            returnValue: Future<void>.value(),
-          ) as Future<void>);
+        Invocation.method(
+          #deleteAnnouncement,
+          [actor, orgId, announcementId],
+        ),
+        returnValue: Future<void>.value(),
+      ) as Future<void>);
 }
 
 class _GenericTogglePinError implements Exception {
@@ -861,8 +861,7 @@ void main() {
         await tester.tap(find.text('Unpin'));
         await tester.pumpAndSettle();
 
-        verify(service.togglePin(adminUser, 'org-1', 'ann-1', false))
-            .called(1);
+        verify(service.togglePin(adminUser, 'org-1', 'ann-1', false)).called(1);
       });
 
       testWidgets('delete option opens confirmation dialog',
@@ -944,8 +943,7 @@ void main() {
 
       testWidgets('delete failure shows snackbar', (WidgetTester tester) async {
         final service = MockAuthorizedFirestoreService();
-        when(service.deleteAnnouncement(adminUser, 'org-1', 'ann-1'))
-            .thenThrow(
+        when(service.deleteAnnouncement(adminUser, 'org-1', 'ann-1')).thenThrow(
           PermissionDeniedException(
             action: 'deleteAnnouncement',
             userId: adminUser.id,

@@ -4,7 +4,8 @@ import 'package:league_hub/widgets/badge_widget.dart';
 
 void main() {
   group('BadgeWidget', () {
-    testWidgets('returns child directly when count is 0 (no badge text)', (tester) async {
+    testWidgets('returns child directly when count is 0 (no badge text)',
+        (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -21,7 +22,8 @@ void main() {
       expect(find.byType(Icon), findsOneWidget);
     });
 
-    testWidgets('returns child directly when count is negative (no badge text)', (tester) async {
+    testWidgets('returns child directly when count is negative (no badge text)',
+        (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(

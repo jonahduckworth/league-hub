@@ -69,8 +69,7 @@ Widget _buildWidget({
       organizationProvider.overrideWith((ref) => _testOrg),
       teamsProvider((leagueId: team.leagueId, hubId: team.hubId))
           .overrideWith((ref) => Stream.value([team])),
-      orgUsersProvider
-          .overrideWith((ref) => Stream.value(orgUsers)),
+      orgUsersProvider.overrideWith((ref) => Stream.value(orgUsers)),
     ],
     child: MaterialApp(
       home: TeamDetailScreen(
@@ -187,8 +186,8 @@ void main() {
 
       await tester.pumpWidget(ProviderScope(
         overrides: [
-          currentUserProvider.overrideWith(
-              (ref) => _makeUser(role: UserRole.superAdmin)),
+          currentUserProvider
+              .overrideWith((ref) => _makeUser(role: UserRole.superAdmin)),
           organizationProvider.overrideWith((ref) => _testOrg),
           teamsProvider((leagueId: 'league1', hubId: 'hub1'))
               .overrideWith((ref) => Stream.value([teamWithDifferentId])),
@@ -210,8 +209,7 @@ void main() {
     group('Permission checks', () {
       testWidgets('managerAdmin+ sees add member button', (tester) async {
         await tester.pumpWidget(_buildWidget(
-          currentUser:
-              _makeUser(role: UserRole.managerAdmin, hubIds: ['hub1']),
+          currentUser: _makeUser(role: UserRole.managerAdmin, hubIds: ['hub1']),
           team: _emptyTeam,
           orgUsers: [],
         ));
@@ -233,8 +231,7 @@ void main() {
 
       testWidgets('managerAdmin+ sees remove member button', (tester) async {
         await tester.pumpWidget(_buildWidget(
-          currentUser:
-              _makeUser(role: UserRole.managerAdmin, hubIds: ['hub1']),
+          currentUser: _makeUser(role: UserRole.managerAdmin, hubIds: ['hub1']),
           team: _testTeam,
           orgUsers: [_makeUser(id: 'u1'), _makeUser(id: 'u2')],
         ));

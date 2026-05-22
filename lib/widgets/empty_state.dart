@@ -22,7 +22,8 @@ class EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 64, color: AppColors.textMuted.withValues(alpha: 0.5)),
+          Icon(icon,
+              size: 64, color: AppColors.textMuted.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text(title,
               style: const TextStyle(
@@ -32,7 +33,8 @@ class EmptyState extends StatelessWidget {
           if (subtitle != null) ...[
             const SizedBox(height: 8),
             Text(subtitle!,
-                style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                style:
+                    const TextStyle(fontSize: 13, color: AppColors.textMuted),
                 textAlign: TextAlign.center),
           ],
           if (action != null) ...[

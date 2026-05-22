@@ -28,7 +28,8 @@ void main() {
     });
 
     group('Flow 1: Full sign-up → org creation → first login', () {
-      test('Create account → org → leagues → hubs → teams → verify all exist', () async {
+      test('Create account → org → leagues → hubs → teams → verify all exist',
+          () async {
         // Create account
         final cred = await auth.createAccount(
           'alice@example.com',
@@ -127,7 +128,8 @@ void main() {
     });
 
     group('Flow 2: Invite → accept → first login as Staff', () {
-      test('Create invitation → retrieve by token → create account → verify role and assignments',
+      test(
+          'Create invitation → retrieve by token → create account → verify role and assignments',
           () async {
         final orgId = 'org2';
         final superAdminId = 'admin1';
@@ -219,7 +221,8 @@ void main() {
     });
 
     group('Flow 3: Create league → auto-create chat room → post message', () {
-      test('Create league, auto-create chat rooms, send message, verify lastMessage updated',
+      test(
+          'Create league, auto-create chat rooms, send message, verify lastMessage updated',
           () async {
         final orgId = 'org3';
         final userId = 'user3';
@@ -277,8 +280,9 @@ void main() {
       });
     });
 
-    group('Flow 4: Upload document → view in list → add version', () {
-      test('Create document, verify in stream, add version, verify versions grow', () async {
+    group('Flow 4: Upload policy → view in list → add version', () {
+      test('Create policy, verify in stream, add version, verify versions grow',
+          () async {
         final orgId = 'org4';
         final userId = 'user4';
         final leagueId = 'league4';
@@ -295,8 +299,8 @@ void main() {
         );
         await fs.createOrganization(org);
 
-        // Create document
-        final docData = {
+        // Create policy
+        final policyData = {
           'name': 'Rules.pdf',
           'fileUrl': 'https://example.com/rules.pdf',
           'fileType': 'pdf',
@@ -307,20 +311,20 @@ void main() {
           'uploadedByName': 'User',
           'versions': [],
         };
-        final docId = await fs.createDocument(orgId, docData);
-        expect(docId, isNotEmpty);
+        final policyId = await fs.createPolicy(orgId, policyData);
+        expect(policyId, isNotEmpty);
 
         // Verify in stream - use a short timeout to wait for snapshot
-        final docStream = fs.getDocuments(orgId);
-        final docs = await docStream
+        final policyStream = fs.getPolicies(orgId);
+        final policies = await policyStream
             .timeout(const Duration(seconds: 5))
             .firstWhere((list) => list.isNotEmpty);
-        expect(docs, hasLength(1));
-        expect(docs.first.name, 'Rules.pdf');
-        expect(docs.first.versions, isEmpty);
+        expect(policies, hasLength(1));
+        expect(policies.first.name, 'Rules.pdf');
+        expect(policies.first.versions, isEmpty);
 
         // Add version
-        await fs.addDocumentVersion(orgId, docId, {
+        await fs.addPolicyVersion(orgId, policyId, {
           'url': 'https://example.com/rules-v2.pdf',
           'fileSize': 2048,
           'uploadedAt': DateTime.now().toIso8601String(),
@@ -329,19 +333,21 @@ void main() {
         });
 
         // Verify versions grew - wait for snapshot with version
-        final docByIdStream = fs.getDocumentById(orgId, docId);
+        final docByIdStream = fs.getPolicyById(orgId, policyId);
         final updatedDoc = await docByIdStream
             .timeout(const Duration(seconds: 5))
             .firstWhere((doc) => doc != null && doc.versions.isNotEmpty);
         expect(updatedDoc, isNotNull);
         expect(updatedDoc!.versions, hasLength(1));
         expect(updatedDoc.versions.first.version, 1);
-        expect(updatedDoc.versions.first.fileUrl, 'https://example.com/rules-v2.pdf');
+        expect(updatedDoc.versions.first.fileUrl,
+            'https://example.com/rules-v2.pdf');
       });
     });
 
     group('Flow 5: Create announcement → verify scope filtering', () {
-      test('Create org-wide, league, hub announcements → verify getAnnouncementsByLeague filtering',
+      test(
+          'Create org-wide, league, hub announcements → verify getAnnouncementsByLeague filtering',
           () async {
         final orgId = 'org5';
         final userId = 'user5';
@@ -403,10 +409,12 @@ void main() {
         expect(allAnnouncements, hasLength(3));
 
         // Get announcements by league (should include org-wide + league-scoped)
-        final leagueAnnouncements = await fs.getAnnouncementsByLeague(orgId, leagueId).first;
+        final leagueAnnouncements =
+            await fs.getAnnouncementsByLeague(orgId, leagueId).first;
         expect(leagueAnnouncements, hasLength(2));
         expect(
-          leagueAnnouncements.where((a) => a.scope == AnnouncementScope.orgWide),
+          leagueAnnouncements
+              .where((a) => a.scope == AnnouncementScope.orgWide),
           hasLength(1),
         );
         expect(
@@ -417,7 +425,8 @@ void main() {
     });
 
     group('Flow 6: Role change → verify access changes', () {
-      test('Create staff user → verify denied → change to managerAdmin → verify allowed',
+      test(
+          'Create staff user → verify denied → change to managerAdmin → verify allowed',
           () async {
         final orgId = 'org6';
         final staffId = 'staff6';
@@ -476,7 +485,8 @@ void main() {
     });
 
     group('Flow 7: Deactivate user → verify blocked', () {
-      test('Create active user → deactivate → verify isActive false → verify blocked by permission',
+      test(
+          'Create active user → deactivate → verify isActive false → verify blocked by permission',
           () async {
         final orgId = 'org7';
         final userId = 'user7';

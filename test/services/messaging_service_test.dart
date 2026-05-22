@@ -125,14 +125,14 @@ void main() {
       expect(data['roomId'], 'cr1');
     });
 
-    test('document notification data has correct structure', () {
+    test('policy notification data has correct structure', () {
       final data = {
-        'type': 'document',
-        'documentId': 'd1',
+        'type': 'policy',
+        'policyId': 'd1',
         'orgId': 'org-1',
       };
-      expect(data['type'], 'document');
-      expect(data['documentId'], 'd1');
+      expect(data['type'], 'policy');
+      expect(data['policyId'], 'd1');
     });
 
     test('team update notification data has correct structure', () {
@@ -194,10 +194,10 @@ void main() {
       expect(expectedRoute, '/chat/room1');
     });
 
-    test('document routes to /documents/{docId}', () {
-      final data = {'type': 'document', 'documentId': 'doc1'};
-      final expectedRoute = '/documents/${data['documentId']}';
-      expect(expectedRoute, '/documents/doc1');
+    test('policy routes to /policy/{policyId}', () {
+      final data = {'type': 'policy', 'policyId': 'doc1'};
+      final expectedRoute = '/policy/${data['policyId']}';
+      expect(expectedRoute, '/policy/doc1');
     });
 
     test('team_update routes to /settings/roles', () {
@@ -235,9 +235,9 @@ void main() {
       expect(data['roomId'], isNull);
     });
 
-    test('missing documentId does not navigate for document type', () {
-      final data = {'type': 'document'};
-      expect(data['documentId'], isNull);
+    test('missing policyId does not navigate for policy type', () {
+      final data = {'type': 'policy'};
+      expect(data['policyId'], isNull);
     });
   });
 
@@ -247,7 +247,7 @@ void main() {
       final topicMap = {
         'announcements': 'org_${orgId}_announcements',
         'chat_messages': 'org_${orgId}_chat',
-        'document_uploads': 'org_${orgId}_documents',
+        'policy_uploads': 'org_${orgId}_policies',
         'team_updates': 'org_${orgId}_teams',
         'event_reminders': 'org_${orgId}_events',
         'admin_alerts': 'org_${orgId}_admin',
@@ -255,7 +255,7 @@ void main() {
 
       expect(topicMap['announcements'], 'org_org-123_announcements');
       expect(topicMap['chat_messages'], 'org_org-123_chat');
-      expect(topicMap['document_uploads'], 'org_org-123_documents');
+      expect(topicMap['policy_uploads'], 'org_org-123_policies');
       expect(topicMap['team_updates'], 'org_org-123_teams');
       expect(topicMap['event_reminders'], 'org_org-123_events');
       expect(topicMap['admin_alerts'], 'org_org-123_admin');

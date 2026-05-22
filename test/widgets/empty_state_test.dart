@@ -61,19 +61,19 @@ void main() {
           home: Scaffold(
             body: EmptyState(
               icon: Icons.folder_open,
-              title: 'No documents found',
+              title: 'No policies found',
               action: ElevatedButton(
                 onPressed: () {},
-                child: const Text('Upload Document'),
+                child: const Text('Upload Policy'),
               ),
             ),
           ),
         ),
       );
 
-      expect(find.text('No documents found'), findsOneWidget);
+      expect(find.text('No policies found'), findsOneWidget);
       expect(find.byType(ElevatedButton), findsOneWidget);
-      expect(find.text('Upload Document'), findsOneWidget);
+      expect(find.text('Upload Policy'), findsOneWidget);
     });
 
     testWidgets('does not render action when null', (tester) async {
@@ -104,10 +104,12 @@ void main() {
       );
 
       // The EmptyState widget builds a Center as its root
-      expect(find.descendant(
-        of: find.byType(EmptyState),
-        matching: find.byType(Center),
-      ), findsAtLeastNWidgets(1));
+      expect(
+          find.descendant(
+            of: find.byType(EmptyState),
+            matching: find.byType(Center),
+          ),
+          findsAtLeastNWidgets(1));
     });
   });
 }

@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
-import 'package:league_hub/models/document.dart';
+import 'package:league_hub/models/policy.dart';
 import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/league.dart';
@@ -57,31 +57,32 @@ void main() {
     });
   });
 
-  group('selectedCategoryProvider', () {
+  group('selectedPolicyCategoryProvider', () {
     test('defaults to "All"', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      expect(container.read(selectedCategoryProvider), 'All');
+      expect(container.read(selectedPolicyCategoryProvider), 'All');
     });
 
     test('can be updated to a category', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      container.read(selectedCategoryProvider.notifier).state = 'Handbooks';
+      container.read(selectedPolicyCategoryProvider.notifier).state =
+          'Handbooks';
 
-      expect(container.read(selectedCategoryProvider), 'Handbooks');
+      expect(container.read(selectedPolicyCategoryProvider), 'Handbooks');
     });
 
     test('can be changed multiple times', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      container.read(selectedCategoryProvider.notifier).state = 'Forms';
-      container.read(selectedCategoryProvider.notifier).state = 'Rules';
+      container.read(selectedPolicyCategoryProvider.notifier).state = 'Forms';
+      container.read(selectedPolicyCategoryProvider.notifier).state = 'Rules';
 
-      expect(container.read(selectedCategoryProvider), 'Rules');
+      expect(container.read(selectedPolicyCategoryProvider), 'Rules');
     });
   });
 
@@ -186,20 +187,20 @@ void main() {
     });
   });
 
-  group('documentsProvider', () {
+  group('policiesProvider', () {
     test('emits empty list when overridden to empty', () async {
       final container = ProviderContainer(overrides: [
-        documentsProvider.overrideWith((ref) => Stream.value([])),
+        policiesProvider.overrideWith((ref) => Stream.value([])),
       ]);
       addTearDown(container.dispose);
 
-      final result = await container.read(documentsProvider.future);
+      final result = await container.read(policiesProvider.future);
       expect(result, isEmpty);
     });
 
-    test('emits documents when overridden with data', () async {
-      final doc = Document(
-        id: 'doc1',
+    test('emits policies when overridden with data', () async {
+      final policy = Policy(
+        id: 'policy1',
         orgId: 'org1',
         name: 'Handbook',
         fileUrl: 'https://example.com/handbook.pdf',
@@ -214,11 +215,11 @@ void main() {
       );
 
       final container = ProviderContainer(overrides: [
-        documentsProvider.overrideWith((ref) => Stream.value([doc])),
+        policiesProvider.overrideWith((ref) => Stream.value([policy])),
       ]);
       addTearDown(container.dispose);
 
-      final result = await container.read(documentsProvider.future);
+      final result = await container.read(policiesProvider.future);
       expect(result.length, 1);
       expect(result.first.category, 'Handbooks');
     });
@@ -506,14 +507,14 @@ void main() {
     });
   });
 
-  group('documentProvider (family)', () {
+  group('policyProvider (family)', () {
     test('emits null when overridden to null', () async {
       final container = ProviderContainer(overrides: [
-        documentProvider('doc1').overrideWith((ref) => Stream.value(null)),
+        policyProvider('doc1').overrideWith((ref) => Stream.value(null)),
       ]);
       addTearDown(container.dispose);
 
-      final result = await container.read(documentProvider('doc1').future);
+      final result = await container.read(policyProvider('doc1').future);
       expect(result, isNull);
     });
   });

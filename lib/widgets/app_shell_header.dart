@@ -6,8 +6,6 @@ import '../core/utils.dart';
 
 class AppShellHeader extends StatelessWidget {
   final String title;
-  final String? subtitle;
-  final String? eyebrow;
   final IconData? leadingIcon;
   final String? leadingImageUrl;
   final String? leadingLabel;
@@ -17,8 +15,6 @@ class AppShellHeader extends StatelessWidget {
   const AppShellHeader({
     super.key,
     required this.title,
-    this.subtitle,
-    this.eyebrow,
     this.leadingIcon,
     this.leadingImageUrl,
     this.leadingLabel,
@@ -29,6 +25,7 @@ class AppShellHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
+    final hasBottom = bottom != null;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -38,7 +35,7 @@ class AppShellHeader extends StatelessWidget {
       ),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(20, topInset + 14, 20, 50),
+        padding: EdgeInsets.fromLTRB(20, topInset, 20, 44),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -57,11 +54,11 @@ class AppShellHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       if (leadingIcon != null ||
                           (leadingImageUrl != null &&
@@ -71,45 +68,19 @@ class AppShellHeader extends StatelessWidget {
                           imageUrl: leadingImageUrl,
                           label: leadingLabel ?? title,
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
                       ],
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (eyebrow != null) ...[
-                              Text(
-                                eyebrow!,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  letterSpacing: 1.1,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                            ],
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                height: 1.05,
-                              ),
-                            ),
-                            if (subtitle != null) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                subtitle!,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xD9FFFFFF),
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ],
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            height: 1.1,
+                          ),
                         ),
                       ),
                     ],
@@ -121,8 +92,8 @@ class AppShellHeader extends StatelessWidget {
                 ],
               ],
             ),
-            if (bottom != null) ...[
-              const SizedBox(height: 20),
+            if (hasBottom) ...[
+              const SizedBox(height: 16),
               bottom!,
             ],
           ],
@@ -148,11 +119,11 @@ class _HeaderLeadingMark extends StatelessWidget {
     final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
 
     return Container(
-      width: 48,
-      height: 48,
+      width: 42,
+      height: 42,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.18),
         ),
@@ -174,7 +145,7 @@ class _HeaderLeadingMark extends StatelessWidget {
       return Icon(
         icon,
         color: Colors.white,
-        size: 24,
+        size: 22,
       );
     }
 
@@ -183,7 +154,7 @@ class _HeaderLeadingMark extends StatelessWidget {
         AppUtils.getInitials(label),
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -231,7 +202,7 @@ class AppHeaderSearchField extends StatelessWidget {
             borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
           ),
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         ),
       ),
     );
@@ -253,8 +224,8 @@ class AppHeaderIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final iconChild = SizedBox(
-      width: 44,
-      height: 44,
+      width: 40,
+      height: 40,
       child: Icon(icon, color: Colors.white),
     );
 
@@ -262,9 +233,9 @@ class AppHeaderIconButton extends StatelessWidget {
       padding: const EdgeInsets.only(left: 8),
       child: Material(
         color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           onTap: onPressed,
           child: tooltip == null
               ? iconChild

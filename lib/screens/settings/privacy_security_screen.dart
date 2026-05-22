@@ -70,8 +70,8 @@ class PrivacySecurityScreen extends ConsumerWidget {
               ),
               const Divider(height: 1, indent: 54),
               ListTile(
-                leading: const Icon(Icons.logout,
-                    color: AppColors.danger, size: 22),
+                leading:
+                    const Icon(Icons.logout, color: AppColors.danger, size: 22),
                 title: const Text('Sign Out All Devices',
                     style: TextStyle(fontSize: 14, color: AppColors.danger)),
                 subtitle: const Text(
@@ -91,8 +91,7 @@ class PrivacySecurityScreen extends ConsumerWidget {
                     color: AppColors.primary, size: 22),
                 title: const Text('Export My Data',
                     style: TextStyle(fontSize: 14, color: AppColors.text)),
-                subtitle: const Text(
-                    'Download a copy of your account data',
+                subtitle: const Text('Download a copy of your account data',
                     style: TextStyle(
                         fontSize: 12, color: AppColors.textSecondary)),
                 trailing: const Icon(Icons.chevron_right,
@@ -199,13 +198,12 @@ class PrivacySecurityScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               if (newPassCtrl.text.length < 6) {
-                AppUtils.showErrorSnackBar(context,
-                    'Password must be at least 6 characters');
+                AppUtils.showErrorSnackBar(
+                    context, 'Password must be at least 6 characters');
                 return;
               }
               if (newPassCtrl.text != confirmPassCtrl.text) {
-                AppUtils.showErrorSnackBar(context,
-                    'Passwords do not match');
+                AppUtils.showErrorSnackBar(context, 'Passwords do not match');
                 return;
               }
               try {
@@ -220,8 +218,8 @@ class PrivacySecurityScreen extends ConsumerWidget {
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
-                  AppUtils.showSuccessSnackBar(context,
-                      'Password updated successfully');
+                  AppUtils.showSuccessSnackBar(
+                      context, 'Password updated successfully');
                 }
               } catch (e) {
                 if (context.mounted) {
@@ -347,8 +345,8 @@ class PrivacySecurityScreen extends ConsumerWidget {
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () async {
               if (passwordCtrl.text.isEmpty) {
-                AppUtils.showErrorSnackBar(context,
-                    'Please enter your password');
+                AppUtils.showErrorSnackBar(
+                    context, 'Please enter your password');
                 return;
               }
               try {
@@ -362,8 +360,7 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   await firebaseUser.reauthenticateWithCredential(cred);
 
                   // Remove FCM token so push notifications stop.
-                  final appUser =
-                      ref.read(currentUserProvider).valueOrNull;
+                  final appUser = ref.read(currentUserProvider).valueOrNull;
                   if (appUser != null) {
                     await ref
                         .read(messagingServiceProvider)
@@ -386,8 +383,8 @@ class PrivacySecurityScreen extends ConsumerWidget {
               } catch (e) {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
-                  AppUtils.showErrorSnackBar(context,
-                      'Failed to delete account: $e');
+                  AppUtils.showErrorSnackBar(
+                      context, 'Failed to delete account: $e');
                 }
               }
             },

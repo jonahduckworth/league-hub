@@ -28,9 +28,8 @@ class StatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: effectiveBgColor,
         borderRadius: BorderRadius.circular(6),
-        border: showBorder
-            ? Border.all(color: color.withValues(alpha: 0.3))
-            : null,
+        border:
+            showBorder ? Border.all(color: color.withValues(alpha: 0.3)) : null,
       ),
       child: Text(
         label,

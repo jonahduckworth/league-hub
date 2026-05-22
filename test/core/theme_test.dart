@@ -117,8 +117,8 @@ void main() {
 
     test('bottom nav bar is fixed type', () {
       final theme = AppTheme.lightTheme;
-      expect(theme.bottomNavigationBarTheme.type,
-          BottomNavigationBarType.fixed);
+      expect(
+          theme.bottomNavigationBarTheme.type, BottomNavigationBarType.fixed);
     });
 
     test('color scheme primary matches AppColors.primary', () {

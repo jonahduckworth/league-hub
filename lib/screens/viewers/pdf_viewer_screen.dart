@@ -79,7 +79,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(value: _progress > 0 ? _progress : null),
+                  CircularProgressIndicator(
+                      value: _progress > 0 ? _progress : null),
                   const SizedBox(height: 16),
                   Text(
                     _progress > 0
@@ -102,8 +103,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         const SizedBox(height: 12),
                         Text(_errorMessage!,
                             textAlign: TextAlign.center,
-                            style:
-                                const TextStyle(color: AppColors.textSecondary)),
+                            style: const TextStyle(
+                                color: AppColors.textSecondary)),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
@@ -138,8 +139,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                             File(_localPath!).existsSync()
                                 ? 'Saved to temporary storage'
                                 : 'File ready',
-                            style: const TextStyle(
-                                color: AppColors.textSecondary),
+                            style:
+                                const TextStyle(color: AppColors.textSecondary),
                           ),
                           const SizedBox(height: 20),
                           ElevatedButton.icon(

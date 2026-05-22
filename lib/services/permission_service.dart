@@ -47,7 +47,7 @@ class PermissionService {
   static const _publicRoutes = {
     '/',
     '/chat',
-    '/documents',
+    '/policy',
     '/announcements',
     '/settings',
     '/settings/profile',
@@ -70,7 +70,7 @@ class PermissionService {
 
   /// Routes that require at least managerAdmin to create/edit content.
   static const _contentCreationRoutes = {
-    '/documents/upload',
+    '/policy/upload',
     '/announcements/create',
   };
 
@@ -96,12 +96,11 @@ class PermissionService {
       return isAtLeast(user.role, UserRole.managerAdmin);
     }
 
-    // Dynamic routes — chat conversations, document detail, announcement
+    // Dynamic routes — chat conversations, policy detail, announcement
     // detail, user detail, and announcement edit are accessible to all active
     // users (the data-layer scope filters handle visibility).
     if (normalised.startsWith('/chat/')) return true;
-    if (normalised.startsWith('/documents/') &&
-        normalised != '/documents/upload') {
+    if (normalised.startsWith('/policy/') && normalised != '/policy/upload') {
       return true;
     }
     if (normalised.startsWith('/announcements/') &&
@@ -301,36 +300,36 @@ class PermissionService {
   }
 
   // ---------------------------------------------------------------------------
-  // Documents
+  // Policy
   // ---------------------------------------------------------------------------
 
-  bool canUploadDocument(AppUser user) =>
+  bool canUploadPolicy(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
 
-  bool canUploadDocumentToHub(AppUser user, String hubId) {
-    if (!canUploadDocument(user)) return false;
+  bool canUploadPolicyToHub(AppUser user, String hubId) {
+    if (!canUploadPolicy(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     return user.hubIds.contains(hubId);
   }
 
-  bool canEditDocument(AppUser user, {required String uploadedBy}) {
+  bool canEditPolicy(AppUser user, {required String uploadedBy}) {
     if (!isActiveUser(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     return user.role == UserRole.managerAdmin && user.id == uploadedBy;
   }
 
-  bool canDeleteDocument(AppUser user) =>
+  bool canDeletePolicy(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
 
-  /// Returns true if [user] should see a document scoped to [hubId] / [leagueId].
-  bool canViewDocument(AppUser user, {String? leagueId, String? hubId}) {
+  /// Returns true if [user] should see a policy scoped to [hubId] / [leagueId].
+  bool canViewPolicy(AppUser user, {String? leagueId, String? hubId}) {
     if (!isActiveUser(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     // If hub-scoped, user must be in that hub.
     if (hubId != null) return user.hubIds.contains(hubId);
     // League-scoped: user must belong to a hub within that league.
     if (leagueId != null) return user.leagueIds.contains(leagueId);
-    // Unscoped docs are visible to everyone in the org.
+    // Unscoped policies are visible to everyone in the org.
     return true;
   }
 

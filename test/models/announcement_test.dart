@@ -219,7 +219,8 @@ void main() {
         createdAt: testDate,
       );
 
-      final restored = Announcement.fromJson({'id': original.id, ...original.toJson()});
+      final restored =
+          Announcement.fromJson({'id': original.id, ...original.toJson()});
 
       expect(restored.id, original.id);
       expect(restored.orgId, original.orgId);

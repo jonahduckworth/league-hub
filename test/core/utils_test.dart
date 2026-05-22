@@ -25,8 +25,7 @@ void main() {
         await tester.pump();
 
         expect(find.text('Something failed'), findsOneWidget);
-        final snackBar =
-            tester.widget<SnackBar>(find.byType(SnackBar));
+        final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
         expect(snackBar.backgroundColor, AppColors.danger);
         expect(snackBar.behavior, SnackBarBehavior.floating);
       });
@@ -52,8 +51,7 @@ void main() {
         await tester.pump();
 
         expect(find.text('Done!'), findsOneWidget);
-        final snackBar =
-            tester.widget<SnackBar>(find.byType(SnackBar));
+        final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
         expect(snackBar.backgroundColor, AppColors.success);
         expect(snackBar.behavior, SnackBarBehavior.floating);
       });
@@ -79,8 +77,7 @@ void main() {
         await tester.pump();
 
         expect(find.text('Info message'), findsOneWidget);
-        final snackBar =
-            tester.widget<SnackBar>(find.byType(SnackBar));
+        final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
         expect(snackBar.behavior, SnackBarBehavior.floating);
         // backgroundColor should be null (default)
         expect(snackBar.backgroundColor, isNull);

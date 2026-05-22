@@ -9,14 +9,15 @@ import '../models/hub.dart';
 import '../models/team.dart';
 import '../models/chat_room.dart';
 import '../models/message.dart';
-import '../models/document.dart';
+import '../models/policy.dart';
 import '../models/announcement.dart';
 import '../models/organization.dart';
 import '../models/app_user.dart';
 import '../models/invitation.dart';
 import 'auth_provider.dart';
 
-final firestoreServiceProvider = Provider<FirestoreService>((ref) => FirestoreService());
+final firestoreServiceProvider =
+    Provider<FirestoreService>((ref) => FirestoreService());
 
 /// Authorized wrapper — use this for all write operations.
 final authorizedFirestoreServiceProvider =
@@ -26,7 +27,7 @@ final authorizedFirestoreServiceProvider =
         ));
 
 final selectedLeagueProvider = StateProvider<String?>((ref) => null);
-final selectedCategoryProvider = StateProvider<String>((ref) => 'All');
+final selectedPolicyCategoryProvider = StateProvider<String>((ref) => 'All');
 
 final organizationProvider = FutureProvider<Organization?>((ref) async {
   final appUser = await ref.watch(currentUserProvider.future);
@@ -42,8 +43,7 @@ final leaguesProvider = StreamProvider<List<League>>((ref) {
 
 // --- Hubs (per league) ---
 
-final hubsProvider =
-    StreamProvider.family<List<Hub>, String>((ref, leagueId) {
+final hubsProvider = StreamProvider.family<List<Hub>, String>((ref, leagueId) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
   return ref.read(firestoreServiceProvider).getHubs(orgId, leagueId);
@@ -92,47 +92,51 @@ final chatRoomsProvider = StreamProvider<List<ChatRoom>>((ref) {
 });
 
 /// Stream of a single chat room by ID.
-final chatRoomProvider = StreamProvider.family<ChatRoom?, String>((ref, roomId) {
+final chatRoomProvider =
+    StreamProvider.family<ChatRoom?, String>((ref, roomId) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value(null);
   return ref.watch(firestoreServiceProvider).getChatRoom(orgId, roomId);
 });
 
 /// Stream of messages for a given room ID.
-final messagesProvider = StreamProvider.family<List<Message>, String>((ref, roomId) {
+final messagesProvider =
+    StreamProvider.family<List<Message>, String>((ref, roomId) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
   return ref.watch(firestoreServiceProvider).getMessages(orgId, roomId);
 });
 
-/// Documents, scope-filtered by user role. superAdmin+ sees all.
-/// managerAdmin/staff only see docs scoped to their hubs (or unscoped docs).
-final documentsProvider = StreamProvider<List<Document>>((ref) {
+/// Policy, scope-filtered by user role. superAdmin+ sees all.
+/// managerAdmin/staff only see policies scoped to their hubs (or unscoped policies).
+final policiesProvider = StreamProvider<List<Policy>>((ref) {
   final leagueId = ref.watch(selectedLeagueProvider);
-  final category = ref.watch(selectedCategoryProvider);
+  final category = ref.watch(selectedPolicyCategoryProvider);
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
   final appUser = ref.watch(currentUserProvider).valueOrNull;
   final ps = ref.read(permissionServiceProvider);
-  return ref.watch(firestoreServiceProvider).documentsStream(
+  return ref
+      .watch(firestoreServiceProvider)
+      .policiesStream(
         orgId,
         leagueId: leagueId,
         category: category == 'All' ? null : category,
-      ).map((docs) {
-    if (appUser == null) return docs;
-    return docs
+      )
+      .map((policies) {
+    if (appUser == null) return policies;
+    return policies
         .where((d) =>
-            ps.canViewDocument(appUser, leagueId: d.leagueId, hubId: d.hubId))
+            ps.canViewPolicy(appUser, leagueId: d.leagueId, hubId: d.hubId))
         .toList();
   });
 });
 
-/// Stream of a single document by ID.
-final documentProvider =
-    StreamProvider.family<Document?, String>((ref, docId) {
+/// Stream of a single policy by ID.
+final policyProvider = StreamProvider.family<Policy?, String>((ref, policyId) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value(null);
-  return ref.watch(firestoreServiceProvider).getDocumentById(orgId, docId);
+  return ref.watch(firestoreServiceProvider).getPolicyById(orgId, policyId);
 });
 
 /// All announcements for the current org, pinned first then newest.
@@ -142,7 +146,10 @@ final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
   if (orgId == null) return Stream.value([]);
   final appUser = ref.watch(currentUserProvider).valueOrNull;
   final ps = ref.read(permissionServiceProvider);
-  return ref.watch(firestoreServiceProvider).getAnnouncements(orgId).map((list) {
+  return ref
+      .watch(firestoreServiceProvider)
+      .getAnnouncements(orgId)
+      .map((list) {
     if (appUser == null) return list;
     return list
         .where((a) => ps.canViewAnnouncement(
@@ -175,16 +182,19 @@ final typingUsersProvider =
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   final userId = ref.watch(currentUserProvider).valueOrNull?.id;
   if (orgId == null || userId == null) return Stream.value([]);
-  return ref.read(firestoreServiceProvider).typingUsersStream(orgId, roomId, userId);
+  return ref
+      .read(firestoreServiceProvider)
+      .typingUsersStream(orgId, roomId, userId);
 });
 
 /// Stream of unread message count for a given room, scoped to the current user.
-final unreadCountProvider =
-    StreamProvider.family<int, String>((ref, roomId) {
+final unreadCountProvider = StreamProvider.family<int, String>((ref, roomId) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   final userId = ref.watch(currentUserProvider).valueOrNull?.id;
   if (orgId == null || userId == null) return Stream.value(0);
-  return ref.read(firestoreServiceProvider).unreadCountStream(orgId, roomId, userId);
+  return ref
+      .read(firestoreServiceProvider)
+      .unreadCountStream(orgId, roomId, userId);
 });
 
 final pendingInviteCountProvider = Provider<int>((ref) {

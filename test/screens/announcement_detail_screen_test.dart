@@ -306,8 +306,7 @@ void main() {
         expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       });
 
-      testWidgets('shows edit button for author',
-          (WidgetTester tester) async {
+      testWidgets('shows edit button for author', (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
             announcementId: 'ann-1',

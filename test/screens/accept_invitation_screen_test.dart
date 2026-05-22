@@ -28,7 +28,8 @@ void main() {
         expect(find.byType(AcceptInvitationScreen), findsOneWidget);
       });
 
-      testWidgets('displays accept invitation title', (WidgetTester tester) async {
+      testWidgets('displays accept invitation title',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -49,7 +50,8 @@ void main() {
     });
 
     group('Token Input', () {
-      testWidgets('displays invite code input field', (WidgetTester tester) async {
+      testWidgets('displays invite code input field',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -74,7 +76,8 @@ void main() {
     });
 
     group('Error Handling', () {
-      testWidgets('can display lookup error state', (WidgetTester tester) async {
+      testWidgets('can display lookup error state',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -102,7 +105,8 @@ void main() {
         expect(find.byType(AcceptInvitationScreen), findsOneWidget);
       });
 
-      testWidgets('shows email in invitation preview', (WidgetTester tester) async {
+      testWidgets('shows email in invitation preview',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -110,7 +114,8 @@ void main() {
         expect(find.byType(AcceptInvitationScreen), findsOneWidget);
       });
 
-      testWidgets('displays role label in preview', (WidgetTester tester) async {
+      testWidgets('displays role label in preview',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -136,14 +141,16 @@ void main() {
         expect(find.byType(TextField), findsWidgets);
       });
 
-      testWidgets('displays password field with toggle', (WidgetTester tester) async {
+      testWidgets('displays password field with toggle',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
         expect(find.byType(TextField), findsWidgets);
       });
 
-      testWidgets('displays confirm password field', (WidgetTester tester) async {
+      testWidgets('displays confirm password field',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -205,7 +212,8 @@ void main() {
         expect(find.byType(AcceptInvitationScreen), findsOneWidget);
       });
 
-      testWidgets('shows password visibility toggle when form is visible', (WidgetTester tester) async {
+      testWidgets('shows password visibility toggle when form is visible',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();

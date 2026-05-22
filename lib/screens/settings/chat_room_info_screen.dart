@@ -159,185 +159,10 @@ class ChatRoomInfoScreen extends ConsumerWidget {
     WidgetRef ref,
     ChatRoom room,
   ) async {
-    final nameController = TextEditingController(text: room.name);
-    String selectedIconName = room.roomIconName ?? 'event';
-    bool useImage = room.roomImageUrl != null && room.roomImageUrl!.isNotEmpty;
-    Uint8List? selectedImageBytes;
-    String? selectedImageName;
-    bool isSaving = false;
-
-    try {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => StatefulBuilder(
-          builder: (dialogContext, setDialogState) => AlertDialog(
-            title: const Text('Edit Room'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Room Name',
-                      prefixIcon: Icon(Icons.forum_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'ROOM LOOK',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textSecondary,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ...chatRoomIconOptions.entries.map(
-                        (entry) => ChoiceChip(
-                          label: Icon(entry.value, size: 18),
-                          selected: !useImage && selectedIconName == entry.key,
-                          onSelected: isSaving
-                              ? null
-                              : (_) => setDialogState(() {
-                                    selectedIconName = entry.key;
-                                    useImage = false;
-                                    selectedImageBytes = null;
-                                    selectedImageName = null;
-                                  }),
-                        ),
-                      ),
-                      ActionChip(
-                        avatar: Icon(
-                          useImage ? Icons.check_circle : Icons.image_outlined,
-                          size: 18,
-                        ),
-                        label: Text(selectedImageName ??
-                            (useImage ? 'Current Image' : 'Use Image')),
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                                final picked = await pickImageBytes();
-                                if (picked == null) {
-                                  if (context.mounted) {
-                                    AppUtils.showInfoSnackBar(
-                                      context,
-                                      'We could not read that image. Please try a different file.',
-                                    );
-                                  }
-                                  return;
-                                }
-                                if (!dialogContext.mounted) return;
-                                setDialogState(() {
-                                  useImage = true;
-                                  selectedImageBytes = picked.bytes;
-                                  selectedImageName = picked.name;
-                                });
-                              },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed:
-                    isSaving ? null : () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        final name = nameController.text.trim();
-                        if (name.isEmpty) {
-                          AppUtils.showInfoSnackBar(
-                            context,
-                            'Please enter a room name.',
-                          );
-                          return;
-                        }
-
-                        final orgId =
-                            ref.read(organizationProvider).valueOrNull?.id ??
-                                room.orgId;
-                        final currentUser =
-                            await ref.read(currentUserProvider.future);
-                        if (currentUser == null) return;
-
-                        setDialogState(() => isSaving = true);
-
-                        var dialogClosed = false;
-                        try {
-                          String? roomImageUrl =
-                              useImage ? room.roomImageUrl : null;
-                          if (selectedImageBytes != null) {
-                            final extension = (selectedImageName ?? 'room.png')
-                                .split('.')
-                                .last
-                                .toLowerCase();
-                            roomImageUrl = await StorageService().uploadBytes(
-                              bytes: selectedImageBytes!,
-                              path:
-                                  'orgs/$orgId/chat/${room.id}/room-images/${currentUser.id}/roomImage_${DateTime.now().microsecondsSinceEpoch}_${selectedImageName ?? 'room.$extension'}',
-                              contentType: chatRoomImageContentType(extension),
-                            );
-                          }
-
-                          await ref
-                              .read(authorizedFirestoreServiceProvider)
-                              .updateChatRoomFields(
-                            currentUser,
-                            orgId,
-                            room.id,
-                            {
-                              'name': name,
-                              'roomIconName':
-                                  useImage ? null : selectedIconName,
-                              'roomImageUrl': roomImageUrl,
-                            },
-                          );
-
-                          if (dialogContext.mounted) {
-                            dialogClosed = true;
-                            Navigator.of(dialogContext).pop();
-                          }
-                        } on PermissionDeniedException {
-                          if (context.mounted) {
-                            AppUtils.showErrorSnackBar(
-                              context,
-                              'You do not have permission to edit chat rooms',
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            AppUtils.showErrorSnackBar(
-                              context,
-                              'Could not update room: $e',
-                            );
-                          }
-                        } finally {
-                          if (!dialogClosed && dialogContext.mounted) {
-                            setDialogState(() => isSaving = false);
-                          }
-                        }
-                      },
-                child: Text(isSaving ? 'Saving...' : 'Save'),
-              ),
-            ],
-          ),
-        ),
-      );
-    } finally {
-      nameController.dispose();
-    }
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _EditRoomDialog(room: room),
+    );
   }
 
   Future<void> _confirmArchive(
@@ -454,6 +279,198 @@ class _DirectMessageInfoCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditRoomDialog extends ConsumerStatefulWidget {
+  final ChatRoom room;
+
+  const _EditRoomDialog({required this.room});
+
+  @override
+  ConsumerState<_EditRoomDialog> createState() => _EditRoomDialogState();
+}
+
+class _EditRoomDialogState extends ConsumerState<_EditRoomDialog> {
+  late final TextEditingController _nameController;
+  late String _selectedIconName;
+  late bool _useImage;
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.room.name);
+    _selectedIconName = widget.room.roomIconName ?? 'event';
+    _useImage = widget.room.roomImageUrl != null &&
+        widget.room.roomImageUrl!.isNotEmpty;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await pickImageBytes();
+    if (picked == null) {
+      if (mounted) {
+        AppUtils.showInfoSnackBar(
+          context,
+          'We could not read that image. Please try a different file.',
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _useImage = true;
+      _selectedImageBytes = picked.bytes;
+      _selectedImageName = picked.name;
+    });
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      AppUtils.showInfoSnackBar(
+        context,
+        'Please enter a room name.',
+      );
+      return;
+    }
+
+    final orgId =
+        ref.read(organizationProvider).valueOrNull?.id ?? widget.room.orgId;
+    final currentUser = await ref.read(currentUserProvider.future);
+    if (!mounted || currentUser == null) return;
+
+    setState(() => _isSaving = true);
+
+    var dialogClosed = false;
+    try {
+      String? roomImageUrl = _useImage ? widget.room.roomImageUrl : null;
+      if (_selectedImageBytes != null) {
+        final extension =
+            (_selectedImageName ?? 'room.png').split('.').last.toLowerCase();
+        roomImageUrl = await StorageService().uploadBytes(
+          bytes: _selectedImageBytes!,
+          path:
+              'orgs/$orgId/chat/${widget.room.id}/room-images/${currentUser.id}/roomImage_${DateTime.now().microsecondsSinceEpoch}_${_selectedImageName ?? 'room.$extension'}',
+          contentType: chatRoomImageContentType(extension),
+        );
+      }
+      if (!mounted) return;
+
+      await ref.read(authorizedFirestoreServiceProvider).updateChatRoomFields(
+        currentUser,
+        orgId,
+        widget.room.id,
+        {
+          'name': name,
+          'roomIconName': _useImage ? null : _selectedIconName,
+          'roomImageUrl': roomImageUrl,
+        },
+      );
+
+      if (mounted) {
+        dialogClosed = true;
+        Navigator.of(context).pop();
+      }
+    } on PermissionDeniedException {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(
+          context,
+          'You do not have permission to edit chat rooms',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(
+          context,
+          'Could not update room: $e',
+        );
+      }
+    } finally {
+      if (!dialogClosed && mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Room'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Room Name',
+                prefixIcon: Icon(Icons.forum_outlined),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'ROOM LOOK',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ...chatRoomIconOptions.entries.map(
+                  (entry) => ChoiceChip(
+                    label: Icon(entry.value, size: 18),
+                    selected: !_useImage && _selectedIconName == entry.key,
+                    onSelected: _isSaving
+                        ? null
+                        : (_) => setState(() {
+                              _selectedIconName = entry.key;
+                              _useImage = false;
+                              _selectedImageBytes = null;
+                              _selectedImageName = null;
+                            }),
+                  ),
+                ),
+                ActionChip(
+                  avatar: Icon(
+                    _useImage ? Icons.check_circle : Icons.image_outlined,
+                    size: 18,
+                  ),
+                  label: Text(_selectedImageName ??
+                      (_useImage ? 'Current Image' : 'Use Image')),
+                  onPressed: _isSaving ? null : _pickImage,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isSaving ? null : _save,
+          child: Text(_isSaving ? 'Saving...' : 'Save'),
         ),
       ],
     );

@@ -166,29 +166,30 @@ class MockFirestoreService extends Mock implements FirestoreService {
           returnValue: Future<void>.value()) as Future<void>);
 
   @override
-  Future<String> createDocument(String orgId, Map<String, dynamic> docData,
-          {String? docId}) =>
+  Future<String> createPolicy(String orgId, Map<String, dynamic> policyData,
+          {String? policyId}) =>
       (super.noSuchMethod(
-          Invocation.method(#createDocument, [orgId, docData], {#docId: docId}),
+          Invocation.method(
+              #createPolicy, [orgId, policyData], {#policyId: policyId}),
           returnValue: Future<String>.value('')) as Future<String>);
 
   @override
-  Future<void> updateDocument(
-          String orgId, String docId, Map<String, dynamic> data) =>
+  Future<void> updatePolicy(
+          String orgId, String policyId, Map<String, dynamic> data) =>
       (super.noSuchMethod(
-          Invocation.method(#updateDocument, [orgId, docId, data]),
+          Invocation.method(#updatePolicy, [orgId, policyId, data]),
           returnValue: Future<void>.value()) as Future<void>);
 
   @override
-  Future<void> deleteDocument(String orgId, String docId) =>
-      (super.noSuchMethod(Invocation.method(#deleteDocument, [orgId, docId]),
+  Future<void> deletePolicy(String orgId, String policyId) =>
+      (super.noSuchMethod(Invocation.method(#deletePolicy, [orgId, policyId]),
           returnValue: Future<void>.value()) as Future<void>);
 
   @override
-  Future<void> addDocumentVersion(
-          String orgId, String docId, Map<String, dynamic> versionData) =>
+  Future<void> addPolicyVersion(
+          String orgId, String policyId, Map<String, dynamic> versionData) =>
       (super.noSuchMethod(
-          Invocation.method(#addDocumentVersion, [orgId, docId, versionData]),
+          Invocation.method(#addPolicyVersion, [orgId, policyId, versionData]),
           returnValue: Future<void>.value()) as Future<void>);
 
   @override
@@ -1137,67 +1138,65 @@ void main() {
     });
 
     // =========================================================================
-    // Documents
+    // Policy
     // =========================================================================
 
-    group('createDocument', () {
-      test(
-          'throws PermissionDeniedException when staff tries to create document',
+    group('createPolicy', () {
+      test('throws PermissionDeniedException when staff tries to create policy',
           () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
-          () => afs.createDocument(staff, 'org1', {}),
+          () => afs.createPolicy(staff, 'org1', {}),
           throwsA(isA<PermissionDeniedException>()),
         );
 
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when managerAdmin creates document',
-          () async {
+      test('calls FirestoreService when managerAdmin creates policy', () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
-        final docData = {'title': 'Document'};
+        final policyData = {'title': 'Policy'};
 
-        when(mockFs.createDocument('org1', docData, docId: null))
-            .thenAnswer((_) async => 'docId');
+        when(mockFs.createPolicy('org1', policyData, policyId: null))
+            .thenAnswer((_) async => 'policyId');
 
-        final result = await afs.createDocument(managerAdmin, 'org1', docData);
+        final result = await afs.createPolicy(managerAdmin, 'org1', policyData);
 
-        expect(result, equals('docId'));
-        verify(mockFs.createDocument('org1', docData, docId: null)).called(1);
+        expect(result, equals('policyId'));
+        verify(mockFs.createPolicy('org1', policyData, policyId: null))
+            .called(1);
       });
 
       test(
-          'calls FirestoreService when superAdmin creates document with specific docId',
+          'calls FirestoreService when superAdmin creates policy with specific policyId',
           () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
-        final docData = {'title': 'Document'};
+        final policyData = {'title': 'Policy'};
 
-        when(mockFs.createDocument('org1', docData, docId: 'specific-id'))
+        when(mockFs.createPolicy('org1', policyData, policyId: 'specific-id'))
             .thenAnswer((_) async => 'specific-id');
 
-        final result = await afs.createDocument(
+        final result = await afs.createPolicy(
           superAdmin,
           'org1',
-          docData,
-          docId: 'specific-id',
+          policyData,
+          policyId: 'specific-id',
         );
 
         expect(result, equals('specific-id'));
-        verify(mockFs.createDocument('org1', docData, docId: 'specific-id'))
+        verify(mockFs.createPolicy('org1', policyData, policyId: 'specific-id'))
             .called(1);
       });
     });
 
-    group('updateDocument', () {
-      test(
-          'throws PermissionDeniedException when staff tries to update document',
+    group('updatePolicy', () {
+      test('throws PermissionDeniedException when staff tries to update policy',
           () async {
         final staff = makeUser(id: 'u1', role: UserRole.staff);
 
         expect(
-          () => afs.updateDocument(staff, 'org1', 'doc1', {}, uploadedBy: 'u1'),
+          () => afs.updatePolicy(staff, 'org1', 'doc1', {}, uploadedBy: 'u1'),
           throwsA(isA<PermissionDeniedException>()),
         );
 
@@ -1205,12 +1204,12 @@ void main() {
       });
 
       test(
-          'throws PermissionDeniedException when managerAdmin tries to edit document by different author',
+          'throws PermissionDeniedException when managerAdmin tries to edit policy by different author',
           () async {
         final managerAdmin = makeUser(id: 'u1', role: UserRole.managerAdmin);
 
         expect(
-          () => afs.updateDocument(managerAdmin, 'org1', 'doc1', {},
+          () => afs.updatePolicy(managerAdmin, 'org1', 'doc1', {},
               uploadedBy: 'u2'),
           throwsA(isA<PermissionDeniedException>()),
         );
@@ -1218,67 +1217,66 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when managerAdmin edits their own document',
+      test('calls FirestoreService when managerAdmin edits their own policy',
           () async {
         final managerAdmin = makeUser(id: 'u1', role: UserRole.managerAdmin);
         final data = {'title': 'Updated'};
 
-        when(mockFs.updateDocument('org1', 'doc1', data))
+        when(mockFs.updatePolicy('org1', 'doc1', data))
             .thenAnswer((_) async => {});
 
-        await afs.updateDocument(managerAdmin, 'org1', 'doc1', data,
+        await afs.updatePolicy(managerAdmin, 'org1', 'doc1', data,
             uploadedBy: 'u1');
 
-        verify(mockFs.updateDocument('org1', 'doc1', data)).called(1);
+        verify(mockFs.updatePolicy('org1', 'doc1', data)).called(1);
       });
 
-      test('calls FirestoreService when superAdmin edits any document',
-          () async {
+      test('calls FirestoreService when superAdmin edits any policy', () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final data = {'title': 'Updated'};
 
-        when(mockFs.updateDocument('org1', 'doc1', data))
+        when(mockFs.updatePolicy('org1', 'doc1', data))
             .thenAnswer((_) async => {});
 
-        await afs.updateDocument(superAdmin, 'org1', 'doc1', data,
+        await afs.updatePolicy(superAdmin, 'org1', 'doc1', data,
             uploadedBy: 'u2');
 
-        verify(mockFs.updateDocument('org1', 'doc1', data)).called(1);
+        verify(mockFs.updatePolicy('org1', 'doc1', data)).called(1);
       });
     });
 
-    group('deleteDocument', () {
+    group('deletePolicy', () {
       test(
-          'throws PermissionDeniedException when managerAdmin tries to delete document',
+          'throws PermissionDeniedException when managerAdmin tries to delete policy',
           () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
 
         expect(
-          () => afs.deleteDocument(managerAdmin, 'org1', 'doc1'),
+          () => afs.deletePolicy(managerAdmin, 'org1', 'doc1'),
           throwsA(isA<PermissionDeniedException>()),
         );
 
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when superAdmin deletes document', () async {
+      test('calls FirestoreService when superAdmin deletes policy', () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
 
-        when(mockFs.deleteDocument('org1', 'doc1')).thenAnswer((_) async => {});
+        when(mockFs.deletePolicy('org1', 'doc1')).thenAnswer((_) async => {});
 
-        await afs.deleteDocument(superAdmin, 'org1', 'doc1');
+        await afs.deletePolicy(superAdmin, 'org1', 'doc1');
 
-        verify(mockFs.deleteDocument('org1', 'doc1')).called(1);
+        verify(mockFs.deletePolicy('org1', 'doc1')).called(1);
       });
     });
 
-    group('addDocumentVersion', () {
+    group('addPolicyVersion', () {
       test('throws PermissionDeniedException when staff tries to add version',
           () async {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
-          () => afs.addDocumentVersion(staff, 'org1', 'doc1', {}),
+          () => afs.addPolicyVersion(staff, 'org1', 'doc1', {}),
           throwsA(isA<PermissionDeniedException>()),
         );
 
@@ -1289,13 +1287,12 @@ void main() {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
         final versionData = {'url': 'https://...', 'fileSize': 1024};
 
-        when(mockFs.addDocumentVersion('org1', 'doc1', versionData))
+        when(mockFs.addPolicyVersion('org1', 'doc1', versionData))
             .thenAnswer((_) async => {});
 
-        await afs.addDocumentVersion(managerAdmin, 'org1', 'doc1', versionData);
+        await afs.addPolicyVersion(managerAdmin, 'org1', 'doc1', versionData);
 
-        verify(mockFs.addDocumentVersion('org1', 'doc1', versionData))
-            .called(1);
+        verify(mockFs.addPolicyVersion('org1', 'doc1', versionData)).called(1);
       });
     });
 

@@ -36,7 +36,8 @@ class ImageViewerScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.broken_image, color: AppColors.textMuted, size: 48),
+                  Icon(Icons.broken_image,
+                      color: AppColors.textMuted, size: 48),
                   SizedBox(height: 8),
                   Text('Failed to load image',
                       style: TextStyle(color: AppColors.textMuted)),

@@ -29,7 +29,7 @@ platformOwner > superAdmin > managerAdmin > staff
 ```
 
 - **platformOwner**: Full system access
-- **superAdmin**: Org-wide management (users, leagues, hubs, teams, announcements, documents)
+- **superAdmin**: Org-wide management (users, leagues, hubs, teams, announcements, policies)
 - **managerAdmin**: Scoped to assigned hubs — can manage teams, staff, content within those hubs
 - **staff**: Read-only for assigned hub content, can participate in chat
 
@@ -44,7 +44,7 @@ platformOwner > superAdmin > managerAdmin > staff
 | `PermissionService` | 40+ pure functions for role × action × scope checks |
 | `OfflineQueueService` | Hive-backed mutation queue with auto-replay on reconnect |
 | `MessagingService` | FCM token management, local notifications, deep linking |
-| `StorageService` | Firebase Storage (image/document upload) |
+| `StorageService` | Firebase Storage (image/policy upload) |
 | `AuthService` | Firebase Auth wrapper |
 
 ### Data Flow
@@ -56,7 +56,7 @@ platformOwner > superAdmin > managerAdmin > staff
 
 ### Provider Architecture
 
-20+ providers in `data_providers.dart`. Scope-filtered: `chatRoomsProvider`, `documentsProvider`, `announcementsProvider` filter by user's hub/league assignments. League IDs denormalized on `AppUser` model (derived from hub assignments). `selectedLeagueProvider` / `selectedCategoryProvider` for UI filtering state.
+20+ providers in `data_providers.dart`. Scope-filtered: `chatRoomsProvider`, `policiesProvider`, `announcementsProvider` filter by user's hub/league assignments. League IDs denormalized on `AppUser` model (derived from hub assignments). `selectedLeagueProvider` / `selectedPolicyCategoryProvider` for UI filtering state.
 
 ## File Structure
 
@@ -69,7 +69,7 @@ lib/
 ├── screens/        # feature screens (27 files)
 │   ├── admin/      # admin screens (4 files)
 │   ├── settings/   # settings subscreens (7 files)
-│   └── viewers/    # document viewers (2 files)
+│   └── viewers/    # policy file viewers (2 files)
 ├── services/       # business logic (7 files)
 ├── widgets/        # shared UI components (12 files)
 ├── main.dart
@@ -86,8 +86,8 @@ functions/          # Cloud Functions TypeScript (8 files)
 |-------|----------|
 | `/` | staff |
 | `/chat`, `/chat/:roomId`, `/chat/:roomId/info` | staff |
-| `/documents`, `/documents/:id` | staff |
-| `/documents/upload` | managerAdmin |
+| `/policy`, `/policy/:id` | staff |
+| `/policy/upload` | managerAdmin |
 | `/announcements`, `/announcements/:id` | staff |
 | `/announcements/create`, `/announcements/:id/edit` | managerAdmin |
 | `/settings` | staff |

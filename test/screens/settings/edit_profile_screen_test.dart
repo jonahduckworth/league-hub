@@ -46,10 +46,10 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider
-              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -66,10 +66,10 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider
-              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -82,10 +82,10 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider
-              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -105,10 +105,10 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider
-              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -130,10 +130,10 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider
-              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -153,10 +153,10 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider
-              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -170,10 +170,10 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider
-              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -186,10 +186,10 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider
-              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();
@@ -215,10 +215,10 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider.overrideWithValue(
-              FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider
-              .overrideWithValue(AuthService(auth: mockAuth, firestore: fakeFirestore)),
+          firestoreServiceProvider
+              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
+          authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore)),
         ],
       ));
       await tester.pumpAndSettle();

@@ -137,8 +137,7 @@ void main() {
       final style = deleteButton.style;
       // The style should have foregroundColor set to red
       expect(style, isNotNull);
-      final foregroundColor =
-          style!.foregroundColor?.resolve(<WidgetState>{});
+      final foregroundColor = style!.foregroundColor?.resolve(<WidgetState>{});
       expect(foregroundColor, Colors.red);
     });
   });

@@ -7,7 +7,7 @@
 
 export { onAnnouncementCreated } from "./notifications/announcements";
 export { onMessageCreated } from "./notifications/messages";
-export { onDocumentCreated } from "./notifications/documents";
+export { onPolicyCreated } from "./notifications/policies";
 export { onTeamUpdated } from "./notifications/teams";
 export { onInvitationCreated } from "./notifications/invitations";
 export { onUserRoleChanged } from "./notifications/roleChanges";

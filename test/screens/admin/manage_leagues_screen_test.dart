@@ -183,7 +183,8 @@ void main() {
         expect(find.byType(ExpansionTile), findsWidgets);
       });
 
-      testWidgets('displays hub count in subtitle', (WidgetTester tester) async {
+      testWidgets('displays hub count in subtitle',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();

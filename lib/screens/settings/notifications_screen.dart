@@ -17,7 +17,7 @@ class NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
       : super({
           'announcements': true,
           'chat_messages': true,
-          'document_uploads': true,
+          'policy_uploads': true,
           'team_updates': true,
           'event_reminders': true,
           'admin_alerts': true,
@@ -72,10 +72,10 @@ class NotificationsScreen extends ConsumerWidget {
               const Divider(height: 1, indent: 54),
               _ToggleTile(
                 icon: Icons.description_outlined,
-                title: 'Document Uploads',
-                subtitle: 'New documents shared with you',
-                value: prefs['document_uploads'] ?? true,
-                onChanged: () => notifier.toggle('document_uploads'),
+                title: 'Policy Uploads',
+                subtitle: 'New policies shared with you',
+                value: prefs['policy_uploads'] ?? true,
+                onChanged: () => notifier.toggle('policy_uploads'),
               ),
               const Divider(height: 1, indent: 54),
               _ToggleTile(
@@ -138,7 +138,8 @@ class NotificationsScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+              border:
+                  Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
             ),
             child: Row(
               children: [
@@ -148,8 +149,8 @@ class NotificationsScreen extends ConsumerWidget {
                 const Expanded(
                   child: Text(
                     'Notification preferences sync with FCM topics. Changes take effect immediately for new notifications.',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
+                    style:
+                        TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ),
               ],
@@ -206,8 +207,8 @@ class _ToggleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon, color: AppColors.primary, size: 22),
-      title:
-          Text(title, style: const TextStyle(fontSize: 14, color: AppColors.text)),
+      title: Text(title,
+          style: const TextStyle(fontSize: 14, color: AppColors.text)),
       subtitle: Text(subtitle,
           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       trailing: Switch.adaptive(
