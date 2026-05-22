@@ -8,6 +8,7 @@ import '../providers/data_providers.dart';
 import '../providers/mock_data.dart';
 import '../services/auth_service.dart';
 import '../services/messaging_service.dart';
+import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/avatar_widget.dart';
@@ -154,12 +155,9 @@ class SettingsScreen extends ConsumerWidget {
                 .toList(),
           ),
           const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
+          AppGlassSurface(
+            padding: EdgeInsets.zero,
+            radius: 20,
             child: ListTile(
               leading: const Icon(Icons.logout, color: AppColors.danger),
               title: const Text('Sign Out',
@@ -179,7 +177,8 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const Center(
               child: Text('League Hub v1.0.0',
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted))),
+                  style:
+                      TextStyle(fontSize: 12, color: AppGlassColors.inkMuted))),
         ],
       ),
     );
@@ -192,16 +191,9 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppGlassSurface(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryLight],
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
+      radius: 24,
       child: Row(
         children: [
           AvatarWidget(
@@ -272,13 +264,15 @@ class _RoleBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+        color: AppGlassColors.aqua.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppGlassColors.aqua.withValues(alpha: 0.28)),
       ),
       child: Text(label,
           style: const TextStyle(
-              color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+              color: AppGlassColors.aqua,
+              fontSize: 11,
+              fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -299,22 +293,24 @@ class _SettingsSection extends StatelessWidget {
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
+                  color: AppGlassColors.inkMuted,
                   letterSpacing: 0.8)),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
+        AppGlassSurface(
+          padding: EdgeInsets.zero,
+          radius: 20,
           child: Column(
             children: items.asMap().entries.map((entry) {
               final isLast = entry.key == items.length - 1;
               return Column(
                 children: [
                   entry.value,
-                  if (!isLast) const Divider(height: 1, indent: 54),
+                  if (!isLast)
+                    Divider(
+                      height: 1,
+                      indent: 54,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
                 ],
               );
             }).toList(),
@@ -340,9 +336,9 @@ class _SettingsItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: AppColors.primary, size: 22),
+      leading: Icon(icon, color: AppGlassColors.aqua, size: 22),
       title: Text(title,
-          style: const TextStyle(fontSize: 15, color: AppColors.text)),
+          style: const TextStyle(fontSize: 15, color: AppGlassColors.ink)),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -362,7 +358,8 @@ class _SettingsItem extends StatelessWidget {
                     fontWeight: FontWeight.bold),
               ),
             ),
-          const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
+          const Icon(Icons.chevron_right,
+              color: AppGlassColors.inkMuted, size: 20),
         ],
       ),
       onTap: onTap,

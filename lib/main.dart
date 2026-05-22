@@ -4,16 +4,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'core/theme.dart';
 import 'firebase_options.dart';
 import 'navigation/router.dart';
 import 'providers/auth_provider.dart';
 import 'services/messaging_service.dart';
+import 'widgets/app_glass.dart';
 import 'widgets/connectivity_banner.dart';
 import 'widgets/error_boundary.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LiquidGlassWidgets.initialize();
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -45,13 +48,24 @@ void main() async {
   };
 
   runApp(
-    ProviderScope(
-      overrides: [
-        messagingServiceProvider.overrideWithValue(
-          MessagingService(router: router),
-        ),
-      ],
-      child: const LeagueHubApp(),
+    LiquidGlassWidgets.wrap(
+      adaptiveQuality: true,
+      theme: GlassThemeData.simple(
+        blur: 7,
+        thickness: 34,
+        quality: GlassQuality.standard,
+        chromaticAberration: 0.18,
+        lightIntensity: 1.2,
+        saturation: 1.16,
+      ),
+      child: ProviderScope(
+        overrides: [
+          messagingServiceProvider.overrideWithValue(
+            MessagingService(router: router),
+          ),
+        ],
+        child: const LeagueHubApp(),
+      ),
     ),
   );
 }
@@ -89,9 +103,11 @@ class _LeagueHubAppState extends ConsumerState<LeagueHubApp> {
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         // Wrap every route in the connectivity banner and error boundary.
-        return ConnectivityBanner(
-          child: ErrorBoundary(
-            child: child ?? const SizedBox.shrink(),
+        return AppGlassRouteBackground(
+          child: ConnectivityBanner(
+            child: ErrorBoundary(
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },

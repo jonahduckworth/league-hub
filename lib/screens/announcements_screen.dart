@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../services/permission_service.dart';
+import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/confirmation_dialog.dart';
@@ -179,7 +180,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
           ? FloatingActionButton(
               heroTag: 'announcements_fab',
               onPressed: () => context.push('/announcements/create'),
-              backgroundColor: AppColors.primary,
+              backgroundColor: AppGlassColors.aqua,
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
@@ -331,107 +332,98 @@ class _AnnouncementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final card = AppGlassSurface(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.zero,
+      radius: 22,
       onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: announcement.isPinned
-                ? AppColors.warning.withValues(alpha: 0.5)
-                : AppColors.border,
-            width: announcement.isPinned ? 1.5 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (announcement.isPinned)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.08),
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(12)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.push_pin, size: 14, color: AppColors.warning),
-                    SizedBox(width: 6),
-                    Text('Pinned Announcement',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.warning,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (announcement.isPinned)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppGlassColors.gold.withValues(alpha: 0.12),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(22)),
               ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: const Row(
                 children: [
-                  Row(
-                    children: [
-                      _ScopeTag(
-                          scope: announcement.scope,
-                          leagues: leagues,
-                          leagueId: announcement.leagueId),
-                      const Spacer(),
-                      Text(AppUtils.formatDateTime(announcement.createdAt),
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.textMuted)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(announcement.title,
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.text)),
-                  const SizedBox(height: 6),
-                  Text(announcement.body,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                          height: 1.5)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      AvatarWidget(
-                        imageUrl: author?.avatarUrl,
-                        name: announcement.authorName,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(announcement.authorName,
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.text)),
-                          Text(announcement.authorRole,
-                              style: const TextStyle(
-                                  fontSize: 11, color: AppColors.textMuted)),
-                        ],
-                      ),
-                    ],
-                  ),
+                  Icon(Icons.push_pin, size: 14, color: AppGlassColors.gold),
+                  SizedBox(width: 6),
+                  Text('Pinned Announcement',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppGlassColors.gold,
+                          fontWeight: FontWeight.w700)),
                 ],
               ),
             ),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _ScopeTag(
+                        scope: announcement.scope,
+                        leagues: leagues,
+                        leagueId: announcement.leagueId),
+                    const Spacer(),
+                    Text(AppUtils.formatDateTime(announcement.createdAt),
+                        style: const TextStyle(
+                            fontSize: 12, color: AppGlassColors.inkMuted)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(announcement.title,
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppGlassColors.ink)),
+                const SizedBox(height: 6),
+                Text(announcement.body,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        color: AppGlassColors.inkSecondary,
+                        height: 1.5)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    AvatarWidget(
+                      imageUrl: author?.avatarUrl,
+                      name: announcement.authorName,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(announcement.authorName,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppGlassColors.ink)),
+                        Text(announcement.authorRole,
+                            style: const TextStyle(
+                                fontSize: 11, color: AppGlassColors.inkMuted)),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
+
+    if (onLongPress == null) return card;
+    return GestureDetector(onLongPress: onLongPress, child: card);
   }
 }
 
@@ -445,9 +437,9 @@ class _ScopeTag extends StatelessWidget {
   Color get _color {
     switch (scope) {
       case AnnouncementScope.orgWide:
-        return AppColors.primary;
+        return AppGlassColors.aqua;
       case AnnouncementScope.league:
-        return AppColors.accent;
+        return AppGlassColors.gold;
       case AnnouncementScope.hub:
         return AppColors.success;
     }

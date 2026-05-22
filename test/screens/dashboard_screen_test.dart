@@ -205,6 +205,11 @@ void main() {
                 const Scaffold(body: Text('Policy Route')),
           ),
           GoRoute(
+            path: '/settings',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Settings Route')),
+          ),
+          GoRoute(
             path: '/announcements/:id',
             builder: (context, state) => Scaffold(
               body: Text('Announcement Route ${state.pathParameters['id']}'),
@@ -320,51 +325,60 @@ void main() {
         expect(find.text('Welcome back, Test User'), findsNothing);
       });
 
-      testWidgets('has notification button', (WidgetTester tester) async {
+      testWidgets('removes notification and search buttons from header',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
         expect(
           find.byIcon(Icons.notifications_outlined),
-          findsOneWidget,
+          findsNothing,
         );
+        expect(find.byIcon(Icons.search), findsNothing);
       });
 
-      testWidgets('has search button', (WidgetTester tester) async {
+      testWidgets('shows central search bar', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.search), findsOneWidget);
-      });
-
-      testWidgets('notification button navigates to notifications',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byIcon(Icons.notifications_outlined));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Notifications Route'), findsOneWidget);
-      });
-
-      testWidgets('search button opens search sheet',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byIcon(Icons.search));
-        await tester.pumpAndSettle();
-
         expect(
-          find.text('Search announcements, chats, policies...'),
+          find.text('Search chats, policies, announcements...'),
           findsOneWidget,
         );
-        expect(find.text('Announcements'), findsWidgets);
-        expect(find.text('Chats'), findsOneWidget);
-        expect(find.text('Policy'), findsOneWidget);
+      });
+
+      testWidgets('policy tile navigates to policy',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('Policies'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.text('Policies'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Policy Route'), findsOneWidget);
+      });
+
+      testWidgets('settings tile navigates to settings',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('Settings'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.text('Settings'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Settings Route'), findsOneWidget);
       });
 
       testWidgets('search submit shows coming soon dialog',
@@ -372,8 +386,6 @@ void main() {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byIcon(Icons.search));
-        await tester.pumpAndSettle();
         await tester.enterText(
           find.byType(TextField),
           'registrations',

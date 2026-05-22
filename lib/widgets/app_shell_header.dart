@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../core/theme.dart';
 import '../core/utils.dart';
+import 'app_glass.dart';
 
 class AppShellHeader extends StatelessWidget {
   final String title;
@@ -26,6 +26,9 @@ class AppShellHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
     final hasBottom = bottom != null;
+    final hasTrailingMark =
+        (leadingImageUrl != null && leadingImageUrl!.isNotEmpty) ||
+            (leadingLabel != null && leadingLabel!.isNotEmpty);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -35,21 +38,7 @@ class AppShellHeader extends StatelessWidget {
       ),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(20, topInset, 20, 44),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF111111), Color(0xFF000000)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 20,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
+        padding: EdgeInsets.fromLTRB(20, topInset, 20, hasBottom ? 14 : 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -60,6 +49,14 @@ class AppShellHeader extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      if (leadingIcon != null) ...[
+                        Icon(
+                          leadingIcon,
+                          color: AppGlassColors.ink.withValues(alpha: 0.9),
+                          size: 17,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       Expanded(
                         child: Text(
                           title,
@@ -67,18 +64,15 @@ class AppShellHeader extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xE6FFFFFF),
-                            height: 1.1,
+                            fontWeight: FontWeight.w700,
+                            color: AppGlassColors.ink,
+                            height: 1.15,
                           ),
                         ),
                       ),
-                      if (leadingIcon != null ||
-                          (leadingImageUrl != null &&
-                              leadingImageUrl!.isNotEmpty)) ...[
-                        const SizedBox(width: 10),
+                      if (hasTrailingMark) ...[
+                        const SizedBox(width: 12),
                         _HeaderLeadingMark(
-                          icon: leadingIcon,
                           imageUrl: leadingImageUrl,
                           label: leadingLabel ?? title,
                         ),
@@ -93,7 +87,7 @@ class AppShellHeader extends StatelessWidget {
               ],
             ),
             if (hasBottom) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               bottom!,
             ],
           ],
@@ -104,12 +98,10 @@ class AppShellHeader extends StatelessWidget {
 }
 
 class _HeaderLeadingMark extends StatelessWidget {
-  final IconData? icon;
   final String? imageUrl;
   final String label;
 
   const _HeaderLeadingMark({
-    required this.icon,
     required this.imageUrl,
     required this.label,
   });
@@ -119,13 +111,13 @@ class _HeaderLeadingMark extends StatelessWidget {
     final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
 
     return Container(
-      width: 30,
-      height: 30,
+      width: 34,
+      height: 34,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.14),
+          color: Colors.white.withValues(alpha: 0.22),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -141,21 +133,13 @@ class _HeaderLeadingMark extends StatelessWidget {
   }
 
   Widget _fallback() {
-    if (icon != null) {
-      return Icon(
-        icon,
-        color: Colors.white.withValues(alpha: 0.9),
-        size: 17,
-      );
-    }
-
     return Center(
       child: Text(
         AppUtils.getInitials(label),
         style: const TextStyle(
-          color: Colors.white,
+          color: AppGlassColors.ink,
           fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -185,8 +169,8 @@ class AppHeaderSearchField extends StatelessWidget {
         onChanged: onChanged,
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(color: AppColors.textMuted),
-          prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+          hintStyle: const TextStyle(color: AppGlassColors.inkMuted),
+          prefixIcon: const Icon(Icons.search, color: AppGlassColors.inkMuted),
           filled: true,
           fillColor: Colors.white,
           border: OutlineInputBorder(
@@ -199,7 +183,8 @@ class AppHeaderSearchField extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(24),
-            borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+            borderSide:
+                const BorderSide(color: AppGlassColors.aqua, width: 1.5),
           ),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 18, vertical: 12),

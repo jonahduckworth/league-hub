@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/theme.dart';
 import '../models/league.dart';
+import 'app_glass.dart';
 import 'entity_avatar.dart';
 
 class LeagueFilter extends StatelessWidget {
@@ -61,10 +61,14 @@ class _FilterPill extends StatelessWidget {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
+          color: isSelected
+              ? AppGlassColors.aqua.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
+            color: isSelected
+                ? AppGlassColors.aqua.withValues(alpha: 0.5)
+                : AppGlassColors.border,
           ),
         ),
         child: Row(
@@ -78,7 +82,7 @@ class _FilterPill extends StatelessWidget {
                 fallbackIcon: Icons.emoji_events_outlined,
                 size: 22,
                 borderRadius: 8,
-                color: isSelected ? Colors.white : AppColors.primary,
+                color: isSelected ? AppGlassColors.ink : AppGlassColors.aqua,
               ),
               const SizedBox(width: 8),
             ],
@@ -87,7 +91,8 @@ class _FilterPill extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : AppColors.textSecondary,
+                color:
+                    isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
               ),
             ),
           ],

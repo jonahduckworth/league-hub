@@ -33,7 +33,6 @@ import '../screens/settings/chat_room_info_screen.dart';
 import '../screens/admin/manage_leagues_screen.dart';
 import '../screens/admin/team_detail_screen.dart';
 import '../screens/unauthorized_screen.dart';
-import '../widgets/bottom_nav_bar.dart';
 
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier() {
@@ -343,15 +342,6 @@ class _MainScaffold extends StatelessWidget {
     return Scaffold(
       extendBody: true,
       body: navigationShell,
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: navigationShell.currentIndex,
-        onTap: (index) {
-          navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          );
-        },
-      ),
     );
   }
 }

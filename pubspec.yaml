@@ -30,6 +30,7 @@ dependencies:
   dio: ^5.4.1
   cupertino_icons: ^1.0.6
   open_filex: ^4.7.0
+  liquid_glass_widgets: ^0.12.2
 
 dev_dependencies:
   flutter_test:

@@ -9,6 +9,7 @@ import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/permission_service.dart';
+import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/empty_state.dart';
@@ -61,7 +62,7 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
           ? FloatingActionButton(
               heroTag: 'policy_fab',
               onPressed: () => context.push('/policy/upload'),
-              backgroundColor: AppColors.primary,
+              backgroundColor: AppGlassColors.aqua,
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
@@ -159,17 +160,22 @@ class _CategoryChip extends StatelessWidget {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent : Colors.white,
+          color: isSelected
+              ? AppGlassColors.aqua.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-              color: isSelected ? AppColors.accent : AppColors.border),
+            color: isSelected
+                ? AppGlassColors.aqua.withValues(alpha: 0.5)
+                : AppGlassColors.border,
+          ),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.textSecondary,
+            fontWeight: FontWeight.w700,
+            color: isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
           ),
         ),
       ),
@@ -243,90 +249,85 @@ class _PolicyTile extends StatelessWidget {
     final versionCount = policy.versions.isEmpty ? 1 : policy.versions.length;
     final leagueName = _leagueName;
 
-    return GestureDetector(
+    return AppGlassSurface(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      radius: 20,
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _fileColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(_fileIcon, color: _fileColor, size: 24),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _fileColor.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _fileColor.withValues(alpha: 0.24)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    policy.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: AppColors.text,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      StatusBadge(
-                          label: policy.category,
-                          color: AppColors.primary,
-                          fontSize: 11,
-                          showBorder: false),
-                      if (leagueName != null)
-                        StatusBadge(
-                            label: leagueName,
-                            color: AppColors.accent,
-                            fontSize: 11,
-                            showBorder: false),
-                      Text(
-                        '${policy.fileType.toUpperCase()} • ${AppUtils.formatFileSize(policy.fileSize)}',
-                        style: const TextStyle(
-                            fontSize: 11, color: AppColors.textMuted),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Icon(_fileIcon, color: _fileColor, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppUtils.formatDateTime(policy.updatedAt),
-                  style:
-                      const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'v$versionCount',
+                  policy.name,
                   style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: AppGlassColors.ink,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 5),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    StatusBadge(
+                        label: policy.category,
+                        color: AppGlassColors.aqua,
+                        fontSize: 11,
+                        showBorder: false),
+                    if (leagueName != null)
+                      StatusBadge(
+                          label: leagueName,
+                          color: AppGlassColors.gold,
+                          fontSize: 11,
+                          showBorder: false),
+                    Text(
+                      '${policy.fileType.toUpperCase()} • ${AppUtils.formatFileSize(policy.fileSize)}',
+                      style: const TextStyle(
+                          fontSize: 11, color: AppGlassColors.inkMuted),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                AppUtils.formatDateTime(policy.updatedAt),
+                style: const TextStyle(
+                    fontSize: 11, color: AppGlassColors.inkMuted),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'v$versionCount',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppGlassColors.inkSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

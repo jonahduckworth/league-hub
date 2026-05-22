@@ -84,9 +84,9 @@ void main() {
       expect(theme.scaffoldBackgroundColor, AppColors.background);
     });
 
-    test('appBar uses primary color', () {
+    test('appBar uses shell black color', () {
       final theme = AppTheme.lightTheme;
-      expect(theme.appBarTheme.backgroundColor, AppColors.primary);
+      expect(theme.appBarTheme.backgroundColor, AppColors.shellBlack);
       expect(theme.appBarTheme.foregroundColor, Colors.white);
     });
 
@@ -107,10 +107,10 @@ void main() {
       expect(theme.inputDecorationTheme.fillColor, Colors.white);
     });
 
-    test('bottom nav bar uses primary for selected items', () {
+    test('bottom nav bar uses glass accent for selected items', () {
       final theme = AppTheme.lightTheme;
-      expect(
-          theme.bottomNavigationBarTheme.selectedItemColor, AppColors.primary);
+      expect(theme.bottomNavigationBarTheme.selectedItemColor,
+          AppColors.glassAqua);
       expect(theme.bottomNavigationBarTheme.unselectedItemColor,
           AppColors.textMuted);
     });
