@@ -261,6 +261,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final orgId = ref.watch(organizationProvider).valueOrNull?.id;
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
+    final topContentPadding = appShellTopPadding(
+      context,
+      stickyHeight: showLeagueFilter ? 38 : 0,
+      stickySpacing: 8,
+    );
 
     return AppShellScaffold(
       floatingActionButton: orgId == null
@@ -273,6 +278,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             ),
       header: AppShellHeader(
         leadingIcon: Icons.forum_outlined,
+        showBackButton: true,
         title: 'Messages',
       ),
       stickyContent: showLeagueFilter
@@ -303,7 +309,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           }
 
           return ListView(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+            padding: EdgeInsets.fromLTRB(
+                16, topContentPadding, 16, bottomContentPadding),
             children: [
               for (var index = 0; index < sections.length; index++) ...[
                 if (index > 0) const SizedBox(height: 16),

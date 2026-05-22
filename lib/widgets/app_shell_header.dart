@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import '../core/utils.dart';
 import 'app_glass.dart';
 
@@ -9,6 +10,8 @@ class AppShellHeader extends StatelessWidget {
   final IconData? leadingIcon;
   final String? leadingImageUrl;
   final String? leadingLabel;
+  final bool showBackButton;
+  final String backFallbackLocation;
   final List<Widget> actions;
   final Widget? bottom;
 
@@ -18,6 +21,8 @@ class AppShellHeader extends StatelessWidget {
     this.leadingIcon,
     this.leadingImageUrl,
     this.leadingLabel,
+    this.showBackButton = false,
+    this.backFallbackLocation = '/',
     this.actions = const [],
     this.bottom,
   });
@@ -49,6 +54,12 @@ class AppShellHeader extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      if (showBackButton) ...[
+                        _HeaderBackButton(
+                          fallbackLocation: backFallbackLocation,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       if (leadingIcon != null) ...[
                         Icon(
                           leadingIcon,
@@ -110,6 +121,19 @@ class _HeaderLeadingMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
 
+    if (hasImage) {
+      return SizedBox(
+        width: 34,
+        height: 34,
+        child: CachedNetworkImage(
+          imageUrl: imageUrl!,
+          fit: BoxFit.contain,
+          placeholder: (_, __) => _fallback(),
+          errorWidget: (_, __, ___) => _fallback(),
+        ),
+      );
+    }
+
     return Container(
       width: 34,
       height: 34,
@@ -121,14 +145,7 @@ class _HeaderLeadingMark extends StatelessWidget {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: hasImage
-          ? CachedNetworkImage(
-              imageUrl: imageUrl!,
-              fit: BoxFit.cover,
-              placeholder: (_, __) => _fallback(),
-              errorWidget: (_, __, ___) => _fallback(),
-            )
-          : _fallback(),
+      child: _fallback(),
     );
   }
 
@@ -140,6 +157,36 @@ class _HeaderLeadingMark extends StatelessWidget {
           color: AppGlassColors.ink,
           fontSize: 11,
           fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderBackButton extends StatelessWidget {
+  final String fallbackLocation;
+
+  const _HeaderBackButton({required this.fallbackLocation});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: Tooltip(
+        message: 'Back',
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          iconSize: 19,
+          color: AppGlassColors.ink.withValues(alpha: 0.92),
+          icon: const Icon(Icons.arrow_back_ios_new),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(fallbackLocation);
+            }
+          },
         ),
       ),
     );

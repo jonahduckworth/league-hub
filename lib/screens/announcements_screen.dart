@@ -174,6 +174,10 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     final canManage =
         currentUser != null && canManageAnnouncements(currentUser.role);
     final showLeagueFilter = leagues.length > 1;
+    final topContentPadding = appShellTopPadding(
+      context,
+      stickyHeight: showLeagueFilter ? 38 : 0,
+    );
 
     return AppShellScaffold(
       floatingActionButton: canManage
@@ -186,6 +190,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
           : null,
       header: AppShellHeader(
         leadingIcon: Icons.campaign_outlined,
+        showBackButton: true,
         title: 'Announcements',
       ),
       stickyContent: showLeagueFilter
@@ -206,8 +211,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                     subtitle: 'Check back later for updates.',
                   )
                 : ListView.builder(
-                    padding:
-                        EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+                    padding: EdgeInsets.fromLTRB(
+                        16, topContentPadding, 16, bottomContentPadding),
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final a = filtered[index];

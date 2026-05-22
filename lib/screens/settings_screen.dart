@@ -104,6 +104,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bottomContentPadding = appShellBottomPadding(context);
+    final topContentPadding = appShellTopPadding(context);
     final userAsync = ref.watch(currentUserProvider);
     final user = userAsync.valueOrNull ?? mockCurrentUser;
     final pendingInviteCount = ref.watch(pendingInviteCountProvider);
@@ -120,10 +121,12 @@ class SettingsScreen extends ConsumerWidget {
     return AppShellScaffold(
       header: const AppShellHeader(
         leadingIcon: Icons.settings_outlined,
+        showBackButton: true,
         title: 'Settings',
       ),
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+        padding: EdgeInsets.fromLTRB(
+            16, topContentPadding, 16, bottomContentPadding),
         children: [
           _ProfileCard(user: user),
           const SizedBox(height: 24),

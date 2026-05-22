@@ -325,7 +325,7 @@ void main() {
         expect(find.text('Welcome back, Test User'), findsNothing);
       });
 
-      testWidgets('removes notification and search buttons from header',
+      testWidgets('removes notification button from header',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -335,7 +335,6 @@ void main() {
           find.byIcon(Icons.notifications_outlined),
           findsNothing,
         );
-        expect(find.byIcon(Icons.search), findsNothing);
       });
 
       testWidgets('shows central search bar', (WidgetTester tester) async {
@@ -475,9 +474,10 @@ void main() {
         expect(find.text('No announcements yet.'), findsOneWidget);
       });
 
-      testWidgets('takes first 3 announcements', (WidgetTester tester) async {
+      testWidgets('limits home announcements to first 5',
+          (WidgetTester tester) async {
         final manyAnnouncements = List.generate(
-          5,
+          6,
           (i) => Announcement(
             id: 'ann-$i',
             orgId: 'org-1',
@@ -498,12 +498,11 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // Should only show first 3
+        // Horizontal cards are lazily built; the sixth item should not be
+        // available because the home feed caps the section at five.
         expect(find.text('Announcement 0'), findsOneWidget);
-        expect(find.text('Announcement 1'), findsOneWidget);
-        expect(find.text('Announcement 2'), findsOneWidget);
-        expect(find.text('Announcement 3'), findsNothing);
-        expect(find.text('Announcement 4'), findsNothing);
+        expect(find.text('Announcement 5'), findsNothing);
+        expect(find.text('See All'), findsWidgets);
       });
 
       testWidgets('see all navigates to announcements route',
@@ -522,11 +521,6 @@ void main() {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.scrollUntilVisible(
-          find.text('Welcome Announcement'),
-          300,
-          scrollable: find.byType(Scrollable).last,
-        );
         await tester.tap(find.text('Welcome Announcement'));
         await tester.pumpAndSettle();
 

@@ -650,7 +650,12 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('SL').first);
+        final springLeagueFilter = find.descendant(
+          of: find.byType(LeagueFilter),
+          matching: find.text('SL'),
+        );
+
+        await tester.tap(springLeagueFilter);
         await tester.pumpAndSettle();
 
         expect(find.text('Welcome to League Hub'), findsOneWidget);
@@ -738,8 +743,13 @@ void main() {
 
         expect(buildCount, 1);
 
+        final announcementList = find.byWidgetPredicate(
+          (widget) =>
+              widget is ListView && widget.scrollDirection == Axis.vertical,
+        );
+
         await tester.fling(
-          find.byType(ListView).last,
+          announcementList.first,
           const Offset(0, 300),
           1000,
         );

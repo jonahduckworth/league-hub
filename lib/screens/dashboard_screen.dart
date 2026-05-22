@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../core/utils.dart';
 import '../models/announcement.dart';
 import '../models/app_user.dart';
@@ -50,6 +49,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final headerImageUrl = headerLeague?.logoUrl ?? org?.logoUrl;
     final headerLabel = headerLeague?.name ?? org?.name ?? 'League Hub';
     final firstName = _firstName(currentUser?.displayName);
+    final topContentPadding = appShellTopPadding(
+      context,
+      stickyHeight: showLeagueFilter ? 38 : 0,
+    );
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -66,7 +69,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             )
           : null,
       child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+        padding: EdgeInsets.fromLTRB(
+            16, topContentPadding, 16, bottomContentPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -98,40 +102,65 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildSearchBar(BuildContext context) {
-    return GlassSearchBar(
-      controller: _searchController,
-      placeholder: 'Search chats, policies, announcements...',
+    return AppGlassSurface(
       height: 46,
-      useOwnLayer: true,
-      textStyle: const TextStyle(
-        color: AppGlassColors.ink,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-      ),
-      placeholderStyle: const TextStyle(
-        color: AppGlassColors.inkMuted,
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-      ),
-      searchIconColor: AppGlassColors.inkSecondary,
-      clearIconColor: AppGlassColors.inkSecondary,
-      onSubmitted: (query) {
-        if (query.trim().isEmpty) return;
-        FocusScope.of(context).unfocus();
-        showDialog(
-          context: context,
-          builder: (dialogCtx) => AlertDialog(
-            title: const Text('Search'),
-            content: const Text('Search functionality is coming soon.'),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(dialogCtx),
-                child: const Text('OK'),
-              ),
-            ],
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      radius: 23,
+      child: Row(
+        children: [
+          const Icon(
+            Icons.search,
+            color: AppGlassColors.inkSecondary,
+            size: 22,
           ),
-        );
-      },
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              cursorColor: AppGlassColors.aqua,
+              textInputAction: TextInputAction.search,
+              style: const TextStyle(
+                color: AppGlassColors.ink,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              decoration: const InputDecoration(
+                hintText: 'Search chats, policies, announcements...',
+                hintStyle: TextStyle(
+                  color: AppGlassColors.inkMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                isDense: true,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onSubmitted: (query) => _submitSearch(context, query),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submitSearch(BuildContext context, String query) {
+    if (query.trim().isEmpty) return;
+    FocusScope.of(context).unfocus();
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Search'),
+        content: const Text('Search functionality is coming soon.'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -164,7 +193,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildAnnouncementsSection() {
     final announcements = ref.watch(announcementsProvider).valueOrNull ?? [];
     final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
-    final recent = announcements.take(3).toList();
+    final recent = announcements.take(5).toList();
+    final cardWidth =
+        (MediaQuery.sizeOf(context).width * 0.82).clamp(292.0, 340.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,10 +226,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           )
         else
-          ...recent.map((a) => _AnnouncementCard(
-                announcement: a,
-                author: _userById(users, a.authorId),
-              )),
+          SizedBox(
+            height: 212,
+            child: ListView.separated(
+              clipBehavior: Clip.none,
+              scrollDirection: Axis.horizontal,
+              itemCount: recent.length + 1,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                if (index == recent.length) {
+                  return _AnnouncementSeeAllCard(
+                    width: cardWidth.toDouble(),
+                    onTap: () => context.go('/announcements'),
+                  );
+                }
+
+                final announcement = recent[index];
+                return SizedBox(
+                  width: cardWidth.toDouble(),
+                  child: _AnnouncementCard(
+                    announcement: announcement,
+                    author: _userById(users, announcement.authorId),
+                  ),
+                );
+              },
+            ),
+          ),
       ],
     );
   }
@@ -381,6 +434,55 @@ class _AnnouncementCard extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 12, color: AppGlassColors.inkMuted)),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnnouncementSeeAllCard extends StatelessWidget {
+  final double width;
+  final VoidCallback onTap;
+
+  const _AnnouncementSeeAllCard({
+    required this.width,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      width: width,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(18),
+      radius: 22,
+      onTap: onTap,
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.arrow_forward,
+            color: AppGlassColors.aqua,
+            size: 28,
+          ),
+          Spacer(),
+          Text(
+            'See All',
+            style: TextStyle(
+              color: AppGlassColors.ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Open the full announcement feed',
+            style: TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontSize: 13,
+              height: 1.3,
+            ),
           ),
         ],
       ),

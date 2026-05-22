@@ -56,6 +56,11 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
     final showLeagueFilter = leagues.length > 1;
     final visibleCategories =
         buildVisiblePolicyCategories(policiesAsync.valueOrNull ?? const []);
+    final stickyHeight = showLeagueFilter ? 82.0 : 36.0;
+    final topContentPadding = appShellTopPadding(
+      context,
+      stickyHeight: stickyHeight,
+    );
 
     return AppShellScaffold(
       floatingActionButton: _canUpload(currentUser)
@@ -68,6 +73,7 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
           : null,
       header: AppShellHeader(
         leadingIcon: Icons.folder_copy_outlined,
+        showBackButton: true,
         title: 'Policy',
       ),
       stickyContent: Column(
@@ -126,7 +132,8 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(policiesProvider),
             child: ListView.builder(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+              padding: EdgeInsets.fromLTRB(
+                  16, topContentPadding, 16, bottomContentPadding),
               itemCount: filtered.length,
               itemBuilder: (context, index) => _PolicyTile(
                 policy: filtered[index],
