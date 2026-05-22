@@ -640,11 +640,12 @@ void main() {
         expect(find.text('Messages'), findsOneWidget);
       });
 
-      testWidgets('has search field', (WidgetTester tester) async {
+      testWidgets('does not show a header search field',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.byIcon(Icons.search), findsOneWidget);
-        expect(find.text('Search conversations...'), findsOneWidget);
+        expect(find.byIcon(Icons.search), findsNothing);
+        expect(find.text('Search conversations...'), findsNothing);
       });
     });
 
@@ -1144,77 +1145,24 @@ void main() {
       });
     });
 
-    group('Search Functionality', () {
-      testWidgets('search field accepts input', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pumpAndSettle();
-
-        final searchField = find.byType(TextField);
-        await tester.enterText(searchField, 'Spring');
-        await tester.pumpAndSettle();
-
-        // After filtering, should still show matching room
-        expect(find.text('Spring League Hub'), findsOneWidget);
-      });
-
-      testWidgets('search filters chat rooms by name',
+    group('Header Search Removal', () {
+      testWidgets('does not render a search text field',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        final searchField = find.byType(TextField);
-        await tester.enterText(searchField, 'Tournament');
-        await tester.pumpAndSettle();
-
-        // Only tournament should be visible
-        expect(find.text('Tournament Bracket'), findsOneWidget);
+        expect(find.byType(TextField), findsNothing);
       });
 
-      testWidgets('search is case insensitive', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pumpAndSettle();
-
-        final searchField = find.byType(TextField);
-        await tester.enterText(searchField, 'spring');
-        await tester.pumpAndSettle();
-
-        // Should still find Spring League Hub
-        expect(find.text('Spring League Hub'), findsOneWidget);
-      });
-
-      testWidgets('clearing search shows all rooms',
+      testWidgets('shows rooms without name filtering',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        final searchField = find.byType(TextField);
-
-        // First search
-        await tester.enterText(searchField, 'Tournament');
-        await tester.pumpAndSettle();
-
-        // Clear search
-        await tester.enterText(searchField, '');
-        await tester.pumpAndSettle();
-
-        // All rooms should be visible again
         expect(find.text('Spring League Hub'), findsOneWidget);
         expect(find.text('Tournament Bracket'), findsOneWidget);
         await scrollRoomsUntilVisible(tester, find.text('Direct Message'));
         expect(find.text('Direct Message'), findsOneWidget);
-      });
-
-      testWidgets('no results message when search finds nothing',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pumpAndSettle();
-
-        final searchField = find.byType(TextField);
-        await tester.enterText(searchField, 'NonexistentRoom');
-        await tester.pumpAndSettle();
-
-        // Should show empty state
-        expect(find.text('No chat rooms yet'), findsOneWidget);
       });
     });
 

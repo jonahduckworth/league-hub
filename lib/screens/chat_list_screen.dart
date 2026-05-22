@@ -251,22 +251,6 @@ class ChatListScreen extends ConsumerStatefulWidget {
 
 class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   String? _selectedLeagueId;
-  final _searchController = TextEditingController();
-  String _searchText = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(() {
-      setState(() => _searchText = _searchController.text.toLowerCase());
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -287,15 +271,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               child: const Icon(Icons.add, color: Colors.white),
             ),
       header: AppShellHeader(
-        eyebrow: 'CHAT',
         leadingIcon: Icons.forum_outlined,
         title: 'Messages',
-        subtitle:
-            'League rooms, event chats, and direct messages in one place.',
-        bottom: AppHeaderSearchField(
-          controller: _searchController,
-          hintText: 'Search conversations...',
-        ),
       ),
       stickyContent: showLeagueFilter
           ? LeagueFilter(
@@ -311,7 +288,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         data: (rooms) {
           final filtered = filterChatRooms(
             rooms: rooms,
-            searchText: _searchText,
+            searchText: '',
             selectedLeagueId: _selectedLeagueId,
           );
           final sections = buildChatRoomSections(filtered);
