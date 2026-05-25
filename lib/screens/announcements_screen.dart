@@ -256,21 +256,38 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: actions
-              .map(
-                (action) => ListTile(
-                  leading: Icon(action.icon, color: action.iconColor),
-                  title: Text(action.label, style: action.textStyle),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    action.onTap();
-                  },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: AppGlassSurface(
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+            radius: 28,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: AppGlassColors.inkMuted.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              )
-              .toList(),
+                ...actions.map(
+                  (action) => _AnnouncementActionRow(
+                    action: action,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      action.onTap();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -318,6 +335,59 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
           AppUtils.showErrorSnackBar(context, message);
         }
       },
+    );
+  }
+}
+
+class _AnnouncementActionRow extends StatelessWidget {
+  final AnnouncementActionData action;
+  final VoidCallback onTap;
+
+  const _AnnouncementActionRow({
+    required this.action,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDanger = action.iconColor == AppColors.danger;
+    final color = isDanger
+        ? AppGlassColors.rose
+        : action.iconColor == AppColors.primary
+            ? AppGlassColors.aqua
+            : action.iconColor == AppColors.warning
+                ? AppGlassColors.gold
+                : action.iconColor;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: color.withValues(alpha: 0.26)),
+              ),
+              child: Icon(action.icon, color: color, size: 19),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              action.label,
+              style: TextStyle(
+                color: isDanger ? AppGlassColors.rose : AppGlassColors.ink,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../core/theme.dart';
+import '../core/league_branding.dart';
 import '../core/utils.dart';
 import '../models/announcement.dart';
 import '../models/app_user.dart';
@@ -9,6 +9,9 @@ import '../models/hub.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
+import '../widgets/app_glass.dart';
+import '../widgets/app_shell_header.dart';
+import '../widgets/app_shell_scaffold.dart';
 
 class CreateAnnouncementScreen extends ConsumerStatefulWidget {
   /// Pass an existing announcement ID when editing.
@@ -155,6 +158,10 @@ class _CreateAnnouncementScreenState
     final currentUser = userAsync.valueOrNull;
     final isSuperOrOwner = currentUser?.role == UserRole.superAdmin ||
         currentUser?.role == UserRole.platformOwner;
+    if (currentUser?.role == UserRole.managerAdmin &&
+        _scope == AnnouncementScope.orgWide) {
+      _scope = AnnouncementScope.league;
+    }
 
     // Pre-populate on edit.
     if (_isEditing) {
@@ -167,23 +174,31 @@ class _CreateAnnouncementScreenState
         ? ref.watch(hubsProvider(_selectedLeagueId!))
         : const AsyncValue<List<Hub>>.data([]);
     final hubs = hubsAsync.valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
+    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Announcement' : 'New Announcement'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
-        ),
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: _isEditing ? 'Edit Announcement' : 'New Announcement',
+        leadingIcon: Icons.campaign_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
+        showBackButton: true,
+        backIcon: Icons.close,
       ),
-      body: Form(
+      child: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(
+            16,
+            topContentPadding,
+            16,
+            bottomContentPadding,
+          ),
           children: [
-            // ── Scope picker ──────────────────────────────────────────────
-            _SectionLabel('Scope'),
+            const _SectionLabel('Scope'),
             const SizedBox(height: 8),
             _ScopePicker(
               selected: _scope,
@@ -196,118 +211,155 @@ class _CreateAnnouncementScreenState
             ),
             if (_scope == AnnouncementScope.league ||
                 _scope == AnnouncementScope.hub) ...[
-              const SizedBox(height: 12),
-              _SectionLabel('League'),
+              const SizedBox(height: 16),
+              const _SectionLabel('League'),
               const SizedBox(height: 8),
-              InputDecorator(
-                decoration: _inputDecoration(
-                    _selectedLeagueId == null ? 'Select league' : ''),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedLeagueId,
-                    isExpanded: true,
-                    isDense: true,
-                    hint: const Text('Select league'),
-                    items: leagues
-                        .map((l) =>
-                            DropdownMenuItem(value: l.id, child: Text(l.name)))
-                        .toList(),
-                    onChanged: (v) => setState(() {
-                      _selectedLeagueId = v;
-                      _selectedHubId = null;
-                    }),
-                  ),
-                ),
+              _GlassDropdownField<String>(
+                value: _selectedLeagueId,
+                hint: 'Select league',
+                items: leagues
+                    .map((l) => DropdownMenuItem(
+                          value: l.id,
+                          child: Text(
+                            l.name,
+                            style: const TextStyle(color: AppGlassColors.ink),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() {
+                  _selectedLeagueId = v;
+                  _selectedHubId = null;
+                }),
               ),
             ],
             if (_scope == AnnouncementScope.hub) ...[
-              const SizedBox(height: 12),
-              _SectionLabel('Hub'),
+              const SizedBox(height: 16),
+              const _SectionLabel('Hub'),
               const SizedBox(height: 8),
-              InputDecorator(
-                decoration: _inputDecoration(
-                    _selectedHubId == null ? 'Select hub' : ''),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedHubId,
-                    isExpanded: true,
-                    isDense: true,
-                    hint: const Text('Select hub'),
-                    items: hubs
-                        .map((h) =>
-                            DropdownMenuItem(value: h.id, child: Text(h.name)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedHubId = v),
-                  ),
-                ),
+              _GlassDropdownField<String>(
+                value: _selectedHubId,
+                hint: 'Select hub',
+                items: hubs
+                    .map((h) => DropdownMenuItem(
+                          value: h.id,
+                          child: Text(
+                            h.name,
+                            style: const TextStyle(color: AppGlassColors.ink),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedHubId = v),
               ),
             ],
             const SizedBox(height: 20),
-
-            // ── Title ─────────────────────────────────────────────────────
-            _SectionLabel('Title'),
+            const _SectionLabel('Title'),
             const SizedBox(height: 8),
-            TextFormField(
+            _GlassTextField(
               controller: _titleCtrl,
-              decoration: _inputDecoration('Announcement title'),
+              hintText: 'Announcement title',
+              textInputAction: TextInputAction.next,
               validator: (v) =>
                   v == null || v.trim().isEmpty ? 'Title is required' : null,
             ),
             const SizedBox(height: 16),
-
-            // ── Body ──────────────────────────────────────────────────────
-            _SectionLabel('Body'),
+            const _SectionLabel('Body'),
             const SizedBox(height: 8),
-            TextFormField(
+            _GlassTextField(
               controller: _bodyCtrl,
-              decoration: _inputDecoration('Write your announcement…'),
-              maxLines: 6,
+              hintText: 'Write your announcement...',
+              minLines: 6,
+              maxLines: 8,
               validator: (v) =>
                   v == null || v.trim().isEmpty ? 'Body is required' : null,
             ),
             const SizedBox(height: 20),
-
-            // ── Pin toggle ────────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Pin this announcement',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Pinned posts appear at the top',
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                value: _isPinned,
-                activeTrackColor: AppColors.warning,
-                onChanged: (v) => setState(() => _isPinned = v),
+            AppGlassSurface(
+              padding: const EdgeInsets.all(16),
+              radius: 22,
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppGlassColors.gold.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppGlassColors.gold.withValues(alpha: 0.26),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.push_pin_outlined,
+                      color: AppGlassColors.gold,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pin this announcement',
+                          style: TextStyle(
+                            color: AppGlassColors.ink,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Pinned posts appear at the top',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppGlassColors.inkMuted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: _isPinned,
+                    activeTrackColor:
+                        AppGlassColors.gold.withValues(alpha: 0.58),
+                    activeThumbColor: AppGlassColors.gold,
+                    inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
+                    inactiveThumbColor: AppGlassColors.inkMuted,
+                    onChanged: (v) => setState(() => _isPinned = v),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 28),
-
-            // ── Submit ────────────────────────────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+            Opacity(
+              opacity: _isLoading ? 0.72 : 1,
+              child: AppGlassSurface(
+                height: 58,
+                radius: 22,
+                padding: EdgeInsets.zero,
+                onTap: _isLoading ? null : _submit,
+                child: Center(
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppGlassColors.aqua,
+                          ),
+                        )
+                      : Text(
+                          _isEditing
+                              ? 'Update Announcement'
+                              : 'Post Announcement',
+                          style: const TextStyle(
+                            color: AppGlassColors.ink,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : Text(
-                        _isEditing
-                            ? 'Update Announcement'
-                            : 'Post Announcement',
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -315,24 +367,6 @@ class _CreateAnnouncementScreenState
       ),
     );
   }
-
-  InputDecoration _inputDecoration(String hint) => InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-      );
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -340,11 +374,153 @@ class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary));
+  Widget build(BuildContext context) => Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: AppGlassColors.inkMuted,
+          letterSpacing: 0.2,
+        ),
+      );
+}
+
+class _GlassTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hintText;
+  final FormFieldValidator<String>? validator;
+  final int minLines;
+  final int maxLines;
+  final TextInputAction? textInputAction;
+
+  const _GlassTextField({
+    required this.controller,
+    required this.hintText,
+    this.validator,
+    this.minLines = 1,
+    this.maxLines = 1,
+    this.textInputAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 20,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            filled: false,
+            fillColor: Colors.transparent,
+          ),
+          textSelectionTheme: const TextSelectionThemeData(
+            cursorColor: AppGlassColors.aqua,
+            selectionColor: Color(0x3367E8D4),
+            selectionHandleColor: AppGlassColors.aqua,
+          ),
+        ),
+        child: TextFormField(
+          controller: controller,
+          minLines: minLines,
+          maxLines: maxLines,
+          textInputAction: textInputAction,
+          cursorColor: AppGlassColors.aqua,
+          style: const TextStyle(
+            color: AppGlassColors.ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            height: 1.35,
+          ),
+          decoration: InputDecoration(
+            hintText: hintText,
+            isDense: true,
+            filled: false,
+            fillColor: Colors.transparent,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+            hintStyle: const TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontWeight: FontWeight.w500,
+            ),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
+            errorStyle: const TextStyle(
+              color: AppGlassColors.rose,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          validator: validator,
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassDropdownField<T> extends StatelessWidget {
+  final T? value;
+  final String hint;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?> onChanged;
+
+  const _GlassDropdownField({
+    required this.value,
+    required this.hint,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 20,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            filled: false,
+            fillColor: Colors.transparent,
+          ),
+        ),
+        child: DropdownButtonFormField<T>(
+          initialValue: value,
+          isExpanded: true,
+          dropdownColor: AppGlassColors.pageMid,
+          iconEnabledColor: AppGlassColors.inkMuted,
+          decoration: const InputDecoration(
+            isDense: true,
+            filled: false,
+            fillColor: Colors.transparent,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+          ),
+          hint: Text(
+            hint,
+            style: const TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          style: const TextStyle(
+            color: AppGlassColors.ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+          items: items,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
 }
 
 class _ScopePicker extends StatelessWidget {
@@ -367,37 +543,54 @@ class _ScopePicker extends StatelessWidget {
     ];
 
     return Row(
-      children: options.map((entry) {
+      children: List.generate(options.length, (index) {
+        final entry = options[index];
         final (scope, label, icon) = entry;
         final isSelected = selected == scope;
         return Expanded(
-          child: GestureDetector(
-            onTap: () => onChanged(scope),
-            child: Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.border,
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: index == options.length - 1 ? 0 : 8,
+            ),
+            child: AppGlassSurface(
+              height: 86,
+              radius: 20,
+              padding: EdgeInsets.zero,
+              onTap: () => onChanged(scope),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppGlassColors.aqua.withValues(alpha: 0.13)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppGlassColors.aqua.withValues(alpha: 0.34)
+                        : Colors.transparent,
+                  ),
                 ),
-              ),
-              child: Column(
-                children: [
-                  Icon(icon,
-                      size: 20,
-                      color:
-                          isSelected ? Colors.white : AppColors.textSecondary),
-                  const SizedBox(height: 4),
-                  Text(label,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 21,
+                      color: isSelected
+                          ? AppGlassColors.aqua
+                          : AppGlassColors.inkMuted,
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      label,
                       style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
                           color: isSelected
-                              ? Colors.white
-                              : AppColors.textSecondary)),
-                ],
+                              ? AppGlassColors.ink
+                              : AppGlassColors.inkMuted),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

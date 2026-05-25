@@ -6,6 +6,7 @@ import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/models/league.dart';
+import 'package:league_hub/navigation/announcement_navigation_source.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
@@ -214,7 +215,14 @@ void main() {
           GoRoute(
             path: '/announcements/:id',
             builder: (context, state) => Scaffold(
-              body: Text('Announcement Route ${state.pathParameters['id']}'),
+              body: Column(
+                children: [
+                  Text('Announcement Route ${state.pathParameters['id']}'),
+                  Text(
+                    'Announcement Source ${state.extra == AnnouncementNavigationSource.dashboardCard ? 'dashboardCard' : 'none'}',
+                  ),
+                ],
+              ),
             ),
           ),
           GoRoute(
@@ -555,6 +563,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Announcement Route ann-1'), findsOneWidget);
+        expect(find.text('Announcement Source dashboardCard'), findsOneWidget);
       });
     });
 
