@@ -6,6 +6,7 @@ import '../core/utils.dart';
 import '../models/announcement.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
+import '../navigation/announcement_navigation_source.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../screens/chat_list_screen.dart';
@@ -307,7 +308,10 @@ class _AnnouncementCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(16),
       radius: 22,
-      onTap: () => context.push('/announcements/${announcement.id}'),
+      onTap: () => context.go(
+        '/announcements/${announcement.id}',
+        extra: AnnouncementNavigationSource.dashboardCard,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

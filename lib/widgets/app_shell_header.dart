@@ -15,6 +15,8 @@ class AppShellHeader extends StatelessWidget {
   final List<Widget> actions;
   final Widget? bottom;
   final Widget? content;
+  final IconData backIcon;
+  final VoidCallback? onBack;
 
   const AppShellHeader({
     super.key,
@@ -27,6 +29,8 @@ class AppShellHeader extends StatelessWidget {
     this.actions = const [],
     this.bottom,
     this.content,
+    this.backIcon = Icons.arrow_back_ios_new,
+    this.onBack,
   });
 
   @override
@@ -56,6 +60,8 @@ class AppShellHeader extends StatelessWidget {
                     if (showBackButton) ...[
                       _HeaderBackButton(
                         fallbackLocation: backFallbackLocation,
+                        icon: backIcon,
+                        onTap: onBack,
                       ),
                       const SizedBox(width: 10),
                     ],
@@ -220,8 +226,14 @@ class AppHeaderLogoMark extends StatelessWidget {
 
 class _HeaderBackButton extends StatelessWidget {
   final String fallbackLocation;
+  final IconData icon;
+  final VoidCallback? onTap;
 
-  const _HeaderBackButton({required this.fallbackLocation});
+  const _HeaderBackButton({
+    required this.fallbackLocation,
+    required this.icon,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -232,16 +244,17 @@ class _HeaderBackButton extends StatelessWidget {
         height: 44,
         padding: EdgeInsets.zero,
         radius: 22,
-        onTap: () {
-          if (context.canPop()) {
-            context.pop();
-          } else {
-            context.go(fallbackLocation);
-          }
-        },
+        onTap: onTap ??
+            () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(fallbackLocation);
+              }
+            },
         child: Center(
           child: Icon(
-            Icons.arrow_back_ios_new,
+            icon,
             color: AppGlassColors.ink.withValues(alpha: 0.94),
             size: 18,
           ),
@@ -303,12 +316,14 @@ class AppHeaderIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final String? tooltip;
+  final Color? color;
 
   const AppHeaderIconButton({
     super.key,
     required this.icon,
     required this.onPressed,
     this.tooltip,
+    this.color,
   });
 
   @override
@@ -316,7 +331,11 @@ class AppHeaderIconButton extends StatelessWidget {
     final iconChild = SizedBox(
       width: 40,
       height: 40,
-      child: Icon(icon, color: Colors.white.withValues(alpha: 0.92), size: 19),
+      child: Icon(
+        icon,
+        color: color ?? Colors.white.withValues(alpha: 0.92),
+        size: 19,
+      ),
     );
 
     return Padding(

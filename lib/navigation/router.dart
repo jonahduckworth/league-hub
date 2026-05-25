@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../models/app_user.dart';
 import '../models/hub.dart';
 import '../models/league.dart';
+import 'announcement_navigation_source.dart';
 import '../services/permission_service.dart';
 import '../core/constants.dart';
 import '../screens/login_screen.dart';
@@ -49,6 +50,49 @@ final _authNotifier = _AuthNotifier();
 AppUser? _cachedAppUser;
 
 const _permissionService = PermissionService();
+const _shellTransitionDuration = Duration(milliseconds: 220);
+const _shellTransitionSlideFactor = 0.035;
+
+double _shellTransitionProgress(double value) {
+  return Curves.easeOutCubic.transform(value);
+}
+
+({double opacity, double offsetFactor}) _shellTransitionFrame({
+  required double progress,
+  required bool isCurrent,
+}) {
+  final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
+  return (
+    opacity: isCurrent ? clampedProgress : 1 - clampedProgress,
+    offsetFactor: isCurrent ? 1 - clampedProgress : -clampedProgress,
+  );
+}
+
+Widget _shellTransitionMotion({
+  required BuildContext context,
+  required Widget child,
+  required double progress,
+  required double direction,
+  required bool isCurrent,
+}) {
+  final frame = _shellTransitionFrame(
+    progress: progress,
+    isCurrent: isCurrent,
+  );
+  return Opacity(
+    opacity: frame.opacity,
+    child: Transform.translate(
+      offset: Offset(
+        direction *
+            frame.offsetFactor *
+            MediaQuery.sizeOf(context).width *
+            _shellTransitionSlideFactor,
+        0,
+      ),
+      child: child,
+    ),
+  );
+}
 
 /// Call this from the app's auth state listener (or splash screen) to prime
 /// the user cache before navigation begins.
@@ -159,7 +203,45 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/announcements',
-              builder: (context, state) => const AnnouncementsScreen(),
+              pageBuilder: (context, state) => _shellTransitionPage(
+                state,
+                const AnnouncementsScreen(),
+                animatePrimary: false,
+              ),
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const CreateAnnouncementScreen(),
+                  ),
+                ),
+                GoRoute(
+                  path: ':id/edit',
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    CreateAnnouncementScreen(
+                      announcementId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: ':id',
+                  pageBuilder: (context, state) {
+                    final source = state.extra;
+                    final isDashboardCard =
+                        source == AnnouncementNavigationSource.dashboardCard;
+                    return _shellTransitionPage(
+                      state,
+                      AnnouncementDetailScreen(
+                        announcementId: state.pathParameters['id']!,
+                        returnToDashboard: isDashboardCard,
+                      ),
+                      animatePrimary: !isDashboardCard,
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),
@@ -312,25 +394,88 @@ final router = GoRouter(
         policyId: state.pathParameters['id']!,
       ),
     ),
-    // Announcement routes — outside ShellRoute (no bottom nav)
-    GoRoute(
-      path: '/announcements/create',
-      builder: (context, state) => const CreateAnnouncementScreen(),
-    ),
-    GoRoute(
-      path: '/announcements/:id/edit',
-      builder: (context, state) => CreateAnnouncementScreen(
-        announcementId: state.pathParameters['id']!,
-      ),
-    ),
-    GoRoute(
-      path: '/announcements/:id',
-      builder: (context, state) => AnnouncementDetailScreen(
-        announcementId: state.pathParameters['id']!,
-      ),
-    ),
   ],
 );
+
+Page<void> _shellTransitionPage(
+  GoRouterState state,
+  Widget child, {
+  bool animatePrimary = true,
+}) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: _shellTransitionDuration,
+    reverseTransitionDuration: _shellTransitionDuration,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return AnimatedBuilder(
+        animation: Listenable.merge([animation, secondaryAnimation]),
+        builder: (context, _) {
+          final width = MediaQuery.sizeOf(context).width;
+          var opacity = 1.0;
+          var dx = 0.0;
+
+          void applyMotion({
+            required double progress,
+            required double direction,
+            required bool isCurrent,
+          }) {
+            final frame = _shellTransitionFrame(
+              progress: progress,
+              isCurrent: isCurrent,
+            );
+            opacity *= frame.opacity;
+            dx += direction *
+                frame.offsetFactor *
+                width *
+                _shellTransitionSlideFactor;
+          }
+
+          if (animatePrimary) {
+            if (animation.status == AnimationStatus.forward ||
+                animation.status == AnimationStatus.dismissed) {
+              applyMotion(
+                progress: _shellTransitionProgress(animation.value),
+                direction: 1,
+                isCurrent: true,
+              );
+            } else if (animation.status == AnimationStatus.reverse) {
+              applyMotion(
+                progress: _shellTransitionProgress(1 - animation.value),
+                direction: -1,
+                isCurrent: false,
+              );
+            }
+          }
+
+          if (secondaryAnimation.status == AnimationStatus.forward ||
+              secondaryAnimation.status == AnimationStatus.completed) {
+            applyMotion(
+              progress: _shellTransitionProgress(secondaryAnimation.value),
+              direction: 1,
+              isCurrent: false,
+            );
+          } else if (secondaryAnimation.status == AnimationStatus.reverse) {
+            applyMotion(
+              progress: _shellTransitionProgress(1 - secondaryAnimation.value),
+              direction: -1,
+              isCurrent: true,
+            );
+          }
+
+          return Opacity(
+            opacity: opacity.clamp(0, 1),
+            child: Transform.translate(
+              offset: Offset(dx, 0),
+              child: child,
+            ),
+          );
+        },
+        child: child,
+      );
+    },
+  );
+}
 
 class _MainScaffold extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -370,7 +515,7 @@ class _AnimatedBranchContainerState extends State<_AnimatedBranchContainer>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: _shellTransitionDuration,
     )..value = 1;
   }
 
@@ -396,7 +541,7 @@ class _AnimatedBranchContainerState extends State<_AnimatedBranchContainer>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final progress = Curves.easeOutCubic.transform(_controller.value);
+        final progress = _shellTransitionProgress(_controller.value);
         final direction = _branchDirection;
         final isAnimating = _controller.value < 1 && _previousIndex != null;
 
@@ -415,25 +560,15 @@ class _AnimatedBranchContainerState extends State<_AnimatedBranchContainer>
               );
             }
 
-            final opacity = isCurrent ? progress : 1 - progress;
-            final offsetFactor = isCurrent ? 1 - progress : -progress;
-            final offset = Offset(
-              direction *
-                  offsetFactor *
-                  MediaQuery.sizeOf(context).width *
-                  0.035,
-              0,
-            );
-
             return _BranchStage(
               isInteractive: isCurrent,
               isVisible: true,
-              child: Opacity(
-                opacity: opacity.clamp(0, 1),
-                child: Transform.translate(
-                  offset: offset,
-                  child: widget.children[index],
-                ),
+              child: _shellTransitionMotion(
+                context: context,
+                child: widget.children[index],
+                progress: progress,
+                direction: direction,
+                isCurrent: isCurrent,
               ),
             );
           }),
