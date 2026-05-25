@@ -11,6 +11,7 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/dashboard_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 
@@ -347,6 +348,34 @@ void main() {
           find.text('Search chats, policies, announcements...'),
           findsOneWidget,
         );
+      });
+
+      testWidgets('keeps main content close under the header controls',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        final searchSurface = find
+            .ancestor(
+              of: find.byType(TextField),
+              matching: find.byType(AppGlassSurface),
+            )
+            .first;
+        final headerBottom = tester.getBottomLeft(searchSurface).dy;
+        final contentTop = tester.getTopLeft(find.text('Announcements')).dy;
+
+        expect(contentTop - headerBottom, lessThanOrEqualTo(20));
+      });
+
+      testWidgets('uses a masked fade over the scrolling content',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BackdropFilter), findsOneWidget);
+        expect(find.byType(ShaderMask), findsOneWidget);
       });
 
       testWidgets('policy tile navigates to policy',

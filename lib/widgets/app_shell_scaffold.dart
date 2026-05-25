@@ -14,7 +14,7 @@ double appShellHeaderHeight(BuildContext context) {
 
 double appShellTopPadding(
   BuildContext context, {
-  double extra = 20,
+  double extra = 0,
   double stickyHeight = 0,
   double stickySpacing = 12,
 }) {
@@ -38,9 +38,9 @@ class AppShellScaffold extends StatelessWidget {
     required this.child,
     this.stickyContent,
     this.floatingActionButton,
-    this.topSpacing = 20,
+    this.topSpacing = 0,
     this.stickySpacing = 12,
-    this.topFadeHeight = 118,
+    this.topFadeHeight = 128,
   });
 
   @override
@@ -92,21 +92,37 @@ class _AppShellTopFade extends StatelessWidget {
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: ClipRect(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppGlassColors.pageTop,
-                  Color(0xE602050B),
-                  Color(0x6602050B),
-                  Color(0x0002050B),
-                ],
-                stops: [0, 0.38, 0.70, 1],
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) {
+            return const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white,
+                Colors.white,
+                Colors.transparent,
+              ],
+              stops: [0, 0.42, 1],
+            ).createShader(bounds);
+          },
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppGlassColors.pageTop,
+                    Color(0xD902050B),
+                    Color(0x5202050B),
+                    Color(0x0002050B),
+                  ],
+                  stops: [0, 0.34, 0.72, 1],
+                ),
               ),
+              child: SizedBox.expand(),
             ),
           ),
         ),
