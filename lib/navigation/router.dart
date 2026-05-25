@@ -196,6 +196,24 @@ final router = GoRouter(
             GoRoute(
               path: '/policy',
               builder: (context, state) => const PolicyScreen(),
+              routes: [
+                GoRoute(
+                  path: 'upload',
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const UploadPolicyScreen(),
+                  ),
+                ),
+                GoRoute(
+                  path: ':id',
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    PolicyDetailScreen(
+                      policyId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -381,17 +399,6 @@ final router = GoRouter(
       path: '/chat/:roomId/info',
       builder: (context, state) => ChatRoomInfoScreen(
         roomId: state.pathParameters['roomId']!,
-      ),
-    ),
-    // Policy routes — outside ShellRoute (no bottom nav)
-    GoRoute(
-      path: '/policy/upload',
-      builder: (context, state) => const UploadPolicyScreen(),
-    ),
-    GoRoute(
-      path: '/policy/:id',
-      builder: (context, state) => PolicyDetailScreen(
-        policyId: state.pathParameters['id']!,
       ),
     ),
   ],

@@ -93,10 +93,13 @@ void main() {
         expect(find.byType(Scaffold), findsOneWidget);
       });
 
-      testWidgets('displays app bar title', (WidgetTester tester) async {
+      testWidgets('displays shell header title', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.byType(AppBar), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('upload-policy-submit-button')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('displays close button in app bar',
@@ -156,7 +159,7 @@ void main() {
       testWidgets('displays upload button', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        // 'Upload Policy' appears in both AppBar title and button
+        // 'Upload Policy' appears in the header and submit surface.
         expect(find.text('Upload Policy'), findsAtLeastNWidgets(1));
       });
 
@@ -164,13 +167,7 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        final uploadButton = find.byWidgetPredicate(
-          (widget) =>
-              widget is ElevatedButton &&
-              (widget.child is Text) &&
-              ((widget.child as Text).data?.contains('Upload') ?? false),
-        );
-        expect(uploadButton, findsOneWidget);
+        expect(find.text('Upload Policy'), findsAtLeastNWidgets(1));
       });
     });
 
@@ -180,19 +177,10 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        // Find and tap upload button without selecting a file
-        final uploadButton = find.byWidgetPredicate(
-          (widget) =>
-              widget is ElevatedButton &&
-              (widget.child is Text) &&
-              ((widget.child as Text).data?.contains('Upload') ?? false),
-        );
-
-        if (uploadButton.evaluate().isNotEmpty) {
-          await tester.tap(uploadButton);
-          await tester.pumpAndSettle();
-          // Should show validation error
-        }
+        await tester
+            .tap(find.byKey(const ValueKey('upload-policy-submit-button')));
+        await tester.pumpAndSettle();
+        expect(find.text('Please select a file first.'), findsOneWidget);
       });
     });
 

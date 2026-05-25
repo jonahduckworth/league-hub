@@ -7,13 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/theme.dart';
+import '../core/league_branding.dart';
 import '../core/utils.dart';
 import '../models/hub.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../services/storage_service.dart';
+import '../widgets/app_glass.dart';
+import '../widgets/app_shell_header.dart';
+import '../widgets/app_shell_scaffold.dart';
 
 class UploadPolicyScreen extends ConsumerStatefulWidget {
   const UploadPolicyScreen({super.key});
@@ -112,7 +115,6 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
       return;
     }
 
-    // file.bytes can be null/empty on desktop — read from path as fallback.
     var bytes = file.bytes;
     if ((bytes == null || bytes.isEmpty) && !kIsWeb && file.path != null) {
       bytes = await File(file.path!).readAsBytes();
@@ -176,7 +178,9 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
         bytes,
         file.name,
         contentType,
-        onProgress: (p) => setState(() => _progress = p),
+        onProgress: (p) {
+          if (mounted) setState(() => _progress = p);
+        },
       );
 
       final versionEntry = {
@@ -224,24 +228,6 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
     }
   }
 
-  InputDecoration _inputDecoration(String hint) => InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     final leaguesAsync = ref.watch(leaguesProvider);
@@ -250,232 +236,388 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
         ? ref.watch(hubsProvider(_selectedLeagueId!))
         : const AsyncValue<List<Hub>>.data([]);
     final hubs = hubsAsync.valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
+    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Upload Policy'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
-        ),
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'Upload Policy',
+        leadingIcon: Icons.folder_copy_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
+        showBackButton: true,
+        backIcon: Icons.close,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: EdgeInsets.fromLTRB(
+          16,
+          topContentPadding,
+          16,
+          bottomContentPadding,
+        ),
         children: [
-          // File picker card
-          GestureDetector(
-            onTap: _isUploading ? null : _pickFile,
-            child: Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _pickedFile != null
-                      ? AppColors.success
-                      : AppColors.border,
-                ),
-              ),
-              child: _pickedFile != null
-                  ? Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.insert_drive_file,
-                              size: 40, color: AppColors.primary),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  _pickedFile!.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  AppUtils.formatFileSize(_pickedFile!.size),
-                                  style: const TextStyle(
-                                    color: AppColors.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close,
-                                color: AppColors.textMuted),
-                            onPressed: _isUploading
-                                ? null
-                                : () => setState(() {
-                                      _pickedFile = null;
-                                      _fileBytes = null;
-                                    }),
-                          ),
-                        ],
-                      ),
-                    )
-                  : const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.upload_file,
-                            size: 36, color: AppColors.textMuted),
-                        SizedBox(height: 8),
-                        Text(
-                          'Tap to select a file',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'PDF, DOCX, XLSX, images • Files: 25 MB, Images: 10 MB',
-                          style: TextStyle(
-                              fontSize: 11, color: AppColors.textMuted),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-            ),
+          _FilePickerCard(
+            file: _pickedFile,
+            isUploading: _isUploading,
+            onPickFile: _pickFile,
+            onClear: () => setState(() {
+              _pickedFile = null;
+              _fileBytes = null;
+            }),
           ),
-          const SizedBox(height: 16),
-
-          // Policy name
-          _SectionLabel('Policy Name'),
+          const SizedBox(height: 18),
+          const _SectionLabel('Policy Name'),
           const SizedBox(height: 8),
-          TextFormField(
+          _GlassTextField(
             controller: _nameCtrl,
             enabled: !_isUploading,
-            decoration: _inputDecoration('Enter policy name'),
+            hintText: 'Enter policy name',
           ),
-          const SizedBox(height: 16),
-
-          // Category
-          _SectionLabel('Category'),
+          const SizedBox(height: 18),
+          const _SectionLabel('Category'),
           const SizedBox(height: 8),
-          InputDecorator(
-            decoration: _inputDecoration(''),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _category,
-                isExpanded: true,
-                isDense: true,
-                items: _categories
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                    .toList(),
-                onChanged: _isUploading
-                    ? null
-                    : (v) => setState(() => _category = v ?? _category),
-              ),
-            ),
+          _GlassDropdownField<String>(
+            value: _category,
+            items: _categories
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged: _isUploading
+                ? null
+                : (v) => setState(() => _category = v ?? _category),
           ),
-          const SizedBox(height: 16),
-
-          // League (optional)
-          _SectionLabel('League (Optional)'),
+          const SizedBox(height: 18),
+          const _SectionLabel('League (Optional)'),
           const SizedBox(height: 8),
-          InputDecorator(
-            decoration: _inputDecoration(
-                _selectedLeagueId == null ? 'No specific league' : ''),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String?>(
-                value: _selectedLeagueId,
-                isExpanded: true,
-                isDense: true,
-                hint: const Text('No specific league'),
-                items: [
-                  const DropdownMenuItem<String?>(
-                      value: null, child: Text('No specific league')),
-                  ...leagues.map((l) => DropdownMenuItem<String?>(
-                      value: l.id, child: Text(l.name))),
-                ],
-                onChanged: _isUploading
-                    ? null
-                    : (v) => setState(() {
-                          _selectedLeagueId = v;
-                          _selectedHubId = null;
-                        }),
+          _GlassDropdownField<String?>(
+            value: _selectedLeagueId,
+            hintText: 'No specific league',
+            items: [
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('No specific league'),
               ),
-            ),
-          ),
-
-          if (_selectedLeagueId != null && hubs.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _SectionLabel('Hub (Optional)'),
-            const SizedBox(height: 8),
-            InputDecorator(
-              decoration: _inputDecoration(
-                  _selectedHubId == null ? 'No specific hub' : ''),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String?>(
-                  value: _selectedHubId,
-                  isExpanded: true,
-                  isDense: true,
-                  hint: const Text('No specific hub'),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                        value: null, child: Text('No specific hub')),
-                    ...hubs.map((h) => DropdownMenuItem<String?>(
-                        value: h.id, child: Text(h.name))),
-                  ],
-                  onChanged: _isUploading
-                      ? null
-                      : (v) => setState(() => _selectedHubId = v),
+              ...leagues.map(
+                (l) => DropdownMenuItem<String?>(
+                  value: l.id,
+                  child: Text(l.name),
                 ),
               ),
-            ),
-          ],
-
-          const SizedBox(height: 24),
-
-          // Progress indicator
-          if (_isUploading) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: _progress > 0 ? _progress : null,
-                backgroundColor: AppColors.border,
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(AppColors.primary),
-              ),
-            ),
+            ],
+            onChanged: _isUploading
+                ? null
+                : (v) => setState(() {
+                      _selectedLeagueId = v;
+                      _selectedHubId = null;
+                    }),
+          ),
+          if (_selectedLeagueId != null && hubs.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            const _SectionLabel('Hub (Optional)'),
             const SizedBox(height: 8),
-            Text(
-              _progress > 0
-                  ? 'Uploading... ${(_progress * 100).toStringAsFixed(0)}%'
-                  : 'Preparing upload...',
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            _GlassDropdownField<String?>(
+              value: _selectedHubId,
+              hintText: 'No specific hub',
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('No specific hub'),
+                ),
+                ...hubs.map(
+                  (h) => DropdownMenuItem<String?>(
+                    value: h.id,
+                    child: Text(h.name),
+                  ),
+                ),
+              ],
+              onChanged: _isUploading
+                  ? null
+                  : (v) => setState(() => _selectedHubId = v),
             ),
-            const SizedBox(height: 16),
           ],
+          if (_isUploading) ...[
+            const SizedBox(height: 20),
+            _UploadProgress(progress: _progress),
+          ],
+          const SizedBox(height: 24),
+          _GlassSubmitButton(
+            label: _isUploading ? 'Uploading...' : 'Upload Policy',
+            isLoading: _isUploading,
+            onTap: _isUploading ? null : _upload,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-          // Upload button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isUploading ? null : _upload,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: _isUploading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text(
-                      'Upload Policy',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+class _FilePickerCard extends StatelessWidget {
+  final PlatformFile? file;
+  final bool isUploading;
+  final VoidCallback onPickFile;
+  final VoidCallback onClear;
+
+  const _FilePickerCard({
+    required this.file,
+    required this.isUploading,
+    required this.onPickFile,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedFile = file;
+
+    return AppGlassSurface(
+      height: 128,
+      padding: const EdgeInsets.all(16),
+      radius: 26,
+      onTap: isUploading ? null : onPickFile,
+      child: selectedFile == null
+          ? const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.upload_file,
+                  size: 36,
+                  color: AppGlassColors.inkSecondary,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Tap to select a file',
+                  style: TextStyle(
+                    color: AppGlassColors.ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  'PDF, DOCX, XLSX, images • Files: 25 MB, Images: 10 MB',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppGlassColors.inkMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppGlassColors.aqua.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppGlassColors.aqua.withValues(alpha: 0.28),
                     ),
+                  ),
+                  child: const Icon(
+                    Icons.insert_drive_file_outlined,
+                    color: AppGlassColors.aqua,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        selectedFile.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppGlassColors.ink,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        AppUtils.formatFileSize(selectedFile.size),
+                        style: const TextStyle(
+                          color: AppGlassColors.inkMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Remove file',
+                  onPressed: isUploading ? null : onClear,
+                  icon: const Icon(
+                    Icons.close,
+                    color: AppGlassColors.inkSecondary,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _GlassTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hintText;
+  final bool enabled;
+
+  const _GlassTextField({
+    required this.controller,
+    required this.hintText,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 22,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            filled: false,
+            fillColor: Colors.transparent,
+          ),
+          textSelectionTheme: const TextSelectionThemeData(
+            cursorColor: AppGlassColors.aqua,
+            selectionColor: Color(0x5567E8D4),
+            selectionHandleColor: AppGlassColors.aqua,
+          ),
+        ),
+        child: TextFormField(
+          controller: controller,
+          enabled: enabled,
+          cursorColor: AppGlassColors.aqua,
+          style: const TextStyle(
+            color: AppGlassColors.ink,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: const TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontWeight: FontWeight.w600,
+            ),
+            filled: false,
+            fillColor: Colors.transparent,
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassDropdownField<T> extends StatelessWidget {
+  final T? value;
+  final String? hintText;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?>? onChanged;
+
+  const _GlassDropdownField({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    this.hintText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 22,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            filled: false,
+            fillColor: Colors.transparent,
+          ),
+        ),
+        child: DropdownButtonFormField<T>(
+          key: ValueKey<Object?>(value),
+          initialValue: value,
+          items: items,
+          onChanged: onChanged,
+          dropdownColor: const Color(0xFF132238),
+          borderRadius: BorderRadius.circular(18),
+          iconEnabledColor: AppGlassColors.inkSecondary,
+          iconDisabledColor: AppGlassColors.inkMuted,
+          style: const TextStyle(
+            color: AppGlassColors.ink,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+          hint: hintText == null
+              ? null
+              : Text(
+                  hintText!,
+                  style: const TextStyle(
+                    color: AppGlassColors.inkMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+          decoration: const InputDecoration(
+            filled: false,
+            fillColor: Colors.transparent,
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            contentPadding: EdgeInsets.fromLTRB(16, 14, 14, 14),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UploadProgress extends StatelessWidget {
+  final double progress;
+
+  const _UploadProgress({required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasProgress = progress > 0;
+
+    return AppGlassSurface(
+      padding: const EdgeInsets.all(14),
+      radius: 20,
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 6,
+              value: hasProgress ? progress : null,
+              backgroundColor: AppGlassColors.border,
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppGlassColors.aqua),
+            ),
+          ),
+          const SizedBox(height: 9),
+          Text(
+            hasProgress
+                ? 'Uploading... ${(progress * 100).toStringAsFixed(0)}%'
+                : 'Preparing upload...',
+            style: const TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -484,8 +626,54 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
   }
 }
 
+class _GlassSubmitButton extends StatelessWidget {
+  final String label;
+  final bool isLoading;
+  final VoidCallback? onTap;
+
+  const _GlassSubmitButton({
+    required this.label,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: onTap == null ? 0.72 : 1,
+      child: AppGlassSurface(
+        key: const ValueKey('upload-policy-submit-button'),
+        height: 58,
+        padding: EdgeInsets.zero,
+        radius: 24,
+        onTap: onTap,
+        child: Center(
+          child: isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppGlassColors.ink,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppGlassColors.ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionLabel extends StatelessWidget {
   final String text;
+
   const _SectionLabel(this.text);
 
   @override
@@ -493,8 +681,8 @@ class _SectionLabel extends StatelessWidget {
         text,
         style: const TextStyle(
           fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w800,
+          color: AppGlassColors.inkMuted,
         ),
       );
 }
