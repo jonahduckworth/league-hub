@@ -53,50 +53,29 @@ class AppShellHeader extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          if (showBackButton) ...[
-                            _HeaderBackButton(
-                              fallbackLocation: backFallbackLocation,
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          if (leadingIcon != null) ...[
-                            Icon(
-                              leadingIcon,
-                              color: AppGlassColors.ink.withValues(alpha: 0.9),
-                              size: 17,
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          Expanded(
-                            child: Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppGlassColors.ink,
-                                height: 1.15,
-                              ),
-                            ),
-                          ),
-                          if (hasTrailingMark) ...[
-                            const SizedBox(width: 12),
-                            AppHeaderLogoMark(
-                              imageUrl: leadingImageUrl,
-                              label: leadingLabel ?? title,
-                              size: 34,
-                            ),
-                          ],
-                        ],
+                    if (showBackButton) ...[
+                      _HeaderBackButton(
+                        fallbackLocation: backFallbackLocation,
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Flexible(
+                      child: _HeaderTitlePill(
+                        title: title,
+                        leadingIcon: leadingIcon,
                       ),
                     ),
+                    if (hasTrailingMark) ...[
+                      const SizedBox(width: 10),
+                      AppHeaderLogoMark(
+                        imageUrl: leadingImageUrl,
+                        label: leadingLabel ?? title,
+                        size: 36,
+                      ),
+                    ],
+                    const Spacer(),
                     if (actions.isNotEmpty) ...[
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Row(mainAxisSize: MainAxisSize.min, children: actions),
                     ],
                   ],
@@ -108,6 +87,79 @@ class AppShellHeader extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HeaderTitlePill extends StatelessWidget {
+  final String title;
+  final IconData? leadingIcon;
+
+  const _HeaderTitlePill({
+    required this.title,
+    required this.leadingIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width - 104;
+        final reservedWidth = leadingIcon == null ? 32.0 : 76.0;
+        final maxTitleWidth =
+            (availableWidth - reservedWidth).clamp(0.0, availableWidth);
+
+        return AppGlassSurface(
+          height: 44,
+          padding: EdgeInsets.fromLTRB(
+            leadingIcon == null ? 16 : 8,
+            0,
+            16,
+            0,
+          ),
+          radius: 22,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (leadingIcon != null) ...[
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: AppGlassColors.aqua.withValues(alpha: 0.13),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppGlassColors.aqua.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Icon(
+                    leadingIcon,
+                    color: AppGlassColors.ink.withValues(alpha: 0.94),
+                    size: 17,
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxTitleWidth),
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppGlassColors.ink,
+                    height: 1.12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -181,23 +233,26 @@ class _HeaderBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 36,
-      height: 36,
-      child: Tooltip(
-        message: 'Back',
-        child: IconButton(
-          padding: EdgeInsets.zero,
-          iconSize: 19,
-          color: AppGlassColors.ink.withValues(alpha: 0.92),
-          icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(fallbackLocation);
-            }
-          },
+    return Tooltip(
+      message: 'Back',
+      child: AppGlassSurface(
+        width: 44,
+        height: 44,
+        padding: EdgeInsets.zero,
+        radius: 22,
+        onTap: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(fallbackLocation);
+          }
+        },
+        child: Center(
+          child: Icon(
+            Icons.arrow_back_ios_new,
+            color: AppGlassColors.ink.withValues(alpha: 0.94),
+            size: 18,
+          ),
         ),
       ),
     );
@@ -274,17 +329,26 @@ class AppHeaderIconButton extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(left: 8),
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onPressed,
-          child: tooltip == null
-              ? iconChild
-              : Tooltip(message: tooltip!, child: iconChild),
-        ),
-      ),
+      child: tooltip == null
+          ? AppGlassSurface(
+              width: 40,
+              height: 40,
+              padding: EdgeInsets.zero,
+              radius: 20,
+              onTap: onPressed,
+              child: iconChild,
+            )
+          : Tooltip(
+              message: tooltip!,
+              child: AppGlassSurface(
+                width: 40,
+                height: 40,
+                padding: EdgeInsets.zero,
+                radius: 20,
+                onTap: onPressed,
+                child: iconChild,
+              ),
+            ),
     );
   }
 }
