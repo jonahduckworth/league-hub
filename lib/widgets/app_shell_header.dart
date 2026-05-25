@@ -59,14 +59,15 @@ class AppShellHeader extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                     ],
-                    Flexible(
-                      flex: 10,
-                      child: _HeaderTitlePill(
-                        title: title,
-                        leadingIcon: leadingIcon,
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _HeaderTitlePill(
+                          title: title,
+                          leadingIcon: leadingIcon,
+                        ),
                       ),
                     ),
-                    const Spacer(),
                     if (actions.isNotEmpty) ...[
                       const SizedBox(width: 10),
                       Row(mainAxisSize: MainAxisSize.min, children: actions),
@@ -181,32 +182,22 @@ class AppHeaderLogoMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
 
-    return Container(
+    return AppGlassSurface(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.22),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.20),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      padding: EdgeInsets.zero,
+      radius: size / 2,
       clipBehavior: Clip.antiAlias,
       child: hasImage
-          ? Padding(
-              padding: EdgeInsets.all(size * 0.12),
-              child: CachedNetworkImage(
-                imageUrl: imageUrl!,
-                fit: BoxFit.contain,
-                placeholder: (_, __) => _fallback(),
-                errorWidget: (_, __, ___) => _fallback(),
+          ? ClipOval(
+              child: Padding(
+                padding: EdgeInsets.all(size * 0.12),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl!,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => _fallback(),
+                  errorWidget: (_, __, ___) => _fallback(),
+                ),
               ),
             )
           : _fallback(),

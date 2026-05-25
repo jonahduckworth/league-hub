@@ -15,7 +15,6 @@ import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
-import '../widgets/status_badge.dart';
 
 class PolicyScreen extends ConsumerStatefulWidget {
   const PolicyScreen({super.key});
@@ -297,21 +296,19 @@ class _PolicyTile extends StatelessWidget {
                   runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    StatusBadge(
-                        label: policy.category,
-                        color: AppGlassColors.aqua,
-                        fontSize: 11,
-                        showBorder: false),
+                    _PolicyMetaBadge(
+                      label: policy.category,
+                      color: AppGlassColors.aqua,
+                    ),
                     if (leagueName != null)
-                      StatusBadge(
-                          label: leagueName,
-                          color: AppGlassColors.gold,
-                          fontSize: 11,
-                          showBorder: false),
-                    Text(
-                      '${policy.fileType.toUpperCase()} • ${AppUtils.formatFileSize(policy.fileSize)}',
-                      style: const TextStyle(
-                          fontSize: 11, color: AppGlassColors.inkMuted),
+                      _PolicyMetaBadge(
+                        label: leagueName,
+                        color: AppGlassColors.gold,
+                      ),
+                    _PolicyMetaBadge(
+                      label:
+                          '${policy.fileType.toUpperCase()} • ${AppUtils.formatFileSize(policy.fileSize)}',
+                      color: AppGlassColors.inkMuted,
                     ),
                   ],
                 ),
@@ -339,6 +336,38 @@ class _PolicyTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PolicyMetaBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _PolicyMetaBadge({
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      radius: 12,
+      child: Center(
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            color: color,
+            fontWeight: FontWeight.w700,
+            height: 1,
+          ),
+        ),
       ),
     );
   }

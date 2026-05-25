@@ -21,7 +21,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppGlassSurface), findsNWidgets(2));
+      expect(find.byType(AppGlassSurface), findsNWidgets(3));
       expect(find.byType(AppHeaderLogoMark), findsOneWidget);
       expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
       expect(find.byIcon(Icons.campaign_outlined), findsOneWidget);
@@ -30,6 +30,12 @@ void main() {
       expect(
         tester.getTopLeft(find.byType(AppHeaderLogoMark)).dx,
         greaterThan(tester.getTopLeft(find.text('Announcements')).dx),
+      );
+      expect(
+        tester.getTopRight(find.byType(AppHeaderLogoMark)).dx,
+        closeTo(
+            tester.view.physicalSize.width / tester.view.devicePixelRatio - 20,
+            0.1),
       );
 
       final logoMark =
