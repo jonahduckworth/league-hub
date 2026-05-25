@@ -164,31 +164,14 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return _PolicyGlassBadge(
+      label: label,
+      color: isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
+      height: 36,
+      horizontalPadding: 16,
+      fontSize: 13,
+      margin: const EdgeInsets.only(right: 8),
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppGlassColors.aqua.withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isSelected
-                ? AppGlassColors.aqua.withValues(alpha: 0.5)
-                : AppGlassColors.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -260,19 +243,20 @@ class _PolicyTile extends StatelessWidget {
     final leagueName = _leagueName;
 
     return AppGlassSurface(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      radius: 20,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(15),
+      radius: 24,
       onTap: onTap,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: _fileColor.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _fileColor.withValues(alpha: 0.24)),
+              color: _fileColor.withValues(alpha: 0.13),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _fileColor.withValues(alpha: 0.28)),
             ),
             child: Icon(_fileIcon, color: _fileColor, size: 24),
           ),
@@ -284,28 +268,30 @@ class _PolicyTile extends StatelessWidget {
                 Text(
                   policy.name,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
                     color: AppGlassColors.ink,
+                    height: 1.15,
                   ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 10),
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
+                  spacing: 7,
+                  runSpacing: 7,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    _PolicyMetaBadge(
+                    _PolicyGlassBadge(
                       label: policy.category,
                       color: AppGlassColors.aqua,
                     ),
                     if (leagueName != null)
-                      _PolicyMetaBadge(
+                      _PolicyGlassBadge(
                         label: leagueName,
                         color: AppGlassColors.gold,
                       ),
-                    _PolicyMetaBadge(
+                    _PolicyGlassBadge(
                       label:
                           '${policy.fileType.toUpperCase()} • ${AppUtils.formatFileSize(policy.fileSize)}',
                       color: AppGlassColors.inkMuted,
@@ -315,25 +301,32 @@ class _PolicyTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                AppUtils.formatDateTime(policy.updatedAt),
-                style: const TextStyle(
-                    fontSize: 11, color: AppGlassColors.inkMuted),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'v$versionCount',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppGlassColors.inkSecondary,
-                  fontWeight: FontWeight.w700,
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 78,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  AppUtils.formatDateTime(policy.updatedAt),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppGlassColors.inkMuted,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                _PolicyGlassBadge(
+                  label: 'v$versionCount',
+                  color: AppGlassColors.inkSecondary,
+                  height: 22,
+                  horizontalPadding: 8,
+                  fontSize: 11,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -341,32 +334,55 @@ class _PolicyTile extends StatelessWidget {
   }
 }
 
-class _PolicyMetaBadge extends StatelessWidget {
+class _PolicyGlassBadge extends StatelessWidget {
   final String label;
   final Color color;
+  final double height;
+  final double horizontalPadding;
+  final double fontSize;
+  final EdgeInsetsGeometry? margin;
+  final VoidCallback? onTap;
 
-  const _PolicyMetaBadge({
+  const _PolicyGlassBadge({
     required this.label,
     required this.color,
+    this.height = 24,
+    this.horizontalPadding = 9,
+    this.fontSize = 11,
+    this.margin,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: fontSize,
+      color: color,
+      fontWeight: FontWeight.w700,
+      height: 1,
+    );
+    final textScaler = MediaQuery.textScalerOf(context);
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: style),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+      textScaler: textScaler,
+    )..layout();
+    final width = painter.width + (horizontalPadding * 2);
+
     return AppGlassSurface(
-      height: 24,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
-      radius: 12,
+      width: width,
+      height: height,
+      margin: margin,
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+      radius: height / 2,
+      onTap: onTap,
       child: Center(
         child: Text(
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 11,
-            color: color,
-            fontWeight: FontWeight.w700,
-            height: 1,
-          ),
+          style: style,
         ),
       ),
     );
