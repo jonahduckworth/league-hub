@@ -167,9 +167,11 @@ class _CategoryChip extends StatelessWidget {
     return _PolicyGlassBadge(
       label: label,
       color: isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
-      height: 36,
       horizontalPadding: 16,
+      verticalPadding: 10,
       fontSize: 13,
+      minWidth: label == 'All' ? 60 : null,
+      radius: 18,
       margin: const EdgeInsets.only(right: 8),
       onTap: onTap,
     );
@@ -244,7 +246,7 @@ class _PolicyTile extends StatelessWidget {
 
     return AppGlassSurface(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(16),
       radius: 24,
       onTap: onTap,
       child: Row(
@@ -318,12 +320,15 @@ class _PolicyTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                _PolicyGlassBadge(
-                  label: 'v$versionCount',
-                  color: AppGlassColors.inkSecondary,
-                  height: 22,
-                  horizontalPadding: 8,
-                  fontSize: 11,
+                Text(
+                  'v$versionCount',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppGlassColors.inkSecondary,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
                 ),
               ],
             ),
@@ -337,18 +342,22 @@ class _PolicyTile extends StatelessWidget {
 class _PolicyGlassBadge extends StatelessWidget {
   final String label;
   final Color color;
-  final double height;
   final double horizontalPadding;
+  final double verticalPadding;
   final double fontSize;
+  final double? minWidth;
+  final double radius;
   final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
 
   const _PolicyGlassBadge({
     required this.label,
     required this.color,
-    this.height = 24,
     this.horizontalPadding = 9,
+    this.verticalPadding = 6,
     this.fontSize = 11,
+    this.minWidth,
+    this.radius = 12,
     this.margin,
     this.onTap,
   });
@@ -361,27 +370,22 @@ class _PolicyGlassBadge extends StatelessWidget {
       fontWeight: FontWeight.w700,
       height: 1,
     );
-    final textScaler = MediaQuery.textScalerOf(context);
-    final painter = TextPainter(
-      text: TextSpan(text: label, style: style),
-      maxLines: 1,
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-    )..layout();
-    final width = painter.width + (horizontalPadding * 2);
-
     return AppGlassSurface(
-      width: width,
-      height: height,
       margin: margin,
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-      radius: height / 2,
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
+      radius: radius,
       onTap: onTap,
-      child: Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minWidth: minWidth ?? 0),
         child: Text(
           label,
           maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          overflow: TextOverflow.fade,
+          textAlign: TextAlign.center,
           style: style,
         ),
       ),
