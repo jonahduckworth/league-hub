@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
@@ -9,6 +10,7 @@ import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
+import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/chat_room_avatar.dart';
@@ -257,9 +259,16 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final bottomContentPadding = appShellBottomPadding(context);
     final chatRoomsAsync = ref.watch(chatRoomsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
-    final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+    final org = ref.watch(organizationProvider).valueOrNull;
+    final orgId = org?.id;
     final leagues = leaguesAsync.valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
     final showLeagueFilter = leagues.length > 1;
+    final topContentPadding = appShellTopPadding(
+      context,
+      stickyHeight: showLeagueFilter ? 38 : 0,
+      stickySpacing: 8,
+    );
 
     return AppShellScaffold(
       floatingActionButton: orgId == null
@@ -267,11 +276,14 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           : FloatingActionButton(
               heroTag: 'chat_list_fab',
               onPressed: () => context.push('/chat/new'),
-              backgroundColor: AppColors.primary,
+              backgroundColor: AppGlassColors.aqua,
               child: const Icon(Icons.add, color: Colors.white),
             ),
       header: AppShellHeader(
         leadingIcon: Icons.forum_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
+        showBackButton: true,
         title: 'Messages',
       ),
       stickyContent: showLeagueFilter
@@ -302,7 +314,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           }
 
           return ListView(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+            padding: EdgeInsets.fromLTRB(
+                16, topContentPadding, 16, bottomContentPadding),
             children: [
               for (var index = 0; index < sections.length; index++) ...[
                 if (index > 0) const SizedBox(height: 16),
@@ -339,19 +352,19 @@ class _SectionHeader extends StatelessWidget {
               style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
+                  color: AppGlassColors.inkMuted,
                   letterSpacing: 0.5)),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-                color: AppColors.border,
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10)),
             child: Text('$count',
                 style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textSecondary)),
+                    color: AppGlassColors.inkSecondary)),
           ),
         ],
       ),
@@ -378,13 +391,10 @@ class _ChatRoomTile extends ConsumerWidget {
     final unreadCount =
         ref.watch(unreadCountProvider(room.id)).valueOrNull ?? 0;
 
-    return Container(
+    return AppGlassSurface(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
+      padding: EdgeInsets.zero,
+      radius: 20,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         leading: ChatRoomAvatar(
@@ -395,6 +405,7 @@ class _ChatRoomTile extends ConsumerWidget {
         title: Text(displayName,
             style: TextStyle(
                 fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.w600,
+                color: AppGlassColors.ink,
                 fontSize: 14)),
         subtitle: Text(
           preview ?? 'No messages yet',
@@ -404,10 +415,10 @@ class _ChatRoomTile extends ConsumerWidget {
             fontSize: 13,
             fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
             color: unreadCount > 0
-                ? AppColors.text
+                ? AppGlassColors.ink
                 : hasMessage
-                    ? AppColors.textSecondary
-                    : AppColors.textMuted,
+                    ? AppGlassColors.inkSecondary
+                    : AppGlassColors.inkMuted,
             fontStyle: hasMessage ? FontStyle.normal : FontStyle.italic,
           ),
         ),
@@ -420,7 +431,9 @@ class _ChatRoomTile extends ConsumerWidget {
                 AppUtils.formatDateTime(room.lastMessageAt!),
                 style: TextStyle(
                   fontSize: 11,
-                  color: chatRoomTimestampColor(unreadCount),
+                  color: unreadCount > 0
+                      ? AppGlassColors.aqua
+                      : AppGlassColors.inkMuted,
                 ),
               ),
             if (unreadCount > 0) ...[
@@ -428,7 +441,7 @@ class _ChatRoomTile extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  color: AppGlassColors.aqua,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(

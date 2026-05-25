@@ -1,16 +1,20 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../core/theme.dart';
+import 'package:go_router/go_router.dart';
 import '../core/utils.dart';
+import 'app_glass.dart';
 
 class AppShellHeader extends StatelessWidget {
   final String title;
   final IconData? leadingIcon;
   final String? leadingImageUrl;
   final String? leadingLabel;
+  final bool showBackButton;
+  final String backFallbackLocation;
   final List<Widget> actions;
   final Widget? bottom;
+  final Widget? content;
 
   const AppShellHeader({
     super.key,
@@ -18,14 +22,20 @@ class AppShellHeader extends StatelessWidget {
     this.leadingIcon,
     this.leadingImageUrl,
     this.leadingLabel,
+    this.showBackButton = false,
+    this.backFallbackLocation = '/',
     this.actions = const [],
     this.bottom,
+    this.content,
   });
 
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
     final hasBottom = bottom != null;
+    final hasTrailingMark =
+        (leadingImageUrl != null && leadingImageUrl!.isNotEmpty) ||
+            (leadingLabel != null && leadingLabel!.isNotEmpty);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -35,65 +45,45 @@ class AppShellHeader extends StatelessWidget {
       ),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(20, topInset, 20, 44),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF111111), Color(0xFF000000)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 20,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
+        padding: EdgeInsets.fromLTRB(20, topInset, 20, hasBottom ? 14 : 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xE6FFFFFF),
-                            height: 1.1,
-                          ),
+            content ??
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (showBackButton) ...[
+                      _HeaderBackButton(
+                        fallbackLocation: backFallbackLocation,
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _HeaderTitlePill(
+                          title: title,
+                          leadingIcon: leadingIcon,
                         ),
                       ),
-                      if (leadingIcon != null ||
-                          (leadingImageUrl != null &&
-                              leadingImageUrl!.isNotEmpty)) ...[
-                        const SizedBox(width: 10),
-                        _HeaderLeadingMark(
-                          icon: leadingIcon,
-                          imageUrl: leadingImageUrl,
-                          label: leadingLabel ?? title,
-                        ),
-                      ],
+                    ),
+                    if (actions.isNotEmpty) ...[
+                      const SizedBox(width: 10),
+                      Row(mainAxisSize: MainAxisSize.min, children: actions),
                     ],
-                  ),
+                    if (hasTrailingMark) ...[
+                      const SizedBox(width: 10),
+                      AppHeaderLogoMark(
+                        imageUrl: leadingImageUrl,
+                        label: leadingLabel ?? title,
+                        size: 44,
+                      ),
+                    ],
+                  ],
                 ),
-                if (actions.isNotEmpty) ...[
-                  const SizedBox(width: 12),
-                  Row(mainAxisSize: MainAxisSize.min, children: actions),
-                ],
-              ],
-            ),
             if (hasBottom) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               bottom!,
             ],
           ],
@@ -103,59 +93,158 @@ class AppShellHeader extends StatelessWidget {
   }
 }
 
-class _HeaderLeadingMark extends StatelessWidget {
-  final IconData? icon;
+class _HeaderTitlePill extends StatelessWidget {
+  final String title;
+  final IconData? leadingIcon;
+
+  const _HeaderTitlePill({
+    required this.title,
+    required this.leadingIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width - 104;
+        final reservedWidth = leadingIcon == null ? 32.0 : 76.0;
+        final maxTitleWidth =
+            (availableWidth - reservedWidth).clamp(0.0, availableWidth);
+
+        return AppGlassSurface(
+          height: 40,
+          padding: EdgeInsets.fromLTRB(
+            leadingIcon == null ? 16 : 8,
+            0,
+            14,
+            0,
+          ),
+          radius: 20,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (leadingIcon != null) ...[
+                Container(
+                  width: 27,
+                  height: 27,
+                  decoration: BoxDecoration(
+                    color: AppGlassColors.aqua.withValues(alpha: 0.13),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppGlassColors.aqua.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Icon(
+                    leadingIcon,
+                    color: AppGlassColors.ink.withValues(alpha: 0.94),
+                    size: 15,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxTitleWidth),
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppGlassColors.ink,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class AppHeaderLogoMark extends StatelessWidget {
   final String? imageUrl;
   final String label;
+  final double size;
 
-  const _HeaderLeadingMark({
-    required this.icon,
+  const AppHeaderLogoMark({
+    super.key,
     required this.imageUrl,
     required this.label,
+    this.size = 44,
   });
 
   @override
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
 
-    return Container(
-      width: 30,
-      height: 30,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.14),
-        ),
-      ),
+    return AppGlassSurface(
+      width: size,
+      height: size,
+      padding: EdgeInsets.zero,
+      radius: size / 2,
       clipBehavior: Clip.antiAlias,
       child: hasImage
-          ? CachedNetworkImage(
-              imageUrl: imageUrl!,
-              fit: BoxFit.cover,
-              placeholder: (_, __) => _fallback(),
-              errorWidget: (_, __, ___) => _fallback(),
+          ? ClipOval(
+              child: Padding(
+                padding: EdgeInsets.all(size * 0.12),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl!,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => _fallback(),
+                  errorWidget: (_, __, ___) => _fallback(),
+                ),
+              ),
             )
           : _fallback(),
     );
   }
 
   Widget _fallback() {
-    if (icon != null) {
-      return Icon(
-        icon,
-        color: Colors.white.withValues(alpha: 0.9),
-        size: 17,
-      );
-    }
-
     return Center(
       child: Text(
         AppUtils.getInitials(label),
         style: const TextStyle(
-          color: Colors.white,
+          color: AppGlassColors.ink,
           fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderBackButton extends StatelessWidget {
+  final String fallbackLocation;
+
+  const _HeaderBackButton({required this.fallbackLocation});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Back',
+      child: AppGlassSurface(
+        width: 44,
+        height: 44,
+        padding: EdgeInsets.zero,
+        radius: 22,
+        onTap: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(fallbackLocation);
+          }
+        },
+        child: Center(
+          child: Icon(
+            Icons.arrow_back_ios_new,
+            color: AppGlassColors.ink.withValues(alpha: 0.94),
+            size: 18,
+          ),
         ),
       ),
     );
@@ -185,8 +274,8 @@ class AppHeaderSearchField extends StatelessWidget {
         onChanged: onChanged,
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(color: AppColors.textMuted),
-          prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+          hintStyle: const TextStyle(color: AppGlassColors.inkMuted),
+          prefixIcon: const Icon(Icons.search, color: AppGlassColors.inkMuted),
           filled: true,
           fillColor: Colors.white,
           border: OutlineInputBorder(
@@ -199,7 +288,8 @@ class AppHeaderSearchField extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(24),
-            borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+            borderSide:
+                const BorderSide(color: AppGlassColors.aqua, width: 1.5),
           ),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -231,17 +321,26 @@ class AppHeaderIconButton extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(left: 8),
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onPressed,
-          child: tooltip == null
-              ? iconChild
-              : Tooltip(message: tooltip!, child: iconChild),
-        ),
-      ),
+      child: tooltip == null
+          ? AppGlassSurface(
+              width: 40,
+              height: 40,
+              padding: EdgeInsets.zero,
+              radius: 20,
+              onTap: onPressed,
+              child: iconChild,
+            )
+          : Tooltip(
+              message: tooltip!,
+              child: AppGlassSurface(
+                width: 40,
+                height: 40,
+                padding: EdgeInsets.zero,
+                radius: 20,
+                onTap: onPressed,
+                child: iconChild,
+              ),
+            ),
     );
   }
 }

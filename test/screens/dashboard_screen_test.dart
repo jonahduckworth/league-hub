@@ -11,6 +11,8 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/dashboard_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/app_glass.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 
 void main() {
@@ -205,6 +207,11 @@ void main() {
                 const Scaffold(body: Text('Policy Route')),
           ),
           GoRoute(
+            path: '/settings',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Settings Route')),
+          ),
+          GoRoute(
             path: '/announcements/:id',
             builder: (context, state) => Scaffold(
               body: Text('Announcement Route ${state.pathParameters['id']}'),
@@ -250,15 +257,6 @@ void main() {
     }
 
     group('Main Content', () {
-      test('maps time of day to dashboard greeting', () {
-        expect(dashboardGreetingForHour(8).label, 'Good morning');
-        expect(dashboardGreetingForHour(13).label, 'Good afternoon');
-        expect(dashboardGreetingForHour(20).label, 'Good evening');
-        expect(dashboardGreetingForHour(8).icon, Icons.wb_sunny_outlined);
-        expect(dashboardGreetingForHour(13).icon, Icons.wb_sunny);
-        expect(dashboardGreetingForHour(20).icon, Icons.nightlight_outlined);
-      });
-
       testWidgets('does not render the old stats card grid',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
@@ -283,7 +281,7 @@ void main() {
     });
 
     group('AppBar and Header', () {
-      testWidgets('displays greeting instead of organization name in header',
+      testWidgets('shows logo search header instead of greeting text',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(
           org: Organization(
@@ -301,12 +299,21 @@ void main() {
 
         expect(
           find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(find.text('Custom Org Name'), findsNothing);
+        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+        expect(
+          find.text('Search chats, policies, announcements...'),
+          findsOneWidget,
+        );
+        expect(
+          tester.getTopLeft(find.byType(AppHeaderLogoMark)).dx,
+          greaterThan(tester.getTopLeft(find.byType(TextField)).dx),
+        );
       });
 
-      testWidgets('uses a compact greeting header without welcome copy',
+      testWidgets('uses a compact header without welcome copy',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -314,57 +321,93 @@ void main() {
 
         expect(
           find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(find.text('Test Organization'), findsNothing);
         expect(find.text('Welcome back, Test User'), findsNothing);
       });
 
-      testWidgets('has notification button', (WidgetTester tester) async {
+      testWidgets('removes notification button from header',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
         expect(
           find.byIcon(Icons.notifications_outlined),
-          findsOneWidget,
+          findsNothing,
         );
       });
 
-      testWidgets('has search button', (WidgetTester tester) async {
+      testWidgets('shows header search bar', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.search), findsOneWidget);
-      });
-
-      testWidgets('notification button navigates to notifications',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byIcon(Icons.notifications_outlined));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Notifications Route'), findsOneWidget);
-      });
-
-      testWidgets('search button opens search sheet',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byIcon(Icons.search));
-        await tester.pumpAndSettle();
-
         expect(
-          find.text('Search announcements, chats, policies...'),
+          find.text('Search chats, policies, announcements...'),
           findsOneWidget,
         );
-        expect(find.text('Announcements'), findsWidgets);
-        expect(find.text('Chats'), findsOneWidget);
-        expect(find.text('Policy'), findsOneWidget);
+      });
+
+      testWidgets('keeps main content close under the header controls',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        final searchSurface = find
+            .ancestor(
+              of: find.byType(TextField),
+              matching: find.byType(AppGlassSurface),
+            )
+            .first;
+        final headerBottom = tester.getBottomLeft(searchSurface).dy;
+        final contentTop = tester.getTopLeft(find.text('Announcements')).dy;
+
+        expect(contentTop - headerBottom, lessThanOrEqualTo(20));
+      });
+
+      testWidgets('uses a masked fade over the scrolling content',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BackdropFilter), findsOneWidget);
+        expect(find.byType(ShaderMask), findsOneWidget);
+      });
+
+      testWidgets('policy tile navigates to policy',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('Policies'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.text('Policies'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Policy Route'), findsOneWidget);
+      });
+
+      testWidgets('settings tile navigates to settings',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('Settings'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.text('Settings'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Settings Route'), findsOneWidget);
       });
 
       testWidgets('search submit shows coming soon dialog',
@@ -372,13 +415,11 @@ void main() {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byIcon(Icons.search));
-        await tester.pumpAndSettle();
         await tester.enterText(
           find.byType(TextField),
           'registrations',
         );
-        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.testTextInput.receiveAction(TextInputAction.search);
         await tester.pumpAndSettle();
 
         expect(
@@ -451,7 +492,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Org-Wide'), findsOneWidget);
-        expect(find.text('SL'), findsOneWidget); // League abbreviation
+        expect(find.text('SL'), findsWidgets); // League abbreviation
       });
 
       testWidgets('shows empty state when no announcements',
@@ -463,9 +504,10 @@ void main() {
         expect(find.text('No announcements yet.'), findsOneWidget);
       });
 
-      testWidgets('takes first 3 announcements', (WidgetTester tester) async {
+      testWidgets('limits home announcements to first 5',
+          (WidgetTester tester) async {
         final manyAnnouncements = List.generate(
-          5,
+          6,
           (i) => Announcement(
             id: 'ann-$i',
             orgId: 'org-1',
@@ -486,12 +528,11 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // Should only show first 3
+        // Horizontal cards are lazily built; the sixth item should not be
+        // available because the home feed caps the section at five.
         expect(find.text('Announcement 0'), findsOneWidget);
-        expect(find.text('Announcement 1'), findsOneWidget);
-        expect(find.text('Announcement 2'), findsOneWidget);
-        expect(find.text('Announcement 3'), findsNothing);
-        expect(find.text('Announcement 4'), findsNothing);
+        expect(find.text('Announcement 5'), findsNothing);
+        expect(find.text('See All'), findsWidgets);
       });
 
       testWidgets('see all navigates to announcements route',
@@ -510,11 +551,6 @@ void main() {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.scrollUntilVisible(
-          find.text('Welcome Announcement'),
-          300,
-          scrollable: find.byType(Scrollable).last,
-        );
         await tester.tap(find.text('Welcome Announcement'));
         await tester.pumpAndSettle();
 
@@ -754,9 +790,13 @@ void main() {
 
         expect(
           find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(find.text('League Hub'), findsNothing);
+        expect(
+          find.text('Search chats, policies, announcements...'),
+          findsOneWidget,
+        );
         expect(find.text('Announcements'), findsOneWidget);
       });
     });

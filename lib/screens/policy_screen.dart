@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
@@ -9,11 +10,11 @@ import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/permission_service.dart';
+import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
-import '../widgets/status_badge.dart';
 
 class PolicyScreen extends ConsumerStatefulWidget {
   const PolicyScreen({super.key});
@@ -52,21 +53,30 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
     final selectedCategory = ref.watch(selectedPolicyCategoryProvider);
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final leagues = leaguesAsync.valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, selectedLeagueId);
     final showLeagueFilter = leagues.length > 1;
     final visibleCategories =
         buildVisiblePolicyCategories(policiesAsync.valueOrNull ?? const []);
+    final stickyHeight = showLeagueFilter ? 82.0 : 36.0;
+    final topContentPadding = appShellTopPadding(
+      context,
+      stickyHeight: stickyHeight,
+    );
 
     return AppShellScaffold(
       floatingActionButton: _canUpload(currentUser)
           ? FloatingActionButton(
               heroTag: 'policy_fab',
               onPressed: () => context.push('/policy/upload'),
-              backgroundColor: AppColors.primary,
+              backgroundColor: AppGlassColors.aqua,
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
       header: AppShellHeader(
         leadingIcon: Icons.folder_copy_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
+        showBackButton: true,
         title: 'Policy',
       ),
       stickyContent: Column(
@@ -125,7 +135,8 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(policiesProvider),
             child: ListView.builder(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
+              padding: EdgeInsets.fromLTRB(
+                  16, topContentPadding, 16, bottomContentPadding),
               itemCount: filtered.length,
               itemBuilder: (context, index) => _PolicyTile(
                 policy: filtered[index],
@@ -153,26 +164,16 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return _PolicyGlassBadge(
+      label: label,
+      color: isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
+      horizontalPadding: 16,
+      verticalPadding: 10,
+      fontSize: 13,
+      minWidth: label == 'All' ? 60 : null,
+      radius: 18,
+      margin: const EdgeInsets.only(right: 8),
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-              color: isSelected ? AppColors.accent : AppColors.border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.textSecondary,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -243,89 +244,149 @@ class _PolicyTile extends StatelessWidget {
     final versionCount = policy.versions.isEmpty ? 1 : policy.versions.length;
     final leagueName = _leagueName;
 
-    return GestureDetector(
+    return AppGlassSurface(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      radius: 24,
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _fileColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(_fileIcon, color: _fileColor, size: 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: _fileColor.withValues(alpha: 0.13),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _fileColor.withValues(alpha: 0.28)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    policy.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: AppColors.text,
+            child: Icon(_fileIcon, color: _fileColor, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  policy.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: AppGlassColors.ink,
+                    height: 1.15,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _PolicyGlassBadge(
+                      label: policy.category,
+                      color: AppGlassColors.aqua,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      StatusBadge(
-                          label: policy.category,
-                          color: AppColors.primary,
-                          fontSize: 11,
-                          showBorder: false),
-                      if (leagueName != null)
-                        StatusBadge(
-                            label: leagueName,
-                            color: AppColors.accent,
-                            fontSize: 11,
-                            showBorder: false),
-                      Text(
-                        '${policy.fileType.toUpperCase()} • ${AppUtils.formatFileSize(policy.fileSize)}',
-                        style: const TextStyle(
-                            fontSize: 11, color: AppColors.textMuted),
+                    if (leagueName != null)
+                      _PolicyGlassBadge(
+                        label: leagueName,
+                        color: AppGlassColors.gold,
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    _PolicyGlassBadge(
+                      label:
+                          '${policy.fileType.toUpperCase()} • ${AppUtils.formatFileSize(policy.fileSize)}',
+                      color: AppGlassColors.inkMuted,
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Column(
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 78,
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
                   AppUtils.formatDateTime(policy.updatedAt),
-                  style:
-                      const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'v$versionCount',
+                  textAlign: TextAlign.right,
                   style: const TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: AppGlassColors.inkMuted,
                     fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'v$versionCount',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppGlassColors.inkSecondary,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
                   ),
                 ),
               ],
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PolicyGlassBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final double horizontalPadding;
+  final double verticalPadding;
+  final double fontSize;
+  final double? minWidth;
+  final double radius;
+  final EdgeInsetsGeometry? margin;
+  final VoidCallback? onTap;
+
+  const _PolicyGlassBadge({
+    required this.label,
+    required this.color,
+    this.horizontalPadding = 9,
+    this.verticalPadding = 6,
+    this.fontSize = 11,
+    this.minWidth,
+    this.radius = 12,
+    this.margin,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: fontSize,
+      color: color,
+      fontWeight: FontWeight.w700,
+      height: 1,
+    );
+    return AppGlassSurface(
+      margin: margin,
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
+      radius: radius,
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minWidth: minWidth ?? 0),
+        child: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.fade,
+          textAlign: TextAlign.center,
+          style: style,
         ),
       ),
     );

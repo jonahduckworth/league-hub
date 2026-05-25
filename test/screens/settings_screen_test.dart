@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:league_hub/models/app_user.dart';
+import 'package:league_hub/models/league.dart';
+import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings_screen.dart';
 import 'package:league_hub/services/auth_service.dart';
 import 'package:league_hub/services/messaging_service.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:mockito/mockito.dart';
 
 class MockAuthService extends Mock implements AuthService {
@@ -69,6 +72,26 @@ void main() {
   });
 
   group('SettingsScreen', () {
+    final testOrg = Organization(
+      id: 'org-1',
+      name: 'Test Organization',
+      primaryColor: '#1A3A5C',
+      secondaryColor: '#2E75B6',
+      accentColor: '#4DA3FF',
+      createdAt: DateTime.now(),
+      ownerId: 'owner-1',
+    );
+
+    final testLeagues = [
+      League(
+        id: 'league-1',
+        orgId: 'org-1',
+        name: 'Spring League',
+        abbreviation: 'SL',
+        createdAt: DateTime.now(),
+      ),
+    ];
+
     // Helper to create a test widget with Riverpod overrides
     Widget createTestWidget({
       required AppUser user,
@@ -77,6 +100,8 @@ void main() {
       return ProviderScope(
         overrides: [
           currentUserProvider.overrideWith((ref) => user),
+          organizationProvider.overrideWith((ref) => testOrg),
+          leaguesProvider.overrideWith((ref) => Stream.value(testLeagues)),
           pendingInviteCountProvider.overrideWithValue(
             pendingInviteCount,
           ),
@@ -154,6 +179,8 @@ void main() {
       return ProviderScope(
         overrides: [
           currentUserProvider.overrideWith((ref) => user),
+          organizationProvider.overrideWith((ref) => testOrg),
+          leaguesProvider.overrideWith((ref) => Stream.value(testLeagues)),
           pendingInviteCountProvider.overrideWithValue(pendingInviteCount),
           if (authService != null)
             authServiceProvider.overrideWithValue(authService),
@@ -215,6 +242,20 @@ void main() {
         await tester.pumpWidget(createTestWidget(user: staffUser));
 
         expect(find.text('Sign Out'), findsOneWidget);
+      });
+
+      testWidgets('sees league logo mark in header',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(user: staffUser));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+        expect(
+          tester
+              .widget<AppHeaderLogoMark>(find.byType(AppHeaderLogoMark))
+              .label,
+          'Spring League',
+        );
       });
 
       testWidgets('displays profile card with user info',

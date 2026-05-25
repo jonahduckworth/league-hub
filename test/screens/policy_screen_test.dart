@@ -4,10 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/policy.dart';
 import 'package:league_hub/models/league.dart';
+import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/policy_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 
 void main() {
@@ -52,6 +54,16 @@ void main() {
         createdAt: DateTime.now(),
       ),
     ];
+
+    final testOrg = Organization(
+      id: 'org-1',
+      name: 'Test Organization',
+      primaryColor: '#1A3A5C',
+      secondaryColor: '#2E75B6',
+      accentColor: '#4DA3FF',
+      createdAt: DateTime.now(),
+      ownerId: 'admin-1',
+    );
 
     final testPolicies = [
       Policy(
@@ -129,6 +141,9 @@ void main() {
           currentUserProvider.overrideWith(
             (ref) => user ?? testUser,
           ),
+          organizationProvider.overrideWith(
+            (ref) => testOrg,
+          ),
           policiesProvider.overrideWith(
             (ref) => Stream.value(policies ?? testPolicies),
           ),
@@ -167,6 +182,13 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
         expect(find.text('Policy'), findsWidgets);
+        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+        expect(
+          tester
+              .widget<AppHeaderLogoMark>(find.byType(AppHeaderLogoMark))
+              .label,
+          'Spring League',
+        );
       });
 
       testWidgets('does not show a header search field',
