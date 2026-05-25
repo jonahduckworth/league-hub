@@ -9,7 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../core/theme.dart';
+import '../core/league_branding.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../services/permission_service.dart';
@@ -18,6 +18,9 @@ import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../services/storage_service.dart';
+import '../widgets/app_glass.dart';
+import '../widgets/app_shell_header.dart';
+import '../widgets/app_shell_scaffold.dart';
 import '../widgets/confirmation_dialog.dart';
 import 'viewers/image_viewer_screen.dart';
 import 'viewers/pdf_viewer_screen.dart';
@@ -253,7 +256,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
       message:
           'Are you sure you want to delete "${policy.name}"? This cannot be undone.',
       confirmLabel: 'Delete',
-      confirmColor: AppColors.danger,
+      confirmColor: AppGlassColors.rose,
     );
 
     if (confirmed != true) return;
@@ -323,40 +326,44 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final leaguesAsync = ref.watch(leaguesProvider);
     final leagues = leaguesAsync.valueOrNull ?? [];
+    final policy = policyAsync.valueOrNull;
+    final headerLeague = resolveHeaderLeague(leagues, policy?.leagueId);
+    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Policy'),
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'Policy',
+        leadingIcon: Icons.folder_copy_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
+        showBackButton: true,
         actions: [
-          if (_canManage(currentUser))
-            policyAsync.whenData((policy) {
-                  if (policy == null) return const SizedBox.shrink();
-                  return IconButton(
-                    icon: _isDeleting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.delete_outline),
-                    onPressed: _isDeleting ? null : () => _deletePolicy(policy),
-                    tooltip: 'Delete',
-                  );
-                }).valueOrNull ??
-                const SizedBox.shrink(),
+          if (_canManage(currentUser) && policy != null)
+            AppHeaderIconButton(
+              icon: Icons.delete_outline,
+              color: AppGlassColors.rose,
+              tooltip: 'Delete',
+              onPressed: () {
+                if (!_isDeleting) _deletePolicy(policy);
+              },
+            ),
         ],
       ),
-      body: policyAsync.when(
+      child: policyAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Text('Error: $e',
-              style: const TextStyle(color: AppColors.danger)),
+              style: const TextStyle(color: AppGlassColors.rose)),
         ),
         data: (policy) {
           if (policy == null) {
-            return const Center(child: Text('Policy not found.'));
+            return const Center(
+              child: Text(
+                'Policy not found.',
+                style: TextStyle(color: AppGlassColors.inkSecondary),
+              ),
+            );
           }
 
           final leagueName = policy.leagueId != null
@@ -369,10 +376,16 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
           final versions = List<PolicyVersion>.from(policy.versions);
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              topContentPadding,
+              16,
+              bottomContentPadding,
+            ),
             children: [
-              // Header card
-              _Card(
+              AppGlassSurface(
+                padding: const EdgeInsets.all(18),
+                radius: 26,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -384,8 +397,12 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
                           height: 56,
                           decoration: BoxDecoration(
                             color: _fileColor(policy.fileType)
-                                .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: _fileColor(policy.fileType)
+                                  .withValues(alpha: 0.3),
+                            ),
                           ),
                           child: Icon(
                             _fileIcon(policy.fileType),
@@ -402,18 +419,25 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
                                 policy.name,
                                 style: const TextStyle(
                                   fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.text,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppGlassColors.ink,
+                                  height: 1.15,
                                 ),
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 8),
                               Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
+                                spacing: 7,
+                                runSpacing: 7,
                                 children: [
-                                  _Badge(policy.category, AppColors.primary),
+                                  _GlassBadge(
+                                    policy.category,
+                                    AppGlassColors.aqua,
+                                  ),
                                   if (leagueName != null)
-                                    _Badge(leagueName, AppColors.accent),
+                                    _GlassBadge(
+                                      leagueName,
+                                      AppGlassColors.gold,
+                                    ),
                                 ],
                               ),
                             ],
@@ -422,7 +446,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Divider(color: AppColors.border),
+                    const Divider(color: AppGlassColors.border),
                     const SizedBox(height: 12),
                     _InfoRow('File type', policy.fileType.toUpperCase()),
                     _InfoRow(
@@ -437,81 +461,42 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // Open button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _openPolicy(
-                    policy.fileUrl,
-                    fileType: policy.fileType,
-                    title: policy.name,
-                  ),
-                  icon: _isOpeningPolicy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.visibility_outlined),
-                  label: Text(_isOpeningPolicy ? 'Opening...' : 'Open In App'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
+              _PolicyActionButton(
+                icon: Icons.visibility_outlined,
+                label: _isOpeningPolicy ? 'Opening...' : 'Open In App',
+                isLoading: _isOpeningPolicy,
+                onTap: _isOpeningPolicy
+                    ? null
+                    : () => _openPolicy(
+                          policy.fileUrl,
+                          fileType: policy.fileType,
+                          title: policy.name,
+                        ),
               ),
-
-              // Upload new version (admins only)
               if (_canManage(currentUser)) ...[
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed:
-                        _isUploading ? null : () => _uploadNewVersion(policy),
-                    icon: _isUploading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.upload_file),
-                    label: Text(_isUploading
-                        ? 'Uploading ${(_uploadProgress * 100).toStringAsFixed(0)}%...'
-                        : 'Upload New Version'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: AppColors.primary),
-                      foregroundColor: AppColors.primary,
-                    ),
-                  ),
+                const SizedBox(height: 10),
+                _PolicyActionButton(
+                  icon: Icons.upload_file,
+                  label: _isUploading
+                      ? 'Uploading ${(_uploadProgress * 100).toStringAsFixed(0)}%...'
+                      : 'Upload New Version',
+                  isLoading: _isUploading,
+                  isSecondary: true,
+                  onTap: _isUploading ? null : () => _uploadNewVersion(policy),
                 ),
                 if (_isUploading) ...[
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: _uploadProgress > 0 ? _uploadProgress : null,
-                      backgroundColor: AppColors.border,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.primary),
-                    ),
-                  ),
+                  const SizedBox(height: 10),
+                  _InlineProgress(progress: _uploadProgress),
                 ],
               ],
-
-              // Version history
               if (versions.isNotEmpty) ...[
-                const SizedBox(height: 20),
+                const SizedBox(height: 22),
                 const Text(
                   'Version History',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.text,
+                    fontWeight: FontWeight.w800,
+                    color: AppGlassColors.ink,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -564,22 +549,98 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
   Color _fileColor(String fileType) {
     switch (fileType.toLowerCase()) {
       case 'pdf':
-        return AppColors.danger;
+        return AppGlassColors.rose;
       case 'xlsx':
       case 'xls':
       case 'csv':
-        return AppColors.success;
+        return AppGlassColors.aqua;
       case 'docx':
       case 'doc':
-        return AppColors.primaryLight;
+        return AppGlassColors.gold;
       case 'png':
       case 'jpg':
       case 'jpeg':
       case 'gif':
-        return AppColors.warning;
+        return AppGlassColors.gold;
       default:
-        return AppColors.textSecondary;
+        return AppGlassColors.inkSecondary;
     }
+  }
+}
+
+class _PolicyActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isLoading;
+  final bool isSecondary;
+  final VoidCallback? onTap;
+
+  const _PolicyActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isLoading = false,
+    this.isSecondary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isSecondary ? AppGlassColors.aqua : AppGlassColors.ink;
+
+    return Opacity(
+      opacity: onTap == null ? 0.72 : 1,
+      child: AppGlassSurface(
+        height: 56,
+        padding: EdgeInsets.zero,
+        radius: 24,
+        onTap: onTap,
+        child: Center(
+          child: isLoading
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: accent,
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, color: accent, size: 20),
+                    const SizedBox(width: 10),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineProgress extends StatelessWidget {
+  final double progress;
+
+  const _InlineProgress({required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: LinearProgressIndicator(
+        minHeight: 6,
+        value: progress > 0 ? progress : null,
+        backgroundColor: AppGlassColors.border,
+        valueColor: const AlwaysStoppedAnimation<Color>(AppGlassColors.aqua),
+      ),
+    );
   }
 }
 
@@ -598,110 +659,113 @@ class _VersionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return AppGlassSurface(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      radius: 22,
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isLatest
-                ? AppColors.primary.withValues(alpha: 0.3)
-                : AppColors.border,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: isLatest ? AppColors.primary : AppColors.background,
-                borderRadius: BorderRadius.circular(8),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isLatest
+                  ? AppGlassColors.aqua.withValues(alpha: 0.16)
+                  : AppGlassColors.inkMuted.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isLatest
+                    ? AppGlassColors.aqua.withValues(alpha: 0.28)
+                    : AppGlassColors.border,
               ),
-              child: Center(
-                child: Text(
-                  'v$displayVersion',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: isLatest ? Colors.white : AppColors.textSecondary,
-                  ),
+            ),
+            child: Center(
+              child: Text(
+                'v$displayVersion',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: isLatest
+                      ? AppGlassColors.aqua
+                      : AppGlassColors.inkSecondary,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
                         version.uploadedByName.isNotEmpty
                             ? version.uploadedByName
                             : 'Unknown',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: AppColors.text,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: AppGlassColors.ink,
                         ),
                       ),
-                      if (isLatest) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.success.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'Latest',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: AppColors.success,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                    ),
+                    if (isLatest) ...[
+                      const SizedBox(width: 7),
+                      _GlassBadge('Latest', AppGlassColors.aqua),
                     ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${AppUtils.formatDate(version.uploadedAt)} • ${AppUtils.formatFileSize(version.fileSize)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppGlassColors.inkMuted,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${AppUtils.formatDate(version.uploadedAt)} • ${AppUtils.formatFileSize(version.fileSize)}',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textMuted),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const Icon(Icons.open_in_new, size: 16, color: AppColors.textMuted),
-          ],
-        ),
+          ),
+          const Icon(
+            Icons.open_in_new,
+            size: 17,
+            color: AppGlassColors.inkMuted,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _Card extends StatelessWidget {
-  final Widget child;
+class _GlassBadge extends StatelessWidget {
+  final String label;
+  final Color color;
 
-  const _Card({required this.child});
+  const _GlassBadge(this.label, this.color);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+    return AppGlassSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      radius: 12,
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.fade,
+        softWrap: false,
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w800,
+          height: 1,
+        ),
       ),
-      child: child,
     );
   }
 }
@@ -725,7 +789,8 @@ class _InfoRow extends StatelessWidget {
               label,
               style: const TextStyle(
                 fontSize: 13,
-                color: AppColors.textMuted,
+                color: AppGlassColors.inkMuted,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -734,38 +799,12 @@ class _InfoRow extends StatelessWidget {
               value,
               style: const TextStyle(
                 fontSize: 13,
-                color: AppColors.text,
-                fontWeight: FontWeight.w500,
+                color: AppGlassColors.ink,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _Badge(this.label, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
       ),
     );
   }
