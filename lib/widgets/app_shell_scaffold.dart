@@ -40,7 +40,7 @@ class AppShellScaffold extends StatelessWidget {
     this.floatingActionButton,
     this.topSpacing = 20,
     this.stickySpacing = 12,
-    this.topFadeHeight = 164,
+    this.topFadeHeight = 118,
   });
 
   @override
@@ -101,11 +101,11 @@ class _AppShellTopFade extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   AppGlassColors.pageTop,
-                  Color(0xF002050B),
-                  Color(0xA602050B),
+                  Color(0xE602050B),
+                  Color(0x6602050B),
                   Color(0x0002050B),
                 ],
-                stops: [0, 0.42, 0.76, 1],
+                stops: [0, 0.38, 0.70, 1],
               ),
             ),
           ),

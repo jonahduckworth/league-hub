@@ -56,12 +56,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         title: headerLabel,
         content: Row(
           children: [
+            Expanded(child: _buildSearchBar(context)),
+            const SizedBox(width: 12),
             AppHeaderLogoMark(
               imageUrl: headerImageUrl,
               label: headerLabel,
             ),
-            const SizedBox(width: 12),
-            Expanded(child: _buildSearchBar(context)),
           ],
         ),
       ),

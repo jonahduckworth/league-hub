@@ -306,6 +306,10 @@ void main() {
           find.text('Search chats, policies, announcements...'),
           findsOneWidget,
         );
+        expect(
+          tester.getTopLeft(find.byType(AppHeaderLogoMark)).dx,
+          greaterThan(tester.getTopLeft(find.byType(TextField)).dx),
+        );
       });
 
       testWidgets('uses a compact header without welcome copy',
