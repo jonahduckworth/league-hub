@@ -195,7 +195,11 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/policy',
-              builder: (context, state) => const PolicyScreen(),
+              pageBuilder: (context, state) => _shellTransitionPage(
+                state,
+                const PolicyScreen(),
+                animatePrimary: false,
+              ),
               routes: [
                 GoRoute(
                   path: 'upload',
