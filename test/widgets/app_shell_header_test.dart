@@ -13,6 +13,7 @@ void main() {
             body: AppShellHeader(
               title: 'Announcements',
               leadingIcon: Icons.campaign_outlined,
+              leadingLabel: 'Spring League',
               showBackButton: true,
             ),
           ),
@@ -21,9 +22,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AppGlassSurface), findsNWidgets(2));
+      expect(find.byType(AppHeaderLogoMark), findsOneWidget);
       expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
       expect(find.byIcon(Icons.campaign_outlined), findsOneWidget);
       expect(find.text('Announcements'), findsOneWidget);
+      expect(find.text('SL'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byType(AppHeaderLogoMark)).dx,
+        greaterThan(tester.getTopLeft(find.text('Announcements')).dx),
+      );
+
+      final logoMark =
+          tester.widget<AppHeaderLogoMark>(find.byType(AppHeaderLogoMark));
+      expect(logoMark.size, 44);
+      expect(logoMark.label, 'Spring League');
+
+      final titleText = tester.widget<Text>(find.text('Announcements'));
+      expect(titleText.style?.fontSize, 14);
     });
 
     testWidgets('keeps custom home header content unwrapped',

@@ -492,7 +492,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Org-Wide'), findsOneWidget);
-        expect(find.text('SL'), findsOneWidget); // League abbreviation
+        expect(find.text('SL'), findsWidgets); // League abbreviation
       });
 
       testWidgets('shows empty state when no announcements',

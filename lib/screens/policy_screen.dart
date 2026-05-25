@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
@@ -53,6 +54,7 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
     final selectedCategory = ref.watch(selectedPolicyCategoryProvider);
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final leagues = leaguesAsync.valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, selectedLeagueId);
     final showLeagueFilter = leagues.length > 1;
     final visibleCategories =
         buildVisiblePolicyCategories(policiesAsync.valueOrNull ?? const []);
@@ -73,6 +75,8 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
           : null,
       header: AppShellHeader(
         leadingIcon: Icons.folder_copy_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
         showBackButton: true,
         title: 'Policy',
       ),

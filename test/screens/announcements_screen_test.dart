@@ -13,6 +13,7 @@ import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/announcements_screen.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/empty_state.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 import 'package:mockito/mockito.dart';
@@ -303,6 +304,9 @@ void main() {
           currentUserProvider.overrideWith(
             (ref) => user ?? testUser,
           ),
+          organizationProvider.overrideWith(
+            (ref) => testOrg,
+          ),
           announcementsProvider.overrideWith(
             (ref) => Stream.value(announcements ?? testAnnouncements),
           ),
@@ -405,6 +409,13 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
         expect(find.text('Announcements'), findsOneWidget);
+        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+        expect(
+          tester
+              .widget<AppHeaderLogoMark>(find.byType(AppHeaderLogoMark))
+              .label,
+          'Spring League',
+        );
       });
 
       testWidgets('has refresh indicator', (WidgetTester tester) async {

@@ -15,6 +15,7 @@ import 'package:league_hub/screens/new_chat_screen.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/avatar_widget.dart';
 import 'package:league_hub/widgets/empty_state.dart';
 import 'package:league_hub/widgets/league_filter.dart';
@@ -638,6 +639,13 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
         expect(find.text('Messages'), findsOneWidget);
+        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+        expect(
+          tester
+              .widget<AppHeaderLogoMark>(find.byType(AppHeaderLogoMark))
+              .label,
+          'Spring League',
+        );
       });
 
       testWidgets('does not show a header search field',
@@ -1311,7 +1319,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('SL').first);
+        await tester.tap(find.text('SL').last);
         await tester.pumpAndSettle();
 
         expect(find.text('Spring League Hub'), findsOneWidget);

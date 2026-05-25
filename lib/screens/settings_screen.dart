@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
@@ -107,6 +108,8 @@ class SettingsScreen extends ConsumerWidget {
     final topContentPadding = appShellTopPadding(context);
     final userAsync = ref.watch(currentUserProvider);
     final user = userAsync.valueOrNull ?? mockCurrentUser;
+    final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, null);
     final pendingInviteCount = ref.watch(pendingInviteCountProvider);
     final ps = ref.read(permissionServiceProvider);
     final visibleTiles = ps.visibleSettingsTiles(user);
@@ -119,8 +122,10 @@ class SettingsScreen extends ConsumerWidget {
         shouldShowOrganizationSettings(visibleTiles);
 
     return AppShellScaffold(
-      header: const AppShellHeader(
+      header: AppShellHeader(
         leadingIcon: Icons.settings_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
         showBackButton: true,
         title: 'Settings',
       ),

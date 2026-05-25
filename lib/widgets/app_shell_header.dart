@@ -60,23 +60,24 @@ class AppShellHeader extends StatelessWidget {
                       const SizedBox(width: 10),
                     ],
                     Flexible(
+                      flex: 10,
                       child: _HeaderTitlePill(
                         title: title,
                         leadingIcon: leadingIcon,
                       ),
                     ),
+                    const Spacer(),
+                    if (actions.isNotEmpty) ...[
+                      const SizedBox(width: 10),
+                      Row(mainAxisSize: MainAxisSize.min, children: actions),
+                    ],
                     if (hasTrailingMark) ...[
                       const SizedBox(width: 10),
                       AppHeaderLogoMark(
                         imageUrl: leadingImageUrl,
                         label: leadingLabel ?? title,
-                        size: 36,
+                        size: 44,
                       ),
-                    ],
-                    const Spacer(),
-                    if (actions.isNotEmpty) ...[
-                      const SizedBox(width: 10),
-                      Row(mainAxisSize: MainAxisSize.min, children: actions),
                     ],
                   ],
                 ),
@@ -112,21 +113,21 @@ class _HeaderTitlePill extends StatelessWidget {
             (availableWidth - reservedWidth).clamp(0.0, availableWidth);
 
         return AppGlassSurface(
-          height: 44,
+          height: 40,
           padding: EdgeInsets.fromLTRB(
             leadingIcon == null ? 16 : 8,
             0,
-            16,
+            14,
             0,
           ),
-          radius: 22,
+          radius: 20,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (leadingIcon != null) ...[
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 27,
+                  height: 27,
                   decoration: BoxDecoration(
                     color: AppGlassColors.aqua.withValues(alpha: 0.13),
                     shape: BoxShape.circle,
@@ -137,10 +138,10 @@ class _HeaderTitlePill extends StatelessWidget {
                   child: Icon(
                     leadingIcon,
                     color: AppGlassColors.ink.withValues(alpha: 0.94),
-                    size: 17,
+                    size: 15,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
               ],
               ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: maxTitleWidth),
@@ -149,10 +150,10 @@ class _HeaderTitlePill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                     color: AppGlassColors.ink,
-                    height: 1.12,
+                    height: 1.1,
                   ),
                 ),
               ),

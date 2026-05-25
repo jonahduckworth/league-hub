@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
@@ -258,8 +259,10 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final bottomContentPadding = appShellBottomPadding(context);
     final chatRoomsAsync = ref.watch(chatRoomsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
-    final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+    final org = ref.watch(organizationProvider).valueOrNull;
+    final orgId = org?.id;
     final leagues = leaguesAsync.valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
     final showLeagueFilter = leagues.length > 1;
     final topContentPadding = appShellTopPadding(
       context,
@@ -278,6 +281,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             ),
       header: AppShellHeader(
         leadingIcon: Icons.forum_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
         showBackButton: true,
         title: 'Messages',
       ),

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/league_branding.dart';
 import '../core/utils.dart';
 import '../models/announcement.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
-import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../screens/chat_list_screen.dart';
@@ -41,10 +41,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
-    final headerLeague = _selectedLeagueId == null
-        ? (leagues.length == 1 ? leagues.first : null)
-        : _leagueById(leagues, _selectedLeagueId);
-    final headerImageUrl = headerLeague?.logoUrl ?? org?.logoUrl;
+    final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
+    final headerImageUrl = headerLeague?.logoUrl;
     final headerLabel = headerLeague?.name ?? org?.name ?? 'League Hub';
     final topContentPadding = appShellTopPadding(
       context,
@@ -87,14 +85,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ),
     );
-  }
-
-  League? _leagueById(List<League> leagues, String? id) {
-    if (id == null) return null;
-    for (final league in leagues) {
-      if (league.id == id) return league;
-    }
-    return null;
   }
 
   Widget _buildSearchBar(BuildContext context) {

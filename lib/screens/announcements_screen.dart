@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/announcement.dart';
@@ -167,6 +168,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     final userAsync = ref.watch(currentUserProvider);
 
     final leagues = leaguesAsync.valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
     final allAnnouncements = announcementsAsync.valueOrNull ?? [];
     final filtered =
         filterAnnouncementsByLeague(allAnnouncements, _selectedLeagueId);
@@ -190,6 +192,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
           : null,
       header: AppShellHeader(
         leadingIcon: Icons.campaign_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
         showBackButton: true,
         title: 'Announcements',
       ),
