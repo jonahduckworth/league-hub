@@ -14,6 +14,7 @@ class AppShellHeader extends StatelessWidget {
   final String backFallbackLocation;
   final List<Widget> actions;
   final Widget? bottom;
+  final Widget? content;
 
   const AppShellHeader({
     super.key,
@@ -25,6 +26,7 @@ class AppShellHeader extends StatelessWidget {
     this.backFallbackLocation = '/',
     this.actions = const [],
     this.bottom,
+    this.content,
   });
 
   @override
@@ -47,56 +49,58 @@ class AppShellHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      if (showBackButton) ...[
-                        _HeaderBackButton(
-                          fallbackLocation: backFallbackLocation,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      if (leadingIcon != null) ...[
-                        Icon(
-                          leadingIcon,
-                          color: AppGlassColors.ink.withValues(alpha: 0.9),
-                          size: 17,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppGlassColors.ink,
-                            height: 1.15,
+            content ??
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (showBackButton) ...[
+                            _HeaderBackButton(
+                              fallbackLocation: backFallbackLocation,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          if (leadingIcon != null) ...[
+                            Icon(
+                              leadingIcon,
+                              color: AppGlassColors.ink.withValues(alpha: 0.9),
+                              size: 17,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppGlassColors.ink,
+                                height: 1.15,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (hasTrailingMark) ...[
+                            const SizedBox(width: 12),
+                            AppHeaderLogoMark(
+                              imageUrl: leadingImageUrl,
+                              label: leadingLabel ?? title,
+                              size: 34,
+                            ),
+                          ],
+                        ],
                       ),
-                      if (hasTrailingMark) ...[
-                        const SizedBox(width: 12),
-                        _HeaderLeadingMark(
-                          imageUrl: leadingImageUrl,
-                          label: leadingLabel ?? title,
-                        ),
-                      ],
+                    ),
+                    if (actions.isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      Row(mainAxisSize: MainAxisSize.min, children: actions),
                     ],
-                  ),
+                  ],
                 ),
-                if (actions.isNotEmpty) ...[
-                  const SizedBox(width: 12),
-                  Row(mainAxisSize: MainAxisSize.min, children: actions),
-                ],
-              ],
-            ),
             if (hasBottom) ...[
               const SizedBox(height: 14),
               bottom!,
@@ -108,44 +112,51 @@ class AppShellHeader extends StatelessWidget {
   }
 }
 
-class _HeaderLeadingMark extends StatelessWidget {
+class AppHeaderLogoMark extends StatelessWidget {
   final String? imageUrl;
   final String label;
+  final double size;
 
-  const _HeaderLeadingMark({
+  const AppHeaderLogoMark({
+    super.key,
     required this.imageUrl,
     required this.label,
+    this.size = 44,
   });
 
   @override
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
 
-    if (hasImage) {
-      return SizedBox(
-        width: 34,
-        height: 34,
-        child: CachedNetworkImage(
-          imageUrl: imageUrl!,
-          fit: BoxFit.contain,
-          placeholder: (_, __) => _fallback(),
-          errorWidget: (_, __, ___) => _fallback(),
-        ),
-      );
-    }
-
     return Container(
-      width: 34,
-      height: 34,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(12),
+        shape: BoxShape.circle,
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.22),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.20),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: _fallback(),
+      child: hasImage
+          ? Padding(
+              padding: EdgeInsets.all(size * 0.12),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl!,
+                fit: BoxFit.contain,
+                placeholder: (_, __) => _fallback(),
+                errorWidget: (_, __, ___) => _fallback(),
+              ),
+            )
+          : _fallback(),
     );
   }
 

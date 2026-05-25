@@ -37,18 +37,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final bottomContentPadding = appShellBottomPadding(context);
     final leaguesAsync = ref.watch(leaguesProvider);
-    final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final org = ref.watch(organizationProvider).valueOrNull;
 
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
-    final greeting = dashboardGreetingForHour(DateTime.now().hour);
     final headerLeague = _selectedLeagueId == null
         ? (leagues.length == 1 ? leagues.first : null)
         : _leagueById(leagues, _selectedLeagueId);
     final headerImageUrl = headerLeague?.logoUrl ?? org?.logoUrl;
     final headerLabel = headerLeague?.name ?? org?.name ?? 'League Hub';
-    final firstName = _firstName(currentUser?.displayName);
     final topContentPadding = appShellTopPadding(
       context,
       stickyHeight: showLeagueFilter ? 38 : 0,
@@ -56,10 +53,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return AppShellScaffold(
       header: AppShellHeader(
-        leadingIcon: greeting.icon,
-        leadingImageUrl: headerImageUrl,
-        leadingLabel: headerLabel,
-        title: '${greeting.label}, $firstName',
+        title: headerLabel,
+        content: Row(
+          children: [
+            AppHeaderLogoMark(
+              imageUrl: headerImageUrl,
+              label: headerLabel,
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: _buildSearchBar(context)),
+          ],
+        ),
       ),
       stickyContent: showLeagueFilter
           ? LeagueFilter(
@@ -74,8 +78,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSearchBar(context),
-            const SizedBox(height: 18),
             _buildAnnouncementsSection(),
             const SizedBox(height: 18),
             _buildNavigationTiles(context),
@@ -95,17 +97,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return null;
   }
 
-  String _firstName(String? displayName) {
-    final trimmed = displayName?.trim();
-    if (trimmed == null || trimmed.isEmpty) return 'there';
-    return trimmed.split(RegExp(r'\s+')).first;
-  }
-
   Widget _buildSearchBar(BuildContext context) {
     return AppGlassSurface(
-      height: 46,
+      height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      radius: 23,
+      radius: 22,
       child: Row(
         children: [
           const Icon(
@@ -304,36 +300,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
     return null;
   }
-}
-
-@visibleForTesting
-DashboardGreeting dashboardGreetingForHour(int hour) {
-  if (hour < 12) {
-    return const DashboardGreeting(
-      label: 'Good morning',
-      icon: Icons.wb_sunny_outlined,
-    );
-  }
-  if (hour < 17) {
-    return const DashboardGreeting(
-      label: 'Good afternoon',
-      icon: Icons.wb_sunny,
-    );
-  }
-  return const DashboardGreeting(
-    label: 'Good evening',
-    icon: Icons.nightlight_outlined,
-  );
-}
-
-class DashboardGreeting {
-  final String label;
-  final IconData icon;
-
-  const DashboardGreeting({
-    required this.label,
-    required this.icon,
-  });
 }
 
 class _AnnouncementCard extends StatelessWidget {

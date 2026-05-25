@@ -11,6 +11,7 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/dashboard_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 
 void main() {
@@ -255,15 +256,6 @@ void main() {
     }
 
     group('Main Content', () {
-      test('maps time of day to dashboard greeting', () {
-        expect(dashboardGreetingForHour(8).label, 'Good morning');
-        expect(dashboardGreetingForHour(13).label, 'Good afternoon');
-        expect(dashboardGreetingForHour(20).label, 'Good evening');
-        expect(dashboardGreetingForHour(8).icon, Icons.wb_sunny_outlined);
-        expect(dashboardGreetingForHour(13).icon, Icons.wb_sunny);
-        expect(dashboardGreetingForHour(20).icon, Icons.nightlight_outlined);
-      });
-
       testWidgets('does not render the old stats card grid',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
@@ -288,7 +280,7 @@ void main() {
     });
 
     group('AppBar and Header', () {
-      testWidgets('displays greeting instead of organization name in header',
+      testWidgets('shows logo search header instead of greeting text',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(
           org: Organization(
@@ -306,12 +298,17 @@ void main() {
 
         expect(
           find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(find.text('Custom Org Name'), findsNothing);
+        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+        expect(
+          find.text('Search chats, policies, announcements...'),
+          findsOneWidget,
+        );
       });
 
-      testWidgets('uses a compact greeting header without welcome copy',
+      testWidgets('uses a compact header without welcome copy',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -319,7 +316,7 @@ void main() {
 
         expect(
           find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(find.text('Test Organization'), findsNothing);
         expect(find.text('Welcome back, Test User'), findsNothing);
@@ -337,7 +334,7 @@ void main() {
         );
       });
 
-      testWidgets('shows central search bar', (WidgetTester tester) async {
+      testWidgets('shows header search bar', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -389,7 +386,7 @@ void main() {
           find.byType(TextField),
           'registrations',
         );
-        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.testTextInput.receiveAction(TextInputAction.search);
         await tester.pumpAndSettle();
 
         expect(
@@ -760,9 +757,13 @@ void main() {
 
         expect(
           find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
-          findsOneWidget,
+          findsNothing,
         );
         expect(find.text('League Hub'), findsNothing);
+        expect(
+          find.text('Search chats, policies, announcements...'),
+          findsOneWidget,
+        );
         expect(find.text('Announcements'), findsOneWidget);
       });
     });

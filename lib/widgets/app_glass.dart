@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 class AppGlassColors {
-  static const Color pageTop = Color(0xFF050606);
-  static const Color pageMid = Color(0xFF0D1A18);
-  static const Color pageWarm = Color(0xFF17120C);
-  static const Color pageBottom = Color(0xFF030405);
+  static const Color pageTop = Color(0xFF02050B);
+  static const Color pageMid = Color(0xFF061426);
+  static const Color pageWarm = Color(0xFF0B2140);
+  static const Color pageBottom = Color(0xFF01030A);
   static const Color ink = Color(0xFFF7FAF8);
   static const Color inkSecondary = Color(0xFFC8D3CC);
   static const Color inkMuted = Color(0xFF8FA09A);
@@ -53,9 +53,9 @@ class AppGlassBackground extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0x2600FFF0),
-                    Color(0x0000FFF0),
-                    Color(0x14F4C96B),
+                    Color(0x24177BFF),
+                    Color(0x000B65FF),
+                    Color(0x163CE7F4),
                   ],
                   stops: [0, 0.48, 1],
                 ),
@@ -69,9 +69,9 @@ class AppGlassBackground extends StatelessWidget {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    Color(0x00111614),
-                    Color(0x24111614),
-                    Color(0x00050606),
+                    Color(0x00061528),
+                    Color(0x2608172B),
+                    Color(0x0002050B),
                   ],
                 ),
               ),

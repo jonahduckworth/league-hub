@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'app_glass.dart';
 import 'app_shell_header.dart';
 
 double appShellBottomPadding(BuildContext context, {double extra = 8}) {
@@ -27,6 +30,7 @@ class AppShellScaffold extends StatelessWidget {
   final Widget? floatingActionButton;
   final double topSpacing;
   final double stickySpacing;
+  final double topFadeHeight;
 
   const AppShellScaffold({
     super.key,
@@ -36,6 +40,7 @@ class AppShellScaffold extends StatelessWidget {
     this.floatingActionButton,
     this.topSpacing = 20,
     this.stickySpacing = 12,
+    this.topFadeHeight = 164,
   });
 
   @override
@@ -48,6 +53,13 @@ class AppShellScaffold extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(child: child),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: topFadeHeight,
+            child: const _AppShellTopFade(),
+          ),
           Positioned(
             top: 0,
             left: 0,
@@ -68,6 +80,36 @@ class AppShellScaffold extends StatelessWidget {
               child: floatingActionButton!,
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _AppShellTopFade extends StatelessWidget {
+  const _AppShellTopFade();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppGlassColors.pageTop,
+                  Color(0xF002050B),
+                  Color(0xA602050B),
+                  Color(0x0002050B),
+                ],
+                stops: [0, 0.42, 0.76, 1],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
