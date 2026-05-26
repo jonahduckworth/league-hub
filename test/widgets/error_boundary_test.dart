@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/widgets/error_boundary.dart';
 
 void main() {
@@ -56,11 +56,36 @@ void main() {
       expect(find.text('Something went wrong'), findsOneWidget);
       expect(find.text('Exception: Boom'), findsOneWidget);
       expect(find.byIcon(Icons.error_outline), findsOneWidget);
-      expect(find.widgetWithText(ElevatedButton, 'Try Again'), findsOneWidget);
+      expect(find.text('Try Again'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Try Again'));
+      await tester.tap(find.text('Try Again'));
       await tester.pump();
 
+      expect(find.text('Normal Content'), findsOneWidget);
+      expect(find.text('Something went wrong'), findsNothing);
+    });
+
+    testWidgets('does not show fallback for keyboard key-up mismatch',
+        (WidgetTester tester) async {
+      FlutterErrorDetails? forwardedError;
+      FlutterError.onError = (details) {
+        forwardedError = details;
+      };
+
+      await tester.pumpWidget(createTestWidget());
+
+      final details = FlutterErrorDetails(
+        exception: FlutterError(
+          'A KeyUpEvent is dispatched, but the state shows that the physical key is not pressed.',
+        ),
+        stack: StackTrace.current,
+      );
+      FlutterError.reportError(details);
+
+      await tester.pump();
+      await tester.pump();
+
+      expect(forwardedError, same(details));
       expect(find.text('Normal Content'), findsOneWidget);
       expect(find.text('Something went wrong'), findsNothing);
     });
@@ -94,7 +119,7 @@ void main() {
       expect(find.text('Bad state: Broken widget'), findsOneWidget);
       final icon =
           tester.widget<Icon>(find.byIcon(Icons.warning_amber_rounded));
-      expect(icon.color, AppColors.warning);
+      expect(icon.color, AppGlassColors.gold);
     });
 
     testWidgets('uses app background and muted detail styling',
@@ -111,7 +136,7 @@ void main() {
       );
 
       final material = tester.widget<Material>(find.byType(Material).first);
-      expect(material.color, AppColors.background);
+      expect(material.color, Colors.transparent);
 
       final detailText = tester.widget<Text>(find.text('Exception: Oops'));
       expect(detailText.maxLines, 3);

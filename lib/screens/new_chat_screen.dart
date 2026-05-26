@@ -4,14 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/league_branding.dart';
 import '../core/picked_file.dart';
-import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/permission_service.dart';
 import '../services/storage_service.dart';
+import '../widgets/app_glass.dart';
+import '../widgets/app_shell_header.dart';
+import '../widgets/app_shell_scaffold.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/chat_room_avatar.dart';
 import 'chat_list_screen.dart';
@@ -190,47 +193,49 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
     }
   }
 
-  InputDecoration _inputDecoration(String hint) => InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final orgId =
         ref.watch(organizationProvider).valueOrNull?.id ?? currentUser?.orgId;
+    final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
+    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 24);
+    final headerIcon = switch (_step) {
+      _NewChatStep.choose => Icons.forum_outlined,
+      _NewChatStep.eventRoom => Icons.event_outlined,
+      _NewChatStep.directMessage => Icons.person_outline,
+    };
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(_title),
-        leading: IconButton(
-          icon: Icon(
-              _step == _NewChatStep.choose ? Icons.close : Icons.arrow_back),
-          onPressed: _isCreating ? null : _goBackOrClose,
-        ),
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: _title,
+        leadingIcon: headerIcon,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: 'League Hub',
+        showBackButton: true,
+        backIcon: _step == _NewChatStep.choose
+            ? Icons.close
+            : Icons.arrow_back_ios_new,
+        onBack: _isCreating ? () {} : _goBackOrClose,
       ),
-      body: orgId == null
-          ? const Center(child: Text('Organization unavailable.'))
+      child: orgId == null
+          ? const Center(
+              child: Text(
+                'Organization unavailable.',
+                style: TextStyle(color: AppGlassColors.inkSecondary),
+              ),
+            )
           : AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeOutCubic,
               child: switch (_step) {
                 _NewChatStep.choose => _ChooseConversationType(
                     key: const ValueKey('choose'),
+                    topPadding: topContentPadding,
+                    bottomPadding: bottomContentPadding,
                     onEventRoom: () =>
                         setState(() => _step = _NewChatStep.eventRoom),
                     onDirectMessage: () =>
@@ -238,12 +243,13 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                   ),
                 _NewChatStep.eventRoom => _EventRoomForm(
                     key: const ValueKey('event'),
+                    topPadding: topContentPadding,
+                    bottomPadding: bottomContentPadding,
                     nameController: _nameController,
                     selectedLeagueId: _selectedLeagueId,
                     selectedIconName: _selectedIconName,
                     selectedImageName: _selectedImageName,
                     isCreating: _isCreating,
-                    inputDecoration: _inputDecoration,
                     onLeagueSelected: (id) =>
                         setState(() => _selectedLeagueId = id),
                     onIconSelected: (name) => setState(() {
@@ -256,6 +262,8 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                   ),
                 _NewChatStep.directMessage => _DirectMessagePicker(
                     key: const ValueKey('dm'),
+                    topPadding: topContentPadding,
+                    bottomPadding: bottomContentPadding,
                     onUserSelected: (user) => _openDirectMessage(orgId, user),
                   ),
               },
@@ -281,11 +289,15 @@ List<String> eventRoomParticipantIds({
 }
 
 class _ChooseConversationType extends StatelessWidget {
+  final double topPadding;
+  final double bottomPadding;
   final VoidCallback onEventRoom;
   final VoidCallback onDirectMessage;
 
   const _ChooseConversationType({
     super.key,
+    required this.topPadding,
+    required this.bottomPadding,
     required this.onEventRoom,
     required this.onDirectMessage,
   });
@@ -293,27 +305,31 @@ class _ChooseConversationType extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, bottomPadding),
       children: [
         const Text(
           'What are we starting?',
           style: TextStyle(
-            fontSize: 22,
+            fontSize: 24,
             fontWeight: FontWeight.w800,
-            color: AppColors.text,
+            color: AppGlassColors.ink,
           ),
         ),
         const SizedBox(height: 6),
         const Text(
           'Create an event room for a group or start a private conversation.',
-          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          style: TextStyle(
+            fontSize: 14,
+            color: AppGlassColors.inkSecondary,
+            height: 1.35,
+          ),
         ),
         const SizedBox(height: 20),
         _ConversationTypeCard(
           icon: Icons.event_outlined,
           title: 'Event Room',
           subtitle: 'A shared room for tournaments, games, or planning.',
-          color: AppColors.primary,
+          color: AppGlassColors.gold,
           onTap: onEventRoom,
         ),
         const SizedBox(height: 12),
@@ -321,7 +337,7 @@ class _ChooseConversationType extends StatelessWidget {
           icon: Icons.person_outline,
           title: 'Direct Message',
           subtitle: 'Message another member one-on-one.',
-          color: AppColors.accent,
+          color: AppGlassColors.aqua,
           onTap: onDirectMessage,
         ),
       ],
@@ -346,66 +362,62 @@ class _ConversationTypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return AppGlassSurface(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: color),
+      radius: 24,
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withValues(alpha: 0.28)),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text,
-                    ),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppGlassColors.ink,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppGlassColors.inkSecondary,
+                    height: 1.35,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textMuted),
-          ],
-        ),
+          ),
+          const Icon(Icons.chevron_right, color: AppGlassColors.inkMuted),
+        ],
       ),
     );
   }
 }
 
 class _EventRoomForm extends ConsumerWidget {
+  final double topPadding;
+  final double bottomPadding;
   final TextEditingController nameController;
   final String? selectedLeagueId;
   final String selectedIconName;
   final String? selectedImageName;
   final bool isCreating;
-  final InputDecoration Function(String hint) inputDecoration;
   final ValueChanged<String?> onLeagueSelected;
   final ValueChanged<String> onIconSelected;
   final VoidCallback onPickImage;
@@ -413,12 +425,13 @@ class _EventRoomForm extends ConsumerWidget {
 
   const _EventRoomForm({
     super.key,
+    required this.topPadding,
+    required this.bottomPadding,
     required this.nameController,
     required this.selectedLeagueId,
     required this.selectedIconName,
     required this.selectedImageName,
     required this.isCreating,
-    required this.inputDecoration,
     required this.onLeagueSelected,
     required this.onIconSelected,
     required this.onPickImage,
@@ -431,18 +444,17 @@ class _EventRoomForm extends ConsumerWidget {
     final leagues = leaguesAsync.valueOrNull ?? [];
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, bottomPadding),
       children: [
         const _SectionLabel('Room Details'),
         const SizedBox(height: 8),
-        TextField(
+        _GlassTextField(
           controller: nameController,
-          autofocus: true,
+          labelText: 'Room Name',
+          hintText: 'Spring Tournament',
+          leadingIcon: Icons.event_outlined,
           textInputAction: TextInputAction.done,
-          decoration: inputDecoration('Spring Tournament').copyWith(
-            labelText: 'Room Name',
-            prefixIcon: const Icon(Icons.event_outlined),
-          ),
         ),
         const SizedBox(height: 18),
         const _SectionLabel('Room Look'),
@@ -452,23 +464,20 @@ class _EventRoomForm extends ConsumerWidget {
           runSpacing: 8,
           children: [
             ...chatRoomIconOptions.entries.map(
-              (entry) => ChoiceChip(
-                label: Icon(entry.value, size: 18),
+              (entry) => _GlassIconChoice(
+                icon: entry.value,
                 selected:
                     selectedImageName == null && selectedIconName == entry.key,
-                onSelected:
-                    isCreating ? null : (_) => onIconSelected(entry.key),
+                onTap: isCreating ? null : () => onIconSelected(entry.key),
               ),
             ),
-            ActionChip(
-              avatar: Icon(
-                selectedImageName == null
-                    ? Icons.image_outlined
-                    : Icons.check_circle,
-                size: 18,
-              ),
-              label: Text(selectedImageName ?? 'Use Image'),
-              onPressed: isCreating ? null : onPickImage,
+            _GlassTextChoice(
+              icon: selectedImageName == null
+                  ? Icons.image_outlined
+                  : Icons.check_circle,
+              label: selectedImageName ?? 'Use Image',
+              selected: selectedImageName != null,
+              onTap: isCreating ? null : onPickImage,
             ),
           ],
         ),
@@ -480,31 +489,26 @@ class _EventRoomForm extends ConsumerWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ChoiceChip(
-                label: const Text('None'),
+              _GlassTextChoice(
+                label: 'None',
+                icon: Icons.check,
                 selected: selectedLeagueId == null,
-                onSelected: isCreating ? null : (_) => onLeagueSelected(null),
-                selectedColor: AppColors.border,
+                onTap: isCreating ? null : () => onLeagueSelected(null),
               ),
               ...leagues.map(
-                (league) => ChoiceChip(
-                  label: Text(league.abbreviation),
+                (league) => _GlassTextChoice(
+                  label: league.abbreviation,
                   selected: selectedLeagueId == league.id,
-                  onSelected:
-                      isCreating ? null : (_) => onLeagueSelected(league.id),
-                  selectedColor: AppColors.primary.withValues(alpha: 0.15),
-                  labelStyle: chatLeagueChipLabelStyle(
-                    selected: selectedLeagueId == league.id,
-                  ),
+                  onTap: isCreating ? null : () => onLeagueSelected(league.id),
                 ),
               ),
             ],
           ),
         ],
         const SizedBox(height: 24),
-        ElevatedButton(
+        _GlassSubmitButton(
           onPressed: isCreating ? null : onCreate,
-          child: Text(isCreating ? 'Creating...' : 'Create Room'),
+          label: isCreating ? 'Creating...' : 'Create Room',
         ),
       ],
     );
@@ -512,10 +516,14 @@ class _EventRoomForm extends ConsumerWidget {
 }
 
 class _DirectMessagePicker extends ConsumerWidget {
+  final double topPadding;
+  final double bottomPadding;
   final ValueChanged<AppUser> onUserSelected;
 
   const _DirectMessagePicker({
     super.key,
+    required this.topPadding,
+    required this.bottomPadding,
     required this.onUserSelected,
   });
 
@@ -529,46 +537,49 @@ class _DirectMessagePicker extends ConsumerWidget {
       return const Center(
         child: Text(
           'No other members in your organization.',
-          style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 14, color: AppGlassColors.inkMuted),
         ),
       );
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, bottomPadding),
       itemCount: otherUsers.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
         final user = otherUsers[index];
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
+        return AppGlassSurface(
+          radius: 22,
+          padding: EdgeInsets.zero,
+          onTap: () => onUserSelected(user),
           child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             leading: AvatarWidget(
               imageUrl: user.avatarUrl,
               name: user.displayName,
               size: 48,
               backgroundColor:
-                  AppUtils.roleColor(user.role).withValues(alpha: 0.18),
+                  AppUtils.roleColor(user.role).withValues(alpha: 0.22),
             ),
             title: Text(
               user.displayName,
               style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: AppGlassColors.ink,
               ),
             ),
             subtitle: Text(
               user.roleLabel,
-              style:
-                  const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppGlassColors.inkSecondary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             trailing:
-                const Icon(Icons.chevron_right, color: AppColors.textMuted),
-            onTap: () => onUserSelected(user),
+                const Icon(Icons.chevron_right, color: AppGlassColors.inkMuted),
           ),
         );
       },
@@ -586,10 +597,227 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       label.toUpperCase(),
       style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        color: AppColors.textSecondary,
-        letterSpacing: 0.8,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        color: AppGlassColors.inkMuted,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+}
+
+class _GlassTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String? labelText;
+  final String hintText;
+  final IconData? leadingIcon;
+  final TextInputAction? textInputAction;
+
+  const _GlassTextField({
+    required this.controller,
+    required this.hintText,
+    this.labelText,
+    this.leadingIcon,
+    this.textInputAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 22,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            filled: false,
+            fillColor: Colors.transparent,
+          ),
+          textSelectionTheme: const TextSelectionThemeData(
+            cursorColor: AppGlassColors.aqua,
+            selectionColor: Color(0x3367E8D4),
+            selectionHandleColor: AppGlassColors.aqua,
+          ),
+        ),
+        child: TextField(
+          controller: controller,
+          textInputAction: textInputAction,
+          cursorColor: AppGlassColors.aqua,
+          style: const TextStyle(
+            color: AppGlassColors.ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+          decoration: InputDecoration(
+            labelText: labelText,
+            hintText: hintText,
+            prefixIcon: leadingIcon == null
+                ? null
+                : Icon(
+                    leadingIcon,
+                    color: AppGlassColors.inkSecondary,
+                    size: 20,
+                  ),
+            hintStyle: const TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontWeight: FontWeight.w600,
+            ),
+            labelStyle: const TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontWeight: FontWeight.w700,
+            ),
+            filled: false,
+            fillColor: Colors.transparent,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassIconChoice extends StatelessWidget {
+  final IconData icon;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  const _GlassIconChoice({
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      width: 60,
+      height: 50,
+      padding: EdgeInsets.zero,
+      radius: 18,
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: selected
+              ? AppGlassColors.aqua.withValues(alpha: 0.13)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? AppGlassColors.aqua.withValues(alpha: 0.34)
+                : Colors.transparent,
+          ),
+        ),
+        child: Center(
+          child: Icon(
+            icon,
+            color: selected ? AppGlassColors.aqua : AppGlassColors.inkSecondary,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassTextChoice extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  const _GlassTextChoice({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      height: 50,
+      padding: EdgeInsets.zero,
+      radius: 18,
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: selected
+              ? AppGlassColors.aqua.withValues(alpha: 0.13)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? AppGlassColors.aqua.withValues(alpha: 0.34)
+                : Colors.transparent,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected
+                      ? AppGlassColors.aqua
+                      : AppGlassColors.inkSecondary,
+                ),
+                const SizedBox(width: 8),
+              ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 156),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color:
+                        selected ? AppGlassColors.ink : AppGlassColors.inkMuted,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassSubmitButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _GlassSubmitButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      height: 58,
+      padding: EdgeInsets.zero,
+      radius: 22,
+      onTap: onPressed,
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            color: onPressed == null
+                ? AppGlassColors.inkMuted
+                : AppGlassColors.ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
     );
   }

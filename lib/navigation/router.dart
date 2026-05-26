@@ -187,7 +187,40 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/chat',
-              builder: (context, state) => const ChatListScreen(),
+              pageBuilder: (context, state) => _shellTransitionPage(
+                state,
+                const ChatListScreen(),
+                animatePrimary: false,
+              ),
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const NewChatScreen(),
+                  ),
+                ),
+                GoRoute(
+                  path: ':roomId',
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    ChatConversationScreen(
+                      roomId: state.pathParameters['roomId']!,
+                    ),
+                  ),
+                  routes: [
+                    GoRoute(
+                      path: 'info',
+                      pageBuilder: (context, state) => _shellTransitionPage(
+                        state,
+                        ChatRoomInfoScreen(
+                          roomId: state.pathParameters['roomId']!,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -388,22 +421,6 @@ final router = GoRouter(
           ),
         ),
       ],
-    ),
-    GoRoute(
-      path: '/chat/new',
-      builder: (context, state) => const NewChatScreen(),
-    ),
-    GoRoute(
-      path: '/chat/:roomId',
-      builder: (context, state) => ChatConversationScreen(
-        roomId: state.pathParameters['roomId']!,
-      ),
-    ),
-    GoRoute(
-      path: '/chat/:roomId/info',
-      builder: (context, state) => ChatRoomInfoScreen(
-        roomId: state.pathParameters['roomId']!,
-      ),
     ),
   ],
 );

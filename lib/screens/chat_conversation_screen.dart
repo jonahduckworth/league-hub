@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
@@ -15,6 +14,9 @@ import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
+import '../widgets/app_glass.dart';
+import '../widgets/app_shell_header.dart';
+import '../widgets/app_shell_scaffold.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/chat_room_avatar.dart';
 import '../widgets/confirmation_dialog.dart';
@@ -195,7 +197,7 @@ class _ChatConversationScreenState
       title: 'Delete message',
       message: 'This message will be removed for everyone.',
       confirmLabel: 'Delete',
-      confirmColor: AppColors.danger,
+      confirmColor: AppGlassColors.rose,
     );
     if (confirmed != true) return;
 
@@ -320,85 +322,43 @@ class _ChatConversationScreenState
             ? '$participantCount member${participantCount == 1 ? '' : 's'}'
             : null;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/chat');
-            }
-          },
+    final topContentPadding = appShellTopPadding(context, extra: 10);
+
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: roomName,
+        showBackButton: true,
+        backFallbackLocation: '/chat',
+        content: _ConversationHeaderContent(
+          room: room,
+          roomName: roomName,
+          roomSubtitle:
+              typingUsers.isNotEmpty ? _typingLabel(typingUsers) : roomSubtitle,
+          currentUser: currentUser,
+          users: users,
+          onInfo: () => context.push('/chat/${widget.roomId}/info'),
         ),
-        title: Row(
-          children: [
-            if (room != null) ...[
-              ChatRoomAvatar(
-                room: room,
-                displayName: roomName,
-                directMessagePeer: directMessagePeer(room, currentUser, users),
-                size: 36,
-                borderRadius: 10,
-                iconSize: 18,
-              ),
-              const SizedBox(width: 10),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    roomName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  if (typingUsers.isNotEmpty)
-                    Text(
-                      _typingLabel(typingUsers),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic,
-                          color: Colors.white70),
-                    )
-                  else if (roomSubtitle != null)
-                    Text(
-                      roomSubtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.white70),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-              icon: const Icon(Icons.info_outlined),
-              onPressed: () => context.push('/chat/${widget.roomId}/info')),
-        ],
       ),
-      body: Column(
+      child: Column(
         children: [
           Expanded(
             child: messagesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) =>
-                  Center(child: Text('Error loading messages: $e')),
+              error: (e, _) => Center(
+                child: Text(
+                  'Error loading messages: $e',
+                  style: const TextStyle(color: AppGlassColors.rose),
+                ),
+              ),
               data: (messages) {
                 if (messages.isEmpty) {
-                  return const EmptyState(
-                    icon: Icons.chat_bubble_outline,
-                    title: 'No messages yet',
-                    subtitle: 'Be the first to say something!',
+                  return Padding(
+                    padding: EdgeInsets.only(top: topContentPadding),
+                    child: const EmptyState(
+                      icon: Icons.chat_bubble_outline,
+                      title: 'No messages yet',
+                      subtitle: 'Be the first to say something!',
+                    ),
                   );
                 }
 
@@ -406,7 +366,12 @@ class _ChatConversationScreenState
 
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: EdgeInsets.fromLTRB(
+                    0,
+                    topContentPadding,
+                    0,
+                    12,
+                  ),
                   itemCount: items.length,
                   itemBuilder: (context, index) => items[index],
                 );
@@ -458,100 +423,256 @@ class _ChatConversationScreenState
   }
 
   Widget _buildEditBanner() {
-    return Container(
-      color: AppColors.primary.withValues(alpha: 0.08),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          const Icon(Icons.edit, size: 16, color: AppColors.primary),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text('Editing message',
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: AppGlassSurface(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        radius: 18,
+        child: Row(
+          children: [
+            const Icon(Icons.edit, size: 16, color: AppGlassColors.gold),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Editing message',
                 style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600)),
-          ),
-          GestureDetector(
-            onTap: _cancelEditing,
-            child:
-                const Icon(Icons.close, size: 18, color: AppColors.textMuted),
-          ),
-        ],
+                  fontSize: 13,
+                  color: AppGlassColors.ink,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: _cancelEditing,
+              child: const Icon(
+                Icons.close,
+                size: 18,
+                color: AppGlassColors.inkMuted,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildInputBar() {
-    return Container(
-      color: Colors.white,
+    return Padding(
       padding: EdgeInsets.only(
         left: 12,
         right: 12,
-        top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
+        top: 8,
+        bottom: MediaQuery.paddingOf(context).bottom + 10,
       ),
       child: Row(
         children: [
-          // Media attachment button
-          IconButton(
-            icon: const Icon(Icons.image_outlined,
-                color: AppColors.textSecondary),
-            onPressed: _isSending ? null : _pickAndSendImage,
-            tooltip: 'Send image',
-          ),
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: InputDecoration(
-                hintText: _editingMessageId != null
-                    ? 'Edit your message...'
-                    : 'Type a message...',
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: const BorderSide(color: AppColors.border)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: const BorderSide(color: AppColors.border)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: const BorderSide(color: AppColors.primary)),
-                filled: true,
-                fillColor: AppColors.background,
+          AppGlassSurface(
+            width: 44,
+            height: 44,
+            padding: EdgeInsets.zero,
+            radius: 22,
+            onTap: _isSending ? null : _pickAndSendImage,
+            child: const Tooltip(
+              message: 'Send image',
+              child: Icon(
+                Icons.image_outlined,
+                color: AppGlassColors.inkSecondary,
+                size: 20,
               ),
-              maxLines: null,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _sendMessage(),
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: _editingMessageId != null
-                  ? AppColors.accent
-                  : AppColors.primary,
-              shape: BoxShape.circle,
+          Expanded(
+            child: AppGlassSurface(
+              padding: EdgeInsets.zero,
+              radius: 24,
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  inputDecorationTheme: const InputDecorationTheme(
+                    filled: false,
+                    fillColor: Colors.transparent,
+                  ),
+                  textSelectionTheme: const TextSelectionThemeData(
+                    cursorColor: AppGlassColors.aqua,
+                    selectionColor: Color(0x3367E8D4),
+                    selectionHandleColor: AppGlassColors.aqua,
+                  ),
+                ),
+                child: TextField(
+                  controller: _messageController,
+                  cursorColor: AppGlassColors.aqua,
+                  style: const TextStyle(
+                    color: AppGlassColors.ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: _editingMessageId != null
+                        ? 'Edit your message...'
+                        : 'Type a message...',
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 13),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
+                    fillColor: Colors.transparent,
+                    hintStyle: const TextStyle(
+                      color: AppGlassColors.inkMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  maxLines: null,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
             ),
-            child: IconButton(
-              icon: _isSending
+          ),
+          const SizedBox(width: 8),
+          AppGlassSurface(
+            width: 48,
+            height: 48,
+            padding: EdgeInsets.zero,
+            radius: 24,
+            onTap: _isSending ? null : _sendMessage,
+            child: Center(
+              child: _isSending
                   ? const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
+                        color: AppGlassColors.ink,
+                        strokeWidth: 2,
+                      ),
                     )
                   : Icon(
                       _editingMessageId != null ? Icons.check : Icons.send,
-                      color: Colors.white,
-                      size: 20,
+                      color: _editingMessageId != null
+                          ? AppGlassColors.gold
+                          : AppGlassColors.aqua,
+                      size: 21,
                     ),
-              onPressed: _isSending ? null : _sendMessage,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ConversationHeaderContent extends StatelessWidget {
+  final ChatRoom? room;
+  final String roomName;
+  final String? roomSubtitle;
+  final AppUser? currentUser;
+  final List<AppUser> users;
+  final VoidCallback onInfo;
+
+  const _ConversationHeaderContent({
+    required this.room,
+    required this.roomName,
+    required this.roomSubtitle,
+    required this.currentUser,
+    required this.users,
+    required this.onInfo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final directPeer =
+        room == null ? null : directMessagePeer(room!, currentUser, users);
+
+    return Row(
+      children: [
+        AppGlassSurface(
+          width: 44,
+          height: 44,
+          padding: EdgeInsets.zero,
+          radius: 22,
+          onTap: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/chat');
+            }
+          },
+          child: const Icon(
+            Icons.arrow_back_ios_new,
+            color: AppGlassColors.ink,
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: AppGlassSurface(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            radius: 24,
+            child: Row(
+              children: [
+                if (room != null) ...[
+                  ChatRoomAvatar(
+                    room: room!,
+                    displayName: roomName,
+                    directMessagePeer: directPeer,
+                    size: 34,
+                    borderRadius: 12,
+                    iconSize: 17,
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        roomName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppGlassColors.ink,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          height: 1.05,
+                        ),
+                      ),
+                      if (roomSubtitle != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          roomSubtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppGlassColors.inkMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            height: 1.05,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        AppGlassSurface(
+          width: 44,
+          height: 44,
+          padding: EdgeInsets.zero,
+          radius: 22,
+          onTap: onInfo,
+          child: const Icon(
+            Icons.info_outline,
+            color: AppGlassColors.ink,
+            size: 21,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -581,23 +702,21 @@ class _DateDivider extends StatelessWidget {
       child: Row(
         children: [
           const Expanded(
-              child: Divider(color: AppColors.border, endIndent: 12)),
-          Container(
+              child: Divider(color: AppGlassColors.border, endIndent: 12)),
+          AppGlassSurface(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.border,
-              borderRadius: BorderRadius.circular(12),
-            ),
+            radius: 14,
             child: Text(
               _label(),
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                color: AppGlassColors.inkSecondary,
               ),
             ),
           ),
-          const Expanded(child: Divider(color: AppColors.border, indent: 12)),
+          const Expanded(
+              child: Divider(color: AppGlassColors.border, indent: 12)),
         ],
       ),
     );

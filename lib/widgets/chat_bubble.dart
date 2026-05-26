@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../core/theme.dart';
+
 import '../core/utils.dart';
 import '../models/message.dart';
+import 'app_glass.dart';
 import 'avatar_widget.dart';
 
 class ChatBubble extends StatelessWidget {
@@ -22,44 +23,62 @@ class ChatBubble extends StatelessWidget {
     if (!isSelf || message.deleted) return;
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.58),
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: AppGlassSurface(
+            radius: 28,
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppGlassColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (message.text != null && onEdit != null)
+                  ListTile(
+                    leading: const Icon(Icons.edit, color: AppGlassColors.aqua),
+                    title: const Text(
+                      'Edit message',
+                      style: TextStyle(
+                        color: AppGlassColors.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      onEdit!();
+                    },
+                  ),
+                if (onDelete != null)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete_outline,
+                      color: AppGlassColors.rose,
+                    ),
+                    title: const Text(
+                      'Delete message',
+                      style: TextStyle(
+                        color: AppGlassColors.rose,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      onDelete!();
+                    },
+                  ),
+              ],
             ),
-            if (message.text != null && onEdit != null)
-              ListTile(
-                leading: const Icon(Icons.edit, color: AppColors.primary),
-                title: const Text('Edit message'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onEdit!();
-                },
-              ),
-            if (onDelete != null)
-              ListTile(
-                leading:
-                    const Icon(Icons.delete_outline, color: AppColors.danger),
-                title: const Text('Delete message',
-                    style: TextStyle(color: AppColors.danger)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onDelete!();
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
+          ),
         ),
       ),
     );
@@ -68,6 +87,14 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDeleted = message.deleted;
+    final bubbleColor = isDeleted
+        ? AppGlassColors.inkMuted.withValues(alpha: 0.08)
+        : isSelf
+            ? AppGlassColors.aqua.withValues(alpha: 0.18)
+            : Colors.white.withValues(alpha: 0.08);
+    final borderColor = isSelf && !isDeleted
+        ? AppGlassColors.aqua.withValues(alpha: 0.28)
+        : AppGlassColors.border;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -99,38 +126,25 @@ class ChatBubble extends StatelessWidget {
                         message.senderName,
                         style: const TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w700,
+                          color: AppGlassColors.inkMuted,
                         ),
                       ),
                     ),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
-                      color: isDeleted
-                          ? Colors.grey.shade100
-                          : isSelf
-                              ? AppColors.primary
-                              : Colors.white,
+                      color: bubbleColor,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(16),
                         topRight: const Radius.circular(16),
                         bottomLeft: Radius.circular(isSelf ? 16 : 4),
                         bottomRight: Radius.circular(isSelf ? 4 : 16),
                       ),
-                      border: isSelf && !isDeleted
-                          ? null
-                          : Border.all(color: AppColors.border),
-                      boxShadow: isDeleted
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
+                      border: Border.all(color: borderColor),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,7 +153,7 @@ class ChatBubble extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 6),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               child: Image.network(
                                 message.mediaUrl!,
                                 width: 220,
@@ -147,9 +161,14 @@ class ChatBubble extends StatelessWidget {
                                 errorBuilder: (_, __, ___) => Container(
                                   width: 220,
                                   height: 100,
-                                  color: Colors.grey.shade200,
-                                  child: const Icon(Icons.broken_image,
-                                      color: AppColors.textMuted),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    color: AppGlassColors.inkMuted,
+                                  ),
                                 ),
                               ),
                             ),
@@ -160,13 +179,14 @@ class ChatBubble extends StatelessWidget {
                               : message.text ?? '',
                           style: TextStyle(
                             color: isDeleted
-                                ? AppColors.textMuted
-                                : isSelf
-                                    ? Colors.white
-                                    : AppColors.text,
+                                ? AppGlassColors.inkMuted
+                                : AppGlassColors.ink,
                             fontSize: isDeleted ? 13 : 15,
+                            fontWeight:
+                                isDeleted ? FontWeight.w500 : FontWeight.w600,
                             fontStyle:
                                 isDeleted ? FontStyle.italic : FontStyle.normal,
+                            height: 1.3,
                           ),
                         ),
                       ],
@@ -180,7 +200,7 @@ class ChatBubble extends StatelessWidget {
                         AppUtils.formatTime(message.createdAt),
                         style: const TextStyle(
                           fontSize: 11,
-                          color: AppColors.textMuted,
+                          color: AppGlassColors.inkMuted,
                         ),
                       ),
                       if (message.editedAt != null && !isDeleted) ...[
@@ -190,7 +210,7 @@ class ChatBubble extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 10,
                             fontStyle: FontStyle.italic,
-                            color: AppColors.textMuted,
+                            color: AppGlassColors.inkMuted,
                           ),
                         ),
                       ],
@@ -202,8 +222,8 @@ class ChatBubble extends StatelessWidget {
                               : Icons.done,
                           size: 14,
                           color: message.readBy.length > 1
-                              ? AppColors.accent
-                              : AppColors.textMuted,
+                              ? AppGlassColors.aqua
+                              : AppGlassColors.inkMuted,
                         ),
                       ],
                     ],
