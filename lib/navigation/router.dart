@@ -362,59 +362,77 @@ final router = GoRouter(
                 ),
                 GoRoute(
                   path: 'leagues',
-                  builder: (context, state) => const ManageLeaguesScreen(),
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const ManageLeaguesScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'leagues/new',
-                  builder: (context, state) => const AddLeagueScreen(),
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const AddLeagueScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'leagues/:leagueId/edit',
-                  builder: (context, state) => EditLeagueScreen(
-                    leagueId: state.pathParameters['leagueId']!,
-                    initialLeague:
-                        state.extra is League ? state.extra! as League : null,
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    EditLeagueScreen(
+                      leagueId: state.pathParameters['leagueId']!,
+                      initialLeague:
+                          state.extra is League ? state.extra! as League : null,
+                    ),
                   ),
                 ),
                 GoRoute(
                   path: 'leagues/:leagueId/hubs/new',
-                  builder: (context, state) => AddHubScreen(
-                    leagueId: state.pathParameters['leagueId']!,
-                    initialLeague:
-                        state.extra is League ? state.extra! as League : null,
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    AddHubScreen(
+                      leagueId: state.pathParameters['leagueId']!,
+                      initialLeague:
+                          state.extra is League ? state.extra! as League : null,
+                    ),
                   ),
                 ),
                 GoRoute(
                   path: 'leagues/:leagueId/hubs/:hubId/edit',
-                  builder: (context, state) {
+                  pageBuilder: (context, state) {
                     final extra = state.extra;
                     final league = extra is ({League league, Hub hub})
                         ? extra.league
                         : null;
                     final hub =
                         extra is ({League league, Hub hub}) ? extra.hub : null;
-                    return EditHubScreen(
-                      leagueId: state.pathParameters['leagueId']!,
-                      hubId: state.pathParameters['hubId']!,
-                      initialLeague: league,
-                      initialHub: hub,
+                    return _shellTransitionPage(
+                      state,
+                      EditHubScreen(
+                        leagueId: state.pathParameters['leagueId']!,
+                        hubId: state.pathParameters['hubId']!,
+                        initialLeague: league,
+                        initialHub: hub,
+                      ),
                     );
                   },
                 ),
                 GoRoute(
                   path: 'leagues/:leagueId/hubs/:hubId/teams/new',
-                  builder: (context, state) {
+                  pageBuilder: (context, state) {
                     final extra = state.extra;
                     final league = extra is ({League league, Hub hub})
                         ? extra.league
                         : null;
                     final hub =
                         extra is ({League league, Hub hub}) ? extra.hub : null;
-                    return AddTeamScreen(
-                      leagueId: state.pathParameters['leagueId']!,
-                      hubId: state.pathParameters['hubId']!,
-                      initialLeague: league,
-                      initialHub: hub,
+                    return _shellTransitionPage(
+                      state,
+                      AddTeamScreen(
+                        leagueId: state.pathParameters['leagueId']!,
+                        hubId: state.pathParameters['hubId']!,
+                        initialLeague: league,
+                        initialHub: hub,
+                      ),
                     );
                   },
                 ),
@@ -426,18 +444,24 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/teams/:teamId',
-      builder: (context, state) => TeamDetailScreen(
-        teamId: state.pathParameters['teamId']!,
-        leagueId: state.uri.queryParameters['leagueId'] ?? '',
-        hubId: state.uri.queryParameters['hubId'] ?? '',
+      pageBuilder: (context, state) => _shellTransitionPage(
+        state,
+        TeamDetailScreen(
+          teamId: state.pathParameters['teamId']!,
+          leagueId: state.uri.queryParameters['leagueId'] ?? '',
+          hubId: state.uri.queryParameters['hubId'] ?? '',
+        ),
       ),
       routes: [
         GoRoute(
           path: 'edit',
-          builder: (context, state) => EditTeamScreen(
-            teamId: state.pathParameters['teamId']!,
-            leagueId: state.uri.queryParameters['leagueId'] ?? '',
-            hubId: state.uri.queryParameters['hubId'] ?? '',
+          pageBuilder: (context, state) => _shellTransitionPage(
+            state,
+            EditTeamScreen(
+              teamId: state.pathParameters['teamId']!,
+              leagueId: state.uri.queryParameters['leagueId'] ?? '',
+              hubId: state.uri.queryParameters['hubId'] ?? '',
+            ),
           ),
         ),
       ],

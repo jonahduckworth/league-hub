@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/league_branding.dart';
 import '../../core/picked_file.dart';
 import '../../core/theme.dart';
 import '../../core/utils.dart';
@@ -12,6 +13,9 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
 import '../../services/storage_service.dart';
+import '../../widgets/app_glass.dart';
+import '../../widgets/app_shell_header.dart';
+import '../../widgets/app_shell_scaffold.dart';
 import '../../widgets/confirmation_dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entity_avatar.dart';
@@ -23,39 +27,72 @@ class ManageLeaguesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final leaguesAsync = ref.watch(leaguesProvider);
     final org = ref.watch(organizationProvider).valueOrNull;
+    final leagues = leaguesAsync.valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, null);
+    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 98);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Manage Leagues & Hubs')),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'manage_leagues_fab',
-        onPressed:
-            org == null ? null : () => context.push('/settings/leagues/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('Add League'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'Manage Leagues & Hubs',
+        leadingIcon: Icons.location_city_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.logoUrl?.isNotEmpty == true
+            ? headerLeague?.name
+            : null,
+        showBackButton: true,
+        backFallbackLocation: '/settings',
       ),
-      body: leaguesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('Error: $e',
-                style: const TextStyle(color: AppColors.textSecondary),
-                textAlign: TextAlign.center),
+      floatingActionButton: _GlassAddButton(
+        label: 'Add League',
+        onTap: org == null ? null : () => context.push('/settings/leagues/new'),
+      ),
+      child: leaguesAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppGlassColors.aqua),
+        ),
+        error: (e, _) => ListView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            topContentPadding,
+            16,
+            appShellBottomPadding(context, extra: 24),
           ),
+          children: [
+            _GlassMessageCard(
+              icon: Icons.error_outline,
+              title: 'Could not load leagues',
+              message: '$e',
+              color: AppGlassColors.rose,
+            ),
+          ],
         ),
         data: (leagues) {
           if (leagues.isEmpty) {
-            return const EmptyState(
-              icon: Icons.emoji_events_outlined,
-              title: 'No leagues yet',
-              subtitle: 'Tap the button below to add your first league.',
+            return ListView(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                topContentPadding,
+                16,
+                bottomContentPadding,
+              ),
+              children: const [
+                SizedBox(height: 120),
+                EmptyState(
+                  icon: Icons.emoji_events_outlined,
+                  title: 'No leagues yet',
+                  subtitle: 'Tap the button below to add your first league.',
+                ),
+              ],
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              topContentPadding,
+              16,
+              bottomContentPadding,
+            ),
             itemCount: leagues.length,
             itemBuilder: (_, i) =>
                 _LeagueTile(league: leagues[i], orgId: org?.id ?? ''),
@@ -238,10 +275,7 @@ class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
     final leaguesAsync = ref.watch(leaguesProvider);
 
     return leaguesAsync.when(
-      loading: () => const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const _ShellLoadingScaffold(title: 'Edit League'),
       error: (e, _) => _LoadErrorScaffold(message: 'Could not load league: $e'),
       data: (leagues) {
         final league = widget.initialLeague ??
@@ -357,17 +391,21 @@ class _LeagueTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hubsAsync = ref.watch(hubsProvider(league.id));
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
+    return AppGlassSurface(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.zero,
+      radius: 24,
       child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          splashColor: Colors.white.withValues(alpha: 0.05),
+          highlightColor: Colors.white.withValues(alpha: 0.04),
+        ),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+          iconColor: AppGlassColors.inkMuted,
+          collapsedIconColor: AppGlassColors.inkMuted,
           leading: EntityAvatar(
             name: league.abbreviation,
             imageUrl: league.logoUrl,
@@ -375,17 +413,18 @@ class _LeagueTile extends ConsumerWidget {
             fallbackIcon: Icons.emoji_events_outlined,
             textFallback: league.abbreviation,
             size: 42,
+            color: AppGlassColors.aqua,
           ),
           title: Text(league.name,
               style: const TextStyle(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
                   fontSize: 15,
-                  color: AppColors.text)),
+                  color: AppGlassColors.ink)),
           subtitle: hubsAsync.maybeWhen(
             data: (hubs) => Text(
               '${hubs.length} hub${hubs.length == 1 ? '' : 's'}',
               style:
-                  const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  const TextStyle(fontSize: 12, color: AppGlassColors.inkMuted),
             ),
             orElse: () => const SizedBox.shrink(),
           ),
@@ -394,7 +433,7 @@ class _LeagueTile extends ConsumerWidget {
             children: [
               IconButton(
                 icon: const Icon(Icons.edit_outlined,
-                    color: AppColors.textSecondary, size: 20),
+                    color: AppGlassColors.inkMuted, size: 20),
                 tooltip: 'Edit League',
                 onPressed: () => context.push(
                   '/settings/leagues/${league.id}/edit',
@@ -403,7 +442,7 @@ class _LeagueTile extends ConsumerWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.add_location_alt_outlined,
-                    color: AppColors.primaryLight, size: 20),
+                    color: AppGlassColors.aqua, size: 20),
                 tooltip: 'Add Hub',
                 onPressed: () => context.push(
                   '/settings/leagues/${league.id}/hubs/new',
@@ -412,7 +451,7 @@ class _LeagueTile extends ConsumerWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline,
-                    color: AppColors.danger, size: 20),
+                    color: AppGlassColors.rose, size: 20),
                 tooltip: 'Delete League',
                 onPressed: () => _confirmDelete(context, ref, orgId, league),
               ),
@@ -422,27 +461,31 @@ class _LeagueTile extends ConsumerWidget {
             hubsAsync.when(
               loading: () => const Padding(
                   padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator())),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppGlassColors.aqua,
+                    ),
+                  )),
               error: (e, _) => Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text('Error: $e',
-                      style: const TextStyle(color: AppColors.danger))),
+                      style: const TextStyle(color: AppGlassColors.rose))),
               data: (hubs) {
                 if (hubs.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Container(
+                    child: AppGlassSurface(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.background,
-                        borderRadius: BorderRadius.circular(8),
+                      radius: 16,
+                      child: const Text(
+                        'No hubs yet. Tap + to add one.',
+                        style: TextStyle(
+                          color: AppGlassColors.inkMuted,
+                          fontStyle: FontStyle.italic,
+                          fontSize: 13,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      child: const Text('No hubs yet. Tap + to add one.',
-                          style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontStyle: FontStyle.italic,
-                              fontSize: 13),
-                          textAlign: TextAlign.center),
                     ),
                   );
                 }
@@ -522,10 +565,7 @@ class _AddHubScreenState extends ConsumerState<AddHubScreen> {
     final leagueAsync = ref.watch(leaguesProvider);
 
     return leagueAsync.when(
-      loading: () => const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const _ShellLoadingScaffold(title: 'New Hub'),
       error: (e, _) => _LoadErrorScaffold(message: 'Could not load league: $e'),
       data: (leagues) {
         final league = widget.initialLeague ??
@@ -700,10 +740,7 @@ class _EditHubScreenState extends ConsumerState<EditHubScreen> {
     final hubsAsync = ref.watch(hubsProvider(widget.leagueId));
 
     if (leaguesAsync.isLoading || hubsAsync.isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const _ShellLoadingScaffold(title: 'Edit Hub');
     }
     if (leaguesAsync.hasError) {
       return _LoadErrorScaffold(
@@ -835,34 +872,38 @@ class _HubTile extends ConsumerWidget {
     final teamsAsync =
         ref.watch(teamsProvider((leagueId: league.id, hubId: hub.id)));
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
+    return AppGlassSurface(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: EdgeInsets.zero,
+      radius: 20,
       child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          splashColor: Colors.white.withValues(alpha: 0.05),
+          highlightColor: Colors.white.withValues(alpha: 0.04),
+        ),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+          iconColor: AppGlassColors.inkMuted,
+          collapsedIconColor: AppGlassColors.inkMuted,
           leading: EntityAvatar(
             name: hub.name,
             imageUrl: hub.logoUrl,
             iconName: hub.iconName,
             fallbackIcon: Icons.location_on_outlined,
             size: 34,
-            color: AppColors.primaryLight,
+            color: AppGlassColors.aqua,
           ),
           title: Text(hub.name,
               style: const TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.text)),
+                  fontWeight: FontWeight.w800,
+                  color: AppGlassColors.ink)),
           subtitle: hub.location != null
               ? Text(hub.location!,
                   style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary))
+                      fontSize: 12, color: AppGlassColors.inkMuted))
               : null,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
@@ -871,14 +912,17 @@ class _HubTile extends ConsumerWidget {
                 data: (teams) => Text(
                   '${teams.length}t',
                   style: const TextStyle(
-                      fontSize: 11, color: AppColors.textSecondary),
+                    fontSize: 11,
+                    color: AppGlassColors.inkMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 orElse: () => const SizedBox.shrink(),
               ),
               const SizedBox(width: 2),
               IconButton(
                 icon: const Icon(Icons.edit_outlined,
-                    color: AppColors.textSecondary, size: 18),
+                    color: AppGlassColors.inkMuted, size: 18),
                 tooltip: 'Edit Hub',
                 onPressed: () => context.push(
                   '/settings/leagues/${league.id}/hubs/${hub.id}/edit',
@@ -887,7 +931,7 @@ class _HubTile extends ConsumerWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.group_add_outlined,
-                    color: AppColors.accent, size: 18),
+                    color: AppGlassColors.aqua, size: 18),
                 tooltip: 'Add Team',
                 onPressed: () => context.push(
                   '/settings/leagues/${league.id}/hubs/${hub.id}/teams/new',
@@ -896,7 +940,7 @@ class _HubTile extends ConsumerWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline,
-                    color: AppColors.danger, size: 18),
+                    color: AppGlassColors.rose, size: 18),
                 tooltip: 'Delete Hub',
                 onPressed: () =>
                     _confirmDelete(context, ref, orgId, league.id, hub),
@@ -907,18 +951,22 @@ class _HubTile extends ConsumerWidget {
             teamsAsync.when(
               loading: () => const Padding(
                   padding: EdgeInsets.all(12),
-                  child: Center(child: CircularProgressIndicator())),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppGlassColors.aqua,
+                    ),
+                  )),
               error: (e, _) => Padding(
                   padding: const EdgeInsets.all(12),
                   child: Text('Error: $e',
-                      style: const TextStyle(color: AppColors.danger))),
+                      style: const TextStyle(color: AppGlassColors.rose))),
               data: (teams) {
                 if (teams.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: Text('No teams yet. Tap + to add one.',
                         style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: AppGlassColors.inkMuted,
                             fontStyle: FontStyle.italic,
                             fontSize: 12),
                         textAlign: TextAlign.center),
@@ -1021,10 +1069,7 @@ class _AddTeamScreenState extends ConsumerState<AddTeamScreen> {
     final hubsAsync = ref.watch(hubsProvider(widget.leagueId));
 
     if (leaguesAsync.isLoading || hubsAsync.isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const _ShellLoadingScaffold(title: 'New Team');
     }
     if (leaguesAsync.hasError) {
       return _LoadErrorScaffold(
@@ -1225,10 +1270,7 @@ class _EditTeamScreenState extends ConsumerState<EditTeamScreen> {
         .watch(teamsProvider((leagueId: widget.leagueId, hubId: widget.hubId)));
 
     if (leaguesAsync.isLoading || hubsAsync.isLoading || teamsAsync.isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const _ShellLoadingScaffold(title: 'Edit Team');
     }
     if (leaguesAsync.hasError) {
       return _LoadErrorScaffold(
@@ -1374,58 +1416,105 @@ class _TeamRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push(
-        '/teams/${team.id}?leagueId=${team.leagueId}&hubId=${team.hubId}',
-      ),
-      child: Dismissible(
-        key: Key(team.id),
-        direction: DismissDirection.endToStart,
-        background: Container(
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 16),
-          color: AppColors.danger.withValues(alpha: 0.1),
-          child: const Icon(Icons.delete_outline, color: AppColors.danger),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: GestureDetector(
+        onTap: () => context.push(
+          '/teams/${team.id}?leagueId=${team.leagueId}&hubId=${team.hubId}',
         ),
-        confirmDismiss: (_) => showConfirmationDialog(
-          context,
-          title: 'Delete Team',
-          message: 'Delete "${team.name}"?',
-          confirmLabel: 'Delete',
-          confirmColor: AppColors.danger,
-        ),
-        onDismissed: (_) => onDelete(),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-          decoration: BoxDecoration(
-            border: Border(
-                top:
-                    BorderSide(color: AppColors.border.withValues(alpha: 0.5))),
+        child: Dismissible(
+          key: Key(team.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: AppGlassColors.rose.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.delete_outline, color: AppGlassColors.rose),
           ),
-          child: Row(
-            children: [
-              EntityAvatar(
-                name: team.name,
-                imageUrl: team.logoUrl,
-                iconName: team.iconName,
-                fallbackIcon: Icons.groups_outlined,
-                size: 28,
-                color: AppColors.accent,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(team.name,
-                    style:
-                        const TextStyle(fontSize: 13, color: AppColors.text)),
-              ),
-              if (team.ageGroup != null || team.division != null)
-                Text(
-                  [team.ageGroup, team.division]
-                      .where((s) => s != null && s.isNotEmpty)
-                      .join(' · '),
-                  style: const TextStyle(
-                      fontSize: 11, color: AppColors.textSecondary),
+          confirmDismiss: (_) => showConfirmationDialog(
+            context,
+            title: 'Delete Team',
+            message: 'Delete "${team.name}"?',
+            confirmLabel: 'Delete',
+            confirmColor: AppColors.danger,
+          ),
+          onDismissed: (_) => onDelete(),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(
+              border: Border(
+                  top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+            ),
+            child: Row(
+              children: [
+                EntityAvatar(
+                  name: team.name,
+                  imageUrl: team.logoUrl,
+                  iconName: team.iconName,
+                  fallbackIcon: Icons.groups_outlined,
+                  size: 28,
+                  color: AppGlassColors.aqua,
                 ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(team.name,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppGlassColors.ink)),
+                ),
+                if (team.ageGroup != null || team.division != null)
+                  Text(
+                    [team.ageGroup, team.division]
+                        .where((s) => s != null && s.isNotEmpty)
+                        .join(' · '),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppGlassColors.inkMuted),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassAddButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+
+  const _GlassAddButton({
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 24,
+      onTap: onTap,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.55,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 13, 18, 13),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add, color: AppGlassColors.aqua, size: 22),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppGlassColors.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
             ],
           ),
         ),
@@ -1434,7 +1523,173 @@ class _TeamRow extends StatelessWidget {
   }
 }
 
-class _StructureFormScaffold extends StatelessWidget {
+class _GlassSubmitButton extends StatelessWidget {
+  final String label;
+  final bool saving;
+  final VoidCallback? onTap;
+
+  const _GlassSubmitButton({
+    required this.label,
+    required this.saving,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null && !saving;
+
+    return AppGlassSurface(
+      height: 56,
+      padding: EdgeInsets.zero,
+      radius: 22,
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled || saving ? 1 : 0.55,
+        child: Center(
+          child: saving
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    color: AppGlassColors.aqua,
+                    strokeWidth: 2,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppGlassColors.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassMessageCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final Color color;
+
+  const _GlassMessageCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      radius: 22,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppGlassColors.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: AppGlassColors.inkSecondary,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShellLoadingScaffold extends ConsumerWidget {
+  final String title;
+
+  const _ShellLoadingScaffold({required this.title});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final headerLeague =
+        resolveHeaderLeague(ref.watch(leaguesProvider).valueOrNull ?? [], null);
+
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: title,
+        leadingIcon: Icons.account_tree_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.logoUrl?.isNotEmpty == true
+            ? headerLeague?.name
+            : null,
+        showBackButton: true,
+        backFallbackLocation: '/settings/leagues',
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(color: AppGlassColors.aqua),
+      ),
+    );
+  }
+}
+
+ThemeData _glassFormTheme(BuildContext context) {
+  final base = Theme.of(context);
+  final inputBorder = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(18),
+    borderSide: const BorderSide(color: AppGlassColors.border),
+  );
+
+  return base.copyWith(
+    textTheme: base.textTheme.apply(
+      bodyColor: AppGlassColors.ink,
+      displayColor: AppGlassColors.ink,
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: false,
+      fillColor: Colors.transparent,
+      labelStyle: const TextStyle(
+        color: AppGlassColors.inkMuted,
+        fontWeight: FontWeight.w600,
+      ),
+      floatingLabelStyle: const TextStyle(
+        color: AppGlassColors.aqua,
+        fontWeight: FontWeight.w800,
+      ),
+      hintStyle: const TextStyle(color: AppGlassColors.inkMuted),
+      enabledBorder: inputBorder,
+      border: inputBorder,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: AppGlassColors.aqua, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+    ),
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: AppGlassColors.aqua,
+      selectionColor: Color(0x3367E8D4),
+      selectionHandleColor: AppGlassColors.aqua,
+    ),
+  );
+}
+
+class _StructureFormScaffold extends ConsumerWidget {
   final String title;
   final String heading;
   final IconData icon;
@@ -1454,96 +1709,83 @@ class _StructureFormScaffold extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(title)),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary,
-                          AppColors.primaryLight,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.16),
-                          blurRadius: 24,
-                          offset: const Offset(0, 14),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: Icon(icon, color: Colors.white, size: 22),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            heading,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  child,
-                ],
-              ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final headerLeague =
+        resolveHeaderLeague(ref.watch(leaguesProvider).valueOrNull ?? [], null);
+    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 106);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: title,
+        leadingIcon: icon,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.logoUrl?.isNotEmpty == true
+            ? headerLeague?.name
+            : null,
+        showBackButton: true,
+        backFallbackLocation: '/settings/leagues',
+      ),
+      child: Stack(
+        children: [
+          ListView(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              topContentPadding,
+              16,
+              bottomContentPadding,
             ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: AppColors.border)),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: saving ? null : onSubmit,
-                  child: saving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2),
-                        )
-                      : Text(actionLabel),
+            children: [
+              AppGlassSurface(
+                padding: const EdgeInsets.all(14),
+                radius: 24,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: AppGlassColors.aqua.withValues(alpha: 0.13),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppGlassColors.aqua.withValues(alpha: 0.26),
+                        ),
+                      ),
+                      child: Icon(icon, color: AppGlassColors.aqua, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        heading,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppGlassColors.ink,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(height: 14),
+              child,
+            ],
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: bottomInset + 16,
+            child: _GlassSubmitButton(
+              label: actionLabel,
+              saving: saving,
+              onTap: onSubmit,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1556,23 +1798,15 @@ class _FormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppGlassSurface(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
+      radius: 22,
+      child: Theme(
+        data: _glassFormTheme(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
       ),
     );
   }
@@ -1585,18 +1819,28 @@ class _LoadErrorScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Manage Structure')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            message,
-            style: const TextStyle(color: AppColors.textSecondary),
-            textAlign: TextAlign.center,
-          ),
+    return AppShellScaffold(
+      header: const AppShellHeader(
+        title: 'Manage Structure',
+        leadingIcon: Icons.account_tree_outlined,
+        showBackButton: true,
+        backFallbackLocation: '/settings/leagues',
+      ),
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          appShellTopPadding(context, extra: 12),
+          16,
+          appShellBottomPadding(context, extra: 24),
         ),
+        children: [
+          _GlassMessageCard(
+            icon: Icons.error_outline,
+            title: 'Could not load this page',
+            message: message,
+            color: AppGlassColors.rose,
+          ),
+        ],
       ),
     );
   }
@@ -1661,13 +1905,9 @@ class _IdentityPicker extends StatelessWidget {
         ? selection.inheritedIconName
         : selection.iconName;
 
-    return Container(
+    return AppGlassSurface(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
+      radius: 22,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1680,6 +1920,7 @@ class _IdentityPicker extends StatelessWidget {
                     selection.pickedImage != null ? null : previewIconName,
                 fallbackIcon: fallbackIcon,
                 size: 48,
+                color: AppGlassColors.aqua,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1688,12 +1929,12 @@ class _IdentityPicker extends StatelessWidget {
                   children: [
                     Text(title,
                         style: const TextStyle(
-                            color: AppColors.text,
+                            color: AppGlassColors.ink,
                             fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
                     Text(subtitle,
                         style: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 12)),
+                            color: AppGlassColors.inkMuted, fontSize: 12)),
                   ],
                 ),
               ),
@@ -1701,7 +1942,8 @@ class _IdentityPicker extends StatelessWidget {
           ),
           if (selection.inheritedLabel != null) ...[
             const SizedBox(height: 12),
-            ChoiceChip(
+            _IdentityOptionChip(
+              icon: Icons.check,
               label: Text(selection.inheritedLabel!),
               selected: selection.useInherited,
               onSelected: (selected) {
@@ -1719,8 +1961,8 @@ class _IdentityPicker extends StatelessWidget {
               final selected = !selection.useInherited &&
                   selection.pickedImage == null &&
                   selection.iconName == entry.key;
-              return ChoiceChip(
-                avatar: Icon(entry.value, size: 18),
+              return _IdentityOptionChip(
+                icon: entry.value,
                 label: Text(_iconLabel(entry.key)),
                 selected: selected,
                 onSelected: (_) {
@@ -1734,8 +1976,10 @@ class _IdentityPicker extends StatelessWidget {
             }).toList(),
           ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () async {
+          AppGlassSurface(
+            padding: EdgeInsets.zero,
+            radius: 20,
+            onTap: () async {
               final picked = await pickImageBytes();
               if (picked == null) return;
               selection.useInherited = false;
@@ -1743,12 +1987,78 @@ class _IdentityPicker extends StatelessWidget {
               selection.pickedImage = picked;
               onChanged();
             },
-            icon: const Icon(Icons.image_outlined),
-            label: Text(selection.pickedImage == null
-                ? 'Upload image'
-                : selection.pickedImage!.name),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.image_outlined,
+                    color: AppGlassColors.aqua,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      selection.pickedImage == null
+                          ? 'Upload image'
+                          : selection.pickedImage!.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppGlassColors.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _IdentityOptionChip extends StatelessWidget {
+  final IconData icon;
+  final Widget label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  const _IdentityOptionChip({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = selected ? AppGlassColors.aqua : AppGlassColors.inkMuted;
+
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 18,
+      onTap: () => onSelected(!selected),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 17, color: accent),
+            const SizedBox(width: 7),
+            DefaultTextStyle.merge(
+              style: TextStyle(
+                color: selected ? AppGlassColors.ink : AppGlassColors.inkMuted,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                fontSize: 13,
+              ),
+              child: label,
+            ),
+          ],
+        ),
       ),
     );
   }
