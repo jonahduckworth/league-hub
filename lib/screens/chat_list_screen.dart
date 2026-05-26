@@ -273,11 +273,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     return AppShellScaffold(
       floatingActionButton: orgId == null
           ? null
-          : FloatingActionButton(
-              heroTag: 'chat_list_fab',
-              onPressed: () => context.push('/chat/new'),
-              backgroundColor: AppGlassColors.aqua,
-              child: const Icon(Icons.add, color: Colors.white),
+          : AppGlassSurface(
+              width: 56,
+              height: 56,
+              padding: EdgeInsets.zero,
+              radius: 28,
+              onTap: () => context.push('/chat/new'),
+              child: const Icon(Icons.add, color: AppGlassColors.aqua),
             ),
       header: AppShellHeader(
         leadingIcon: Icons.forum_outlined,
@@ -395,6 +397,7 @@ class _ChatRoomTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: EdgeInsets.zero,
       radius: 20,
+      onTap: () => context.push('/chat/${room.id}'),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         leading: ChatRoomAvatar(
@@ -456,7 +459,6 @@ class _ChatRoomTile extends ConsumerWidget {
             ],
           ],
         ),
-        onTap: () => context.push('/chat/${room.id}'),
       ),
     );
   }

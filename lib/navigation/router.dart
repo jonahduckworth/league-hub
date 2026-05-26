@@ -6,6 +6,7 @@ import '../models/app_user.dart';
 import '../models/hub.dart';
 import '../models/league.dart';
 import 'announcement_navigation_source.dart';
+import 'chat_navigation_source.dart';
 import '../services/permission_service.dart';
 import '../core/constants.dart';
 import '../screens/login_screen.dart';
@@ -187,7 +188,46 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/chat',
-              builder: (context, state) => const ChatListScreen(),
+              pageBuilder: (context, state) => _shellTransitionPage(
+                state,
+                const ChatListScreen(),
+                animatePrimary: false,
+              ),
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const NewChatScreen(),
+                  ),
+                ),
+                GoRoute(
+                  path: ':roomId',
+                  pageBuilder: (context, state) {
+                    final source = state.extra;
+                    final isDashboardCard =
+                        source == ChatNavigationSource.dashboardCard;
+                    return _shellTransitionPage(
+                      state,
+                      ChatConversationScreen(
+                        roomId: state.pathParameters['roomId']!,
+                      ),
+                      animatePrimary: !isDashboardCard,
+                    );
+                  },
+                  routes: [
+                    GoRoute(
+                      path: 'info',
+                      pageBuilder: (context, state) => _shellTransitionPage(
+                        state,
+                        ChatRoomInfoScreen(
+                          roomId: state.pathParameters['roomId']!,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -388,22 +428,6 @@ final router = GoRouter(
           ),
         ),
       ],
-    ),
-    GoRoute(
-      path: '/chat/new',
-      builder: (context, state) => const NewChatScreen(),
-    ),
-    GoRoute(
-      path: '/chat/:roomId',
-      builder: (context, state) => ChatConversationScreen(
-        roomId: state.pathParameters['roomId']!,
-      ),
-    ),
-    GoRoute(
-      path: '/chat/:roomId/info',
-      builder: (context, state) => ChatRoomInfoScreen(
-        roomId: state.pathParameters['roomId']!,
-      ),
     ),
   ],
 );
