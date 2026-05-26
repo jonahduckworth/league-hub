@@ -176,6 +176,21 @@ final invitationsProvider = StreamProvider<List<Invitation>>((ref) {
   return ref.watch(firestoreServiceProvider).getInvitations(orgId);
 });
 
+final activePendingInvitationsProvider = Provider<List<Invitation>>((ref) {
+  final invitations = ref.watch(invitationsProvider).valueOrNull ?? [];
+  final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
+  final activeEmails = users
+      .map((user) => user.email.trim().toLowerCase())
+      .where((email) => email.isNotEmpty)
+      .toSet();
+
+  return invitations.where((invite) {
+    if (invite.status != InvitationStatus.pending) return false;
+    final inviteEmail = invite.email.trim().toLowerCase();
+    return inviteEmail.isEmpty || !activeEmails.contains(inviteEmail);
+  }).toList();
+});
+
 /// Stream of user names currently typing in a given room.
 final typingUsersProvider =
     StreamProvider.family<List<String>, String>((ref, roomId) {
@@ -198,8 +213,7 @@ final unreadCountProvider = StreamProvider.family<int, String>((ref, roomId) {
 });
 
 final pendingInviteCountProvider = Provider<int>((ref) {
-  final invitations = ref.watch(invitationsProvider).valueOrNull ?? [];
-  return invitations.where((i) => i.status == InvitationStatus.pending).length;
+  return ref.watch(activePendingInvitationsProvider).length;
 });
 
 final activeUserCountProvider = FutureProvider<int>((ref) async {

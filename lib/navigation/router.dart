@@ -319,12 +319,18 @@ final router = GoRouter(
               routes: [
                 GoRoute(
                   path: 'users',
-                  builder: (context, state) => const UserManagementScreen(),
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const UserManagementScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'users/:userId',
-                  builder: (context, state) => UserDetailScreen(
-                    userId: state.pathParameters['userId']!,
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    UserDetailScreen(
+                      userId: state.pathParameters['userId']!,
+                    ),
                   ),
                 ),
                 GoRoute(
