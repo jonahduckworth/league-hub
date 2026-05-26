@@ -24,7 +24,11 @@ AppUser _testUser() => AppUser(
 
 Widget _buildTestWidget({required List<Override> overrides}) {
   return ProviderScope(
-    overrides: overrides,
+    overrides: [
+      organizationProvider.overrideWith((ref) async => null),
+      leaguesProvider.overrideWith((ref) => Stream.value([])),
+      ...overrides,
+    ],
     child: const MaterialApp(
       home: EditProfileScreen(),
     ),

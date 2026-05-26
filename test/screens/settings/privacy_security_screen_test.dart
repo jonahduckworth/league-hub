@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/providers/auth_provider.dart';
+import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings/privacy_security_screen.dart';
 
 AppUser _testUser() => AppUser(
@@ -19,7 +20,11 @@ AppUser _testUser() => AppUser(
 
 Widget _buildTestWidget({required List<Override> overrides}) {
   return ProviderScope(
-    overrides: overrides,
+    overrides: [
+      organizationProvider.overrideWith((ref) async => null),
+      leaguesProvider.overrideWith((ref) => Stream.value([])),
+      ...overrides,
+    ],
     child: const MaterialApp(
       home: PrivacySecurityScreen(),
     ),
@@ -39,8 +44,8 @@ void main() {
 
       expect(find.text('Privacy & Security'), findsOneWidget);
       expect(find.text('ACCOUNT SECURITY'), findsOneWidget);
-      expect(find.text('SESSIONS'), findsOneWidget);
-      expect(find.text('DATA & PRIVACY'), findsOneWidget);
+      expect(find.text('SESSIONS'), findsNothing);
+      expect(find.text('DATA & PRIVACY'), findsNothing);
     });
 
     testWidgets('shows Change Password option', (tester) async {
@@ -68,7 +73,7 @@ void main() {
       expect(find.text('test@example.com'), findsOneWidget);
     });
 
-    testWidgets('shows session info', (tester) async {
+    testWidgets('hides unbuilt or destructive actions', (tester) async {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => _testUser()),
@@ -77,34 +82,10 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('Active Sessions'), findsOneWidget);
-      expect(find.text('This device'), findsOneWidget);
-      expect(find.text('Active'), findsOneWidget);
-    });
-
-    testWidgets('shows Sign Out All Devices option', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => _testUser()),
-        ],
-      ));
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      expect(find.text('Sign Out All Devices'), findsOneWidget);
-    });
-
-    testWidgets('shows Export and Delete options', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => _testUser()),
-        ],
-      ));
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      expect(find.text('Export My Data'), findsOneWidget);
-      expect(find.text('Delete Account'), findsOneWidget);
+      expect(find.text('Active Sessions'), findsNothing);
+      expect(find.text('Sign Out All Devices'), findsNothing);
+      expect(find.text('Export My Data'), findsNothing);
+      expect(find.text('Delete Account'), findsNothing);
     });
 
     testWidgets('tapping Change Password opens dialog', (tester) async {
@@ -122,10 +103,11 @@ void main() {
 
       expect(find.text('Current Password'), findsOneWidget);
       expect(find.text('New Password'), findsOneWidget);
+      expect(find.text('Confirm New Password'), findsOneWidget);
+      expect(find.text('Update'), findsOneWidget);
     });
 
-    testWidgets('tapping Sign Out All shows confirmation dialog',
-        (tester) async {
+    testWidgets('tapping Email Address opens dialog', (tester) async {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => _testUser()),
@@ -134,30 +116,14 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Sign Out All Devices'));
+      await tester.tap(find.text('Email Address'));
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('server-side setup'), findsOneWidget);
-      expect(find.text('OK'), findsOneWidget);
-    });
-
-    testWidgets('tapping Delete Account shows confirmation dialog',
-        (tester) async {
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => _testUser()),
-        ],
-      ));
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Delete Account'));
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('This action is permanent'), findsOneWidget);
-      expect(find.text('Delete Permanently'), findsOneWidget);
+      expect(find.text('Change Email'), findsOneWidget);
+      expect(find.text('New Email'), findsOneWidget);
+      expect(find.text('Current Password (to confirm)'), findsOneWidget);
+      expect(find.text('Send Verification'), findsOneWidget);
     });
   });
 }
