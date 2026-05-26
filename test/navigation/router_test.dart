@@ -130,7 +130,7 @@ void main() {
   // =========================================================================
 
   group('Manager routes (/settings/users)', () {
-    const managerRoutes = ['/settings/users'];
+    const managerRoutes = ['/settings/users', '/settings/users/invite'];
 
     group('platformOwner can access', () {
       for (final route in managerRoutes) {
@@ -484,6 +484,7 @@ void main() {
       '/settings/notifications',
       '/settings/privacy',
       '/settings/users',
+      '/settings/users/invite',
       '/settings/roles',
       '/settings/branding',
       '/settings/app-icon',

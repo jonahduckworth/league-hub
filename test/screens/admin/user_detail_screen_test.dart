@@ -131,6 +131,7 @@ void main() {
       AppUser? targetUserData,
       AppUser? currentUser,
       List<Hub>? hubs,
+      List<Team>? teams,
       bool nullUser = false,
     }) {
       return ProviderScope(
@@ -144,8 +145,8 @@ void main() {
           firestoreServiceProvider.overrideWithValue(
             MockFirestoreService(
               userToReturn: nullUser ? null : (targetUserData ?? targetUser),
-              hubs: testHubs,
-              teams: testTeams,
+              hubs: hubs ?? testHubs,
+              teams: teams ?? testTeams,
             ),
           ),
         ],
@@ -408,7 +409,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Save'), findsOneWidget);
-        expect(find.text('Cancel'), findsOneWidget);
+        expect(find.byIcon(Icons.close), findsOneWidget);
       });
 
       testWidgets('can toggle hub assignment in edit mode',
@@ -437,6 +438,35 @@ void main() {
         await scrollDown(tester);
 
         expect(find.text('Edmonton U15'), findsOneWidget);
+      });
+
+      testWidgets('shows only teams from selected hubs in edit mode',
+          (WidgetTester tester) async {
+        final calgaryOnlyUser = AppUser(
+          id: 'user-3',
+          email: 'calgary@example.com',
+          displayName: 'Calgary Staff',
+          role: UserRole.staff,
+          orgId: 'org-1',
+          hubIds: ['hub-1'],
+          teamIds: [],
+          createdAt: DateTime.now(),
+          isActive: true,
+        );
+
+        await tester.pumpWidget(
+          createTestWidget(targetUserData: calgaryOnlyUser),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Edit'));
+        await tester.pump();
+        await tester.pumpAndSettle();
+        await scrollDown(tester);
+
+        expect(find.text('Calgary U18'), findsOneWidget);
+        expect(find.text('Edmonton U15'), findsNothing);
       });
     });
 

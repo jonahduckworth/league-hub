@@ -1,13 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/models/app_user.dart';
+import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/invitation.dart';
+import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/organization.dart';
+import 'package:league_hub/models/team.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/admin/user_management_screen.dart';
+import 'package:league_hub/services/firestore_service.dart';
+
+class MockFirestoreService extends FirestoreService {
+  final List<League> leaguesToReturn;
+  final List<Hub> hubsToReturn;
+  final List<Team> teamsToReturn;
+
+  MockFirestoreService({
+    List<League>? leagues,
+    List<Hub>? hubs,
+    List<Team>? teams,
+  })  : leaguesToReturn = leagues ?? [],
+        hubsToReturn = hubs ?? [],
+        teamsToReturn = teams ?? [],
+        super(firestore: FakeFirebaseFirestore());
+
+  @override
+  Stream<List<League>> getLeagues(String orgId) {
+    return Stream.value(leaguesToReturn);
+  }
+
+  @override
+  Future<List<Hub>> getAllHubsFlat(String orgId) async {
+    return hubsToReturn;
+  }
+
+  @override
+  Future<List<Team>> getAllTeamsFlat(String orgId) async {
+    return teamsToReturn;
+  }
+}
 
 void main() {
   group('UserManagementScreen', () {
@@ -90,6 +125,7 @@ void main() {
       AppUser? user,
       List<AppUser>? users,
       List<Invitation>? invitations,
+      FirestoreService? firestoreService,
     }) {
       return ProviderScope(
         overrides: [
@@ -105,9 +141,37 @@ void main() {
           invitationsProvider.overrideWith(
             (ref) => Stream.value(invitations ?? testInvitations),
           ),
+          if (firestoreService != null)
+            firestoreServiceProvider.overrideWithValue(firestoreService),
         ],
         child: MaterialApp(
           home: UserManagementScreen(),
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget createInvitePageTestWidget({
+      AppUser? user,
+      required FirestoreService firestoreService,
+    }) {
+      return ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWith(
+            (ref) => user ?? managerAdmin,
+          ),
+          organizationProvider.overrideWith(
+            (ref) => testOrg,
+          ),
+          firestoreServiceProvider.overrideWithValue(firestoreService),
+        ],
+        child: MaterialApp(
+          home: InviteUserScreen(),
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
@@ -143,6 +207,19 @@ void main() {
 
         expect(find.text('John Doe'), findsOneWidget);
         expect(find.text('Jane Smith'), findsOneWidget);
+      });
+
+      testWidgets('sorts users by last name', (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        final doeTop = tester.getTopLeft(find.text('John Doe')).dy;
+        final johnsonTop = tester.getTopLeft(find.text('Bob Johnson')).dy;
+        final smithTop = tester.getTopLeft(find.text('Jane Smith')).dy;
+
+        expect(doeTop < johnsonTop, isTrue);
+        expect(johnsonTop < smithTop, isTrue);
       });
 
       testWidgets('shows user emails', (WidgetTester tester) async {
@@ -184,7 +261,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(TextField), findsOneWidget);
-        expect(find.text('Search by name or email…'), findsOneWidget);
+        expect(find.text('Search by name or email...'), findsOneWidget);
       });
 
       testWidgets('search field has search icon', (WidgetTester tester) async {
@@ -202,7 +279,6 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byType(FilterChip), findsWidgets);
         expect(find.text('All'), findsOneWidget);
         expect(find.text('Super Admin'), findsOneWidget);
         // "Manager Admin" also appears as a role badge on a user row
@@ -227,7 +303,84 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.byType(FloatingActionButton), findsOneWidget);
+        expect(find.text('Invite User'), findsOneWidget);
+        expect(find.byIcon(Icons.person_add_outlined), findsOneWidget);
+      });
+
+      testWidgets('invite page only shows teams for selected hubs',
+          (WidgetTester tester) async {
+        final firestoreService = MockFirestoreService(
+          leagues: [
+            League(
+              id: 'league-1',
+              orgId: 'org-1',
+              name: 'Junior Prospects Hockey League',
+              abbreviation: 'JPHL',
+              createdAt: DateTime(2024),
+            ),
+          ],
+          hubs: [
+            Hub(
+              id: 'hub-1',
+              leagueId: 'league-1',
+              orgId: 'org-1',
+              name: 'Calgary Canucks',
+              location: 'Calgary, AB',
+              createdAt: DateTime(2024),
+            ),
+            Hub(
+              id: 'hub-2',
+              leagueId: 'league-1',
+              orgId: 'org-1',
+              name: 'Edmonton Falcons',
+              location: 'Edmonton, AB',
+              createdAt: DateTime(2024),
+            ),
+          ],
+          teams: [
+            Team(
+              id: 'team-1',
+              hubId: 'hub-1',
+              leagueId: 'league-1',
+              orgId: 'org-1',
+              name: 'Calgary U18',
+              ageGroup: 'U18',
+              division: 'AAA',
+              createdAt: DateTime(2024),
+            ),
+            Team(
+              id: 'team-2',
+              hubId: 'hub-2',
+              leagueId: 'league-1',
+              orgId: 'org-1',
+              name: 'Edmonton U15',
+              ageGroup: 'U15',
+              division: 'AA',
+              createdAt: DateTime(2024),
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          createInvitePageTestWidget(
+            user: managerAdmin,
+            firestoreService: firestoreService,
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Select hubs to choose team assignments.'),
+            findsOneWidget);
+
+        await tester.ensureVisible(find.text('Calgary Canucks'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Calgary Canucks'));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Calgary U18', skipOffstage: false), findsOneWidget);
+        expect(find.text('Edmonton U15', skipOffstage: false), findsNothing);
       });
     });
 
@@ -411,12 +564,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Find Staff filter chip and tap it
-        final staffChip = find
-            .byWidgetPredicate((widget) =>
-                widget is FilterChip &&
-                widget.label is Text &&
-                (widget.label as Text).data == 'Staff')
-            .first;
+        final staffChip = find.byKey(const ValueKey('role-filter-Staff'));
         await tester.tap(staffChip);
         await tester.pump();
         await tester.pumpAndSettle();

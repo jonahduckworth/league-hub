@@ -348,6 +348,62 @@ void main() {
       expect(container.read(pendingInviteCountProvider), 2);
     });
 
+    test('ignores pending invitations for users who already exist', () async {
+      final invitations = [
+        Invitation(
+          id: 'inv1',
+          orgId: 'org1',
+          email: 'accepted@example.com',
+          role: 'staff',
+          hubIds: [],
+          teamIds: [],
+          invitedBy: 'u1',
+          invitedByName: 'N',
+          createdAt: testDate,
+          status: InvitationStatus.pending,
+          token: 'tok1',
+        ),
+        Invitation(
+          id: 'inv2',
+          orgId: 'org1',
+          email: 'new@example.com',
+          role: 'staff',
+          hubIds: [],
+          teamIds: [],
+          invitedBy: 'u1',
+          invitedByName: 'N',
+          createdAt: testDate,
+          status: InvitationStatus.pending,
+          token: 'tok2',
+        ),
+      ];
+      final users = [
+        AppUser(
+          id: 'user1',
+          email: 'accepted@example.com',
+          displayName: 'Accepted User',
+          role: UserRole.staff,
+          orgId: 'org1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: testDate,
+          isActive: true,
+        ),
+      ];
+
+      final container = ProviderContainer(overrides: [
+        invitationsProvider.overrideWith((ref) => Stream.value(invitations)),
+        orgUsersProvider.overrideWith((ref) => Stream.value(users)),
+      ]);
+      addTearDown(container.dispose);
+
+      await container.read(invitationsProvider.future);
+      await container.read(orgUsersProvider.future);
+
+      expect(container.read(activePendingInvitationsProvider), hasLength(1));
+      expect(container.read(pendingInviteCountProvider), 1);
+    });
+
     test('returns correct count when all are pending', () async {
       final invitations = List.generate(
         5,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/league_branding.dart';
 import '../../core/theme.dart';
 import '../../core/utils.dart';
 import '../../models/app_user.dart';
@@ -8,6 +9,9 @@ import '../../models/team.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
+import '../../widgets/app_glass.dart';
+import '../../widgets/app_shell_header.dart';
+import '../../widgets/app_shell_scaffold.dart';
 import '../../widgets/avatar_widget.dart';
 import '../../widgets/confirmation_dialog.dart';
 import '../../widgets/entity_avatar.dart';
@@ -126,8 +130,8 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
           ref.read(organizationProvider).valueOrNull?.id ??
           currentUser.orgId;
       if (orgId == null) return;
-      final teamIdsList = _editTeamIds.toList();
-      final hubIdsList = _selectedHubIdsWithTeams();
+      final teamIdsList = _editableSelectedTeamIds().toList();
+      final hubIdsList = _editHubIds.toList();
       // Derive leagueIds from hub assignments.
       final leagueIds = await fs.deriveLeagueIdsFromHubs(orgId, hubIdsList);
       await _syncTeamMemberships(
@@ -194,14 +198,23 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     }
   }
 
-  List<String> _selectedHubIdsWithTeams() {
-    final ids = <String>{..._editHubIds};
-    for (final team in _allTeams) {
-      if (_editTeamIds.contains(team.id)) {
-        ids.add(team.hubId);
-      }
-    }
-    return ids.toList();
+  Set<String> _editableSelectedTeamIds() {
+    final availableIds = _teamsForSelectedHubs().map((team) => team.id).toSet();
+    return _editTeamIds.intersection(availableIds);
+  }
+
+  List<Team> _teamsForSelectedHubs() {
+    return _allTeams.where((team) => _editHubIds.contains(team.hubId)).toList();
+  }
+
+  void _removeTeamsForHub(String hubId) {
+    _editTeamIds.removeWhere((teamId) {
+      final team = _allTeams.cast<Team?>().firstWhere(
+            (team) => team?.id == teamId,
+            orElse: () => null,
+          );
+      return team?.hubId == hubId;
+    });
   }
 
   Future<void> _syncTeamMemberships(
@@ -236,16 +249,55 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, null);
+
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('User Detail')),
-        body: const Center(child: CircularProgressIndicator()),
+      return AppShellScaffold(
+        header: AppShellHeader(
+          title: 'User Detail',
+          leadingIcon: Icons.person_outline,
+          leadingImageUrl: headerLeague?.logoUrl,
+          leadingLabel: headerLeague?.logoUrl?.isNotEmpty == true
+              ? headerLeague?.name
+              : null,
+          showBackButton: true,
+          backFallbackLocation: '/settings/users',
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: AppGlassColors.aqua),
+        ),
       );
     }
     if (_user == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('User Detail')),
-        body: const Center(child: Text('User not found.')),
+      return AppShellScaffold(
+        header: AppShellHeader(
+          title: 'User Detail',
+          leadingIcon: Icons.person_outline,
+          leadingImageUrl: headerLeague?.logoUrl,
+          leadingLabel: headerLeague?.logoUrl?.isNotEmpty == true
+              ? headerLeague?.name
+              : null,
+          showBackButton: true,
+          backFallbackLocation: '/settings/users',
+        ),
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            appShellTopPadding(context, extra: 12),
+            16,
+            appShellBottomPadding(context, extra: 24),
+          ),
+          children: const [
+            SizedBox(height: 120),
+            Center(
+              child: Text(
+                'User not found.',
+                style: TextStyle(color: AppGlassColors.inkMuted),
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -257,34 +309,32 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
         user.role != UserRole.platformOwner &&
         user.role != UserRole.superAdmin;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('User Detail'),
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'User Detail',
+        leadingIcon: Icons.person_outline,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.logoUrl?.isNotEmpty == true
+            ? headerLeague?.name
+            : null,
+        showBackButton: true,
+        backFallbackLocation: '/settings/users',
         actions: [
           if (canEdit && !_editing)
-            TextButton(
-              onPressed: () => setState(() => _editing = true),
-              child: const Text('Edit',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w600)),
+            _HeaderTextAction(
+              label: 'Edit',
+              onTap: () => setState(() => _editing = true),
             ),
-          if (_editing)
-            TextButton(
-              onPressed: _saving ? null : _saveChanges,
-              child: _saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                  : const Text('Save',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+          if (_editing) ...[
+            _HeaderTextAction(
+              label: 'Save',
+              saving: _saving,
+              onTap: _saving ? null : _saveChanges,
             ),
-          if (_editing)
-            TextButton(
-              onPressed: () {
+            const SizedBox(width: 8),
+            _HeaderIconAction(
+              icon: Icons.close,
+              onTap: () {
                 setState(() {
                   _editing = false;
                   _editRole = user.role;
@@ -296,13 +346,17 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                     ..addAll(user.teamIds);
                 });
               },
-              child:
-                  const Text('Cancel', style: TextStyle(color: Colors.white70)),
             ),
+          ],
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          appShellTopPadding(context, extra: 12),
+          16,
+          appShellBottomPadding(context, extra: 24),
+        ),
         children: [
           _buildProfileHeader(user),
           const SizedBox(height: 16),
@@ -323,23 +377,16 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   }
 
   Widget _buildProfileHeader(AppUser user) {
-    return Container(
+    return AppGlassSurface(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryLight],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
+      radius: 26,
       child: Row(
         children: [
           AvatarWidget(
             name: user.displayName,
             imageUrl: user.avatarUrl,
             size: 64,
-            backgroundColor: Colors.white.withValues(alpha: 0.3),
+            backgroundColor: AppGlassColors.aqua.withValues(alpha: 0.25),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -350,19 +397,20 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                     style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white)),
+                        color: AppGlassColors.ink)),
                 const SizedBox(height: 4),
                 Text(user.email,
-                    style:
-                        const TextStyle(fontSize: 13, color: Colors.white70)),
+                    style: const TextStyle(
+                        fontSize: 13, color: AppGlassColors.inkSecondary)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     StatusBadge(
                         label: user.roleLabel,
-                        color: Colors.white,
-                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        textColor: Colors.white,
+                        color: AppGlassColors.aqua,
+                        backgroundColor:
+                            AppGlassColors.aqua.withValues(alpha: 0.14),
+                        textColor: AppGlassColors.aqua,
                         showBorder: false),
                     const SizedBox(width: 8),
                     StatusBadge(
@@ -373,7 +421,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                         backgroundColor: user.isActive
                             ? AppColors.success.withValues(alpha: 0.3)
                             : AppColors.danger.withValues(alpha: 0.3),
-                        textColor: Colors.white,
+                        textColor: AppGlassColors.ink,
                         showBorder: false),
                   ],
                 ),
@@ -402,15 +450,27 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
         children: [
           RadioListTile<UserRole>(
             dense: true,
-            title: const Text('Manager Admin'),
+            title: const Text(
+              'Manager Admin',
+              style: TextStyle(
+                color: AppGlassColors.ink,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             value: UserRole.managerAdmin,
-            activeColor: AppColors.primary,
+            activeColor: AppGlassColors.aqua,
           ),
           RadioListTile<UserRole>(
             dense: true,
-            title: const Text('Staff'),
+            title: const Text(
+              'Staff',
+              style: TextStyle(
+                color: AppGlassColors.ink,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             value: UserRole.staff,
-            activeColor: AppColors.primary,
+            activeColor: AppGlassColors.aqua,
           ),
         ],
       ),
@@ -425,7 +485,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
             ? const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text('No hubs assigned',
-                    style: TextStyle(color: AppColors.textMuted)),
+                    style: TextStyle(color: AppGlassColors.inkMuted)),
               )
             : Column(
                 children: user.hubIds
@@ -438,26 +498,46 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     return _SectionCard(
       title: 'Hub Assignments',
       child: _hubsLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(color: AppGlassColors.aqua))
           : _allHubs.isEmpty
               ? const Text('No hubs available',
-                  style: TextStyle(color: AppColors.textMuted))
+                  style: TextStyle(color: AppGlassColors.inkMuted))
               : Column(
                   children: _allHubs
                       .map((hub) => CheckboxListTile(
                             dense: true,
-                            title: Text(hub.name),
+                            checkboxShape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            title: Text(
+                              hub.name,
+                              style: const TextStyle(
+                                color: AppGlassColors.ink,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                             subtitle: hub.location != null
-                                ? Text(hub.location!)
+                                ? Text(
+                                    hub.location!,
+                                    style: const TextStyle(
+                                      color: AppGlassColors.inkMuted,
+                                      fontSize: 12,
+                                    ),
+                                  )
                                 : null,
                             value: _editHubIds.contains(hub.id),
-                            activeColor: AppColors.primary,
+                            activeColor: AppGlassColors.aqua,
+                            checkColor: AppGlassColors.pageTop,
+                            side: const BorderSide(
+                                color: AppGlassColors.inkMuted),
                             onChanged: (checked) {
                               setState(() {
                                 if (checked == true) {
                                   _editHubIds.add(hub.id);
                                 } else {
                                   _editHubIds.remove(hub.id);
+                                  _removeTeamsForHub(hub.id);
                                 }
                               });
                             },
@@ -475,7 +555,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
             ? const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text('No teams assigned',
-                    style: TextStyle(color: AppColors.textMuted)),
+                    style: TextStyle(color: AppGlassColors.inkMuted)),
               )
             : Column(
                 children: user.teamIds
@@ -489,42 +569,65 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       );
     }
 
+    final availableTeams = _teamsForSelectedHubs();
+
     return _SectionCard(
       title: 'Team Assignments',
       child: _teamsLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _allTeams.isEmpty
-              ? const Text('No teams available',
-                  style: TextStyle(color: AppColors.textMuted))
-              : Column(
-                  children: _allTeams
-                      .map((team) => CheckboxListTile(
-                            dense: true,
-                            secondary: EntityAvatar(
-                              name: team.name,
-                              imageUrl: team.logoUrl,
-                              iconName: team.iconName,
-                              fallbackIcon: Icons.groups_2_outlined,
-                              size: 34,
-                              color: AppColors.accent,
-                            ),
-                            title: Text(team.name),
-                            subtitle: Text(_teamMeta(team, _allHubs)),
-                            value: _editTeamIds.contains(team.id),
-                            activeColor: AppColors.primary,
-                            onChanged: (checked) {
-                              setState(() {
-                                if (checked == true) {
-                                  _editTeamIds.add(team.id);
-                                  _editHubIds.add(team.hubId);
-                                } else {
-                                  _editTeamIds.remove(team.id);
-                                }
-                              });
-                            },
-                          ))
-                      .toList(),
-                ),
+          ? const Center(
+              child: CircularProgressIndicator(color: AppGlassColors.aqua))
+          : _editHubIds.isEmpty
+              ? const Text('Select hubs to manage team assignments.',
+                  style: TextStyle(color: AppGlassColors.inkMuted))
+              : availableTeams.isEmpty
+                  ? const Text('No teams available for the selected hubs.',
+                      style: TextStyle(color: AppGlassColors.inkMuted))
+                  : Column(
+                      children: availableTeams
+                          .map((team) => CheckboxListTile(
+                                dense: true,
+                                checkboxShape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                secondary: EntityAvatar(
+                                  name: team.name,
+                                  imageUrl: team.logoUrl,
+                                  iconName: team.iconName,
+                                  fallbackIcon: Icons.groups_2_outlined,
+                                  size: 34,
+                                  color: AppGlassColors.aqua,
+                                ),
+                                title: Text(
+                                  team.name,
+                                  style: const TextStyle(
+                                    color: AppGlassColors.ink,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _teamMeta(team, _allHubs),
+                                  style: const TextStyle(
+                                    color: AppGlassColors.inkMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                value: _editTeamIds.contains(team.id),
+                                activeColor: AppGlassColors.aqua,
+                                checkColor: AppGlassColors.pageTop,
+                                side: const BorderSide(
+                                    color: AppGlassColors.inkMuted),
+                                onChanged: (checked) {
+                                  setState(() {
+                                    if (checked == true) {
+                                      _editTeamIds.add(team.id);
+                                    } else {
+                                      _editTeamIds.remove(team.id);
+                                    }
+                                  });
+                                },
+                              ))
+                          .toList(),
+                    ),
     );
   }
 
@@ -540,19 +643,29 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   }
 
   Widget _buildDeactivateButton(AppUser user) {
-    return OutlinedButton.icon(
-      onPressed: _toggleActive,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: user.isActive ? AppColors.danger : AppColors.success,
-        side: BorderSide(
-            color: user.isActive ? AppColors.danger : AppColors.success),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      icon: Icon(user.isActive ? Icons.block : Icons.check_circle_outline),
-      label: Text(
-        user.isActive ? 'Deactivate User' : 'Reactivate User',
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+    final color = user.isActive ? AppGlassColors.rose : AppGlassColors.aqua;
+    return AppGlassSurface(
+      onTap: _toggleActive,
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      radius: 22,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            user.isActive ? Icons.block : Icons.check_circle_outline,
+            color: color,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            user.isActive ? 'Deactivate User' : 'Reactivate User',
+            style: TextStyle(
+              color: color,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -565,12 +678,9 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 22,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -580,16 +690,79 @@ class _SectionCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textSecondary,
+                    color: AppGlassColors.inkMuted,
                     letterSpacing: 0.8)),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: Colors.white.withValues(alpha: 0.1)),
           Padding(
             padding: const EdgeInsets.all(16),
             child: child,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _HeaderTextAction extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final bool saving;
+
+  const _HeaderTextAction({
+    required this.label,
+    required this.onTap,
+    this.saving = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      onTap: onTap,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      radius: 20,
+      child: Center(
+        child: saving
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  color: AppGlassColors.aqua,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(
+                label,
+                style: const TextStyle(
+                  color: AppGlassColors.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _HeaderIconAction extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _HeaderIconAction({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      onTap: onTap,
+      width: 40,
+      height: 40,
+      padding: EdgeInsets.zero,
+      radius: 20,
+      child: Icon(icon, color: AppGlassColors.ink, size: 18),
     );
   }
 }
@@ -606,12 +779,12 @@ class _InfoRow extends StatelessWidget {
       children: [
         Text(label,
             style:
-                const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                const TextStyle(fontSize: 14, color: AppGlassColors.inkMuted)),
         Text(value,
             style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppColors.text)),
+                color: AppGlassColors.ink)),
       ],
     );
   }
@@ -632,11 +805,11 @@ class _HubChip extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          const Icon(Icons.location_city, size: 16, color: AppColors.primary),
+          const Icon(Icons.location_city, size: 16, color: AppGlassColors.aqua),
           const SizedBox(width: 8),
           Text(
             hub?.name ?? hubId,
-            style: const TextStyle(fontSize: 14, color: AppColors.text),
+            style: const TextStyle(fontSize: 14, color: AppGlassColors.ink),
           ),
         ],
       ),
@@ -671,7 +844,7 @@ class _TeamChip extends StatelessWidget {
             iconName: team?.iconName,
             fallbackIcon: Icons.groups_2_outlined,
             size: 30,
-            color: AppColors.accent,
+            color: AppGlassColors.aqua,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -680,13 +853,14 @@ class _TeamChip extends StatelessWidget {
               children: [
                 Text(
                   team?.name ?? teamId,
-                  style: const TextStyle(fontSize: 14, color: AppColors.text),
+                  style:
+                      const TextStyle(fontSize: 14, color: AppGlassColors.ink),
                 ),
                 if (team != null)
                   Text(
                     _teamMeta(team, allHubs),
                     style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
+                        fontSize: 12, color: AppGlassColors.inkMuted),
                   ),
               ],
             ),
