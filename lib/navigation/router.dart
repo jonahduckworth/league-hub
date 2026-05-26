@@ -325,6 +325,13 @@ final router = GoRouter(
                   ),
                 ),
                 GoRoute(
+                  path: 'users/invite',
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const InviteUserScreen(),
+                  ),
+                ),
+                GoRoute(
                   path: 'users/:userId',
                   pageBuilder: (context, state) => _shellTransitionPage(
                     state,

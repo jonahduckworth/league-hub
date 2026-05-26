@@ -156,6 +156,32 @@ void main() {
       );
     }
 
+    Widget createInvitePageTestWidget({
+      AppUser? user,
+      required FirestoreService firestoreService,
+    }) {
+      return ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWith(
+            (ref) => user ?? managerAdmin,
+          ),
+          organizationProvider.overrideWith(
+            (ref) => testOrg,
+          ),
+          firestoreServiceProvider.overrideWithValue(firestoreService),
+        ],
+        child: MaterialApp(
+          home: InviteUserScreen(),
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
     group('Screen Rendering', () {
       testWidgets('renders without crashing', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
@@ -181,6 +207,19 @@ void main() {
 
         expect(find.text('John Doe'), findsOneWidget);
         expect(find.text('Jane Smith'), findsOneWidget);
+      });
+
+      testWidgets('sorts users by last name', (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        final doeTop = tester.getTopLeft(find.text('John Doe')).dy;
+        final johnsonTop = tester.getTopLeft(find.text('Bob Johnson')).dy;
+        final smithTop = tester.getTopLeft(find.text('Jane Smith')).dy;
+
+        expect(doeTop < johnsonTop, isTrue);
+        expect(johnsonTop < smithTop, isTrue);
       });
 
       testWidgets('shows user emails', (WidgetTester tester) async {
@@ -222,7 +261,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(TextField), findsOneWidget);
-        expect(find.text('Search by name or email…'), findsOneWidget);
+        expect(find.text('Search by name or email...'), findsOneWidget);
       });
 
       testWidgets('search field has search icon', (WidgetTester tester) async {
@@ -268,7 +307,7 @@ void main() {
         expect(find.byIcon(Icons.person_add_outlined), findsOneWidget);
       });
 
-      testWidgets('invite sheet only shows teams for selected hubs',
+      testWidgets('invite page only shows teams for selected hubs',
           (WidgetTester tester) async {
         final firestoreService = MockFirestoreService(
           leagues: [
@@ -323,7 +362,7 @@ void main() {
         );
 
         await tester.pumpWidget(
-          createTestWidget(
+          createInvitePageTestWidget(
             user: managerAdmin,
             firestoreService: firestoreService,
           ),
@@ -331,17 +370,10 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Invite User'));
-        await tester.pump();
-        await tester.pumpAndSettle();
-
         expect(find.text('Select hubs to choose team assignments.'),
             findsOneWidget);
 
-        await tester.drag(
-          find.byType(SingleChildScrollView),
-          const Offset(0, -120),
-        );
+        await tester.ensureVisible(find.text('Calgary Canucks'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Calgary Canucks'));
         await tester.pump();

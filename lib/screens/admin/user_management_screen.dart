@@ -46,13 +46,45 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   }
 
   List<AppUser> _filtered(List<AppUser> users) {
-    return users.where((u) {
+    final filtered = users.where((u) {
       final matchesSearch = _searchQuery.isEmpty ||
           u.displayName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           u.email.toLowerCase().contains(_searchQuery.toLowerCase());
       final matchesRole = _roleFilter == 'All' || u.roleLabel == _roleFilter;
       return matchesSearch && matchesRole;
     }).toList();
+
+    filtered.sort(_compareUsersByLastName);
+    return filtered;
+  }
+
+  int _compareUsersByLastName(AppUser a, AppUser b) {
+    final aName = _nameSortParts(a.displayName);
+    final bName = _nameSortParts(b.displayName);
+    final lastName = aName.last.compareTo(bName.last);
+    if (lastName != 0) return lastName;
+    final firstName = aName.first.compareTo(bName.first);
+    if (firstName != 0) return firstName;
+    return a.email.toLowerCase().compareTo(b.email.toLowerCase());
+  }
+
+  ({String first, String last}) _nameSortParts(String displayName) {
+    final parts = displayName
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) {
+      return (first: '', last: '');
+    }
+    if (parts.length == 1) {
+      return (first: '', last: parts.first);
+    }
+    return (
+      first: parts.take(parts.length - 1).join(' '),
+      last: parts.last,
+    );
   }
 
   @override
@@ -83,7 +115,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         ],
       ),
       floatingActionButton: _GlassInviteButton(
-        onTap: () => _showInviteSheet(context),
+        onTap: () => context.push('/settings/users/invite'),
       ),
       child: usersAsync.when(
         loading: () => const Center(
@@ -137,34 +169,46 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   }
 
   Widget _buildSearchBar() {
-    final inputTheme = _glassInputTheme(context);
-
     return AppGlassSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       radius: 22,
-      child: Theme(
-        data: inputTheme,
-        child: TextField(
-          controller: _searchController,
-          style: const TextStyle(color: AppGlassColors.ink),
-          cursorColor: AppGlassColors.aqua,
-          onChanged: (v) => setState(() => _searchQuery = v),
-          decoration: InputDecoration(
-            hintText: 'Search by name or email…',
-            prefixIcon:
-                const Icon(Icons.search, color: AppGlassColors.inkMuted),
-            suffixIcon: _searchQuery.isNotEmpty
-                ? IconButton(
-                    icon:
-                        const Icon(Icons.clear, color: AppGlassColors.inkMuted),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() => _searchQuery = '');
-                    },
-                  )
-                : null,
+      child: Row(
+        children: [
+          const Icon(
+            Icons.search,
+            color: AppGlassColors.inkSecondary,
+            size: 22,
           ),
-        ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              cursorColor: AppGlassColors.aqua,
+              textInputAction: TextInputAction.search,
+              style: const TextStyle(
+                color: AppGlassColors.ink,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              decoration: const InputDecoration(
+                hintText: 'Search by name or email...',
+                hintStyle: TextStyle(
+                  color: AppGlassColors.inkMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                isDense: true,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -188,15 +232,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
           );
         }).toList(),
       ),
-    );
-  }
-
-  void _showInviteSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _InviteUserSheet(),
     );
   }
 
@@ -477,16 +512,16 @@ class _InvitationTile extends StatelessWidget {
   }
 }
 
-// --- Invite User Sheet ---
+// --- Invite User Page ---
 
-class _InviteUserSheet extends ConsumerStatefulWidget {
-  const _InviteUserSheet();
+class InviteUserScreen extends ConsumerStatefulWidget {
+  const InviteUserScreen({super.key});
 
   @override
-  ConsumerState<_InviteUserSheet> createState() => _InviteUserSheetState();
+  ConsumerState<InviteUserScreen> createState() => _InviteUserScreenState();
 }
 
-class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
+class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
   String _selectedRole = 'staff';
@@ -578,7 +613,6 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
       final token =
           await authorizedSvc.createInvitation(currentUser, org.id, invitation);
       if (!mounted) return;
-      Navigator.pop(context);
       _showSuccessDialog(context, token);
     } on PermissionDeniedException catch (e) {
       if (mounted) {
@@ -657,7 +691,10 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   AppGlassSurface(
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/settings/users');
+                    },
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 12),
                     radius: 18,
@@ -680,96 +717,79 @@ class _InviteUserSheetState extends ConsumerState<_InviteUserSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      maxChildSize: 0.95,
-      minChildSize: 0.5,
-      builder: (_, scrollController) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
-        child: AppGlassSurface(
-          margin: const EdgeInsets.symmetric(horizontal: 10),
-          padding: EdgeInsets.zero,
-          radius: 30,
-          child: Theme(
-            data: _glassInputTheme(context),
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                const BottomSheetHandle(),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 16, 14),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'Invite User',
-                        style: TextStyle(
-                          color: AppGlassColors.ink,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close,
-                            color: AppGlassColors.inkSecondary),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          autocorrect: false,
-                          style: const TextStyle(color: AppGlassColors.ink),
-                          cursorColor: AppGlassColors.aqua,
-                          decoration: const InputDecoration(
-                            labelText: 'Email *',
-                            prefixIcon: Icon(Icons.email_outlined),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          controller: _nameController,
-                          style: const TextStyle(color: AppGlassColors.ink),
-                          cursorColor: AppGlassColors.aqua,
-                          decoration: const InputDecoration(
-                            labelText: 'Display Name (optional)',
-                            prefixIcon: Icon(Icons.person_outline),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        const _SheetLabel('Role'),
-                        const SizedBox(height: 8),
-                        _buildRolePicker(),
-                        const SizedBox(height: 20),
-                        const _SheetLabel('Hub Access'),
-                        const SizedBox(height: 8),
-                        _buildHubPicker(),
-                        const SizedBox(height: 20),
-                        const _SheetLabel('Team Access'),
-                        const SizedBox(height: 8),
-                        _buildTeamPicker(),
-                        const SizedBox(height: 32),
-                        _GlassSubmitButton(
-                          label: 'Send Invite',
-                          saving: _isLoading,
-                          onTap: _isLoading ? null : _sendInvite,
-                        ),
-                      ],
+    final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, null);
+
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'Invite User',
+        leadingIcon: Icons.person_add_alt_1_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.logoUrl?.isNotEmpty == true
+            ? headerLeague?.name
+            : null,
+        showBackButton: true,
+        backFallbackLocation: '/settings/users',
+      ),
+      child: Theme(
+        data: _glassInputTheme(context),
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            appShellTopPadding(context, extra: 12),
+            16,
+            appShellBottomPadding(context, extra: 24),
+          ),
+          children: [
+            AppGlassSurface(
+              padding: const EdgeInsets.all(18),
+              radius: 26,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    style: const TextStyle(color: AppGlassColors.ink),
+                    cursorColor: AppGlassColors.aqua,
+                    decoration: const InputDecoration(
+                      labelText: 'Email *',
+                      prefixIcon: Icon(Icons.email_outlined),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _nameController,
+                    style: const TextStyle(color: AppGlassColors.ink),
+                    cursorColor: AppGlassColors.aqua,
+                    decoration: const InputDecoration(
+                      labelText: 'Display Name (optional)',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const _SheetLabel('Role'),
+                  const SizedBox(height: 8),
+                  _buildRolePicker(),
+                  const SizedBox(height: 20),
+                  const _SheetLabel('Hub Access'),
+                  const SizedBox(height: 8),
+                  _buildHubPicker(),
+                  const SizedBox(height: 20),
+                  const _SheetLabel('Team Access'),
+                  const SizedBox(height: 8),
+                  _buildTeamPicker(),
+                ],
+              ),
             ),
-          ),
+            const SizedBox(height: 18),
+            _GlassSubmitButton(
+              label: 'Send Invite',
+              saving: _isLoading,
+              onTap: _isLoading ? null : _sendInvite,
+            ),
+          ],
         ),
       ),
     );
