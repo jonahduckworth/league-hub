@@ -397,6 +397,7 @@ class _ChatRoomTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: EdgeInsets.zero,
       radius: 20,
+      onTap: () => context.push('/chat/${room.id}'),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         leading: ChatRoomAvatar(
@@ -458,7 +459,6 @@ class _ChatRoomTile extends ConsumerWidget {
             ],
           ],
         ),
-        onTap: () => context.push('/chat/${room.id}'),
       ),
     );
   }

@@ -7,6 +7,7 @@ import '../models/announcement.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
 import '../navigation/announcement_navigation_source.dart';
+import '../navigation/chat_navigation_source.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../screens/chat_list_screen.dart';
@@ -471,7 +472,10 @@ class _ChatCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       radius: 20,
-      onTap: () => context.push('/chat/${chatRoom.id}'),
+      onTap: () => context.go(
+        '/chat/${chatRoom.id}',
+        extra: ChatNavigationSource.dashboardCard,
+      ),
       child: Row(
         children: [
           ChatRoomAvatar(

@@ -6,6 +6,7 @@ import '../models/app_user.dart';
 import '../models/hub.dart';
 import '../models/league.dart';
 import 'announcement_navigation_source.dart';
+import 'chat_navigation_source.dart';
 import '../services/permission_service.dart';
 import '../core/constants.dart';
 import '../screens/login_screen.dart';
@@ -202,12 +203,18 @@ final router = GoRouter(
                 ),
                 GoRoute(
                   path: ':roomId',
-                  pageBuilder: (context, state) => _shellTransitionPage(
-                    state,
-                    ChatConversationScreen(
-                      roomId: state.pathParameters['roomId']!,
-                    ),
-                  ),
+                  pageBuilder: (context, state) {
+                    final source = state.extra;
+                    final isDashboardCard =
+                        source == ChatNavigationSource.dashboardCard;
+                    return _shellTransitionPage(
+                      state,
+                      ChatConversationScreen(
+                        roomId: state.pathParameters['roomId']!,
+                      ),
+                      animatePrimary: !isDashboardCard,
+                    );
+                  },
                   routes: [
                     GoRoute(
                       path: 'info',
