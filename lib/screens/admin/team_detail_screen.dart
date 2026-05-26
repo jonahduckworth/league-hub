@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme.dart';
 import '../../core/utils.dart';
 import '../../models/app_user.dart';
 import '../../models/team.dart';
@@ -9,7 +8,11 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
 import '../../services/permission_service.dart';
+import '../../widgets/app_glass.dart';
+import '../../widgets/app_shell_header.dart';
+import '../../widgets/app_shell_scaffold.dart';
 import '../../widgets/avatar_widget.dart';
+import '../../widgets/bottom_sheet_handle.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entity_avatar.dart';
 
@@ -41,23 +44,81 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       teamsProvider((leagueId: widget.leagueId, hubId: widget.hubId)),
     );
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Team Details')),
-      body: teamsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (teams) {
-          final team = teams.where((t) => t.id == widget.teamId).firstOrNull;
-          if (team == null) {
-            return const EmptyState(
-              icon: Icons.groups_outlined,
-              title: 'Team not found',
-            );
-          }
-          return _buildContent(context, team, orgId, currentUser);
-        },
+    return teamsAsync.when(
+      loading: () => const AppShellScaffold(
+        header: AppShellHeader(
+          title: 'Team Details',
+          leadingIcon: Icons.groups_2_outlined,
+          showBackButton: true,
+          backFallbackLocation: '/settings/leagues',
+        ),
+        child: Center(
+          child: CircularProgressIndicator(color: AppGlassColors.aqua),
+        ),
       ),
+      error: (e, _) => AppShellScaffold(
+        header: const AppShellHeader(
+          title: 'Team Details',
+          leadingIcon: Icons.groups_2_outlined,
+          showBackButton: true,
+          backFallbackLocation: '/settings/leagues',
+        ),
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            appShellTopPadding(context, extra: 12),
+            16,
+            appShellBottomPadding(context, extra: 24),
+          ),
+          children: [
+            _TeamGlassMessage(
+              icon: Icons.error_outline,
+              title: 'Could not load team',
+              message: '$e',
+              color: AppGlassColors.rose,
+            ),
+          ],
+        ),
+      ),
+      data: (teams) {
+        final team = teams.where((t) => t.id == widget.teamId).firstOrNull;
+        if (team == null) {
+          return AppShellScaffold(
+            header: const AppShellHeader(
+              title: 'Team Details',
+              leadingIcon: Icons.groups_2_outlined,
+              showBackButton: true,
+              backFallbackLocation: '/settings/leagues',
+            ),
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                appShellTopPadding(context, extra: 12),
+                16,
+                appShellBottomPadding(context, extra: 24),
+              ),
+              children: const [
+                SizedBox(height: 140),
+                EmptyState(
+                  icon: Icons.groups_outlined,
+                  title: 'Team not found',
+                ),
+              ],
+            ),
+          );
+        }
+        return AppShellScaffold(
+          header: AppShellHeader(
+            title: 'Team Details',
+            leadingIcon: Icons.groups_2_outlined,
+            leadingImageUrl: team.logoUrl,
+            leadingLabel: team.logoUrl?.isNotEmpty == true ? team.name : null,
+            showBackButton: true,
+            backFallbackLocation: '/settings/leagues',
+          ),
+          child: _buildContent(context, team, orgId, currentUser),
+        );
+      },
     );
   }
 
@@ -68,16 +129,17 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     final orgUsersAsync = ref.watch(orgUsersProvider);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        appShellTopPadding(context, extra: 12),
+        16,
+        appShellBottomPadding(context, extra: 24),
+      ),
       children: [
         // Team info card
-        Container(
+        AppGlassSurface(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
+          radius: 24,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -89,7 +151,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     iconName: team.iconName,
                     fallbackIcon: Icons.groups_2_outlined,
                     size: 54,
-                    color: AppColors.accent,
+                    color: AppGlassColors.aqua,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -100,14 +162,14 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                             style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.text)),
+                                color: AppGlassColors.ink)),
                         if (team.ageGroup != null || team.division != null)
                           Text(
                             [team.ageGroup, team.division]
                                 .where((s) => s != null && s.isNotEmpty)
                                 .join(' · '),
                             style: const TextStyle(
-                                fontSize: 13, color: AppColors.textSecondary),
+                                fontSize: 13, color: AppGlassColors.inkMuted),
                           ),
                       ],
                     ),
@@ -116,7 +178,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     IconButton(
                       tooltip: 'Edit Team',
                       icon: const Icon(Icons.edit_outlined,
-                          color: AppColors.textSecondary),
+                          color: AppGlassColors.inkMuted),
                       onPressed: () => context.push(
                         '/teams/${team.id}/edit?leagueId=${team.leagueId}&hubId=${team.hubId}',
                       ),
@@ -134,20 +196,19 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
             icon: Icons.chat_bubble_outline,
             title: 'Team Chat',
             subtitle: 'Open the team chat room',
-            trailing:
-                const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: AppGlassColors.inkMuted,
+            ),
             onTap: () => context.push('/chat/${team.chatRoomId}'),
           ),
           const SizedBox(height: 16),
         ],
 
         // Roster section
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
+        AppGlassSurface(
+          padding: EdgeInsets.zero,
+          radius: 24,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -159,32 +220,32 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textSecondary,
+                            color: AppGlassColors.inkMuted,
                             letterSpacing: 0.8)),
                     const Spacer(),
                     Text('${team.memberIds.length} members',
                         style: const TextStyle(
-                            fontSize: 12, color: AppColors.textMuted)),
+                            fontSize: 12, color: AppGlassColors.inkMuted)),
                     if (canManage) ...[
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () =>
                             _showAddMemberSheet(context, team, orgId ?? ''),
                         child: const Icon(Icons.person_add_outlined,
-                            size: 20, color: AppColors.accent),
+                            size: 20, color: AppGlassColors.aqua),
                       ),
                     ],
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              Divider(height: 1, color: Colors.white.withValues(alpha: 0.1)),
               if (team.memberIds.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(20),
                   child: Center(
                     child: Text('No members yet',
                         style: TextStyle(
-                            color: AppColors.textMuted,
+                            color: AppGlassColors.inkMuted,
                             fontStyle: FontStyle.italic,
                             fontSize: 13)),
                   ),
@@ -193,10 +254,16 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                 orgUsersAsync.when(
                   loading: () => const Padding(
                       padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator())),
+                      child: Center(
+                          child: CircularProgressIndicator(
+                        color: AppGlassColors.aqua,
+                      ))),
                   error: (e, _) => Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text('Error: $e')),
+                      child: Text(
+                        'Error: $e',
+                        style: const TextStyle(color: AppGlassColors.rose),
+                      )),
                   data: (allUsers) {
                     final members = allUsers
                         .where((u) => team.memberIds.contains(u.id))
@@ -233,54 +300,81 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     final selected = await showModalBottomSheet<AppUser>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.56),
       builder: (ctx) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.5,
         maxChildSize: 0.8,
-        builder: (_, scrollCtrl) => Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Add Member',
-                  style: TextStyle(
+        builder: (_, scrollCtrl) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(ctx).bottom),
+          child: AppGlassSurface(
+            margin: const EdgeInsets.symmetric(horizontal: 10),
+            padding: EdgeInsets.zero,
+            radius: 30,
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                const BottomSheetHandle(),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Text(
+                    'Add Member',
+                    style: TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.text)),
-            ),
-            const Divider(height: 1),
-            if (available.isEmpty)
-              const Expanded(
-                child: Center(
-                    child: Text('No available users',
-                        style: TextStyle(color: AppColors.textMuted))),
-              )
-            else
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollCtrl,
-                  itemCount: available.length,
-                  itemBuilder: (_, i) {
-                    final user = available[i];
-                    return ListTile(
-                      leading: AvatarWidget(
-                        imageUrl: user.avatarUrl,
-                        name: user.displayName,
-                        size: 40,
-                        backgroundColor:
-                            AppColors.primary.withValues(alpha: 0.18),
-                      ),
-                      title: Text(user.displayName),
-                      subtitle: Text(user.roleLabel,
-                          style: const TextStyle(fontSize: 12)),
-                      onTap: () => Navigator.pop(ctx, user),
-                    );
-                  },
+                      fontWeight: FontWeight.w800,
+                      color: AppGlassColors.ink,
+                    ),
+                  ),
                 ),
-              ),
-          ],
+                Divider(height: 1, color: Colors.white.withValues(alpha: 0.1)),
+                if (available.isEmpty)
+                  const Expanded(
+                    child: Center(
+                      child: Text(
+                        'No available users',
+                        style: TextStyle(color: AppGlassColors.inkMuted),
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: available.length,
+                      itemBuilder: (_, i) {
+                        final user = available[i];
+                        return ListTile(
+                          leading: AvatarWidget(
+                            imageUrl: user.avatarUrl,
+                            name: user.displayName,
+                            size: 40,
+                            backgroundColor:
+                                AppGlassColors.aqua.withValues(alpha: 0.22),
+                          ),
+                          title: Text(
+                            user.displayName,
+                            style: const TextStyle(
+                              color: AppGlassColors.ink,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          subtitle: Text(
+                            user.roleLabel,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppGlassColors.inkMuted,
+                            ),
+                          ),
+                          onTap: () => Navigator.pop(ctx, user),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -347,6 +441,58 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
   }
 }
 
+class _TeamGlassMessage extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final Color color;
+
+  const _TeamGlassMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      radius: 22,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppGlassColors.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: AppGlassColors.inkSecondary,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -364,37 +510,31 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return AppGlassSurface(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.primary, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.text)),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary)),
-                ],
-              ),
+      padding: const EdgeInsets.all(16),
+      radius: 22,
+      child: Row(
+        children: [
+          Icon(icon, color: AppGlassColors.aqua, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppGlassColors.ink)),
+                Text(subtitle,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppGlassColors.inkMuted)),
+              ],
             ),
-            if (trailing != null) trailing!,
-          ],
-        ),
+          ),
+          if (trailing != null) trailing!,
+        ],
       ),
     );
   }
@@ -418,16 +558,16 @@ class _MemberTile extends StatelessWidget {
         imageUrl: user.avatarUrl,
         name: user.displayName,
         size: 36,
-        backgroundColor: AppColors.primary.withValues(alpha: 0.18),
+        backgroundColor: AppGlassColors.aqua.withValues(alpha: 0.22),
       ),
       title: Text(user.displayName,
-          style: const TextStyle(fontSize: 14, color: AppColors.text)),
+          style: const TextStyle(fontSize: 14, color: AppGlassColors.ink)),
       subtitle: Text(user.roleLabel,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          style: const TextStyle(fontSize: 12, color: AppGlassColors.inkMuted)),
       trailing: canRemove
           ? IconButton(
               icon: const Icon(Icons.remove_circle_outline,
-                  color: AppColors.danger, size: 20),
+                  color: AppGlassColors.rose, size: 20),
               onPressed: onRemove,
             )
           : null,
