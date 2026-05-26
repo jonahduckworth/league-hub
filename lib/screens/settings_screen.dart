@@ -251,12 +251,19 @@ class _ProfileCard extends StatelessWidget {
           ),
           IconButton(
               icon: const Icon(Icons.edit_outlined, color: Colors.white),
-              onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const EditProfileScreen(),
-                    ),
-                  )),
+              onPressed: () {
+                if (GoRouter.maybeOf(context) != null) {
+                  context.push('/settings/profile');
+                  return;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EditProfileScreen(),
+                  ),
+                );
+              }),
         ],
       ),
     );

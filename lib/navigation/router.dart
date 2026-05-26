@@ -311,7 +311,11 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/settings',
-              builder: (context, state) => const SettingsScreen(),
+              pageBuilder: (context, state) => _shellTransitionPage(
+                state,
+                const SettingsScreen(),
+                animatePrimary: false,
+              ),
               routes: [
                 GoRoute(
                   path: 'users',
@@ -325,7 +329,10 @@ final router = GoRouter(
                 ),
                 GoRoute(
                   path: 'profile',
-                  builder: (context, state) => const EditProfileScreen(),
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const EditProfileScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'roles',
@@ -341,7 +348,10 @@ final router = GoRouter(
                 ),
                 GoRoute(
                   path: 'notifications',
-                  builder: (context, state) => const NotificationsScreen(),
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const NotificationsScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'privacy',

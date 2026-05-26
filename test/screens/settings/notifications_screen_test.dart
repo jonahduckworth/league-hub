@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings/notifications_screen.dart';
 
 Widget _buildTestWidget({List<Override> overrides = const []}) {
   return ProviderScope(
-    overrides: overrides,
+    overrides: [
+      organizationProvider.overrideWith((ref) async => null),
+      leaguesProvider.overrideWith((ref) => Stream.value([])),
+      ...overrides,
+    ],
     child: const MaterialApp(
       home: NotificationsScreen(),
     ),
