@@ -1,11 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../core/theme.dart';
+import '../../core/league_branding.dart';
 import '../../core/utils.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/status_badge.dart';
+import '../../providers/data_providers.dart';
+import '../../widgets/app_glass.dart';
+import '../../widgets/app_shell_header.dart';
+import '../../widgets/app_shell_scaffold.dart';
 
 class PrivacySecurityScreen extends ConsumerWidget {
   const PrivacySecurityScreen({super.key});
@@ -13,148 +15,47 @@ class PrivacySecurityScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider).valueOrNull;
+    final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, null);
+    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Privacy & Security')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'Privacy & Security',
+        leadingIcon: Icons.lock_outline,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
+        showBackButton: true,
+      ),
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          topContentPadding,
+          16,
+          bottomContentPadding,
+        ),
         children: [
-          _buildSection(
+          _SettingsSection(
             title: 'ACCOUNT SECURITY',
             children: [
-              ListTile(
-                leading: const Icon(Icons.lock_outlined,
-                    color: AppColors.primary, size: 22),
-                title: const Text('Change Password',
-                    style: TextStyle(fontSize: 14, color: AppColors.text)),
-                subtitle: const Text('Update your account password',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                trailing: const Icon(Icons.chevron_right,
-                    color: AppColors.textMuted, size: 20),
+              _SecurityTile(
+                icon: Icons.lock_outlined,
+                title: 'Change Password',
+                subtitle: 'Update your account password',
                 onTap: () => _showChangePasswordDialog(context),
               ),
-              const Divider(height: 1, indent: 54),
-              ListTile(
-                leading: const Icon(Icons.email_outlined,
-                    color: AppColors.primary, size: 22),
-                title: const Text('Email Address',
-                    style: TextStyle(fontSize: 14, color: AppColors.text)),
-                subtitle: Text(user?.email ?? '',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                trailing: const Icon(Icons.chevron_right,
-                    color: AppColors.textMuted, size: 20),
-                onTap: () => _showChangeEmailDialog(context, ref),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSection(
-            title: 'SESSIONS',
-            children: [
-              ListTile(
-                leading: const Icon(Icons.devices_outlined,
-                    color: AppColors.primary, size: 22),
-                title: const Text('Active Sessions',
-                    style: TextStyle(fontSize: 14, color: AppColors.text)),
-                subtitle: const Text('This device',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                trailing: const StatusBadge(
-                  label: 'Active',
-                  color: AppColors.success,
-                  showBorder: false,
-                ),
-              ),
-              const Divider(height: 1, indent: 54),
-              ListTile(
-                leading:
-                    const Icon(Icons.logout, color: AppColors.danger, size: 22),
-                title: const Text('Sign Out All Devices',
-                    style: TextStyle(fontSize: 14, color: AppColors.danger)),
-                subtitle: const Text(
-                    'Sign out from all devices except this one',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                onTap: () => _confirmSignOutAll(context, ref),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSection(
-            title: 'DATA & PRIVACY',
-            children: [
-              ListTile(
-                leading: const Icon(Icons.download_outlined,
-                    color: AppColors.primary, size: 22),
-                title: const Text('Export My Data',
-                    style: TextStyle(fontSize: 14, color: AppColors.text)),
-                subtitle: const Text('Download a copy of your account data',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                trailing: const Icon(Icons.chevron_right,
-                    color: AppColors.textMuted, size: 20),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Data Export'),
-                      content: const Text(
-                          'Data export is not yet available. This feature is coming soon.'),
-                      actions: [
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              const Divider(height: 1, indent: 54),
-              ListTile(
-                leading: const Icon(Icons.delete_outline,
-                    color: AppColors.danger, size: 22),
-                title: const Text('Delete Account',
-                    style: TextStyle(fontSize: 14, color: AppColors.danger)),
-                subtitle: const Text(
-                    'Permanently delete your account and all data',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                onTap: () => _confirmDeleteAccount(context, ref),
+              const _GlassDivider(),
+              _SecurityTile(
+                icon: Icons.email_outlined,
+                title: 'Email Address',
+                subtitle: user?.email ?? '',
+                onTap: () => _showChangeEmailDialog(context),
               ),
             ],
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSection(
-      {required String title, required List<Widget> children}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(title,
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
-                  letterSpacing: 0.8)),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(children: children),
-        ),
-      ],
     );
   }
 
@@ -165,233 +66,400 @@ class PrivacySecurityScreen extends ConsumerWidget {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Change Password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: currentPassCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Current Password'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: newPassCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'New Password'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: confirmPassCtrl,
-              obscureText: true,
-              decoration:
-                  const InputDecoration(labelText: 'Confirm New Password'),
-            ),
-          ],
+      barrierColor: Colors.black.withValues(alpha: 0.54),
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: AppGlassSurface(
+          radius: 30,
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Change Password',
+                style: TextStyle(
+                  color: AppGlassColors.ink,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _GlassDialogField(
+                controller: currentPassCtrl,
+                labelText: 'Current Password',
+                icon: Icons.lock_outline,
+                obscureText: true,
+              ),
+              const SizedBox(height: 12),
+              _GlassDialogField(
+                controller: newPassCtrl,
+                labelText: 'New Password',
+                icon: Icons.password_outlined,
+                obscureText: true,
+              ),
+              const SizedBox(height: 12),
+              _GlassDialogField(
+                controller: confirmPassCtrl,
+                labelText: 'Confirm New Password',
+                icon: Icons.check_circle_outline,
+                obscureText: true,
+              ),
+              const SizedBox(height: 22),
+              _DialogActions(
+                confirmLabel: 'Update',
+                onCancel: () => Navigator.pop(ctx),
+                onConfirm: () async {
+                  if (newPassCtrl.text.length < 6) {
+                    AppUtils.showErrorSnackBar(
+                      context,
+                      'Password must be at least 6 characters',
+                    );
+                    return;
+                  }
+                  if (newPassCtrl.text != confirmPassCtrl.text) {
+                    AppUtils.showErrorSnackBar(
+                      context,
+                      'Passwords do not match',
+                    );
+                    return;
+                  }
+                  try {
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user != null && user.email != null) {
+                      final cred = EmailAuthProvider.credential(
+                        email: user.email!,
+                        password: currentPassCtrl.text,
+                      );
+                      await user.reauthenticateWithCredential(cred);
+                      await user.updatePassword(newPassCtrl.text);
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (context.mounted) {
+                      AppUtils.showSuccessSnackBar(
+                        context,
+                        'Password updated successfully',
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      AppUtils.showErrorSnackBar(context, 'Failed: $e');
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (newPassCtrl.text.length < 6) {
-                AppUtils.showErrorSnackBar(
-                    context, 'Password must be at least 6 characters');
-                return;
-              }
-              if (newPassCtrl.text != confirmPassCtrl.text) {
-                AppUtils.showErrorSnackBar(context, 'Passwords do not match');
-                return;
-              }
-              try {
-                final user = FirebaseAuth.instance.currentUser;
-                if (user != null && user.email != null) {
-                  final cred = EmailAuthProvider.credential(
-                    email: user.email!,
-                    password: currentPassCtrl.text,
-                  );
-                  await user.reauthenticateWithCredential(cred);
-                  await user.updatePassword(newPassCtrl.text);
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  AppUtils.showSuccessSnackBar(
-                      context, 'Password updated successfully');
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  AppUtils.showErrorSnackBar(context, 'Failed: $e');
-                }
-              }
-            },
-            child: const Text('Update'),
-          ),
-        ],
       ),
-    );
+    ).whenComplete(() {
+      currentPassCtrl.dispose();
+      newPassCtrl.dispose();
+      confirmPassCtrl.dispose();
+    });
   }
 
-  void _showChangeEmailDialog(BuildContext context, WidgetRef ref) {
+  void _showChangeEmailDialog(BuildContext context) {
     final emailCtrl = TextEditingController();
     final passCtrl = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Change Email'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'New Email'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: passCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                  labelText: 'Current Password (to confirm)'),
-            ),
-          ],
+      barrierColor: Colors.black.withValues(alpha: 0.54),
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: AppGlassSurface(
+          radius: 30,
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Change Email',
+                style: TextStyle(
+                  color: AppGlassColors.ink,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _GlassDialogField(
+                controller: emailCtrl,
+                labelText: 'New Email',
+                icon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              _GlassDialogField(
+                controller: passCtrl,
+                labelText: 'Current Password (to confirm)',
+                icon: Icons.lock_outline,
+                obscureText: true,
+              ),
+              const SizedBox(height: 22),
+              _DialogActions(
+                confirmLabel: 'Send Verification',
+                onCancel: () => Navigator.pop(ctx),
+                onConfirm: () async {
+                  try {
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user != null && user.email != null) {
+                      final cred = EmailAuthProvider.credential(
+                        email: user.email!,
+                        password: passCtrl.text,
+                      );
+                      await user.reauthenticateWithCredential(cred);
+                      await user.verifyBeforeUpdateEmail(emailCtrl.text.trim());
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (context.mounted) {
+                      AppUtils.showSuccessSnackBar(
+                        context,
+                        'Verification email sent. Please check your new email.',
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      AppUtils.showErrorSnackBar(context, 'Failed: $e');
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final user = FirebaseAuth.instance.currentUser;
-                if (user != null && user.email != null) {
-                  final cred = EmailAuthProvider.credential(
-                    email: user.email!,
-                    password: passCtrl.text,
-                  );
-                  await user.reauthenticateWithCredential(cred);
-                  await user.verifyBeforeUpdateEmail(emailCtrl.text.trim());
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  AppUtils.showSuccessSnackBar(context,
-                      'Verification email sent. Please check your new email.');
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  AppUtils.showErrorSnackBar(context, 'Failed: $e');
-                }
-              }
-            },
-            child: const Text('Send Verification'),
-          ),
-        ],
       ),
-    );
+    ).whenComplete(() {
+      emailCtrl.dispose();
+      passCtrl.dispose();
+    });
   }
+}
 
-  void _confirmSignOutAll(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sign Out All Devices'),
-        content: const Text(
-            'This feature requires server-side setup to revoke session tokens across all devices. Please contact your administrator to enable this functionality.'),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
+class _SettingsSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
 
-  void _confirmDeleteAccount(BuildContext context, WidgetRef ref) {
-    final passwordCtrl = TextEditingController();
+  const _SettingsSection({
+    required this.title,
+    required this.children,
+  });
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Account'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'This action is permanent and cannot be undone. All your data will be deleted.',
-              style: TextStyle(color: AppColors.textSecondary),
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppGlassColors.inkMuted,
+              letterSpacing: 0.8,
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Enter your password to confirm',
-                border: OutlineInputBorder(),
+          ),
+        ),
+        AppGlassSurface(
+          padding: EdgeInsets.zero,
+          radius: 22,
+          child: Column(children: children),
+        ),
+      ],
+    );
+  }
+}
+
+class _SecurityTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _SecurityTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: AppGlassColors.aqua.withValues(alpha: 0.13),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppGlassColors.aqua.withValues(alpha: 0.24),
+          ),
+        ),
+        child: Icon(icon, color: AppGlassColors.aqua, size: 21),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: AppGlassColors.ink,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(
+          color: AppGlassColors.inkMuted,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right,
+        color: AppGlassColors.inkMuted,
+        size: 20,
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+class _GlassDivider extends StatelessWidget {
+  const _GlassDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      indent: 68,
+      color: Colors.white.withValues(alpha: 0.12),
+    );
+  }
+}
+
+class _GlassDialogField extends StatelessWidget {
+  final TextEditingController controller;
+  final String labelText;
+  final IconData icon;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+
+  const _GlassDialogField({
+    required this.controller,
+    required this.labelText,
+    required this.icon,
+    this.obscureText = false,
+    this.keyboardType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 18,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: const InputDecorationTheme(
+            filled: false,
+            fillColor: Colors.transparent,
+          ),
+          textSelectionTheme: const TextSelectionThemeData(
+            cursorColor: AppGlassColors.aqua,
+            selectionColor: Color(0x3367E8D4),
+            selectionHandleColor: AppGlassColors.aqua,
+          ),
+        ),
+        child: TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          obscureText: obscureText,
+          cursorColor: AppGlassColors.aqua,
+          style: const TextStyle(
+            color: AppGlassColors.ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+          decoration: InputDecoration(
+            labelText: labelText,
+            labelStyle: const TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontWeight: FontWeight.w600,
+            ),
+            floatingLabelStyle: const TextStyle(
+              color: AppGlassColors.aqua,
+              fontWeight: FontWeight.w800,
+            ),
+            prefixIcon: Icon(icon, color: AppGlassColors.inkSecondary),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DialogActions extends StatelessWidget {
+  final String confirmLabel;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  const _DialogActions({
+    required this.confirmLabel,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextButton(
+            onPressed: onCancel,
+            style: TextButton.styleFrom(
+              foregroundColor: AppGlassColors.aqua,
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: AppGlassSurface(
+            height: 48,
+            padding: EdgeInsets.zero,
+            radius: 18,
+            onTap: onConfirm,
+            child: Center(
+              child: Text(
+                confirmLabel,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppGlassColors.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
               ),
             ),
-          ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () async {
-              if (passwordCtrl.text.isEmpty) {
-                AppUtils.showErrorSnackBar(
-                    context, 'Please enter your password');
-                return;
-              }
-              try {
-                final firebaseUser = FirebaseAuth.instance.currentUser;
-                if (firebaseUser != null && firebaseUser.email != null) {
-                  // Re-authenticate before destructive operation.
-                  final cred = EmailAuthProvider.credential(
-                    email: firebaseUser.email!,
-                    password: passwordCtrl.text,
-                  );
-                  await firebaseUser.reauthenticateWithCredential(cred);
-
-                  // Remove FCM token so push notifications stop.
-                  final appUser = ref.read(currentUserProvider).valueOrNull;
-                  if (appUser != null) {
-                    await ref
-                        .read(messagingServiceProvider)
-                        .removeToken(appUser.id);
-                  }
-
-                  // Delete the Firebase Auth account.
-                  await firebaseUser.delete();
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) context.go('/login');
-              } on FirebaseAuthException catch (e) {
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  final msg = e.code == 'wrong-password'
-                      ? 'Incorrect password. Please try again.'
-                      : 'Failed to delete account: ${e.message}';
-                  AppUtils.showErrorSnackBar(context, msg);
-                }
-              } catch (e) {
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  AppUtils.showErrorSnackBar(
-                      context, 'Failed to delete account: $e');
-                }
-              }
-            },
-            child: const Text('Delete Permanently'),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

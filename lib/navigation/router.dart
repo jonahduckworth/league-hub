@@ -355,7 +355,10 @@ final router = GoRouter(
                 ),
                 GoRoute(
                   path: 'privacy',
-                  builder: (context, state) => const PrivacySecurityScreen(),
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const PrivacySecurityScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'leagues',
