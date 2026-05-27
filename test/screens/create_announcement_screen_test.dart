@@ -153,13 +153,13 @@ void main() {
       testWidgets('displays title field', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('Title'), findsOneWidget);
+        expect(find.text('TITLE'), findsOneWidget);
       });
 
       testWidgets('displays body field', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('Body'), findsOneWidget);
+        expect(find.text('BODY'), findsOneWidget);
       });
     });
 
@@ -167,7 +167,7 @@ void main() {
       testWidgets('displays scope selector', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('Scope'), findsOneWidget);
+        expect(find.text('SCOPE'), findsOneWidget);
       });
 
       testWidgets('does not show org-wide scope for superAdmin',
@@ -352,7 +352,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         // Org-wide should be available and default
-        expect(find.text('Scope'), findsOneWidget);
+        expect(find.text('SCOPE'), findsOneWidget);
       });
 
       testWidgets('defaults scope to league for managerAdmin',
@@ -361,7 +361,7 @@ void main() {
           createTestWidget(user: managerAdminUser),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Scope'), findsOneWidget);
+        expect(find.text('SCOPE'), findsOneWidget);
       });
     });
 

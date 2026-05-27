@@ -22,6 +22,7 @@ import '../../widgets/bottom_sheet_handle.dart';
 import '../../widgets/confirmation_dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entity_avatar.dart';
+import '../../widgets/glass_form_widgets.dart';
 import '../../widgets/status_badge.dart';
 
 class UserManagementScreen extends ConsumerStatefulWidget {
@@ -731,66 +732,52 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
         showBackButton: true,
         backFallbackLocation: '/settings/users',
       ),
-      child: Theme(
-        data: _glassInputTheme(context),
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            appShellTopPadding(context, extra: 12),
-            16,
-            appShellBottomPadding(context, extra: 24),
-          ),
-          children: [
-            AppGlassSurface(
-              padding: const EdgeInsets.all(18),
-              radius: 26,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    style: const TextStyle(color: AppGlassColors.ink),
-                    cursorColor: AppGlassColors.aqua,
-                    decoration: const InputDecoration(
-                      labelText: 'Email *',
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _nameController,
-                    style: const TextStyle(color: AppGlassColors.ink),
-                    cursorColor: AppGlassColors.aqua,
-                    decoration: const InputDecoration(
-                      labelText: 'Display Name (optional)',
-                      prefixIcon: Icon(Icons.person_outline),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const _SheetLabel('Role'),
-                  const SizedBox(height: 8),
-                  _buildRolePicker(),
-                  const SizedBox(height: 20),
-                  const _SheetLabel('Hub Access'),
-                  const SizedBox(height: 8),
-                  _buildHubPicker(),
-                  const SizedBox(height: 20),
-                  const _SheetLabel('Team Access'),
-                  const SizedBox(height: 8),
-                  _buildTeamPicker(),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            _GlassSubmitButton(
-              label: 'Send Invite',
-              saving: _isLoading,
-              onTap: _isLoading ? null : _sendInvite,
-            ),
-          ],
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          appShellTopPadding(context, extra: 12),
+          16,
+          appShellBottomPadding(context, extra: 24),
         ),
+        children: [
+          const GlassFormSectionLabel('User Details'),
+          const SizedBox(height: 8),
+          GlassTextFormField(
+            controller: _emailController,
+            labelText: 'Email *',
+            hintText: 'name@example.com',
+            leadingIcon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: 12),
+          GlassTextFormField(
+            controller: _nameController,
+            labelText: 'Display Name',
+            hintText: 'Optional',
+            leadingIcon: Icons.person_outline,
+            textInputAction: TextInputAction.done,
+          ),
+          const SizedBox(height: 18),
+          const GlassFormSectionLabel('Role'),
+          const SizedBox(height: 8),
+          _buildRolePicker(),
+          const SizedBox(height: 18),
+          const GlassFormSectionLabel('Hub Access'),
+          const SizedBox(height: 8),
+          _buildHubPicker(),
+          const SizedBox(height: 18),
+          const GlassFormSectionLabel('Team Access'),
+          const SizedBox(height: 8),
+          _buildTeamPicker(),
+          const SizedBox(height: 22),
+          GlassSubmitButton(
+            label: 'Send Invite',
+            isLoading: _isLoading,
+            onTap: _isLoading ? null : _sendInvite,
+          ),
+        ],
       ),
     );
   }
@@ -806,15 +793,15 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
             onChanged: (v) => setState(() {
               if (v != null) _selectedRole = v;
             }),
-            child: Column(
+            child: const Column(
               children: [
-                _RoleOption(
+                GlassRadioTile<String>(
                   label: 'Manager',
                   description: 'Can manage hubs, teams, and staff',
                   value: 'managerAdmin',
                 ),
-                const _GlassDivider(),
-                _RoleOption(
+                _GlassDivider(),
+                GlassRadioTile<String>(
                   label: 'Staff',
                   description: 'Can view and interact with assigned hubs',
                   value: 'staff',
@@ -864,31 +851,10 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
               ),
             ),
             for (final hub in entry.value)
-              CheckboxListTile(
-                dense: true,
-                checkboxShape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                title: Text(
-                  hub.name,
-                  style: const TextStyle(
-                    color: AppGlassColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                subtitle: hub.location != null
-                    ? Text(
-                        hub.location!,
-                        style: const TextStyle(
-                          color: AppGlassColors.inkMuted,
-                          fontSize: 12,
-                        ),
-                      )
-                    : null,
+              GlassCheckTile(
+                title: hub.name,
+                subtitle: hub.location,
                 value: _selectedHubIds.contains(hub.id),
-                activeColor: AppGlassColors.aqua,
-                checkColor: AppGlassColors.pageTop,
-                side: const BorderSide(color: AppGlassColors.inkMuted),
                 onChanged: (checked) {
                   setState(() {
                     if (checked == true) {
@@ -952,12 +918,8 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
       child: Column(
         children: [
           for (final team in availableTeams)
-            CheckboxListTile(
-              dense: true,
-              checkboxShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5),
-              ),
-              secondary: EntityAvatar(
+            GlassCheckTile(
+              leading: EntityAvatar(
                 name: team.name,
                 imageUrl: team.logoUrl,
                 iconName: team.iconName,
@@ -965,24 +927,9 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
                 size: 34,
                 color: AppGlassColors.aqua,
               ),
-              title: Text(
-                team.name,
-                style: const TextStyle(
-                  color: AppGlassColors.ink,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              subtitle: Text(
-                _teamMeta(team, _allHubs),
-                style: const TextStyle(
-                  color: AppGlassColors.inkMuted,
-                  fontSize: 12,
-                ),
-              ),
+              title: team.name,
+              subtitle: _teamMeta(team, _allHubs),
               value: _selectedTeamIds.contains(team.id),
-              activeColor: AppGlassColors.aqua,
-              checkColor: AppGlassColors.pageTop,
-              side: const BorderSide(color: AppGlassColors.inkMuted),
               onChanged: (checked) {
                 setState(() {
                   if (checked == true) {
@@ -1011,46 +958,6 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
           ),
         )
         .name;
-  }
-}
-
-class _RoleOption extends StatelessWidget {
-  final String label;
-  final String description;
-  final String value;
-
-  const _RoleOption({
-    required this.label,
-    required this.description,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return RadioListTile<String>(
-      title: Text(
-        label,
-        style: const TextStyle(
-          color: AppGlassColors.ink,
-          fontWeight: FontWeight.w800,
-          fontSize: 14,
-        ),
-      ),
-      subtitle: Text(
-        description,
-        style: const TextStyle(
-          fontSize: 12,
-          color: AppGlassColors.inkMuted,
-        ),
-      ),
-      value: value,
-      activeColor: AppGlassColors.aqua,
-      fillColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected)
-            ? AppGlassColors.aqua
-            : AppGlassColors.inkMuted,
-      ),
-    );
   }
 }
 
@@ -1189,72 +1096,12 @@ class _GlassFilterChip extends StatelessWidget {
   }
 }
 
-class _SheetLabel extends StatelessWidget {
-  final String label;
-
-  const _SheetLabel(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w800,
-        color: AppGlassColors.inkMuted,
-        letterSpacing: 0.8,
-      ),
-    );
-  }
-}
-
 class _GlassDivider extends StatelessWidget {
   const _GlassDivider();
 
   @override
   Widget build(BuildContext context) {
     return Divider(height: 1, color: Colors.white.withValues(alpha: 0.1));
-  }
-}
-
-class _GlassSubmitButton extends StatelessWidget {
-  final String label;
-  final bool saving;
-  final VoidCallback? onTap;
-
-  const _GlassSubmitButton({
-    required this.label,
-    required this.saving,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      onTap: onTap,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      radius: 22,
-      child: Center(
-        child: saving
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  color: AppGlassColors.aqua,
-                  strokeWidth: 2,
-                ),
-              )
-            : Text(
-                label,
-                style: const TextStyle(
-                  color: AppGlassColors.ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-      ),
-    );
   }
 }
 
@@ -1308,48 +1155,6 @@ class _GlassMessageCard extends StatelessWidget {
       ),
     );
   }
-}
-
-ThemeData _glassInputTheme(BuildContext context) {
-  final base = Theme.of(context);
-  final border = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(18),
-    borderSide: const BorderSide(color: AppGlassColors.border),
-  );
-
-  return base.copyWith(
-    textTheme: base.textTheme.apply(
-      bodyColor: AppGlassColors.ink,
-      displayColor: AppGlassColors.ink,
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: false,
-      fillColor: Colors.transparent,
-      labelStyle: const TextStyle(
-        color: AppGlassColors.inkMuted,
-        fontWeight: FontWeight.w600,
-      ),
-      floatingLabelStyle: const TextStyle(
-        color: AppGlassColors.aqua,
-        fontWeight: FontWeight.w800,
-      ),
-      hintStyle: const TextStyle(color: AppGlassColors.inkMuted),
-      prefixIconColor: AppGlassColors.inkMuted,
-      suffixIconColor: AppGlassColors.inkMuted,
-      enabledBorder: border,
-      border: border,
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: AppGlassColors.aqua, width: 1.5),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-    ),
-    textSelectionTheme: const TextSelectionThemeData(
-      cursorColor: AppGlassColors.aqua,
-      selectionColor: Color(0x3367E8D4),
-      selectionHandleColor: AppGlassColors.aqua,
-    ),
-  );
 }
 
 String _teamMeta(Team team, List<Hub> allHubs) {
