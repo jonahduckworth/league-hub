@@ -32,28 +32,28 @@ class MockMessagingService extends Mock implements MessagingService {
 
 void main() {
   group('settings helpers', () {
-    test('detects when organization section should be shown', () {
-      expect(shouldShowOrganizationSettings(['users']), isTrue);
-      expect(shouldShowOrganizationSettings(['notifications']), isFalse);
+    test('detects when administration section should be shown', () {
+      expect(shouldShowAdministrationSettings(['users']), isTrue);
+      expect(shouldShowAdministrationSettings(['notifications']), isFalse);
     });
 
-    test('builds organization settings items with optional badge', () {
-      final items = buildOrganizationSettingsItems(
-        visibleTiles: ['leagues', 'users', 'branding'],
+    test('builds administration settings items with optional badge', () {
+      final items = buildAdministrationSettingsItems(
+        visibleTiles: ['leagues', 'users', 'app-icon'],
         pendingInviteCount: 3,
       );
 
       expect(items.map((item) => item.title).toList(), [
         'Manage Leagues & Hubs',
         'User Management',
-        'Branding & Appearance',
+        'App Icon',
       ]);
       expect(items[1].badge, 3);
-      expect(items[2].route, '/settings/branding');
+      expect(items[2].route, '/settings/app-icon');
     });
 
     test('omits user badge when there are no pending invites', () {
-      final items = buildOrganizationSettingsItems(
+      final items = buildAdministrationSettingsItems(
         visibleTiles: ['users'],
         pendingInviteCount: 0,
       );
@@ -149,11 +149,6 @@ void main() {
                 const Scaffold(body: Text('Roles Route')),
           ),
           GoRoute(
-            path: '/settings/branding',
-            builder: (context, state) =>
-                const Scaffold(body: Text('Branding Route')),
-          ),
-          GoRoute(
             path: '/settings/app-icon',
             builder: (context, state) =>
                 const Scaffold(body: Text('App Icon Route')),
@@ -223,14 +218,14 @@ void main() {
         expect(find.text('Privacy & Security'), findsOneWidget);
       });
 
-      testWidgets('does NOT see Organization section',
+      testWidgets('does NOT see Administration section',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: staffUser));
 
-        // Should NOT see Organization section
-        expect(find.text('ORGANIZATION'), findsNothing);
+        // Should NOT see Administration section
+        expect(find.text('ADMINISTRATION'), findsNothing);
 
-        // Should NOT see organization tiles
+        // Should NOT see administration tiles
         expect(find.text('Manage Leagues & Hubs'), findsNothing);
         expect(find.text('User Management'), findsNothing);
         expect(find.text('Roles & Permissions'), findsNothing);
@@ -285,13 +280,13 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: managerAdmin));
 
-        // Should see ORGANIZATION section
-        expect(find.text('ORGANIZATION'), findsOneWidget);
+        // Should see Administration section
+        expect(find.text('ADMINISTRATION'), findsOneWidget);
 
         // Should see User Management
         expect(find.text('User Management'), findsOneWidget);
 
-        // Should NOT see other org tiles
+        // Should NOT see other administration tiles
         expect(find.text('Manage Leagues & Hubs'), findsNothing);
         expect(find.text('Roles & Permissions'), findsNothing);
         expect(find.text('Branding & Appearance'), findsNothing);
@@ -320,17 +315,17 @@ void main() {
         isActive: true,
       );
 
-      testWidgets('sees all Organization tiles', (WidgetTester tester) async {
+      testWidgets('sees all Administration tiles', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: superAdmin));
 
-        // Should see ORGANIZATION section
-        expect(find.text('ORGANIZATION'), findsOneWidget);
+        // Should see Administration section
+        expect(find.text('ADMINISTRATION'), findsOneWidget);
 
-        // Should see all org tiles
+        // Should see all administration tiles
         expect(find.text('Manage Leagues & Hubs'), findsOneWidget);
         expect(find.text('User Management'), findsOneWidget);
         expect(find.text('Roles & Permissions'), findsOneWidget);
-        expect(find.text('Branding & Appearance'), findsOneWidget);
+        expect(find.text('Branding & Appearance'), findsNothing);
         expect(find.text('App Icon'), findsOneWidget);
       });
 
@@ -350,17 +345,6 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Roles Route'), findsOneWidget);
-      });
-
-      testWidgets('branding tile navigates to branding route',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('Branding & Appearance'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Branding Route'), findsOneWidget);
       });
 
       testWidgets('app icon tile navigates to app icon route',
@@ -399,17 +383,17 @@ void main() {
         isActive: true,
       );
 
-      testWidgets('sees all Organization tiles', (WidgetTester tester) async {
+      testWidgets('sees all Administration tiles', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: platformOwner));
 
-        // Should see ORGANIZATION section
-        expect(find.text('ORGANIZATION'), findsOneWidget);
+        // Should see Administration section
+        expect(find.text('ADMINISTRATION'), findsOneWidget);
 
-        // Should see all org tiles
+        // Should see all administration tiles
         expect(find.text('Manage Leagues & Hubs'), findsOneWidget);
         expect(find.text('User Management'), findsOneWidget);
         expect(find.text('Roles & Permissions'), findsOneWidget);
-        expect(find.text('Branding & Appearance'), findsOneWidget);
+        expect(find.text('Branding & Appearance'), findsNothing);
         expect(find.text('App Icon'), findsOneWidget);
       });
 
@@ -615,7 +599,7 @@ void main() {
       testWidgets('section headers are uppercase', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: testUser));
 
-        expect(find.text('ORGANIZATION'), findsOneWidget);
+        expect(find.text('ADMINISTRATION'), findsOneWidget);
         await tester.scrollUntilVisible(
           find.text('PREFERENCES'),
           300,

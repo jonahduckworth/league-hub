@@ -1,4 +1,4 @@
-enum AnnouncementScope { orgWide, league, hub }
+enum AnnouncementScope { orgWide, league, hub, team }
 
 class Announcement {
   final String id;
@@ -6,6 +6,7 @@ class Announcement {
   final AnnouncementScope scope;
   final String? leagueId;
   final String? hubId;
+  final String? teamId;
   final String title;
   final String body;
   final String authorId;
@@ -21,6 +22,7 @@ class Announcement {
     required this.scope,
     this.leagueId,
     this.hubId,
+    this.teamId,
     required this.title,
     required this.body,
     required this.authorId,
@@ -40,6 +42,7 @@ class Announcement {
         ),
         leagueId: json['leagueId'] as String?,
         hubId: json['hubId'] as String?,
+        teamId: json['teamId'] as String?,
         title: json['title'] as String,
         body: json['body'] as String,
         authorId: json['authorId'] as String,
@@ -61,6 +64,7 @@ class Announcement {
         'scope': scope.name,
         'leagueId': leagueId,
         'hubId': hubId,
+        'teamId': teamId,
         'title': title,
         'body': body,
         'authorId': authorId,
@@ -79,6 +83,8 @@ class Announcement {
         return 'League';
       case AnnouncementScope.hub:
         return 'Hub';
+      case AnnouncementScope.team:
+        return 'Team';
     }
   }
 }

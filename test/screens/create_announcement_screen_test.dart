@@ -170,13 +170,13 @@ void main() {
         expect(find.text('Scope'), findsOneWidget);
       });
 
-      testWidgets('shows org-wide scope for superAdmin',
+      testWidgets('does not show org-wide scope for superAdmin',
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(user: superAdminUser),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Org-Wide'), findsOneWidget);
+        expect(find.text('Org-Wide'), findsNothing);
       });
 
       testWidgets('does not show org-wide scope for managerAdmin',
@@ -193,13 +193,19 @@ void main() {
       testWidgets('shows league scope option', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('League'), findsOneWidget);
+        expect(find.text('League'), findsAtLeastNWidgets(1));
       });
 
       testWidgets('shows hub scope option', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
         expect(find.text('Hub'), findsOneWidget);
+      });
+
+      testWidgets('shows team scope option', (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+        expect(find.text('Team'), findsOneWidget);
       });
     });
 

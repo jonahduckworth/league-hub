@@ -126,8 +126,8 @@ final policiesProvider = StreamProvider<List<Policy>>((ref) {
       .map((policies) {
     if (appUser == null) return policies;
     return policies
-        .where((d) =>
-            ps.canViewPolicy(appUser, leagueId: d.leagueId, hubId: d.hubId))
+        .where((d) => ps.canViewPolicy(appUser,
+            leagueId: d.leagueId, hubId: d.hubId, teamId: d.teamId))
         .toList();
   });
 });
@@ -157,6 +157,7 @@ final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
               scope: a.scope,
               leagueId: a.leagueId,
               hubId: a.hubId,
+              teamId: a.teamId,
             ))
         .toList();
   });

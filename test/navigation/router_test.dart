@@ -172,7 +172,6 @@ void main() {
   group('Admin routes', () {
     const adminRoutes = [
       '/settings/roles',
-      '/settings/branding',
       '/settings/app-icon',
       '/settings/leagues',
     ];
@@ -486,7 +485,6 @@ void main() {
       '/settings/users',
       '/settings/users/invite',
       '/settings/roles',
-      '/settings/branding',
       '/settings/app-icon',
       '/settings/leagues',
       '/policy/upload',
@@ -625,7 +623,6 @@ void main() {
       '/settings/privacy',
       '/settings/users',
       '/settings/roles',
-      '/settings/branding',
       '/settings/app-icon',
       '/settings/leagues',
       '/policy/upload',
@@ -691,7 +688,6 @@ void main() {
       final staffDenied = [
         '/settings/users',
         '/settings/roles',
-        '/settings/branding',
         '/settings/app-icon',
         '/settings/leagues',
         '/policy/upload',
@@ -733,7 +729,6 @@ void main() {
 
       final managerDenied = [
         '/settings/roles',
-        '/settings/branding',
         '/settings/app-icon',
         '/settings/leagues',
       ];
@@ -762,7 +757,6 @@ void main() {
         '/settings/privacy',
         '/settings/users',
         '/settings/roles',
-        '/settings/branding',
         '/settings/app-icon',
         '/settings/leagues',
         '/policy/upload',
@@ -794,7 +788,6 @@ void main() {
         '/settings/privacy',
         '/settings/users',
         '/settings/roles',
-        '/settings/branding',
         '/settings/app-icon',
         '/settings/leagues',
         '/policy/upload',

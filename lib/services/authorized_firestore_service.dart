@@ -50,7 +50,7 @@ class AuthorizedFirestoreService {
 
   Future<void> updateOrganization(
       AppUser actor, String orgId, Map<String, dynamic> data) {
-    if (!_ps.canEditBranding(actor)) _deny('updateOrganization', actor);
+    if (!_ps.canEditAppIcon(actor)) _deny('updateOrganization', actor);
     return _fs.updateOrganization(orgId, data);
   }
 
@@ -191,14 +191,25 @@ class AuthorizedFirestoreService {
     ChatRoomType type, {
     String? leagueId,
     String? hubId,
+    String? teamId,
     List<String> participants = const [],
     String? roomIconName,
     String? roomImageUrl,
   }) {
-    if (!_ps.canCreateChatRoom(actor)) _deny('createChatRoom', actor);
+    if (type == ChatRoomType.direct) {
+      if (!_ps.canCreateChatRoom(actor)) _deny('createChatRoom', actor);
+    } else if (!_ps.canCreateChatRoomInScope(
+      actor,
+      leagueId: leagueId,
+      hubId: hubId,
+      teamId: teamId,
+    )) {
+      _deny('createChatRoom', actor);
+    }
     return _fs.createChatRoom(orgId, name, type,
         leagueId: leagueId,
         hubId: hubId,
+        teamId: teamId,
         participants: participants,
         roomIconName: roomIconName,
         roomImageUrl: roomImageUrl);
@@ -307,7 +318,14 @@ class AuthorizedFirestoreService {
   Future<String> createPolicy(
       AppUser actor, String orgId, Map<String, dynamic> policyData,
       {String? policyId}) {
-    if (!_ps.canUploadPolicy(actor)) _deny('createPolicy', actor);
+    if (!_ps.canUploadPolicyToScope(
+      actor,
+      leagueId: policyData['leagueId'] as String?,
+      hubId: policyData['hubId'] as String?,
+      teamId: policyData['teamId'] as String?,
+    )) {
+      _deny('createPolicy', actor);
+    }
     return _fs.createPolicy(orgId, policyData, policyId: policyId);
   }
 
@@ -340,9 +358,17 @@ class AuthorizedFirestoreService {
     String orgId,
     Map<String, dynamic> data, {
     required AnnouncementScope scope,
+    String? leagueId,
     String? hubId,
+    String? teamId,
   }) {
-    if (!_ps.canCreateAnnouncementWithScope(actor, scope, hubId: hubId)) {
+    if (!_ps.canCreateAnnouncementWithScope(
+      actor,
+      scope,
+      leagueId: leagueId,
+      hubId: hubId,
+      teamId: teamId,
+    )) {
       _deny('createAnnouncement', actor);
     }
     return _fs.createAnnouncement(orgId, data);

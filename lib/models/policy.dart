@@ -39,6 +39,7 @@ class Policy {
   final String orgId;
   final String? leagueId;
   final String? hubId;
+  final String? teamId;
   final String name;
   final String fileUrl;
   final String fileType;
@@ -55,6 +56,7 @@ class Policy {
     required this.orgId,
     this.leagueId,
     this.hubId,
+    this.teamId,
     required this.name,
     required this.fileUrl,
     required this.fileType,
@@ -72,6 +74,7 @@ class Policy {
         orgId: json['orgId'] as String? ?? '',
         leagueId: json['leagueId'] as String?,
         hubId: json['hubId'] as String?,
+        teamId: json['teamId'] as String?,
         name: json['name'] as String,
         fileUrl: json['fileUrl'] as String,
         fileType: json['fileType'] as String,
@@ -90,6 +93,7 @@ class Policy {
         'orgId': orgId,
         'leagueId': leagueId,
         'hubId': hubId,
+        'teamId': teamId,
         'name': name,
         'fileUrl': fileUrl,
         'fileType': fileType,

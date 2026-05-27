@@ -74,23 +74,27 @@ void main() {
   AppUser manager(
           {bool isActive = true,
           List<String> hubIds = const [],
-          List<String> leagueIds = const []}) =>
+          List<String> leagueIds = const [],
+          List<String> teamIds = const []}) =>
       makeUser(
           id: 'ma',
           role: UserRole.managerAdmin,
           isActive: isActive,
           hubIds: hubIds,
-          leagueIds: leagueIds);
+          leagueIds: leagueIds,
+          teamIds: teamIds);
   AppUser staff(
           {bool isActive = true,
           List<String> hubIds = const [],
-          List<String> leagueIds = const []}) =>
+          List<String> leagueIds = const [],
+          List<String> teamIds = const []}) =>
       makeUser(
           id: 'staff',
           role: UserRole.staff,
           isActive: isActive,
           hubIds: hubIds,
-          leagueIds: leagueIds);
+          leagueIds: leagueIds,
+          teamIds: teamIds);
 
   // -------------------------------------------------------------------------
   // Hierarchy helpers
@@ -213,7 +217,6 @@ void main() {
       expect(service.canArchiveChatRoom(inactive), isFalse);
       expect(service.canSendMessage(inactive), isFalse);
       expect(service.canCreateInvitation(inactive), isFalse);
-      expect(service.canEditBranding(inactive), isFalse);
       expect(service.canEditAppIcon(inactive), isFalse);
       expect(service.canViewRolesPermissions(inactive), isFalse);
       expect(service.canManageOrganizations(inactive), isFalse);
@@ -270,11 +273,7 @@ void main() {
     });
 
     group('admin routes', () {
-      for (final route in [
-        '/settings/roles',
-        '/settings/branding',
-        '/settings/app-icon'
-      ]) {
+      for (final route in ['/settings/roles', '/settings/app-icon']) {
         test('$route accessible to superAdmin', () {
           expect(service.canAccessRoute(superAdmin(), route), isTrue);
         });
@@ -602,7 +601,10 @@ void main() {
       test('managerAdmin can create league-scoped', () {
         expect(
             service.canCreateAnnouncementWithScope(
-                manager(), AnnouncementScope.league),
+              manager(),
+              AnnouncementScope.league,
+              leagueId: 'l1',
+            ),
             isTrue);
       });
 
@@ -610,7 +612,7 @@ void main() {
         final ma = manager(hubIds: ['h1']);
         expect(
             service.canCreateAnnouncementWithScope(ma, AnnouncementScope.hub,
-                hubId: 'h1'),
+                leagueId: 'l1', hubId: 'h1'),
             isTrue);
       });
 
@@ -618,8 +620,21 @@ void main() {
         final ma = manager(hubIds: ['h1']);
         expect(
             service.canCreateAnnouncementWithScope(ma, AnnouncementScope.hub,
-                hubId: 'h2'),
+                leagueId: 'l1', hubId: 'h2'),
             isFalse);
+      });
+
+      test('managerAdmin can create team-scoped for own team', () {
+        final ma = manager(hubIds: ['h1'], teamIds: ['t1']);
+        expect(
+            service.canCreateAnnouncementWithScope(
+              ma,
+              AnnouncementScope.team,
+              leagueId: 'l1',
+              hubId: 'h1',
+              teamId: 't1',
+            ),
+            isTrue);
       });
 
       test('staff cannot create any scope', () {
@@ -711,6 +726,24 @@ void main() {
             isFalse);
       });
 
+      test('team-scoped visible to team members and hub managers', () {
+        expect(
+            service.canViewAnnouncement(staff(teamIds: ['t1']),
+                scope: AnnouncementScope.team, leagueId: 'l1', teamId: 't1'),
+            isTrue);
+        expect(
+            service.canViewAnnouncement(manager(hubIds: ['h1']),
+                scope: AnnouncementScope.team,
+                leagueId: 'l1',
+                hubId: 'h1',
+                teamId: 't1'),
+            isTrue);
+        expect(
+            service.canViewAnnouncement(staff(teamIds: ['t2']),
+                scope: AnnouncementScope.team, leagueId: 'l1', teamId: 't1'),
+            isFalse);
+      });
+
       test('inactive user cannot view', () {
         expect(
             service.canViewAnnouncement(staff(isActive: false),
@@ -737,6 +770,20 @@ void main() {
       expect(service.canUploadPolicyToHub(ma, 'h1'), isTrue);
       expect(service.canUploadPolicyToHub(ma, 'h2'), isFalse);
       expect(service.canUploadPolicyToHub(superAdmin(), 'h_any'), isTrue);
+    });
+
+    test('canUploadPolicyToScope requires league and owned hub/team scope', () {
+      final ma = manager(hubIds: ['h1'], teamIds: ['t1']);
+      expect(service.canUploadPolicyToScope(ma, leagueId: 'l1'), isTrue);
+      expect(service.canUploadPolicyToScope(ma, leagueId: null), isFalse);
+      expect(service.canUploadPolicyToScope(ma, leagueId: 'l1', hubId: 'h1'),
+          isTrue);
+      expect(service.canUploadPolicyToScope(ma, leagueId: 'l1', hubId: 'h2'),
+          isFalse);
+      expect(
+          service.canUploadPolicyToScope(ma,
+              leagueId: 'l1', hubId: 'h1', teamId: 't1'),
+          isTrue);
     });
 
     group('canEditPolicy', () {
@@ -788,6 +835,17 @@ void main() {
 
       test('unscoped policy visible to everyone', () {
         expect(service.canViewPolicy(staff()), isTrue);
+      });
+
+      test('team-scoped policy visible to team members and hub managers', () {
+        expect(service.canViewPolicy(staff(teamIds: ['t1']), teamId: 't1'),
+            isTrue);
+        expect(
+            service.canViewPolicy(manager(hubIds: ['h1']),
+                hubId: 'h1', teamId: 't1'),
+            isTrue);
+        expect(service.canViewPolicy(staff(teamIds: ['t2']), teamId: 't1'),
+            isFalse);
       });
     });
   });
@@ -871,12 +929,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('settings', () {
-    test('canEditBranding requires superAdmin+', () {
-      expect(service.canEditBranding(superAdmin()), isTrue);
-      expect(service.canEditBranding(manager()), isFalse);
-      expect(service.canEditBranding(staff()), isFalse);
-    });
-
     test('canEditAppIcon requires superAdmin+', () {
       expect(service.canEditAppIcon(superAdmin()), isTrue);
       expect(service.canEditAppIcon(manager()), isFalse);
@@ -926,10 +978,10 @@ void main() {
             'privacy',
             'users',
             'roles',
-            'branding',
             'app-icon',
             'leagues',
           ]));
+      expect(tiles, isNot(contains('branding')));
     });
 
     test('platformOwner sees everything', () {
@@ -942,10 +994,10 @@ void main() {
             'privacy',
             'users',
             'roles',
-            'branding',
             'app-icon',
             'leagues',
           ]));
+      expect(tiles, isNot(contains('branding')));
     });
   });
 }
