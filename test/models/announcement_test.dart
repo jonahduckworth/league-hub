@@ -14,6 +14,7 @@ void main() {
           'scope': 'league',
           'leagueId': 'league1',
           'hubId': null,
+          'teamId': null,
           'title': 'Season Start',
           'body': 'The season begins next Monday.',
           'authorId': 'user1',
@@ -33,6 +34,7 @@ void main() {
         expect(ann.scope, AnnouncementScope.league);
         expect(ann.leagueId, 'league1');
         expect(ann.hubId, isNull);
+        expect(ann.teamId, isNull);
         expect(ann.title, 'Season Start');
         expect(ann.body, 'The season begins next Monday.');
         expect(ann.authorId, 'user1');
@@ -146,6 +148,7 @@ void main() {
           scope: AnnouncementScope.hub,
           leagueId: 'l1',
           hubId: 'h1',
+          teamId: 't1',
           title: 'Test',
           body: 'Body text',
           authorId: 'u1',
@@ -165,6 +168,7 @@ void main() {
         expect(json['scope'], 'hub');
         expect(json['leagueId'], 'l1');
         expect(json['hubId'], 'h1');
+        expect(json['teamId'], 't1');
         expect(json['title'], 'Test');
         expect(json['body'], 'Body text');
         expect(json['authorId'], 'u1');
@@ -182,6 +186,7 @@ void main() {
           AnnouncementScope.orgWide: 'Org-Wide',
           AnnouncementScope.league: 'League',
           AnnouncementScope.hub: 'Hub',
+          AnnouncementScope.team: 'Team',
         };
 
         for (final entry in labels.entries) {

@@ -162,6 +162,18 @@ List<AppUser> chatRoomMembers(ChatRoom room, List<AppUser> users) {
         .toList();
   }
   if (room.leagueId != null) {
+    if (room.teamId != null) {
+      return activeUsers
+          .where((user) =>
+              user.teamIds.contains(room.teamId) ||
+              (room.hubId != null && user.hubIds.contains(room.hubId)))
+          .toList();
+    }
+    if (room.hubId != null) {
+      return activeUsers
+          .where((user) => user.hubIds.contains(room.hubId))
+          .toList();
+    }
     return activeUsers
         .where((user) => user.leagueIds.contains(room.leagueId))
         .toList();
@@ -186,13 +198,17 @@ Future<String?> createEventChatRoom({
   required AppUser? currentUser,
   required String orgId,
   required String roomName,
-  required String? selectedLeagueId,
+  required String selectedLeagueId,
+  String? selectedHubId,
+  String? selectedTeamId,
   required Future<String> Function(
     AppUser actor,
     String orgId,
     String name,
     ChatRoomType type, {
     String? leagueId,
+    String? hubId,
+    String? teamId,
     List<String> participants,
     String? roomIconName,
     String? roomImageUrl,
@@ -211,6 +227,8 @@ Future<String?> createEventChatRoom({
       trimmedName,
       ChatRoomType.event,
       leagueId: selectedLeagueId,
+      hubId: selectedHubId,
+      teamId: selectedTeamId,
       participants: participantIds ?? [currentUser.id],
       roomIconName: roomIconName,
       roomImageUrl: roomImageUrl,

@@ -31,6 +31,7 @@ class MockAuthorizedFirestoreService extends Mock
     ChatRoomType type, {
     String? leagueId,
     String? hubId,
+    String? teamId,
     List<String> participants = const [],
     String? roomIconName,
     String? roomImageUrl,
@@ -42,6 +43,7 @@ class MockAuthorizedFirestoreService extends Mock
           {
             #leagueId: leagueId,
             #hubId: hubId,
+            #teamId: teamId,
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
@@ -747,8 +749,9 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Room Name'), findsOneWidget);
-        expect(find.text('LEAGUE OPTIONAL'), findsOneWidget);
-        expect(find.text('None'), findsOneWidget);
+        expect(find.text('LEAGUE'), findsOneWidget);
+        expect(find.text('ROOM SCOPE'), findsOneWidget);
+        expect(find.text('None'), findsNothing);
       });
 
       testWidgets('event room page hides league chips while leagues load',
@@ -901,7 +904,7 @@ void main() {
             'org-1',
             'Playoffs',
             ChatRoomType.event,
-            leagueId: null,
+            leagueId: 'league-1',
             participants: [managerUser.id, testUser.id],
             roomIconName: 'event',
           ),
@@ -962,24 +965,14 @@ void main() {
         expect(find.text('Chat Route created-room'), findsOneWidget);
       });
 
-      testWidgets('none chip clears selected league before creating room',
+      testWidgets('create room requires a selected league',
           (WidgetTester tester) async {
         final service = MockAuthorizedFirestoreService();
-        when(
-          service.createChatRoom(
-            managerUser,
-            'org-1',
-            'No League Event',
-            ChatRoomType.event,
-            leagueId: null,
-            participants: [managerUser.id, testUser.id],
-            roomIconName: 'event',
-          ),
-        ).thenAnswer((_) async => 'created-room');
 
         await tester.pumpWidget(
           createRoutedTestWidget(
             user: managerUser,
+            leagues: const [],
             authorizedFirestoreService: service,
           ),
         );
@@ -989,15 +982,12 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('SL').last);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('None'));
-        await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField).last, 'No League Event');
         await tester.tap(find.text('Create Room'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Chat Route created-room'), findsOneWidget);
+        expect(find.text('Please select a league.'), findsOneWidget);
+        verifyZeroInteractions(service);
       });
 
       testWidgets('create room shows snackbar on permission denied',
@@ -1009,8 +999,8 @@ void main() {
             'org-1',
             'Playoffs',
             ChatRoomType.event,
-            leagueId: null,
-            participants: [testUser.id],
+            leagueId: 'league-1',
+            participants: [testUser.id, managerUser.id],
             roomIconName: 'event',
           ),
         ).thenThrow(

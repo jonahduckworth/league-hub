@@ -6,8 +6,11 @@ import 'package:go_router/go_router.dart';
 
 import '../core/league_branding.dart';
 import '../core/picked_file.dart';
+import '../core/scope_defaults.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
+import '../models/hub.dart';
+import '../models/team.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/permission_service.dart';
@@ -21,6 +24,8 @@ import 'chat_list_screen.dart';
 
 enum _NewChatStep { choose, eventRoom, directMessage }
 
+enum _EventRoomScope { league, hub, team }
+
 class NewChatScreen extends ConsumerStatefulWidget {
   const NewChatScreen({super.key});
 
@@ -32,7 +37,10 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
   final _nameController = TextEditingController();
 
   _NewChatStep _step = _NewChatStep.choose;
+  _EventRoomScope _eventRoomScope = _EventRoomScope.league;
   String? _selectedLeagueId;
+  String? _selectedHubId;
+  String? _selectedTeamId;
   String _selectedIconName = 'event';
   Uint8List? _selectedImageBytes;
   String? _selectedImageName;
@@ -85,6 +93,20 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       AppUtils.showInfoSnackBar(context, 'Please enter a room name.');
       return;
     }
+    if (_selectedLeagueId == null) {
+      AppUtils.showInfoSnackBar(context, 'Please select a league.');
+      return;
+    }
+    if ((_eventRoomScope == _EventRoomScope.hub ||
+            _eventRoomScope == _EventRoomScope.team) &&
+        _selectedHubId == null) {
+      AppUtils.showInfoSnackBar(context, 'Please select a hub.');
+      return;
+    }
+    if (_eventRoomScope == _EventRoomScope.team && _selectedTeamId == null) {
+      AppUtils.showInfoSnackBar(context, 'Please select a team.');
+      return;
+    }
 
     setState(() => _isCreating = true);
 
@@ -112,14 +134,22 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       final participantIds = eventRoomParticipantIds(
         creator: currentUser,
         users: orgUsers,
-        leagueId: _selectedLeagueId,
+        leagueId: _selectedLeagueId!,
+        hubId:
+            _eventRoomScope == _EventRoomScope.league ? null : _selectedHubId,
+        teamId:
+            _eventRoomScope == _EventRoomScope.team ? _selectedTeamId : null,
       );
 
       final roomId = await createEventChatRoom(
         currentUser: currentUser,
         orgId: orgId,
         roomName: _nameController.text,
-        selectedLeagueId: _selectedLeagueId,
+        selectedLeagueId: _selectedLeagueId!,
+        selectedHubId:
+            _eventRoomScope == _EventRoomScope.league ? null : _selectedHubId,
+        selectedTeamId:
+            _eventRoomScope == _EventRoomScope.team ? _selectedTeamId : null,
         roomIconName: _selectedIconName,
         participantIds: participantIds,
         createRoom: ref.read(authorizedFirestoreServiceProvider).createChatRoom,
@@ -198,7 +228,21 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final orgId =
         ref.watch(organizationProvider).valueOrNull?.id ?? currentUser?.orgId;
-    final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
+    final leagues = manageableLeaguesForUser(
+      currentUser,
+      ref.watch(leaguesProvider).valueOrNull ?? [],
+    );
+    final defaultLeagueId = singleManageableLeagueId(currentUser, leagues);
+    if (_selectedLeagueId == null && defaultLeagueId != null) {
+      _selectedLeagueId = defaultLeagueId;
+    } else if (_selectedLeagueId != null &&
+        leagues.isNotEmpty &&
+        !leagues.any((league) => league.id == _selectedLeagueId)) {
+      _selectedLeagueId = null;
+      _selectedHubId = null;
+      _selectedTeamId = null;
+      _eventRoomScope = _EventRoomScope.league;
+    }
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
     final topContentPadding = appShellTopPadding(context, extra: 12);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
@@ -246,12 +290,34 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                     topPadding: topContentPadding,
                     bottomPadding: bottomContentPadding,
                     nameController: _nameController,
+                    selectedScope: _eventRoomScope,
                     selectedLeagueId: _selectedLeagueId,
+                    selectedHubId: _selectedHubId,
+                    selectedTeamId: _selectedTeamId,
                     selectedIconName: _selectedIconName,
                     selectedImageName: _selectedImageName,
                     isCreating: _isCreating,
-                    onLeagueSelected: (id) =>
-                        setState(() => _selectedLeagueId = id),
+                    onScopeSelected: (scope) => setState(() {
+                      _eventRoomScope = scope;
+                      if (scope == _EventRoomScope.league) {
+                        _selectedHubId = null;
+                        _selectedTeamId = null;
+                      } else if (scope == _EventRoomScope.hub) {
+                        _selectedTeamId = null;
+                      }
+                    }),
+                    onLeagueSelected: (id) => setState(() {
+                      _selectedLeagueId = id;
+                      _selectedHubId = null;
+                      _selectedTeamId = null;
+                      _eventRoomScope = _EventRoomScope.league;
+                    }),
+                    onHubSelected: (id) => setState(() {
+                      _selectedHubId = id;
+                      _selectedTeamId = null;
+                    }),
+                    onTeamSelected: (id) =>
+                        setState(() => _selectedTeamId = id),
                     onIconSelected: (name) => setState(() {
                       _selectedIconName = name;
                       _selectedImageBytes = null;
@@ -275,11 +341,14 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
 List<String> eventRoomParticipantIds({
   required AppUser creator,
   required List<AppUser> users,
-  required String? leagueId,
+  required String leagueId,
+  String? hubId,
+  String? teamId,
 }) {
   final matchingUsers = users.where((user) {
     if (!user.isActive) return false;
-    if (leagueId == null) return user.orgId == creator.orgId;
+    if (teamId != null) return user.teamIds.contains(teamId);
+    if (hubId != null) return user.hubIds.contains(hubId);
     return user.leagueIds.contains(leagueId);
   });
   return {
@@ -414,11 +483,17 @@ class _EventRoomForm extends ConsumerWidget {
   final double topPadding;
   final double bottomPadding;
   final TextEditingController nameController;
+  final _EventRoomScope selectedScope;
   final String? selectedLeagueId;
+  final String? selectedHubId;
+  final String? selectedTeamId;
   final String selectedIconName;
   final String? selectedImageName;
   final bool isCreating;
+  final ValueChanged<_EventRoomScope> onScopeSelected;
   final ValueChanged<String?> onLeagueSelected;
+  final ValueChanged<String?> onHubSelected;
+  final ValueChanged<String?> onTeamSelected;
   final ValueChanged<String> onIconSelected;
   final VoidCallback onPickImage;
   final VoidCallback onCreate;
@@ -428,11 +503,17 @@ class _EventRoomForm extends ConsumerWidget {
     required this.topPadding,
     required this.bottomPadding,
     required this.nameController,
+    required this.selectedScope,
     required this.selectedLeagueId,
+    required this.selectedHubId,
+    required this.selectedTeamId,
     required this.selectedIconName,
     required this.selectedImageName,
     required this.isCreating,
+    required this.onScopeSelected,
     required this.onLeagueSelected,
+    required this.onHubSelected,
+    required this.onTeamSelected,
     required this.onIconSelected,
     required this.onPickImage,
     required this.onCreate,
@@ -441,7 +522,35 @@ class _EventRoomForm extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final leaguesAsync = ref.watch(leaguesProvider);
-    final leagues = leaguesAsync.valueOrNull ?? [];
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final leagues =
+        manageableLeaguesForUser(currentUser, leaguesAsync.valueOrNull ?? []);
+    final hubsAsync = selectedLeagueId == null
+        ? const AsyncValue<List<Hub>>.data([])
+        : ref.watch(hubsProvider(selectedLeagueId!));
+    final hubs = hubsAsync.valueOrNull ?? [];
+    final teamsAsync = selectedLeagueId == null || selectedHubId == null
+        ? const AsyncValue<List<Team>>.data([])
+        : ref.watch(
+            teamsProvider((leagueId: selectedLeagueId!, hubId: selectedHubId!)),
+          );
+    final teams = teamsAsync.valueOrNull ?? [];
+
+    if ((selectedScope == _EventRoomScope.hub ||
+            selectedScope == _EventRoomScope.team) &&
+        selectedHubId == null &&
+        hubs.length == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) onHubSelected(hubs.first.id);
+      });
+    }
+    if (selectedScope == _EventRoomScope.team &&
+        selectedTeamId == null &&
+        teams.length == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) onTeamSelected(teams.first.id);
+      });
+    }
 
     return ListView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -483,18 +592,12 @@ class _EventRoomForm extends ConsumerWidget {
         ),
         if (shouldShowEventRoomLeagueSelector(leaguesAsync)) ...[
           const SizedBox(height: 18),
-          const _SectionLabel('League Optional'),
+          const _SectionLabel('League'),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _GlassTextChoice(
-                label: 'None',
-                icon: Icons.check,
-                selected: selectedLeagueId == null,
-                onTap: isCreating ? null : () => onLeagueSelected(null),
-              ),
               ...leagues.map(
                 (league) => _GlassTextChoice(
                   label: league.abbreviation,
@@ -503,6 +606,79 @@ class _EventRoomForm extends ConsumerWidget {
                 ),
               ),
             ],
+          ),
+        ],
+        if (selectedLeagueId != null) ...[
+          const SizedBox(height: 18),
+          const _SectionLabel('Room Scope'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _GlassTextChoice(
+                label: 'League',
+                icon: Icons.emoji_events_outlined,
+                selected: selectedScope == _EventRoomScope.league,
+                onTap: isCreating
+                    ? null
+                    : () => onScopeSelected(_EventRoomScope.league),
+              ),
+              _GlassTextChoice(
+                label: 'Hub',
+                icon: Icons.location_on_outlined,
+                selected: selectedScope == _EventRoomScope.hub,
+                onTap: isCreating
+                    ? null
+                    : () => onScopeSelected(_EventRoomScope.hub),
+              ),
+              _GlassTextChoice(
+                label: 'Team',
+                icon: Icons.groups_2_outlined,
+                selected: selectedScope == _EventRoomScope.team,
+                onTap: isCreating
+                    ? null
+                    : () => onScopeSelected(_EventRoomScope.team),
+              ),
+            ],
+          ),
+        ],
+        if ((selectedScope == _EventRoomScope.hub ||
+                selectedScope == _EventRoomScope.team) &&
+            selectedLeagueId != null) ...[
+          const SizedBox(height: 18),
+          const _SectionLabel('Hub'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: hubs
+                .map(
+                  (hub) => _GlassTextChoice(
+                    label: hub.name,
+                    selected: selectedHubId == hub.id,
+                    onTap: isCreating ? null : () => onHubSelected(hub.id),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+        if (selectedScope == _EventRoomScope.team && selectedHubId != null) ...[
+          const SizedBox(height: 18),
+          const _SectionLabel('Team'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: teams
+                .map(
+                  (team) => _GlassTextChoice(
+                    label: team.name,
+                    selected: selectedTeamId == team.id,
+                    onTap: isCreating ? null : () => onTeamSelected(team.id),
+                  ),
+                )
+                .toList(),
           ),
         ],
         const SizedBox(height: 24),

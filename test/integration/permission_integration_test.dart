@@ -44,6 +44,7 @@ class MockFirestoreService extends Mock implements FirestoreService {
   Future<String> createChatRoom(String orgId, String name, ChatRoomType type,
           {String? leagueId,
           String? hubId,
+          String? teamId,
           List<String> participants = const [],
           String? roomIconName,
           String? roomImageUrl}) =>
@@ -55,6 +56,7 @@ class MockFirestoreService extends Mock implements FirestoreService {
           ], {
             #leagueId: leagueId,
             #hubId: hubId,
+            #teamId: teamId,
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
@@ -234,11 +236,12 @@ void main() {
         );
 
         when(mockFs.createChatRoom('org1', 'General', ChatRoomType.league,
-            leagueId: null,
+            leagueId: 'l1',
             participants: const [])).thenAnswer((_) => Future.value('room1'));
 
         final roomId = await afs.createChatRoom(
-            actor, 'org1', 'General', ChatRoomType.league);
+            actor, 'org1', 'General', ChatRoomType.league,
+            leagueId: 'l1');
         expect(roomId, 'room1');
       });
 
@@ -280,11 +283,11 @@ void main() {
           isActive: true,
         );
 
-        when(mockFs.createPolicy('org1', {'name': 'Policy'}, policyId: null))
+        final data = {'name': 'Policy', 'leagueId': 'l1'};
+        when(mockFs.createPolicy('org1', data, policyId: null))
             .thenAnswer((_) => Future.value('doc1'));
 
-        final policyId =
-            await afs.createPolicy(actor, 'org1', {'name': 'Policy'});
+        final policyId = await afs.createPolicy(actor, 'org1', data);
         expect(policyId, 'doc1');
       });
     });
@@ -352,11 +355,12 @@ void main() {
         );
 
         when(mockFs.createChatRoom('org1', 'General', ChatRoomType.league,
-            leagueId: null,
+            leagueId: 'l1',
             participants: const [])).thenAnswer((_) => Future.value('room1'));
 
         final roomId = await afs.createChatRoom(
-            actor, 'org1', 'General', ChatRoomType.league);
+            actor, 'org1', 'General', ChatRoomType.league,
+            leagueId: 'l1');
         expect(roomId, 'room1');
       });
 
@@ -516,6 +520,7 @@ void main() {
           'org1',
           {'title': 'Announcement'},
           scope: AnnouncementScope.hub,
+          leagueId: 'l1',
           hubId: hubId,
         );
         expect(annId, 'ann1');
@@ -540,6 +545,7 @@ void main() {
             'org1',
             {'title': 'Announcement'},
             scope: AnnouncementScope.hub,
+            leagueId: 'l1',
             hubId: 'h2',
           ),
           throwsA(isA<PermissionDeniedException>()),
@@ -666,6 +672,7 @@ void main() {
             'org1',
             {'title': 'Announcement'},
             scope: AnnouncementScope.league,
+            leagueId: 'l1',
           ),
           throwsA(isA<PermissionDeniedException>()),
         );

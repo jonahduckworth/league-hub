@@ -276,7 +276,13 @@ void main() {
     test('send message in chat room', () async {
       // Create chat room
       final roomId = await authFs.createChatRoom(
-          manager, 'org1', 'General', ChatRoomType.league);
+        manager,
+        'org1',
+        'General',
+        ChatRoomType.league,
+        leagueId: 'l1',
+        hubId: 'h1',
+      );
       expect(roomId, isNotEmpty);
 
       // Send message
@@ -296,6 +302,8 @@ void main() {
         'fileType': 'pdf',
         'fileSize': 1024,
         'category': 'Policy',
+        'leagueId': 'l1',
+        'hubId': 'h1',
         'uploadedBy': manager.id,
         'uploadedByName': manager.displayName,
         'versions': [],

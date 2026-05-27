@@ -126,6 +126,7 @@ class MockFirestoreService extends Mock implements FirestoreService {
   Future<String> createChatRoom(String orgId, String name, ChatRoomType type,
           {String? leagueId,
           String? hubId,
+          String? teamId,
           List<String> participants = const [],
           String? roomIconName,
           String? roomImageUrl}) =>
@@ -137,6 +138,7 @@ class MockFirestoreService extends Mock implements FirestoreService {
           ], {
             #leagueId: leagueId,
             #hubId: hubId,
+            #teamId: teamId,
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
@@ -965,15 +967,20 @@ void main() {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
 
         when(mockFs.createChatRoom('org1', 'Room 1', ChatRoomType.league,
-            leagueId: null,
+            leagueId: 'l1',
             participants: [])).thenAnswer((_) async => 'roomId');
 
         final result = await afs.createChatRoom(
-            managerAdmin, 'org1', 'Room 1', ChatRoomType.league);
+          managerAdmin,
+          'org1',
+          'Room 1',
+          ChatRoomType.league,
+          leagueId: 'l1',
+        );
 
         expect(result, equals('roomId'));
         verify(mockFs.createChatRoom('org1', 'Room 1', ChatRoomType.league,
-            leagueId: null, participants: [])).called(1);
+            leagueId: 'l1', participants: [])).called(1);
       });
 
       test('calls FirestoreService when superAdmin creates chat room',
@@ -1156,7 +1163,7 @@ void main() {
 
       test('calls FirestoreService when managerAdmin creates policy', () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin);
-        final policyData = {'title': 'Policy'};
+        final policyData = {'title': 'Policy', 'leagueId': 'l1'};
 
         when(mockFs.createPolicy('org1', policyData, policyId: null))
             .thenAnswer((_) async => 'policyId');
@@ -1172,7 +1179,7 @@ void main() {
           'calls FirestoreService when superAdmin creates policy with specific policyId',
           () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
-        final policyData = {'title': 'Policy'};
+        final policyData = {'title': 'Policy', 'leagueId': 'l1'};
 
         when(mockFs.createPolicy('org1', policyData, policyId: 'specific-id'))
             .thenAnswer((_) async => 'specific-id');
@@ -1352,6 +1359,7 @@ void main() {
           'org1',
           data,
           scope: AnnouncementScope.hub,
+          leagueId: 'l1',
           hubId: 'h1',
         );
 
@@ -1371,6 +1379,7 @@ void main() {
             'org1',
             {},
             scope: AnnouncementScope.hub,
+            leagueId: 'l1',
             hubId: 'h2',
           ),
           throwsA(isA<PermissionDeniedException>()),
@@ -1413,6 +1422,7 @@ void main() {
           'org1',
           data,
           scope: AnnouncementScope.league,
+          leagueId: 'l1',
         );
 
         expect(result, equals('announceId'));

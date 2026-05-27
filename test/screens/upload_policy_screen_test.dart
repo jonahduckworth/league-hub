@@ -133,7 +133,7 @@ void main() {
       testWidgets('displays league selector', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('League (Optional)'), findsOneWidget);
+        expect(find.text('League'), findsOneWidget);
       });
     });
 
@@ -206,7 +206,7 @@ void main() {
       testWidgets('displays league selector', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('League (Optional)'), findsOneWidget);
+        expect(find.text('League'), findsOneWidget);
       });
 
       testWidgets('league selector shows available leagues',
@@ -235,7 +235,7 @@ void main() {
         // Check for all major sections
         expect(find.text('Policy Name'), findsOneWidget);
         expect(find.text('Category'), findsOneWidget);
-        expect(find.text('League (Optional)'), findsOneWidget);
+        expect(find.text('League'), findsOneWidget);
       });
 
       testWidgets('all input fields are present', (WidgetTester tester) async {

@@ -74,23 +74,27 @@ void main() {
   AppUser manager(
           {bool isActive = true,
           List<String> hubIds = const [],
-          List<String> leagueIds = const []}) =>
+          List<String> leagueIds = const [],
+          List<String> teamIds = const []}) =>
       makeUser(
           id: 'ma',
           role: UserRole.managerAdmin,
           isActive: isActive,
           hubIds: hubIds,
-          leagueIds: leagueIds);
+          leagueIds: leagueIds,
+          teamIds: teamIds);
   AppUser staff(
           {bool isActive = true,
           List<String> hubIds = const [],
-          List<String> leagueIds = const []}) =>
+          List<String> leagueIds = const [],
+          List<String> teamIds = const []}) =>
       makeUser(
           id: 'staff',
           role: UserRole.staff,
           isActive: isActive,
           hubIds: hubIds,
-          leagueIds: leagueIds);
+          leagueIds: leagueIds,
+          teamIds: teamIds);
 
   // -------------------------------------------------------------------------
   // Hierarchy helpers
@@ -597,7 +601,10 @@ void main() {
       test('managerAdmin can create league-scoped', () {
         expect(
             service.canCreateAnnouncementWithScope(
-                manager(), AnnouncementScope.league),
+              manager(),
+              AnnouncementScope.league,
+              leagueId: 'l1',
+            ),
             isTrue);
       });
 
@@ -605,7 +612,7 @@ void main() {
         final ma = manager(hubIds: ['h1']);
         expect(
             service.canCreateAnnouncementWithScope(ma, AnnouncementScope.hub,
-                hubId: 'h1'),
+                leagueId: 'l1', hubId: 'h1'),
             isTrue);
       });
 
@@ -613,8 +620,21 @@ void main() {
         final ma = manager(hubIds: ['h1']);
         expect(
             service.canCreateAnnouncementWithScope(ma, AnnouncementScope.hub,
-                hubId: 'h2'),
+                leagueId: 'l1', hubId: 'h2'),
             isFalse);
+      });
+
+      test('managerAdmin can create team-scoped for own team', () {
+        final ma = manager(hubIds: ['h1'], teamIds: ['t1']);
+        expect(
+            service.canCreateAnnouncementWithScope(
+              ma,
+              AnnouncementScope.team,
+              leagueId: 'l1',
+              hubId: 'h1',
+              teamId: 't1',
+            ),
+            isTrue);
       });
 
       test('staff cannot create any scope', () {
@@ -706,6 +726,24 @@ void main() {
             isFalse);
       });
 
+      test('team-scoped visible to team members and hub managers', () {
+        expect(
+            service.canViewAnnouncement(staff(teamIds: ['t1']),
+                scope: AnnouncementScope.team, leagueId: 'l1', teamId: 't1'),
+            isTrue);
+        expect(
+            service.canViewAnnouncement(manager(hubIds: ['h1']),
+                scope: AnnouncementScope.team,
+                leagueId: 'l1',
+                hubId: 'h1',
+                teamId: 't1'),
+            isTrue);
+        expect(
+            service.canViewAnnouncement(staff(teamIds: ['t2']),
+                scope: AnnouncementScope.team, leagueId: 'l1', teamId: 't1'),
+            isFalse);
+      });
+
       test('inactive user cannot view', () {
         expect(
             service.canViewAnnouncement(staff(isActive: false),
@@ -732,6 +770,20 @@ void main() {
       expect(service.canUploadPolicyToHub(ma, 'h1'), isTrue);
       expect(service.canUploadPolicyToHub(ma, 'h2'), isFalse);
       expect(service.canUploadPolicyToHub(superAdmin(), 'h_any'), isTrue);
+    });
+
+    test('canUploadPolicyToScope requires league and owned hub/team scope', () {
+      final ma = manager(hubIds: ['h1'], teamIds: ['t1']);
+      expect(service.canUploadPolicyToScope(ma, leagueId: 'l1'), isTrue);
+      expect(service.canUploadPolicyToScope(ma, leagueId: null), isFalse);
+      expect(service.canUploadPolicyToScope(ma, leagueId: 'l1', hubId: 'h1'),
+          isTrue);
+      expect(service.canUploadPolicyToScope(ma, leagueId: 'l1', hubId: 'h2'),
+          isFalse);
+      expect(
+          service.canUploadPolicyToScope(ma,
+              leagueId: 'l1', hubId: 'h1', teamId: 't1'),
+          isTrue);
     });
 
     group('canEditPolicy', () {
@@ -783,6 +835,17 @@ void main() {
 
       test('unscoped policy visible to everyone', () {
         expect(service.canViewPolicy(staff()), isTrue);
+      });
+
+      test('team-scoped policy visible to team members and hub managers', () {
+        expect(service.canViewPolicy(staff(teamIds: ['t1']), teamId: 't1'),
+            isTrue);
+        expect(
+            service.canViewPolicy(manager(hubIds: ['h1']),
+                hubId: 'h1', teamId: 't1'),
+            isTrue);
+        expect(service.canViewPolicy(staff(teamIds: ['t2']), teamId: 't1'),
+            isFalse);
       });
     });
   });

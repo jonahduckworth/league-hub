@@ -8,8 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/league_branding.dart';
+import '../core/scope_defaults.dart';
 import '../core/utils.dart';
 import '../models/hub.dart';
+import '../models/team.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
@@ -25,12 +27,16 @@ class UploadPolicyScreen extends ConsumerStatefulWidget {
   ConsumerState<UploadPolicyScreen> createState() => _UploadPolicyScreenState();
 }
 
+enum _PolicyScope { league, hub, team }
+
 class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
   final _nameCtrl = TextEditingController();
 
   String _category = 'Policy';
+  _PolicyScope _scope = _PolicyScope.league;
   String? _selectedLeagueId;
   String? _selectedHubId;
+  String? _selectedTeamId;
   PlatformFile? _pickedFile;
   Uint8List? _fileBytes;
   bool _isUploading = false;
@@ -152,6 +158,19 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
       AppUtils.showInfoSnackBar(context, 'Please enter a policy name.');
       return;
     }
+    if (_selectedLeagueId == null) {
+      AppUtils.showInfoSnackBar(context, 'Please select a league.');
+      return;
+    }
+    if ((_scope == _PolicyScope.hub || _scope == _PolicyScope.team) &&
+        _selectedHubId == null) {
+      AppUtils.showInfoSnackBar(context, 'Please select a hub.');
+      return;
+    }
+    if (_scope == _PolicyScope.team && _selectedTeamId == null) {
+      AppUtils.showInfoSnackBar(context, 'Please select a team.');
+      return;
+    }
 
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     final currentUser = await ref.read(currentUserProvider.future);
@@ -202,7 +221,8 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
           'fileSize': file.size,
           'category': _category,
           'leagueId': _selectedLeagueId,
-          'hubId': _selectedHubId,
+          'hubId': _scope == _PolicyScope.league ? null : _selectedHubId,
+          'teamId': _scope == _PolicyScope.team ? _selectedTeamId : null,
           'uploadedBy': currentUser.id,
           'uploadedByName': currentUser.displayName,
           'versions': [versionEntry],
@@ -231,11 +251,41 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
   @override
   Widget build(BuildContext context) {
     final leaguesAsync = ref.watch(leaguesProvider);
-    final leagues = leaguesAsync.valueOrNull ?? [];
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final leagues =
+        manageableLeaguesForUser(currentUser, leaguesAsync.valueOrNull ?? []);
+    final defaultLeagueId = singleManageableLeagueId(currentUser, leagues);
+    if (_selectedLeagueId == null && defaultLeagueId != null) {
+      _selectedLeagueId = defaultLeagueId;
+    } else if (_selectedLeagueId != null &&
+        leagues.isNotEmpty &&
+        !leagues.any((league) => league.id == _selectedLeagueId)) {
+      _selectedLeagueId = null;
+      _selectedHubId = null;
+      _selectedTeamId = null;
+      _scope = _PolicyScope.league;
+    }
     final hubsAsync = _selectedLeagueId != null
         ? ref.watch(hubsProvider(_selectedLeagueId!))
         : const AsyncValue<List<Hub>>.data([]);
     final hubs = hubsAsync.valueOrNull ?? [];
+    final teamsAsync = _selectedLeagueId != null && _selectedHubId != null
+        ? ref.watch(
+            teamsProvider(
+                (leagueId: _selectedLeagueId!, hubId: _selectedHubId!)),
+          )
+        : const AsyncValue<List<Team>>.data([]);
+    final teams = teamsAsync.valueOrNull ?? [];
+    if ((_scope == _PolicyScope.hub || _scope == _PolicyScope.team) &&
+        _selectedHubId == null &&
+        hubs.length == 1) {
+      _selectedHubId = hubs.first.id;
+    }
+    if (_scope == _PolicyScope.team &&
+        _selectedTeamId == null &&
+        teams.length == 1) {
+      _selectedTeamId = teams.first.id;
+    }
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
     final topContentPadding = appShellTopPadding(context, extra: 12);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
@@ -288,52 +338,89 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
                 : (v) => setState(() => _category = v ?? _category),
           ),
           const SizedBox(height: 18),
-          const _SectionLabel('League (Optional)'),
+          const _SectionLabel('League'),
           const SizedBox(height: 8),
-          _GlassDropdownField<String?>(
+          _GlassDropdownField<String>(
             value: _selectedLeagueId,
-            hintText: 'No specific league',
-            items: [
-              const DropdownMenuItem<String?>(
-                value: null,
-                child: Text('No specific league'),
-              ),
-              ...leagues.map(
-                (l) => DropdownMenuItem<String?>(
-                  value: l.id,
-                  child: Text(l.name),
-                ),
-              ),
-            ],
+            hintText: 'Select league',
+            items: leagues
+                .map(
+                  (l) => DropdownMenuItem<String>(
+                    value: l.id,
+                    child: Text(l.name),
+                  ),
+                )
+                .toList(),
             onChanged: _isUploading
                 ? null
                 : (v) => setState(() {
                       _selectedLeagueId = v;
                       _selectedHubId = null;
+                      _selectedTeamId = null;
+                      _scope = _PolicyScope.league;
                     }),
           ),
-          if (_selectedLeagueId != null && hubs.isNotEmpty) ...[
+          if (_selectedLeagueId != null) ...[
             const SizedBox(height: 18),
-            const _SectionLabel('Hub (Optional)'),
+            const _SectionLabel('Policy Scope'),
             const SizedBox(height: 8),
-            _GlassDropdownField<String?>(
-              value: _selectedHubId,
-              hintText: 'No specific hub',
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('No specific hub'),
-                ),
-                ...hubs.map(
-                  (h) => DropdownMenuItem<String?>(
-                    value: h.id,
-                    child: Text(h.name),
-                  ),
-                ),
-              ],
+            _ScopePicker(
+              selected: _scope,
               onChanged: _isUploading
                   ? null
-                  : (v) => setState(() => _selectedHubId = v),
+                  : (scope) => setState(() {
+                        _scope = scope;
+                        if (scope == _PolicyScope.league) {
+                          _selectedHubId = null;
+                          _selectedTeamId = null;
+                        } else if (scope == _PolicyScope.hub) {
+                          _selectedTeamId = null;
+                        }
+                      }),
+            ),
+          ],
+          if ((_scope == _PolicyScope.hub || _scope == _PolicyScope.team) &&
+              _selectedLeagueId != null) ...[
+            const SizedBox(height: 18),
+            const _SectionLabel('Hub'),
+            const SizedBox(height: 8),
+            _GlassDropdownField<String>(
+              value: _selectedHubId,
+              hintText: 'Select hub',
+              items: hubs
+                  .map(
+                    (h) => DropdownMenuItem<String>(
+                      value: h.id,
+                      child: Text(h.name),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _isUploading
+                  ? null
+                  : (v) => setState(() {
+                        _selectedHubId = v;
+                        _selectedTeamId = null;
+                      }),
+            ),
+          ],
+          if (_scope == _PolicyScope.team && _selectedHubId != null) ...[
+            const SizedBox(height: 18),
+            const _SectionLabel('Team'),
+            const SizedBox(height: 8),
+            _GlassDropdownField<String>(
+              value: _selectedTeamId,
+              hintText: 'Select team',
+              items: teams
+                  .map(
+                    (team) => DropdownMenuItem<String>(
+                      value: team.id,
+                      child: Text(team.name),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _isUploading
+                  ? null
+                  : (v) => setState(() => _selectedTeamId = v),
             ),
           ],
           if (_isUploading) ...[
@@ -518,6 +605,85 @@ class _GlassTextField extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ScopePicker extends StatelessWidget {
+  final _PolicyScope selected;
+  final ValueChanged<_PolicyScope>? onChanged;
+
+  const _ScopePicker({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final options = [
+      (_PolicyScope.league, 'League', Icons.emoji_events_outlined),
+      (_PolicyScope.hub, 'Hub', Icons.location_on_outlined),
+      (_PolicyScope.team, 'Team', Icons.groups_2_outlined),
+    ];
+
+    return Row(
+      children: List.generate(options.length, (index) {
+        final (scope, label, icon) = options[index];
+        final isSelected = selected == scope;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: index == options.length - 1 ? 0 : 8,
+            ),
+            child: AppGlassSurface(
+              height: 54,
+              padding: EdgeInsets.zero,
+              radius: 18,
+              onTap: onChanged == null ? null : () => onChanged!(scope),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppGlassColors.aqua.withValues(alpha: 0.13)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppGlassColors.aqua.withValues(alpha: 0.34)
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 17,
+                      color: isSelected
+                          ? AppGlassColors.aqua
+                          : AppGlassColors.inkMuted,
+                    ),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isSelected
+                              ? AppGlassColors.ink
+                              : AppGlassColors.inkMuted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }

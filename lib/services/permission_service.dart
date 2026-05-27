@@ -248,17 +248,25 @@ class PermissionService {
   bool canCreateAnnouncement(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
 
-  bool canCreateAnnouncementWithScope(AppUser user, AnnouncementScope scope,
-      {String? hubId}) {
+  bool canCreateAnnouncementWithScope(
+    AppUser user,
+    AnnouncementScope scope, {
+    String? leagueId,
+    String? hubId,
+    String? teamId,
+  }) {
     if (!canCreateAnnouncement(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     // managerAdmin cannot create org-wide announcements.
     if (scope == AnnouncementScope.orgWide) return false;
-    // managerAdmin can only announce to their hubs.
-    if (scope == AnnouncementScope.hub && hubId != null) {
-      return user.hubIds.contains(hubId);
-    }
-    return true; // league-scoped is okay for managerAdmin
+    return canManageContentScope(
+      user,
+      leagueId: leagueId,
+      hubId: scope == AnnouncementScope.hub || scope == AnnouncementScope.team
+          ? hubId
+          : null,
+      teamId: scope == AnnouncementScope.team ? teamId : null,
+    );
   }
 
   bool canEditAnnouncement(AppUser user, {required String authorId}) {
@@ -280,12 +288,18 @@ class PermissionService {
     required AnnouncementScope scope,
     String? leagueId,
     String? hubId,
+    String? teamId,
   }) {
     if (!isActiveUser(user)) return false;
     // platformOwner and superAdmin see everything.
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     // org-wide announcements are visible to everyone.
     if (scope == AnnouncementScope.orgWide) return true;
+    // Team-scoped: team members and managers of that hub can see it.
+    if (scope == AnnouncementScope.team && teamId != null) {
+      return user.teamIds.contains(teamId) ||
+          (hubId != null && user.hubIds.contains(hubId));
+    }
     // Hub-scoped: user must be in that hub.
     if (scope == AnnouncementScope.hub && hubId != null) {
       return user.hubIds.contains(hubId);
@@ -311,6 +325,23 @@ class PermissionService {
     return user.hubIds.contains(hubId);
   }
 
+  bool canUploadPolicyToScope(
+    AppUser user, {
+    required String? leagueId,
+    String? hubId,
+    String? teamId,
+  }) {
+    if (!canUploadPolicy(user)) return false;
+    if (leagueId == null) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    return canManageContentScope(
+      user,
+      leagueId: leagueId,
+      hubId: hubId,
+      teamId: teamId,
+    );
+  }
+
   bool canEditPolicy(AppUser user, {required String uploadedBy}) {
     if (!isActiveUser(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
@@ -321,9 +352,19 @@ class PermissionService {
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
 
   /// Returns true if [user] should see a policy scoped to [hubId] / [leagueId].
-  bool canViewPolicy(AppUser user, {String? leagueId, String? hubId}) {
+  bool canViewPolicy(
+    AppUser user, {
+    String? leagueId,
+    String? hubId,
+    String? teamId,
+  }) {
     if (!isActiveUser(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    // If team-scoped, the user must be on that team or manage that hub.
+    if (teamId != null) {
+      return user.teamIds.contains(teamId) ||
+          (hubId != null && user.hubIds.contains(hubId));
+    }
     // If hub-scoped, user must be in that hub.
     if (hubId != null) return user.hubIds.contains(hubId);
     // League-scoped: user must belong to a hub within that league.
@@ -338,6 +379,23 @@ class PermissionService {
 
   bool canCreateChatRoom(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
+
+  bool canCreateChatRoomInScope(
+    AppUser user, {
+    required String? leagueId,
+    String? hubId,
+    String? teamId,
+  }) {
+    if (!canCreateChatRoom(user)) return false;
+    if (leagueId == null) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    return canManageContentScope(
+      user,
+      leagueId: leagueId,
+      hubId: hubId,
+      teamId: teamId,
+    );
+  }
 
   bool canArchiveChatRoom(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
@@ -369,11 +427,20 @@ class PermissionService {
     }
     // League rooms: visible to users in hubs belonging to that league.
     if (room.type == ChatRoomType.league && room.leagueId != null) {
+      if (room.teamId != null) {
+        return user.teamIds.contains(room.teamId) ||
+            (room.hubId != null && user.hubIds.contains(room.hubId));
+      }
       if (room.hubId != null) return user.hubIds.contains(room.hubId);
       return user.leagueIds.contains(room.leagueId);
     }
     // League-attached event rooms are scoped to that league.
     if (room.type == ChatRoomType.event && room.leagueId != null) {
+      if (room.teamId != null) {
+        return user.teamIds.contains(room.teamId) ||
+            (room.hubId != null && user.hubIds.contains(room.hubId));
+      }
+      if (room.hubId != null) return user.hubIds.contains(room.hubId);
       return user.leagueIds.contains(room.leagueId);
     }
     // Unscoped event rooms: visible to anyone in the org.
@@ -386,6 +453,26 @@ class PermissionService {
 
   bool canEditAppIcon(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
+
+  bool canManageContentScope(
+    AppUser user, {
+    required String? leagueId,
+    String? hubId,
+    String? teamId,
+  }) {
+    if (!isActiveUser(user)) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    if (user.role != UserRole.managerAdmin) return false;
+    if (teamId != null) {
+      return user.teamIds.contains(teamId) ||
+          (hubId != null && user.hubIds.contains(hubId));
+    }
+    if (hubId != null) return user.hubIds.contains(hubId);
+    if (leagueId == null) return false;
+    // Legacy manager records may not have leagueIds yet; keep them working
+    // until the league-membership migration backfills those assignments.
+    return user.leagueIds.isEmpty || user.leagueIds.contains(leagueId);
+  }
 
   bool canViewRolesPermissions(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);

@@ -521,6 +521,8 @@ class _ScopeTag extends StatelessWidget {
         return AppGlassColors.gold;
       case AnnouncementScope.hub:
         return AppColors.success;
+      case AnnouncementScope.team:
+        return AppGlassColors.gold;
     }
   }
 
@@ -533,6 +535,8 @@ class _ScopeTag extends StatelessWidget {
         return league?.abbreviation ?? 'League';
       case AnnouncementScope.hub:
         return 'Hub';
+      case AnnouncementScope.team:
+        return 'Team';
     }
   }
 

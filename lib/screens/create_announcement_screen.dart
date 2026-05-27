@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/league_branding.dart';
+import '../core/scope_defaults.dart';
 import '../core/utils.dart';
 import '../models/announcement.dart';
-import '../models/app_user.dart';
 import '../models/hub.dart';
+import '../models/team.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
@@ -30,9 +31,10 @@ class _CreateAnnouncementScreenState
   final _titleCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
 
-  AnnouncementScope _scope = AnnouncementScope.orgWide;
+  AnnouncementScope _scope = AnnouncementScope.league;
   String? _selectedLeagueId;
   String? _selectedHubId;
+  String? _selectedTeamId;
   bool _isPinned = false;
   bool _isLoading = false;
   bool _populated = false;
@@ -58,34 +60,30 @@ class _CreateAnnouncementScreenState
     _scope = a.scope;
     _selectedLeagueId = a.leagueId;
     _selectedHubId = a.hubId;
+    _selectedTeamId = a.teamId;
     _isPinned = a.isPinned;
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_scope == AnnouncementScope.league && _selectedLeagueId == null) {
+    if (_selectedLeagueId == null) {
       AppUtils.showInfoSnackBar(context, 'Please select a league.');
       return;
     }
-    if (_scope == AnnouncementScope.hub && _selectedHubId == null) {
+    if ((_scope == AnnouncementScope.hub || _scope == AnnouncementScope.team) &&
+        _selectedHubId == null) {
       AppUtils.showInfoSnackBar(context, 'Please select a hub.');
+      return;
+    }
+    if (_scope == AnnouncementScope.team && _selectedTeamId == null) {
+      AppUtils.showInfoSnackBar(context, 'Please select a team.');
       return;
     }
 
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     final currentUser = await ref.read(currentUserProvider.future);
     if (orgId == null || currentUser == null) return;
-
-    // Managers can only post for league/hub scope, not org-wide.
-    if (currentUser.role == UserRole.managerAdmin &&
-        _scope == AnnouncementScope.orgWide) {
-      if (mounted) {
-        AppUtils.showInfoSnackBar(
-            context, 'Managers cannot post org-wide announcements.');
-      }
-      return;
-    }
 
     setState(() => _isLoading = true);
 
@@ -95,9 +93,9 @@ class _CreateAnnouncementScreenState
         'title': _titleCtrl.text.trim(),
         'body': _bodyCtrl.text.trim(),
         'scope': _scope.name,
-        'leagueId':
-            _scope == AnnouncementScope.orgWide ? null : _selectedLeagueId,
-        'hubId': _scope == AnnouncementScope.hub ? _selectedHubId : null,
+        'leagueId': _selectedLeagueId,
+        'hubId': _scope == AnnouncementScope.league ? null : _selectedHubId,
+        'teamId': _scope == AnnouncementScope.team ? _selectedTeamId : null,
         'authorId': currentUser.id,
         'authorName': currentUser.displayName,
         'authorRole': currentUser.roleLabel,
@@ -116,6 +114,7 @@ class _CreateAnnouncementScreenState
             'scope': data['scope'],
             'leagueId': data['leagueId'],
             'hubId': data['hubId'],
+            'teamId': data['teamId'],
             'isPinned': data['isPinned'],
           },
           authorId: currentUser.id,
@@ -126,7 +125,9 @@ class _CreateAnnouncementScreenState
           orgId,
           data,
           scope: _scope,
-          hubId: _scope == AnnouncementScope.hub ? _selectedHubId : null,
+          leagueId: _selectedLeagueId,
+          hubId: _scope == AnnouncementScope.league ? null : _selectedHubId,
+          teamId: _scope == AnnouncementScope.team ? _selectedTeamId : null,
         );
         // Push notification will be sent via FCM when notification service is integrated.
       }
@@ -153,13 +154,21 @@ class _CreateAnnouncementScreenState
   @override
   Widget build(BuildContext context) {
     final leaguesAsync = ref.watch(leaguesProvider);
-    final leagues = leaguesAsync.valueOrNull ?? [];
-    final userAsync = ref.watch(currentUserProvider);
-    final currentUser = userAsync.valueOrNull;
-    final isSuperOrOwner = currentUser?.role == UserRole.superAdmin ||
-        currentUser?.role == UserRole.platformOwner;
-    if (currentUser?.role == UserRole.managerAdmin &&
-        _scope == AnnouncementScope.orgWide) {
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final leagues =
+        manageableLeaguesForUser(currentUser, leaguesAsync.valueOrNull ?? []);
+    if (_scope == AnnouncementScope.orgWide && !_isEditing) {
+      _scope = AnnouncementScope.league;
+    }
+    final defaultLeagueId = singleManageableLeagueId(currentUser, leagues);
+    if (_selectedLeagueId == null && defaultLeagueId != null) {
+      _selectedLeagueId = defaultLeagueId;
+    } else if (_selectedLeagueId != null &&
+        leagues.isNotEmpty &&
+        !leagues.any((league) => league.id == _selectedLeagueId)) {
+      _selectedLeagueId = null;
+      _selectedHubId = null;
+      _selectedTeamId = null;
       _scope = AnnouncementScope.league;
     }
 
@@ -174,6 +183,23 @@ class _CreateAnnouncementScreenState
         ? ref.watch(hubsProvider(_selectedLeagueId!))
         : const AsyncValue<List<Hub>>.data([]);
     final hubs = hubsAsync.valueOrNull ?? [];
+    final teamsAsync = _selectedLeagueId != null && _selectedHubId != null
+        ? ref.watch(
+            teamsProvider(
+                (leagueId: _selectedLeagueId!, hubId: _selectedHubId!)),
+          )
+        : const AsyncValue<List<Team>>.data([]);
+    final teams = teamsAsync.valueOrNull ?? [];
+    if ((_scope == AnnouncementScope.hub || _scope == AnnouncementScope.team) &&
+        _selectedHubId == null &&
+        hubs.length == 1) {
+      _selectedHubId = hubs.first.id;
+    }
+    if (_scope == AnnouncementScope.team &&
+        _selectedTeamId == null &&
+        teams.length == 1) {
+      _selectedTeamId = teams.first.id;
+    }
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
     final topContentPadding = appShellTopPadding(context, extra: 12);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
@@ -202,15 +228,20 @@ class _CreateAnnouncementScreenState
             const SizedBox(height: 8),
             _ScopePicker(
               selected: _scope,
-              isSuperOrOwner: isSuperOrOwner,
               onChanged: (s) => setState(() {
                 _scope = s;
-                _selectedLeagueId = null;
-                _selectedHubId = null;
+                if (s == AnnouncementScope.league) {
+                  _selectedHubId = null;
+                  _selectedTeamId = null;
+                } else if (s == AnnouncementScope.hub) {
+                  _selectedTeamId = null;
+                }
               }),
             ),
             if (_scope == AnnouncementScope.league ||
-                _scope == AnnouncementScope.hub) ...[
+                _scope == AnnouncementScope.hub ||
+                _scope == AnnouncementScope.team ||
+                _scope == AnnouncementScope.orgWide) ...[
               const SizedBox(height: 16),
               const _SectionLabel('League'),
               const SizedBox(height: 8),
@@ -229,10 +260,12 @@ class _CreateAnnouncementScreenState
                 onChanged: (v) => setState(() {
                   _selectedLeagueId = v;
                   _selectedHubId = null;
+                  _selectedTeamId = null;
                 }),
               ),
             ],
-            if (_scope == AnnouncementScope.hub) ...[
+            if (_scope == AnnouncementScope.hub ||
+                _scope == AnnouncementScope.team) ...[
               const SizedBox(height: 16),
               const _SectionLabel('Hub'),
               const SizedBox(height: 8),
@@ -248,7 +281,29 @@ class _CreateAnnouncementScreenState
                           ),
                         ))
                     .toList(),
-                onChanged: (v) => setState(() => _selectedHubId = v),
+                onChanged: (v) => setState(() {
+                  _selectedHubId = v;
+                  _selectedTeamId = null;
+                }),
+              ),
+            ],
+            if (_scope == AnnouncementScope.team) ...[
+              const SizedBox(height: 16),
+              const _SectionLabel('Team'),
+              const SizedBox(height: 8),
+              _GlassDropdownField<String>(
+                value: _selectedTeamId,
+                hint: 'Select team',
+                items: teams
+                    .map((team) => DropdownMenuItem(
+                          value: team.id,
+                          child: Text(
+                            team.name,
+                            style: const TextStyle(color: AppGlassColors.ink),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedTeamId = v),
               ),
             ],
             const SizedBox(height: 20),
@@ -525,21 +580,21 @@ class _GlassDropdownField<T> extends StatelessWidget {
 
 class _ScopePicker extends StatelessWidget {
   final AnnouncementScope selected;
-  final bool isSuperOrOwner;
   final ValueChanged<AnnouncementScope> onChanged;
 
   const _ScopePicker({
     required this.selected,
-    required this.isSuperOrOwner,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     final options = [
-      if (isSuperOrOwner) (AnnouncementScope.orgWide, 'Org-Wide', Icons.public),
+      if (selected == AnnouncementScope.orgWide)
+        (AnnouncementScope.orgWide, 'Org-Wide', Icons.public),
       (AnnouncementScope.league, 'League', Icons.emoji_events_outlined),
       (AnnouncementScope.hub, 'Hub', Icons.location_city_outlined),
+      (AnnouncementScope.team, 'Team', Icons.groups_2_outlined),
     ];
 
     return Row(

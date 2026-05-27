@@ -244,6 +244,7 @@ class FirestoreService {
     ChatRoomType type, {
     String? leagueId,
     String? hubId,
+    String? teamId,
     List<String> participants = const [],
     String? roomIconName,
     String? roomImageUrl,
@@ -255,6 +256,7 @@ class FirestoreService {
       'type': type.name,
       'leagueId': leagueId,
       'hubId': hubId,
+      'teamId': teamId,
       'participants': participants,
       'isArchived': false,
       'createdAt': FieldValue.serverTimestamp(),
@@ -299,6 +301,7 @@ class FirestoreService {
         'type': 'league',
         'leagueId': leagueId,
         'hubId': null,
+        'teamId': null,
         'participants': [],
         'isArchived': false,
         'createdAt': FieldValue.serverTimestamp(),
