@@ -27,7 +27,6 @@ import '../screens/upload_policy_screen.dart';
 import '../screens/policy_detail_screen.dart';
 import '../screens/settings/edit_profile_screen.dart';
 import '../screens/settings/roles_permissions_screen.dart';
-import '../screens/settings/branding_screen.dart';
 import '../screens/settings/app_icon_screen.dart';
 import '../screens/settings/notifications_screen.dart';
 import '../screens/settings/privacy_security_screen.dart';
@@ -353,10 +352,6 @@ final router = GoRouter(
                     state,
                     const RolesPermissionsScreen(),
                   ),
-                ),
-                GoRoute(
-                  path: 'branding',
-                  builder: (context, state) => const BrandingScreen(),
                 ),
                 GoRoute(
                   path: 'app-icon',

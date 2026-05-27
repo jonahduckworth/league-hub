@@ -213,7 +213,6 @@ void main() {
       expect(service.canArchiveChatRoom(inactive), isFalse);
       expect(service.canSendMessage(inactive), isFalse);
       expect(service.canCreateInvitation(inactive), isFalse);
-      expect(service.canEditBranding(inactive), isFalse);
       expect(service.canEditAppIcon(inactive), isFalse);
       expect(service.canViewRolesPermissions(inactive), isFalse);
       expect(service.canManageOrganizations(inactive), isFalse);
@@ -270,11 +269,7 @@ void main() {
     });
 
     group('admin routes', () {
-      for (final route in [
-        '/settings/roles',
-        '/settings/branding',
-        '/settings/app-icon'
-      ]) {
+      for (final route in ['/settings/roles', '/settings/app-icon']) {
         test('$route accessible to superAdmin', () {
           expect(service.canAccessRoute(superAdmin(), route), isTrue);
         });
@@ -871,12 +866,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('settings', () {
-    test('canEditBranding requires superAdmin+', () {
-      expect(service.canEditBranding(superAdmin()), isTrue);
-      expect(service.canEditBranding(manager()), isFalse);
-      expect(service.canEditBranding(staff()), isFalse);
-    });
-
     test('canEditAppIcon requires superAdmin+', () {
       expect(service.canEditAppIcon(superAdmin()), isTrue);
       expect(service.canEditAppIcon(manager()), isFalse);
@@ -926,10 +915,10 @@ void main() {
             'privacy',
             'users',
             'roles',
-            'branding',
             'app-icon',
             'leagues',
           ]));
+      expect(tiles, isNot(contains('branding')));
     });
 
     test('platformOwner sees everything', () {
@@ -942,10 +931,10 @@ void main() {
             'privacy',
             'users',
             'roles',
-            'branding',
             'app-icon',
             'leagues',
           ]));
+      expect(tiles, isNot(contains('branding')));
     });
   });
 }

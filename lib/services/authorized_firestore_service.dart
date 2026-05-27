@@ -50,7 +50,7 @@ class AuthorizedFirestoreService {
 
   Future<void> updateOrganization(
       AppUser actor, String orgId, Map<String, dynamic> data) {
-    if (!_ps.canEditBranding(actor)) _deny('updateOrganization', actor);
+    if (!_ps.canEditAppIcon(actor)) _deny('updateOrganization', actor);
     return _fs.updateOrganization(orgId, data);
   }
 

@@ -63,7 +63,6 @@ class PermissionService {
   /// Routes that require at least superAdmin.
   static const _adminRoutes = {
     '/settings/roles',
-    '/settings/branding',
     '/settings/app-icon',
     '/settings/leagues',
   };
@@ -385,9 +384,6 @@ class PermissionService {
   // Settings
   // ---------------------------------------------------------------------------
 
-  bool canEditBranding(AppUser user) =>
-      isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
-
   bool canEditAppIcon(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
 
@@ -417,7 +413,7 @@ class PermissionService {
       tiles.addAll(['users']);
     }
     if (isAtLeast(user.role, UserRole.superAdmin)) {
-      tiles.addAll(['roles', 'branding', 'app-icon', 'leagues']);
+      tiles.addAll(['roles', 'app-icon', 'leagues']);
     }
     return tiles;
   }

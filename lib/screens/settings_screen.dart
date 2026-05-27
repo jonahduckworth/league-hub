@@ -29,12 +29,12 @@ class SettingsNavigationItem {
   });
 }
 
-bool shouldShowOrganizationSettings(List<String> visibleTiles) {
-  return visibleTiles.any(
-      (t) => ['leagues', 'users', 'roles', 'branding', 'app-icon'].contains(t));
+bool shouldShowAdministrationSettings(List<String> visibleTiles) {
+  return visibleTiles
+      .any((t) => ['leagues', 'users', 'roles', 'app-icon'].contains(t));
 }
 
-List<SettingsNavigationItem> buildOrganizationSettingsItems({
+List<SettingsNavigationItem> buildAdministrationSettingsItems({
   required List<String> visibleTiles,
   required int pendingInviteCount,
 }) {
@@ -57,12 +57,6 @@ List<SettingsNavigationItem> buildOrganizationSettingsItems({
         icon: Icons.admin_panel_settings,
         title: 'Roles & Permissions',
         route: '/settings/roles',
-      ),
-    if (visibleTiles.contains('branding'))
-      const SettingsNavigationItem(
-        icon: Icons.palette,
-        title: 'Branding & Appearance',
-        route: '/settings/branding',
       ),
     if (visibleTiles.contains('app-icon'))
       const SettingsNavigationItem(
@@ -113,13 +107,13 @@ class SettingsScreen extends ConsumerWidget {
     final pendingInviteCount = ref.watch(pendingInviteCountProvider);
     final ps = ref.read(permissionServiceProvider);
     final visibleTiles = ps.visibleSettingsTiles(user);
-    final organizationItems = buildOrganizationSettingsItems(
+    final administrationItems = buildAdministrationSettingsItems(
       visibleTiles: visibleTiles,
       pendingInviteCount: pendingInviteCount,
     );
     final preferenceItems = buildPreferenceSettingsItems();
-    final showOrganizationSection =
-        shouldShowOrganizationSettings(visibleTiles);
+    final showAdministrationSection =
+        shouldShowAdministrationSettings(visibleTiles);
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -135,10 +129,10 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           _ProfileCard(user: user),
           const SizedBox(height: 24),
-          if (showOrganizationSection)
+          if (showAdministrationSection)
             _SettingsSection(
-              title: 'Organization',
-              items: organizationItems
+              title: 'Administration',
+              items: administrationItems
                   .map(
                     (item) => _SettingsItem(
                       icon: item.icon,
@@ -149,7 +143,7 @@ class SettingsScreen extends ConsumerWidget {
                   )
                   .toList(),
             ),
-          if (showOrganizationSection) const SizedBox(height: 16),
+          if (showAdministrationSection) const SizedBox(height: 16),
           _SettingsSection(
             title: 'Preferences',
             items: preferenceItems
