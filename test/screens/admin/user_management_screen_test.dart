@@ -59,7 +59,7 @@ void main() {
     final managerAdmin = AppUser(
       id: 'manager-1',
       email: 'manager@example.com',
-      displayName: 'Manager Admin',
+      displayName: 'Manager',
       role: UserRole.managerAdmin,
       orgId: 'org-1',
       hubIds: ['hub-1'],
@@ -114,7 +114,7 @@ void main() {
         hubIds: [],
         teamIds: [],
         invitedBy: 'admin-1',
-        invitedByName: 'Super Admin',
+        invitedByName: 'Admin',
         createdAt: DateTime.now().subtract(Duration(days: 1)),
         status: InvitationStatus.pending,
         token: 'token-1',
@@ -240,8 +240,8 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Staff'), findsWidgets);
-        // "Manager Admin" appears as both a role badge and a filter chip
-        expect(find.text('Manager Admin'), findsWidgets);
+        // "Manager" appears as both a role badge and a filter chip
+        expect(find.text('Manager'), findsWidgets);
       });
 
       testWidgets('role badges display correctly', (WidgetTester tester) async {
@@ -249,7 +249,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // Should have at least one Staff and one Manager Admin badge
+        // Should have at least one Staff and one Manager badge
         expect(find.byType(Container), findsWidgets);
       });
     });
@@ -280,9 +280,9 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('All'), findsOneWidget);
-        expect(find.text('Super Admin'), findsOneWidget);
-        // "Manager Admin" also appears as a role badge on a user row
-        expect(find.text('Manager Admin'), findsWidgets);
+        expect(find.text('Admin'), findsOneWidget);
+        // "Manager" also appears as a role badge on a user row
+        expect(find.text('Manager'), findsWidgets);
         expect(find.text('Staff'), findsWidgets);
       });
     });

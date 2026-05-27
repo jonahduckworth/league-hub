@@ -268,11 +268,11 @@ void main() {
       });
     });
 
-    group('Manager Admin user', () {
+    group('Manager user', () {
       final managerAdmin = AppUser(
         id: 'manager-admin',
         email: 'admin@example.com',
-        displayName: 'Manager Admin',
+        displayName: 'Manager',
         role: UserRole.managerAdmin,
         orgId: 'org-1',
         createdAt: DateTime(2024),
@@ -307,11 +307,11 @@ void main() {
       });
     });
 
-    group('Super Admin user', () {
+    group('Admin user', () {
       final superAdmin = AppUser(
         id: 'super-admin',
         email: 'super@example.com',
-        displayName: 'Super Admin',
+        displayName: 'Admin',
         role: UserRole.superAdmin,
         orgId: 'org-1',
         createdAt: DateTime(2024),
@@ -337,7 +337,7 @@ void main() {
       testWidgets('displays Owner badge', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: superAdmin));
 
-        // Super Admin should show Owner badge
+        // Admin should show Owner badge
         expect(find.text('Owner'), findsOneWidget);
       });
 
@@ -519,7 +519,7 @@ void main() {
       final managerAdmin = AppUser(
         id: 'manager-admin',
         email: 'admin@example.com',
-        displayName: 'Manager Admin',
+        displayName: 'Manager',
         role: UserRole.managerAdmin,
         orgId: 'org-1',
         createdAt: DateTime(2024),
@@ -638,7 +638,7 @@ void main() {
       final superAdmin = AppUser(
         id: 'super-admin',
         email: 'super@example.com',
-        displayName: 'Super Admin',
+        displayName: 'Admin',
         role: UserRole.superAdmin,
         orgId: 'org-1',
         createdAt: DateTime(2024),

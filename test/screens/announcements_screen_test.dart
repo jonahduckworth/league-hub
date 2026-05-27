@@ -258,7 +258,7 @@ void main() {
         body: 'Welcome to our new league management platform',
         authorId: 'admin-1',
         authorName: 'Admin User',
-        authorRole: 'Super Admin',
+        authorRole: 'Admin',
         scope: AnnouncementScope.orgWide,
         attachments: [],
         isPinned: true,
@@ -271,7 +271,7 @@ void main() {
         body: 'The spring tournament will be held from March 15 to April 20',
         authorId: 'admin-1',
         authorName: 'Admin User',
-        authorRole: 'Super Admin',
+        authorRole: 'Admin',
         scope: AnnouncementScope.league,
         leagueId: 'league-1',
         attachments: [],
@@ -285,7 +285,7 @@ void main() {
         body: 'Weekly schedule has been updated',
         authorId: 'admin-1',
         authorName: 'Admin User',
-        authorRole: 'Super Admin',
+        authorRole: 'Admin',
         scope: AnnouncementScope.league,
         leagueId: 'league-2',
         attachments: [],
@@ -438,7 +438,7 @@ void main() {
         final managerAdmin = AppUser(
           id: 'manager-1',
           email: 'manager@example.com',
-          displayName: 'Manager Admin',
+          displayName: 'Manager',
           role: UserRole.managerAdmin,
           orgId: 'org-1',
           hubIds: [],
@@ -521,7 +521,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Admin User'), findsWidgets);
-        expect(find.text('Super Admin'), findsWidgets);
+        expect(find.text('Admin'), findsWidgets);
       });
     });
 
@@ -799,7 +799,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Admin User'), findsWidgets);
-        expect(find.text('Super Admin'), findsWidgets);
+        expect(find.text('Admin'), findsWidgets);
       });
 
       testWidgets('card text is properly formatted',
@@ -1020,7 +1020,7 @@ void main() {
             body: 'This is pinned',
             authorId: 'admin-1',
             authorName: 'Admin User',
-            authorRole: 'Super Admin',
+            authorRole: 'Admin',
             scope: AnnouncementScope.orgWide,
             attachments: [],
             isPinned: true,
@@ -1033,7 +1033,7 @@ void main() {
             body: 'This is recent',
             authorId: 'admin-1',
             authorName: 'Admin User',
-            authorRole: 'Super Admin',
+            authorRole: 'Admin',
             scope: AnnouncementScope.orgWide,
             attachments: [],
             isPinned: false,
@@ -1046,7 +1046,7 @@ void main() {
             body: 'This is older',
             authorId: 'admin-1',
             authorName: 'Admin User',
-            authorRole: 'Super Admin',
+            authorRole: 'Admin',
             scope: AnnouncementScope.orgWide,
             attachments: [],
             isPinned: false,
@@ -1076,7 +1076,7 @@ void main() {
             body: 'Body 1',
             authorId: 'admin-1',
             authorName: 'Admin User',
-            authorRole: 'Super Admin',
+            authorRole: 'Admin',
             scope: AnnouncementScope.orgWide,
             attachments: [],
             isPinned: false,
@@ -1089,7 +1089,7 @@ void main() {
             body: 'Body 2',
             authorId: 'admin-1',
             authorName: 'Admin User',
-            authorRole: 'Super Admin',
+            authorRole: 'Admin',
             scope: AnnouncementScope.orgWide,
             attachments: [],
             isPinned: false,
@@ -1117,7 +1117,7 @@ void main() {
             body: 'Body 1',
             authorId: 'admin-1',
             authorName: 'Admin User',
-            authorRole: 'Super Admin',
+            authorRole: 'Admin',
             scope: AnnouncementScope.league,
             leagueId: 'league-1',
             attachments: [],
@@ -1131,7 +1131,7 @@ void main() {
             body: 'Body 2',
             authorId: 'admin-1',
             authorName: 'Admin User',
-            authorRole: 'Super Admin',
+            authorRole: 'Admin',
             scope: AnnouncementScope.league,
             leagueId: 'league-1',
             attachments: [],
@@ -1184,7 +1184,7 @@ void main() {
           body: 'Body',
           authorId: 'admin-1',
           authorName: 'Admin User',
-          authorRole: 'Super Admin',
+          authorRole: 'Admin',
           scope: AnnouncementScope.league,
           leagueId: 'unknown-league-id',
           attachments: [],
@@ -1241,7 +1241,7 @@ void main() {
             body: 'Hub specific news',
             authorId: 'admin-1',
             authorName: 'Admin User',
-            authorRole: 'Super Admin',
+            authorRole: 'Admin',
             scope: AnnouncementScope.hub,
             hubId: 'hub-1',
             attachments: [],

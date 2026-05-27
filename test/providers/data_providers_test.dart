@@ -170,7 +170,7 @@ void main() {
         body: 'Body text',
         authorId: 'u1',
         authorName: 'Admin',
-        authorRole: 'Super Admin',
+        authorRole: 'Admin',
         attachments: [],
         isPinned: true,
         createdAt: testDate,

@@ -349,7 +349,10 @@ final router = GoRouter(
                 ),
                 GoRoute(
                   path: 'roles',
-                  builder: (context, state) => const RolesPermissionsScreen(),
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const RolesPermissionsScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'branding',

@@ -19,12 +19,10 @@ export const onUserRoleChanged = onDocumentUpdated(
     if (!oldRole || !newRole || oldRole === newRole) return;
 
     const userId = event.params.userId;
-    const displayName = (after.displayName as string) || "User";
-
     const roleLabels: Record<string, string> = {
       platformOwner: "Platform Owner",
-      superAdmin: "Super Admin",
-      managerAdmin: "Manager Admin",
+      superAdmin: "Admin",
+      managerAdmin: "Manager",
       staff: "Staff",
     };
 

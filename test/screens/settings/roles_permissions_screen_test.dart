@@ -69,7 +69,7 @@ Widget _buildTestWidget({required List<Override> overrides}) {
 
 void main() {
   group('RolesPermissionsScreen', () {
-    testWidgets('renders all 4 role cards', (tester) async {
+    testWidgets('renders assignable role cards', (tester) async {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           orgUsersProvider.overrideWith((ref) => Stream.value(_testUsers())),
@@ -78,9 +78,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Roles & Permissions'), findsOneWidget);
-      expect(find.text('Platform Owner'), findsOneWidget);
-      expect(find.text('Super Admin'), findsOneWidget);
-      expect(find.text('Manager Admin'), findsOneWidget);
+      expect(find.text('Platform Owner'), findsNothing);
+      expect(find.text('Admin'), findsOneWidget);
+      expect(find.text('Manager'), findsOneWidget);
       expect(find.text('Staff'), findsOneWidget);
     });
 
@@ -92,8 +92,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('1 member'),
-          findsNWidgets(3)); // owner, superAdmin, manager each 1
+      expect(find.text('1 member'), findsNWidgets(2)); // admin and manager
       expect(find.text('2 members'), findsOneWidget); // 2 staff
     });
 
@@ -105,13 +104,12 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Tap Platform Owner to expand
-      await tester.tap(find.text('Platform Owner'));
+      await tester.tap(find.text('Admin'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Permissions'), findsOneWidget);
-      expect(find.text('Manage organization settings'), findsOneWidget);
-      expect(find.text('Delete organization'), findsOneWidget);
+      expect(find.text('PERMISSIONS'), findsOneWidget);
+      expect(find.text('Manage leagues, hubs, and teams'), findsOneWidget);
+      expect(find.text('All Manager permissions'), findsOneWidget);
     });
 
     testWidgets('renders role descriptions', (tester) async {
@@ -122,8 +120,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Full access to all organization settings'),
-          findsOneWidget);
+      expect(
+          find.textContaining('Manage leagues, hubs, teams'), findsOneWidget);
     });
 
     testWidgets('renders with empty user list', (tester) async {
@@ -134,8 +132,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // All should show 0 members
-      expect(find.text('0 members'), findsNWidgets(4));
+      expect(find.text('0 members'), findsNWidgets(3));
     });
   });
 }

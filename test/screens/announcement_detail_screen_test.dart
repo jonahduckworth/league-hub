@@ -26,7 +26,7 @@ void main() {
     final authorUser = AppUser(
       id: 'author-1',
       email: 'author@example.com',
-      displayName: 'Manager Admin',
+      displayName: 'Manager',
       role: UserRole.managerAdmin,
       orgId: 'org-1',
       hubIds: ['hub-1'],
@@ -63,8 +63,8 @@ void main() {
       title: 'Welcome Announcement',
       body: 'Welcome to our league management platform',
       authorId: 'author-1',
-      authorName: 'Manager Admin',
-      authorRole: 'Manager Admin',
+      authorName: 'Manager',
+      authorRole: 'Manager',
       scope: AnnouncementScope.orgWide,
       attachments: [],
       isPinned: true,
@@ -77,8 +77,8 @@ void main() {
       title: 'League Schedule Update',
       body: 'The spring tournament will be held from March 15 to April 20',
       authorId: 'author-1',
-      authorName: 'Manager Admin',
-      authorRole: 'Manager Admin',
+      authorName: 'Manager',
+      authorRole: 'Manager',
       scope: AnnouncementScope.league,
       leagueId: 'league-1',
       attachments: [],
@@ -92,8 +92,8 @@ void main() {
       title: 'Hub Event',
       body: 'Hub event details here',
       authorId: 'author-1',
-      authorName: 'Manager Admin',
-      authorRole: 'Manager Admin',
+      authorName: 'Manager',
+      authorRole: 'Manager',
       scope: AnnouncementScope.hub,
       hubId: 'hub-1',
       attachments: [],
@@ -165,7 +165,7 @@ void main() {
           createTestWidget(announcementId: 'ann-1'),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Manager Admin'), findsWidgets);
+        expect(find.text('Manager'), findsWidgets);
       });
 
       testWidgets('displays announcement not found message when missing',
@@ -341,8 +341,8 @@ void main() {
           title: 'No Attachments',
           body: 'This announcement has no attachments',
           authorId: 'author-1',
-          authorName: 'Manager Admin',
-          authorRole: 'Manager Admin',
+          authorName: 'Manager',
+          authorRole: 'Manager',
           scope: AnnouncementScope.orgWide,
           attachments: [],
           isPinned: false,

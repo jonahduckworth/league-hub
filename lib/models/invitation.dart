@@ -64,9 +64,9 @@ class Invitation {
   String get roleLabel {
     switch (role) {
       case 'superAdmin':
-        return 'Super Admin';
+        return 'Admin';
       case 'managerAdmin':
-        return 'Manager Admin';
+        return 'Manager';
       case 'staff':
         return 'Staff';
       default:

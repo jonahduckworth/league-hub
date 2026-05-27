@@ -26,7 +26,7 @@ void main() {
     final superAdmin = AppUser(
       id: 'admin-1',
       email: 'admin@example.com',
-      displayName: 'Super Admin',
+      displayName: 'Admin',
       role: UserRole.superAdmin,
       orgId: 'org-1',
       hubIds: [],

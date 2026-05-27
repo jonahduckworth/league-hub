@@ -77,12 +77,12 @@ class _CreateAnnouncementScreenState
     final currentUser = await ref.read(currentUserProvider.future);
     if (orgId == null || currentUser == null) return;
 
-    // Manager Admin can only post for league/hub scope, not org-wide.
+    // Managers can only post for league/hub scope, not org-wide.
     if (currentUser.role == UserRole.managerAdmin &&
         _scope == AnnouncementScope.orgWide) {
       if (mounted) {
         AppUtils.showInfoSnackBar(
-            context, 'Manager Admins cannot post org-wide announcements.');
+            context, 'Managers cannot post org-wide announcements.');
       }
       return;
     }

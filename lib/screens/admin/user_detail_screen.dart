@@ -451,7 +451,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
           RadioListTile<UserRole>(
             dense: true,
             title: const Text(
-              'Manager Admin',
+              'Manager',
               style: TextStyle(
                 color: AppGlassColors.ink,
                 fontWeight: FontWeight.w800,

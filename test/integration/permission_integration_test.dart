@@ -294,7 +294,7 @@ void main() {
         final actor = AppUser(
           id: 'sa1',
           email: 'sa@example.com',
-          displayName: 'Super Admin',
+          displayName: 'Admin',
           role: UserRole.superAdmin,
           orgId: 'org1',
           hubIds: [],
@@ -315,7 +315,7 @@ void main() {
         final actor = AppUser(
           id: 'sa1',
           email: 'sa@example.com',
-          displayName: 'Super Admin',
+          displayName: 'Admin',
           role: UserRole.superAdmin,
           orgId: 'org1',
           hubIds: [],
@@ -342,7 +342,7 @@ void main() {
         final actor = AppUser(
           id: 'sa1',
           email: 'sa@example.com',
-          displayName: 'Super Admin',
+          displayName: 'Admin',
           role: UserRole.superAdmin,
           orgId: 'org1',
           hubIds: [],
@@ -364,7 +364,7 @@ void main() {
         final actor = AppUser(
           id: 'sa1',
           email: 'sa@example.com',
-          displayName: 'Super Admin',
+          displayName: 'Admin',
           role: UserRole.superAdmin,
           orgId: 'org1',
           hubIds: [],
@@ -391,7 +391,7 @@ void main() {
         final actor = AppUser(
           id: 'ma1',
           email: 'ma@example.com',
-          displayName: 'Manager Admin',
+          displayName: 'Manager',
           role: UserRole.managerAdmin,
           orgId: 'org1',
           hubIds: ['h1'],
@@ -419,7 +419,7 @@ void main() {
         final actor = AppUser(
           id: 'ma1',
           email: 'ma@example.com',
-          displayName: 'Manager Admin',
+          displayName: 'Manager',
           role: UserRole.managerAdmin,
           orgId: 'org1',
           hubIds: [hubId],
@@ -447,7 +447,7 @@ void main() {
         final actor = AppUser(
           id: 'ma1',
           email: 'ma@example.com',
-          displayName: 'Manager Admin',
+          displayName: 'Manager',
           role: UserRole.managerAdmin,
           orgId: 'org1',
           hubIds: ['h1'],
@@ -474,7 +474,7 @@ void main() {
         final actor = AppUser(
           id: 'ma1',
           email: 'ma@example.com',
-          displayName: 'Manager Admin',
+          displayName: 'Manager',
           role: UserRole.managerAdmin,
           orgId: 'org1',
           hubIds: ['h1'],
@@ -499,7 +499,7 @@ void main() {
         final actor = AppUser(
           id: 'ma1',
           email: 'ma@example.com',
-          displayName: 'Manager Admin',
+          displayName: 'Manager',
           role: UserRole.managerAdmin,
           orgId: 'org1',
           hubIds: [hubId],
@@ -525,7 +525,7 @@ void main() {
         final actor = AppUser(
           id: 'ma1',
           email: 'ma@example.com',
-          displayName: 'Manager Admin',
+          displayName: 'Manager',
           role: UserRole.managerAdmin,
           orgId: 'org1',
           hubIds: ['h1'],
