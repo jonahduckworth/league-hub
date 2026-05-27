@@ -213,7 +213,7 @@ void main() {
         final managerAdmin = AppUser(
           id: 'manager-1',
           email: 'manager@example.com',
-          displayName: 'Manager Admin',
+          displayName: 'Manager',
           role: UserRole.managerAdmin,
           orgId: 'org-1',
           createdAt: DateTime(2024),

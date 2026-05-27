@@ -54,7 +54,7 @@ void main() {
     final superAdmin = AppUser(
       id: 'admin-1',
       email: 'admin@example.com',
-      displayName: 'Super Admin',
+      displayName: 'Admin',
       role: UserRole.superAdmin,
       orgId: 'org-1',
       hubIds: [],
@@ -260,10 +260,10 @@ void main() {
         await tester.pumpAndSettle();
 
         // Role picker should be visible
-        expect(find.text('Manager Admin'), findsOneWidget);
+        expect(find.text('Manager'), findsOneWidget);
       });
 
-      testWidgets('role dropdown includes Manager Admin option',
+      testWidgets('role dropdown includes Manager option',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -273,7 +273,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Manager Admin'), findsOneWidget);
+        expect(find.text('Manager'), findsOneWidget);
       });
 
       testWidgets('role dropdown includes Staff option',

@@ -150,7 +150,7 @@ void main() {
           body: 'Body text',
           authorId: 'u1',
           authorName: 'Admin',
-          authorRole: 'Super Admin',
+          authorRole: 'Admin',
           attachments: [
             {'name': 'file.pdf', 'url': 'https://example.com/f.pdf'}
           ],
@@ -169,7 +169,7 @@ void main() {
         expect(json['body'], 'Body text');
         expect(json['authorId'], 'u1');
         expect(json['authorName'], 'Admin');
-        expect(json['authorRole'], 'Super Admin');
+        expect(json['authorRole'], 'Admin');
         expect(json['attachments'].length, 1);
         expect(json['isPinned'], false);
         expect(json['createdAt'], testDateStr);
@@ -213,7 +213,7 @@ void main() {
         body: 'Something important happened',
         authorId: 'u1',
         authorName: 'Admin User',
-        authorRole: 'Super Admin',
+        authorRole: 'Admin',
         attachments: [],
         isPinned: true,
         createdAt: testDate,

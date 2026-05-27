@@ -37,7 +37,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   String _searchQuery = '';
   String _roleFilter = 'All';
 
-  static const _roleFilters = ['All', 'Super Admin', 'Manager Admin', 'Staff'];
+  static const _roleFilters = ['All', 'Admin', 'Manager', 'Staff'];
 
   @override
   void dispose() {
@@ -809,7 +809,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
             child: Column(
               children: [
                 _RoleOption(
-                  label: 'Manager Admin',
+                  label: 'Manager',
                   description: 'Can manage hubs, teams, and staff',
                   value: 'managerAdmin',
                 ),

@@ -63,9 +63,9 @@ class AppUser {
       case UserRole.platformOwner:
         return 'Platform Owner';
       case UserRole.superAdmin:
-        return 'Super Admin';
+        return 'Admin';
       case UserRole.managerAdmin:
-        return 'Manager Admin';
+        return 'Manager';
       case UserRole.staff:
         return 'Staff';
     }

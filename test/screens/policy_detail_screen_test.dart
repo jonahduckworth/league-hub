@@ -26,7 +26,7 @@ void main() {
     final uploaderUser = AppUser(
       id: 'uploader-1',
       email: 'uploader@example.com',
-      displayName: 'Manager Admin',
+      displayName: 'Manager',
       role: UserRole.managerAdmin,
       orgId: 'org-1',
       hubIds: ['hub-1'],
@@ -62,7 +62,7 @@ void main() {
       version: 1,
       uploadedAt: DateTime.now().subtract(Duration(days: 5)),
       uploadedBy: 'uploader-1',
-      uploadedByName: 'Manager Admin',
+      uploadedByName: 'Manager',
       fileSize: 1024000,
     );
 
@@ -71,7 +71,7 @@ void main() {
       version: 2,
       uploadedAt: DateTime.now().subtract(Duration(days: 2)),
       uploadedBy: 'uploader-1',
-      uploadedByName: 'Manager Admin',
+      uploadedByName: 'Manager',
       fileSize: 1024500,
     );
 
@@ -85,7 +85,7 @@ void main() {
       fileSize: 1024500,
       category: 'Code of Conduct',
       uploadedBy: 'uploader-1',
-      uploadedByName: 'Manager Admin',
+      uploadedByName: 'Manager',
       versions: [version1, version2],
       createdAt: DateTime.now().subtract(Duration(days: 5)),
       updatedAt: DateTime.now().subtract(Duration(days: 2)),
@@ -100,14 +100,14 @@ void main() {
       fileSize: 512000,
       category: 'Policy',
       uploadedBy: 'uploader-1',
-      uploadedByName: 'Manager Admin',
+      uploadedByName: 'Manager',
       versions: [
         PolicyVersion(
           fileUrl: 'https://storage.example.com/policy-2/v1.docx',
           version: 1,
           uploadedAt: DateTime.now(),
           uploadedBy: 'uploader-1',
-          uploadedByName: 'Manager Admin',
+          uploadedByName: 'Manager',
           fileSize: 512000,
         ),
       ],
@@ -124,14 +124,14 @@ void main() {
       fileSize: 2048000,
       category: 'Other',
       uploadedBy: 'uploader-1',
-      uploadedByName: 'Manager Admin',
+      uploadedByName: 'Manager',
       versions: [
         PolicyVersion(
           fileUrl: 'https://storage.example.com/policy-3/v1.jpg',
           version: 1,
           uploadedAt: DateTime.now(),
           uploadedBy: 'uploader-1',
-          uploadedByName: 'Manager Admin',
+          uploadedByName: 'Manager',
           fileSize: 2048000,
         ),
       ],
@@ -260,8 +260,8 @@ void main() {
           createTestWidget(policyId: 'policy-1', policy: pdfPolicy),
         );
         await tester.pumpAndSettle();
-        // "Manager Admin" may appear in both metadata and version history
-        expect(find.text('Manager Admin'), findsWidgets);
+        // "Manager" may appear in both metadata and version history
+        expect(find.text('Manager'), findsWidgets);
       });
     });
 
@@ -313,7 +313,7 @@ void main() {
           fileSize: 1024000,
           category: 'Other',
           uploadedBy: 'uploader-1',
-          uploadedByName: 'Manager Admin',
+          uploadedByName: 'Manager',
           versions: [],
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
@@ -479,14 +479,14 @@ void main() {
           fileSize: 1024000,
           category: 'Other',
           uploadedBy: 'uploader-1',
-          uploadedByName: 'Manager Admin',
+          uploadedByName: 'Manager',
           versions: [
             PolicyVersion(
               fileUrl: 'https://storage.example.com/policy/v1.pdf',
               version: 1,
               uploadedAt: DateTime.now(),
               uploadedBy: 'uploader-1',
-              uploadedByName: 'Manager Admin',
+              uploadedByName: 'Manager',
               fileSize: 1024000,
             ),
           ],

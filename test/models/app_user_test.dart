@@ -149,8 +149,8 @@ void main() {
       test('returns correct label for each role', () {
         final labels = {
           UserRole.platformOwner: 'Platform Owner',
-          UserRole.superAdmin: 'Super Admin',
-          UserRole.managerAdmin: 'Manager Admin',
+          UserRole.superAdmin: 'Admin',
+          UserRole.managerAdmin: 'Manager',
           UserRole.staff: 'Staff',
         };
 

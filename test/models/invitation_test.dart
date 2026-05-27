@@ -185,8 +185,8 @@ void main() {
     group('roleLabel', () {
       test('returns correct labels', () {
         final labels = {
-          'superAdmin': 'Super Admin',
-          'managerAdmin': 'Manager Admin',
+          'superAdmin': 'Admin',
+          'managerAdmin': 'Manager',
           'staff': 'Staff',
           'unknownRole': 'unknownRole',
         };
