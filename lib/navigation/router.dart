@@ -123,18 +123,19 @@ final router = GoRouter(
     final isLoggedIn = FirebaseAuth.instance.currentUser != null;
     final location = state.matchedLocation;
     final isOnLogin = location == '/login';
-    final isOnCreateOrg = location == '/create-org';
+    final isOnCreateLeague =
+        location == '/create-league' || location == '/create-org';
     final isOnAcceptInvite = location == '/accept-invite';
 
     // --- Authentication gate ---
-    if (!isLoggedIn && !isOnLogin && !isOnCreateOrg && !isOnAcceptInvite) {
+    if (!isLoggedIn && !isOnLogin && !isOnCreateLeague && !isOnAcceptInvite) {
       return '/login';
     }
     if (isLoggedIn && isOnLogin) return '/';
 
     // --- Role-based gate ---
     // Skip permission check for auth / onboarding routes.
-    if (isOnLogin || isOnCreateOrg || isOnAcceptInvite) return null;
+    if (isOnLogin || isOnCreateLeague || isOnAcceptInvite) return null;
 
     final user = _cachedAppUser;
     if (user == null) {
@@ -155,8 +156,12 @@ final router = GoRouter(
       builder: (context, state) => const LoginScreen(),
     ),
     GoRoute(
-      path: '/create-org',
+      path: '/create-league',
       builder: (context, state) => const OrgCreationScreen(),
+    ),
+    GoRoute(
+      path: '/create-org',
+      redirect: (context, state) => '/create-league',
     ),
     GoRoute(
       path: '/accept-invite',

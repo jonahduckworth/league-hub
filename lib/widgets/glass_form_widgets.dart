@@ -28,13 +28,16 @@ class GlassTextFormField extends StatelessWidget {
   final bool enabled;
   final bool autofocus;
   final bool autocorrect;
+  final bool obscureText;
   final int minLines;
   final int maxLines;
   final TextInputAction? textInputAction;
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
+  final Widget? suffixIcon;
   final FormFieldValidator<String>? validator;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onFieldSubmitted;
 
   const GlassTextFormField({
     super.key,
@@ -45,13 +48,16 @@ class GlassTextFormField extends StatelessWidget {
     this.enabled = true,
     this.autofocus = false,
     this.autocorrect = true,
+    this.obscureText = false,
     this.minLines = 1,
     this.maxLines = 1,
     this.textInputAction,
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
+    this.suffixIcon,
     this.validator,
     this.onChanged,
+    this.onFieldSubmitted,
   });
 
   @override
@@ -66,6 +72,7 @@ class GlassTextFormField extends StatelessWidget {
           enabled: enabled,
           autofocus: autofocus,
           autocorrect: autocorrect,
+          obscureText: obscureText,
           minLines: minLines,
           maxLines: maxLines,
           textInputAction: textInputAction,
@@ -84,6 +91,7 @@ class GlassTextFormField extends StatelessWidget {
             prefixIcon: leadingIcon == null
                 ? null
                 : Icon(leadingIcon, color: AppGlassColors.inkSecondary),
+            suffixIcon: suffixIcon,
             filled: false,
             fillColor: Colors.transparent,
             border: InputBorder.none,
@@ -99,6 +107,7 @@ class GlassTextFormField extends StatelessWidget {
           ),
           validator: validator,
           onChanged: onChanged,
+          onFieldSubmitted: onFieldSubmitted,
         ),
       ),
     );

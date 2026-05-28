@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/screens/login_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/auth_flow_widgets.dart';
+import 'package:league_hub/widgets/glass_form_widgets.dart';
 
 void main() {
   group('LoginScreen', () {
@@ -28,7 +30,7 @@ void main() {
 
       testWidgets('displays logo', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
-        expect(find.byIcon(Icons.sports), findsOneWidget);
+        expect(find.byIcon(Icons.sports_hockey_outlined), findsOneWidget);
       });
 
       testWidgets('displays app title', (WidgetTester tester) async {
@@ -151,14 +153,14 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
-        final button = find.byType(ElevatedButton);
+        final button = find.byType(GlassSubmitButton);
         expect(button, findsOneWidget);
       });
 
       testWidgets('sign in button is tappable', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
-        expect(find.byType(ElevatedButton), findsOneWidget);
+        expect(find.byType(GlassSubmitButton), findsOneWidget);
       });
 
       testWidgets('shows loading indicator when signing in',
@@ -174,11 +176,11 @@ void main() {
         await tester.pumpAndSettle();
 
         // Tap sign in button
-        await tester.tap(find.byType(ElevatedButton));
+        await tester.tap(find.text('Sign In'));
         await tester.pumpAndSettle(Duration(milliseconds: 500));
 
         // Should show loading state
-        expect(find.byType(ElevatedButton), findsOneWidget);
+        expect(find.byType(GlassSubmitButton), findsOneWidget);
       });
     });
 
@@ -253,17 +255,17 @@ void main() {
     });
 
     group('Navigation Links', () {
-      testWidgets('create organization button is present',
+      testWidgets('create league button is present',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
-        expect(find.text('Create Organization'), findsOneWidget);
+        expect(find.text('Create League'), findsOneWidget);
       });
 
-      testWidgets('create organization button is tappable',
+      testWidgets('create league button is tappable',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
-        expect(find.byType(OutlinedButton), findsOneWidget);
+        expect(find.byType(AuthSecondaryButton), findsOneWidget);
       });
 
       testWidgets('accept invitation button is present',
@@ -291,7 +293,7 @@ void main() {
       testWidgets('divider has correct layout', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
-        expect(find.byType(Divider), findsWidgets);
+        expect(find.text('or'), findsOneWidget);
       });
     });
 
@@ -301,7 +303,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
 
         // Tap sign in with empty fields
-        await tester.tap(find.byType(ElevatedButton));
+        await tester.tap(find.text('Sign In'));
         await tester.pumpAndSettle();
 
         // Error snackbar should appear
@@ -316,7 +318,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Tap sign in
-        await tester.tap(find.byType(ElevatedButton));
+        await tester.tap(find.text('Sign In'));
         await tester.pumpAndSettle();
 
         // Should show error about empty email
@@ -331,7 +333,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Tap sign in
-        await tester.tap(find.byType(ElevatedButton));
+        await tester.tap(find.text('Sign In'));
         await tester.pumpAndSettle();
 
         // Should show error about empty password
@@ -364,7 +366,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
 
         // Logo container should be present
-        expect(find.byIcon(Icons.sports), findsOneWidget);
+        expect(find.byIcon(Icons.sports_hockey_outlined), findsOneWidget);
       });
 
       testWidgets('text fields have input decorations',
@@ -377,8 +379,8 @@ void main() {
       testWidgets('buttons have correct styling', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
-        expect(find.byType(ElevatedButton), findsOneWidget);
-        expect(find.byType(OutlinedButton), findsOneWidget);
+        expect(find.byType(GlassSubmitButton), findsOneWidget);
+        expect(find.byType(AuthSecondaryButton), findsOneWidget);
         expect(find.byType(TextButton), findsWidgets);
       });
     });
@@ -415,7 +417,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
 
         // Trigger error by tapping sign in with empty fields
-        await tester.tap(find.byType(ElevatedButton));
+        await tester.tap(find.text('Sign In'));
         await tester.pumpAndSettle();
 
         expect(find.byType(SnackBar), findsWidgets);
@@ -424,7 +426,7 @@ void main() {
       testWidgets('error message is readable', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
-        await tester.tap(find.byType(ElevatedButton));
+        await tester.tap(find.text('Sign In'));
         await tester.pumpAndSettle();
 
         // Should show validation error
@@ -437,8 +439,8 @@ void main() {
       testWidgets('buttons are semantic', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
 
-        expect(find.byType(ElevatedButton), findsOneWidget);
-        expect(find.byType(OutlinedButton), findsOneWidget);
+        expect(find.byType(GlassSubmitButton), findsOneWidget);
+        expect(find.byType(AuthSecondaryButton), findsOneWidget);
       });
 
       testWidgets('icons are present for visual context',
@@ -447,7 +449,7 @@ void main() {
 
         expect(find.byIcon(Icons.email_outlined), findsOneWidget);
         expect(find.byIcon(Icons.lock_outlined), findsOneWidget);
-        expect(find.byIcon(Icons.sports), findsOneWidget);
+        expect(find.byIcon(Icons.sports_hockey_outlined), findsOneWidget);
       });
 
       testWidgets('text fields have labels', (WidgetTester tester) async {
