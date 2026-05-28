@@ -37,7 +37,7 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
       expect(call.method, 'getCurrentIconName');
-      return 'jphl';
+      return 'AppIconJphl';
     });
 
     expect(await service.getCurrentIconId(), 'jphl');
@@ -55,7 +55,7 @@ void main() {
 
     await service.setIcon('hockey');
 
-    expect(iconName, 'hockey');
+    expect(iconName, 'AppIconHockey');
   });
 
   test('setIcon passes null for default icon', () async {

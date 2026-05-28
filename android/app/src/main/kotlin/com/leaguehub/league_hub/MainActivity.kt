@@ -9,14 +9,14 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val channelName = "league_hub/app_icon"
     private val alternateIcons = mapOf(
-        "jphl" to "com.leaguehub.league_hub.MainActivityJphl",
-        "soccer" to "com.leaguehub.league_hub.MainActivitySoccer",
-        "basketball" to "com.leaguehub.league_hub.MainActivityBasketball",
-        "football" to "com.leaguehub.league_hub.MainActivityFootball",
-        "baseball" to "com.leaguehub.league_hub.MainActivityBaseball",
-        "hockey" to "com.leaguehub.league_hub.MainActivityHockey",
-        "tennis" to "com.leaguehub.league_hub.MainActivityTennis",
-        "trophy" to "com.leaguehub.league_hub.MainActivityTrophy",
+        "AppIconJphl" to "com.leaguehub.league_hub.MainActivityJphl",
+        "AppIconSoccer" to "com.leaguehub.league_hub.MainActivitySoccer",
+        "AppIconBasketball" to "com.leaguehub.league_hub.MainActivityBasketball",
+        "AppIconFootball" to "com.leaguehub.league_hub.MainActivityFootball",
+        "AppIconBaseball" to "com.leaguehub.league_hub.MainActivityBaseball",
+        "AppIconHockey" to "com.leaguehub.league_hub.MainActivityHockey",
+        "AppIconTennis" to "com.leaguehub.league_hub.MainActivityTennis",
+        "AppIconTrophy" to "com.leaguehub.league_hub.MainActivityTrophy",
     )
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
