@@ -42,7 +42,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           find.text(
-            'Enter the invite code shared by your organization admin.',
+            'Enter the invite code shared by your league admin.',
           ),
           findsOneWidget,
         );

@@ -19,6 +19,7 @@ import '../services/storage_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/glass_form_widgets.dart';
 
 class UploadPolicyScreen extends ConsumerStatefulWidget {
   const UploadPolicyScreen({super.key});
@@ -318,17 +319,17 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
             }),
           ),
           const SizedBox(height: 18),
-          const _SectionLabel('Policy Name'),
+          const GlassFormSectionLabel('Policy Name'),
           const SizedBox(height: 8),
-          _GlassTextField(
+          GlassTextFormField(
             controller: _nameCtrl,
             enabled: !_isUploading,
             hintText: 'Enter policy name',
           ),
           const SizedBox(height: 18),
-          const _SectionLabel('Category'),
+          const GlassFormSectionLabel('Category'),
           const SizedBox(height: 8),
-          _GlassDropdownField<String>(
+          GlassDropdownField<String>(
             value: _category,
             items: _categories
                 .map((c) => DropdownMenuItem(value: c, child: Text(c)))
@@ -338,9 +339,9 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
                 : (v) => setState(() => _category = v ?? _category),
           ),
           const SizedBox(height: 18),
-          const _SectionLabel('League'),
+          const GlassFormSectionLabel('League'),
           const SizedBox(height: 8),
-          _GlassDropdownField<String>(
+          GlassDropdownField<String>(
             value: _selectedLeagueId,
             hintText: 'Select league',
             items: leagues
@@ -362,10 +363,27 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
           ),
           if (_selectedLeagueId != null) ...[
             const SizedBox(height: 18),
-            const _SectionLabel('Policy Scope'),
+            const GlassFormSectionLabel('Policy Scope'),
             const SizedBox(height: 8),
-            _ScopePicker(
+            GlassScopeSelector<_PolicyScope>(
               selected: _scope,
+              options: const [
+                GlassChoiceOption(
+                  value: _PolicyScope.league,
+                  label: 'League',
+                  icon: Icons.emoji_events_outlined,
+                ),
+                GlassChoiceOption(
+                  value: _PolicyScope.hub,
+                  label: 'Hub',
+                  icon: Icons.location_on_outlined,
+                ),
+                GlassChoiceOption(
+                  value: _PolicyScope.team,
+                  label: 'Team',
+                  icon: Icons.groups_2_outlined,
+                ),
+              ],
               onChanged: _isUploading
                   ? null
                   : (scope) => setState(() {
@@ -382,9 +400,9 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
           if ((_scope == _PolicyScope.hub || _scope == _PolicyScope.team) &&
               _selectedLeagueId != null) ...[
             const SizedBox(height: 18),
-            const _SectionLabel('Hub'),
+            const GlassFormSectionLabel('Hub'),
             const SizedBox(height: 8),
-            _GlassDropdownField<String>(
+            GlassDropdownField<String>(
               value: _selectedHubId,
               hintText: 'Select hub',
               items: hubs
@@ -405,9 +423,9 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
           ],
           if (_scope == _PolicyScope.team && _selectedHubId != null) ...[
             const SizedBox(height: 18),
-            const _SectionLabel('Team'),
+            const GlassFormSectionLabel('Team'),
             const SizedBox(height: 8),
-            _GlassDropdownField<String>(
+            GlassDropdownField<String>(
               value: _selectedTeamId,
               hintText: 'Select team',
               items: teams
@@ -428,7 +446,8 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
             _UploadProgress(progress: _progress),
           ],
           const SizedBox(height: 24),
-          _GlassSubmitButton(
+          GlassSubmitButton(
+            buttonKey: const ValueKey('upload-policy-submit-button'),
             label: _isUploading ? 'Uploading...' : 'Upload Policy',
             isLoading: _isUploading,
             onTap: _isUploading ? null : _upload,
@@ -551,206 +570,6 @@ class _FilePickerCard extends StatelessWidget {
   }
 }
 
-class _GlassTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hintText;
-  final bool enabled;
-
-  const _GlassTextField({
-    required this.controller,
-    required this.hintText,
-    this.enabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      padding: EdgeInsets.zero,
-      radius: 22,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          inputDecorationTheme: const InputDecorationTheme(
-            filled: false,
-            fillColor: Colors.transparent,
-          ),
-          textSelectionTheme: const TextSelectionThemeData(
-            cursorColor: AppGlassColors.aqua,
-            selectionColor: Color(0x5567E8D4),
-            selectionHandleColor: AppGlassColors.aqua,
-          ),
-        ),
-        child: TextFormField(
-          controller: controller,
-          enabled: enabled,
-          cursorColor: AppGlassColors.aqua,
-          style: const TextStyle(
-            color: AppGlassColors.ink,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-          decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle: const TextStyle(
-              color: AppGlassColors.inkMuted,
-              fontWeight: FontWeight.w600,
-            ),
-            filled: false,
-            fillColor: Colors.transparent,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            disabledBorder: InputBorder.none,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ScopePicker extends StatelessWidget {
-  final _PolicyScope selected;
-  final ValueChanged<_PolicyScope>? onChanged;
-
-  const _ScopePicker({
-    required this.selected,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final options = [
-      (_PolicyScope.league, 'League', Icons.emoji_events_outlined),
-      (_PolicyScope.hub, 'Hub', Icons.location_on_outlined),
-      (_PolicyScope.team, 'Team', Icons.groups_2_outlined),
-    ];
-
-    return Row(
-      children: List.generate(options.length, (index) {
-        final (scope, label, icon) = options[index];
-        final isSelected = selected == scope;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: index == options.length - 1 ? 0 : 8,
-            ),
-            child: AppGlassSurface(
-              height: 54,
-              padding: EdgeInsets.zero,
-              radius: 18,
-              onTap: onChanged == null ? null : () => onChanged!(scope),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppGlassColors.aqua.withValues(alpha: 0.13)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppGlassColors.aqua.withValues(alpha: 0.34)
-                        : Colors.transparent,
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 17,
-                      color: isSelected
-                          ? AppGlassColors.aqua
-                          : AppGlassColors.inkMuted,
-                    ),
-                    const SizedBox(width: 7),
-                    Flexible(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: isSelected
-                              ? AppGlassColors.ink
-                              : AppGlassColors.inkMuted,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
-
-class _GlassDropdownField<T> extends StatelessWidget {
-  final T? value;
-  final String? hintText;
-  final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?>? onChanged;
-
-  const _GlassDropdownField({
-    required this.value,
-    required this.items,
-    required this.onChanged,
-    this.hintText,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      padding: EdgeInsets.zero,
-      radius: 22,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          inputDecorationTheme: const InputDecorationTheme(
-            filled: false,
-            fillColor: Colors.transparent,
-          ),
-        ),
-        child: DropdownButtonFormField<T>(
-          key: ValueKey<Object?>(value),
-          initialValue: value,
-          items: items,
-          onChanged: onChanged,
-          dropdownColor: const Color(0xFF132238),
-          borderRadius: BorderRadius.circular(18),
-          iconEnabledColor: AppGlassColors.inkSecondary,
-          iconDisabledColor: AppGlassColors.inkMuted,
-          style: const TextStyle(
-            color: AppGlassColors.ink,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-          hint: hintText == null
-              ? null
-              : Text(
-                  hintText!,
-                  style: const TextStyle(
-                    color: AppGlassColors.inkMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-          decoration: const InputDecoration(
-            filled: false,
-            fillColor: Colors.transparent,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            disabledBorder: InputBorder.none,
-            contentPadding: EdgeInsets.fromLTRB(16, 14, 14, 14),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _UploadProgress extends StatelessWidget {
   final double progress;
 
@@ -790,65 +609,4 @@ class _UploadProgress extends StatelessWidget {
       ),
     );
   }
-}
-
-class _GlassSubmitButton extends StatelessWidget {
-  final String label;
-  final bool isLoading;
-  final VoidCallback? onTap;
-
-  const _GlassSubmitButton({
-    required this.label,
-    required this.isLoading,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null ? 0.72 : 1,
-      child: AppGlassSurface(
-        key: const ValueKey('upload-policy-submit-button'),
-        height: 58,
-        padding: EdgeInsets.zero,
-        radius: 24,
-        onTap: onTap,
-        child: Center(
-          child: isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppGlassColors.ink,
-                  ),
-                )
-              : Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppGlassColors.ink,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String text;
-
-  const _SectionLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w800,
-          color: AppGlassColors.inkMuted,
-        ),
-      );
 }

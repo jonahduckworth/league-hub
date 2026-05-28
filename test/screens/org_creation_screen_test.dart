@@ -25,17 +25,16 @@ void main() {
         expect(find.byType(OrgCreationScreen), findsOneWidget);
       });
 
-      testWidgets('displays app bar', (WidgetTester tester) async {
+      testWidgets('displays create league header', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
-        expect(find.byType(AppBar), findsOneWidget);
+        expect(find.text('Create League'), findsOneWidget);
       });
     });
 
-    group('Step 0: Organization Details', () {
-      testWidgets('displays organization name field',
-          (WidgetTester tester) async {
+    group('Step 0: League Details', () {
+      testWidgets('displays league name field', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -84,19 +83,18 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
-        expect(find.byType(ElevatedButton), findsWidgets);
+        expect(find.text('Next'), findsOneWidget);
       });
     });
 
     group('Form Validation - Step 0', () {
-      testWidgets('validates organization name is not empty',
+      testWidgets('validates league name is not empty',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
-        // Try clicking next without filling org name
-        final nextButton = find.byType(ElevatedButton).first;
-        await tester.tap(nextButton);
+        // Try clicking next without filling league name
+        await tester.tap(find.text('Next'));
         await tester.pump();
         // Should show error snackbar
         expect(find.byType(SnackBar), findsOneWidget);
@@ -208,7 +206,7 @@ void main() {
     });
 
     group('Create Button', () {
-      testWidgets('displays create organization button on final step',
+      testWidgets('displays create league button on final step',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -227,7 +225,7 @@ void main() {
     });
 
     group('Text Input', () {
-      testWidgets('organization name field accepts text',
+      testWidgets('league name field accepts text',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -269,8 +267,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
         // Tap next without filling required fields
-        final nextButton = find.byType(ElevatedButton).first;
-        await tester.tap(nextButton);
+        await tester.tap(find.text('Next'));
         await tester.pump();
         expect(find.byType(SnackBar), findsOneWidget);
       });
@@ -279,8 +276,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
-        final nextButton = find.byType(ElevatedButton).first;
-        await tester.tap(nextButton);
+        await tester.tap(find.text('Next'));
         await tester.pump();
         // SnackBar should contain error text
         expect(find.byType(SnackBar), findsOneWidget);

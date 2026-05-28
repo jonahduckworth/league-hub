@@ -19,6 +19,7 @@ import '../../widgets/app_shell_scaffold.dart';
 import '../../widgets/confirmation_dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entity_avatar.dart';
+import '../../widgets/glass_form_widgets.dart';
 
 class ManageLeaguesScreen extends ConsumerWidget {
   const ManageLeaguesScreen({super.key});
@@ -142,21 +143,20 @@ class _AddLeagueScreenState extends ConsumerState<AddLeagueScreen> {
         children: [
           _FormCard(
             children: [
-              TextField(
+              GlassTextFormField(
                 controller: _nameCtrl,
                 autofocus: true,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                    labelText: 'League Name',
-                    hintText: 'e.g. Hockey Super League'),
+                labelText: 'League Name',
+                hintText: 'e.g. Hockey Super League',
               ),
               const SizedBox(height: 14),
-              TextField(
+              GlassTextFormField(
                 controller: _abbrevCtrl,
                 textCapitalization: TextCapitalization.characters,
                 textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                    labelText: 'Abbreviation', hintText: 'HSL'),
+                labelText: 'Abbreviation',
+                hintText: 'HSL',
               ),
             ],
           ),
@@ -300,24 +300,20 @@ class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
             children: [
               _FormCard(
                 children: [
-                  TextField(
+                  GlassTextFormField(
                     controller: _nameCtrl,
                     autofocus: true,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'League Name',
-                      hintText: 'e.g. Hockey Super League',
-                    ),
+                    labelText: 'League Name',
+                    hintText: 'e.g. Hockey Super League',
                   ),
                   const SizedBox(height: 14),
-                  TextField(
+                  GlassTextFormField(
                     controller: _abbrevCtrl,
                     textCapitalization: TextCapitalization.characters,
                     textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(
-                      labelText: 'Abbreviation',
-                      hintText: 'HSL',
-                    ),
+                    labelText: 'Abbreviation',
+                    hintText: 'HSL',
                   ),
                 ],
               ),
@@ -595,19 +591,19 @@ class _AddHubScreenState extends ConsumerState<AddHubScreen> {
             children: [
               _FormCard(
                 children: [
-                  TextField(
+                  GlassTextFormField(
                     controller: _nameCtrl,
                     autofocus: true,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                        labelText: 'Hub Name', hintText: 'e.g. Calgary'),
+                    labelText: 'Hub Name',
+                    hintText: 'e.g. Calgary',
                   ),
                   const SizedBox(height: 14),
-                  TextField(
+                  GlassTextFormField(
                     controller: _locationCtrl,
                     textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(
-                        labelText: 'Location', hintText: 'Calgary, AB'),
+                    labelText: 'Location',
+                    hintText: 'Calgary, AB',
                   ),
                 ],
               ),
@@ -780,23 +776,19 @@ class _EditHubScreenState extends ConsumerState<EditHubScreen> {
         children: [
           _FormCard(
             children: [
-              TextField(
+              GlassTextFormField(
                 controller: _nameCtrl,
                 autofocus: true,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Hub Name',
-                  hintText: 'e.g. Calgary',
-                ),
+                labelText: 'Hub Name',
+                hintText: 'e.g. Calgary',
               ),
               const SizedBox(height: 14),
-              TextField(
+              GlassTextFormField(
                 controller: _locationCtrl,
                 textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Location',
-                  hintText: 'Calgary, AB',
-                ),
+                labelText: 'Location',
+                hintText: 'Calgary, AB',
               ),
             ],
           ),
@@ -1116,31 +1108,31 @@ class _AddTeamScreenState extends ConsumerState<AddTeamScreen> {
         children: [
           _FormCard(
             children: [
-              TextField(
+              GlassTextFormField(
                 controller: _nameCtrl,
                 autofocus: true,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                    labelText: 'Team Name', hintText: 'e.g. Calgary U11 AA'),
+                labelText: 'Team Name',
+                hintText: 'e.g. Calgary U11 AA',
               ),
               const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: GlassTextFormField(
                       controller: _ageCtrl,
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                          labelText: 'Age Group', hintText: 'U11'),
+                      labelText: 'Age Group',
+                      hintText: 'U11',
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
+                    child: GlassTextFormField(
                       controller: _divCtrl,
                       textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
-                          labelText: 'Division', hintText: 'AA'),
+                      labelText: 'Division',
+                      hintText: 'AA',
                     ),
                   ),
                 ],
@@ -1312,37 +1304,31 @@ class _EditTeamScreenState extends ConsumerState<EditTeamScreen> {
         children: [
           _FormCard(
             children: [
-              TextField(
+              GlassTextFormField(
                 controller: _nameCtrl,
                 autofocus: true,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Team Name',
-                  hintText: 'e.g. Calgary U11 AA',
-                ),
+                labelText: 'Team Name',
+                hintText: 'e.g. Calgary U11 AA',
               ),
               const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: GlassTextFormField(
                       controller: _ageCtrl,
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Age Group',
-                        hintText: 'U11',
-                      ),
+                      labelText: 'Age Group',
+                      hintText: 'U11',
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
+                    child: GlassTextFormField(
                       controller: _divCtrl,
                       textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
-                        labelText: 'Division',
-                        hintText: 'AA',
-                      ),
+                      labelText: 'Division',
+                      hintText: 'AA',
                     ),
                   ),
                 ],
@@ -1523,52 +1509,6 @@ class _GlassAddButton extends StatelessWidget {
   }
 }
 
-class _GlassSubmitButton extends StatelessWidget {
-  final String label;
-  final bool saving;
-  final VoidCallback? onTap;
-
-  const _GlassSubmitButton({
-    required this.label,
-    required this.saving,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null && !saving;
-
-    return AppGlassSurface(
-      height: 56,
-      padding: EdgeInsets.zero,
-      radius: 22,
-      onTap: enabled ? onTap : null,
-      child: Opacity(
-        opacity: enabled || saving ? 1 : 0.55,
-        child: Center(
-          child: saving
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    color: AppGlassColors.aqua,
-                    strokeWidth: 2,
-                  ),
-                )
-              : Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppGlassColors.ink,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-}
-
 class _GlassMessageCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -1647,46 +1587,6 @@ class _ShellLoadingScaffold extends ConsumerWidget {
       ),
     );
   }
-}
-
-ThemeData _glassFormTheme(BuildContext context) {
-  final base = Theme.of(context);
-  final inputBorder = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(18),
-    borderSide: const BorderSide(color: AppGlassColors.border),
-  );
-
-  return base.copyWith(
-    textTheme: base.textTheme.apply(
-      bodyColor: AppGlassColors.ink,
-      displayColor: AppGlassColors.ink,
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: false,
-      fillColor: Colors.transparent,
-      labelStyle: const TextStyle(
-        color: AppGlassColors.inkMuted,
-        fontWeight: FontWeight.w600,
-      ),
-      floatingLabelStyle: const TextStyle(
-        color: AppGlassColors.aqua,
-        fontWeight: FontWeight.w800,
-      ),
-      hintStyle: const TextStyle(color: AppGlassColors.inkMuted),
-      enabledBorder: inputBorder,
-      border: inputBorder,
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: AppGlassColors.aqua, width: 1.5),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-    ),
-    textSelectionTheme: const TextSelectionThemeData(
-      cursorColor: AppGlassColors.aqua,
-      selectionColor: Color(0x3367E8D4),
-      selectionHandleColor: AppGlassColors.aqua,
-    ),
-  );
 }
 
 class _StructureFormScaffold extends ConsumerWidget {
@@ -1779,9 +1679,9 @@ class _StructureFormScaffold extends ConsumerWidget {
             left: 16,
             right: 16,
             bottom: bottomInset + 16,
-            child: _GlassSubmitButton(
+            child: GlassSubmitButton(
               label: actionLabel,
-              saving: saving,
+              isLoading: saving,
               onTap: onSubmit,
             ),
           ),
@@ -1798,16 +1698,9 @@ class _FormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppGlassSurface(
-      padding: const EdgeInsets.all(16),
-      radius: 22,
-      child: Theme(
-        data: _glassFormTheme(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children,
-        ),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
     );
   }
 }
@@ -1942,13 +1835,13 @@ class _IdentityPicker extends StatelessWidget {
           ),
           if (selection.inheritedLabel != null) ...[
             const SizedBox(height: 12),
-            _IdentityOptionChip(
+            GlassChoiceChip(
               icon: Icons.check,
-              label: Text(selection.inheritedLabel!),
+              label: selection.inheritedLabel!,
               selected: selection.useInherited,
-              onSelected: (selected) {
-                selection.useInherited = selected;
-                if (selected) selection.pickedImage = null;
+              onTap: () {
+                selection.useInherited = !selection.useInherited;
+                if (selection.useInherited) selection.pickedImage = null;
                 onChanged();
               },
             ),
@@ -1961,11 +1854,11 @@ class _IdentityPicker extends StatelessWidget {
               final selected = !selection.useInherited &&
                   selection.pickedImage == null &&
                   selection.iconName == entry.key;
-              return _IdentityOptionChip(
+              return GlassChoiceChip(
                 icon: entry.value,
-                label: Text(_iconLabel(entry.key)),
+                label: _iconLabel(entry.key),
                 selected: selected,
-                onSelected: (_) {
+                onTap: () {
                   selection.useInherited = false;
                   selection.pickedImage = null;
                   selection.imageUrl = null;
@@ -1976,9 +1869,12 @@ class _IdentityPicker extends StatelessWidget {
             }).toList(),
           ),
           const SizedBox(height: 12),
-          AppGlassSurface(
-            padding: EdgeInsets.zero,
-            radius: 20,
+          GlassChoiceChip(
+            icon: Icons.image_outlined,
+            label: selection.pickedImage == null
+                ? 'Upload image'
+                : selection.pickedImage!.name,
+            selected: selection.pickedImage != null,
             onTap: () async {
               final picked = await pickImageBytes();
               if (picked == null) return;
@@ -1987,78 +1883,8 @@ class _IdentityPicker extends StatelessWidget {
               selection.pickedImage = picked;
               onChanged();
             },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.image_outlined,
-                    color: AppGlassColors.aqua,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      selection.pickedImage == null
-                          ? 'Upload image'
-                          : selection.pickedImage!.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppGlassColors.ink,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _IdentityOptionChip extends StatelessWidget {
-  final IconData icon;
-  final Widget label;
-  final bool selected;
-  final ValueChanged<bool> onSelected;
-
-  const _IdentityOptionChip({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = selected ? AppGlassColors.aqua : AppGlassColors.inkMuted;
-
-    return AppGlassSurface(
-      padding: EdgeInsets.zero,
-      radius: 18,
-      onTap: () => onSelected(!selected),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 17, color: accent),
-            const SizedBox(width: 7),
-            DefaultTextStyle.merge(
-              style: TextStyle(
-                color: selected ? AppGlassColors.ink : AppGlassColors.inkMuted,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-                fontSize: 13,
-              ),
-              child: label,
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -20,6 +20,7 @@ import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/chat_room_avatar.dart';
+import '../widgets/glass_form_widgets.dart';
 import 'chat_list_screen.dart';
 
 enum _NewChatStep { choose, eventRoom, directMessage }
@@ -556,9 +557,9 @@ class _EventRoomForm extends ConsumerWidget {
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.fromLTRB(16, topPadding, 16, bottomPadding),
       children: [
-        const _SectionLabel('Room Details'),
+        const GlassFormSectionLabel('Room Details'),
         const SizedBox(height: 8),
-        _GlassTextField(
+        GlassTextFormField(
           controller: nameController,
           labelText: 'Room Name',
           hintText: 'Spring Tournament',
@@ -566,21 +567,21 @@ class _EventRoomForm extends ConsumerWidget {
           textInputAction: TextInputAction.done,
         ),
         const SizedBox(height: 18),
-        const _SectionLabel('Room Look'),
+        const GlassFormSectionLabel('Room Look'),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
             ...chatRoomIconOptions.entries.map(
-              (entry) => _GlassIconChoice(
+              (entry) => GlassIconChoice(
                 icon: entry.value,
                 selected:
                     selectedImageName == null && selectedIconName == entry.key,
                 onTap: isCreating ? null : () => onIconSelected(entry.key),
               ),
             ),
-            _GlassTextChoice(
+            GlassChoiceChip(
               icon: selectedImageName == null
                   ? Icons.image_outlined
                   : Icons.check_circle,
@@ -592,53 +593,44 @@ class _EventRoomForm extends ConsumerWidget {
         ),
         if (shouldShowEventRoomLeagueSelector(leaguesAsync)) ...[
           const SizedBox(height: 18),
-          const _SectionLabel('League'),
+          const GlassFormSectionLabel('League'),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ...leagues.map(
-                (league) => _GlassTextChoice(
-                  label: league.abbreviation,
-                  selected: selectedLeagueId == league.id,
-                  onTap: isCreating ? null : () => onLeagueSelected(league.id),
-                ),
-              ),
-            ],
+          GlassDropdownField<String>(
+            value: selectedLeagueId,
+            hintText: 'Select league',
+            items: leagues
+                .map(
+                  (league) => DropdownMenuItem<String>(
+                    value: league.id,
+                    child: Text(league.name),
+                  ),
+                )
+                .toList(),
+            onChanged: isCreating ? null : onLeagueSelected,
           ),
         ],
         if (selectedLeagueId != null) ...[
           const SizedBox(height: 18),
-          const _SectionLabel('Room Scope'),
+          const GlassFormSectionLabel('Room Scope'),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _GlassTextChoice(
+          GlassScopeSelector<_EventRoomScope>(
+            selected: selectedScope,
+            onChanged: isCreating ? null : onScopeSelected,
+            options: const [
+              GlassChoiceOption(
+                value: _EventRoomScope.league,
                 label: 'League',
                 icon: Icons.emoji_events_outlined,
-                selected: selectedScope == _EventRoomScope.league,
-                onTap: isCreating
-                    ? null
-                    : () => onScopeSelected(_EventRoomScope.league),
               ),
-              _GlassTextChoice(
+              GlassChoiceOption(
+                value: _EventRoomScope.hub,
                 label: 'Hub',
                 icon: Icons.location_on_outlined,
-                selected: selectedScope == _EventRoomScope.hub,
-                onTap: isCreating
-                    ? null
-                    : () => onScopeSelected(_EventRoomScope.hub),
               ),
-              _GlassTextChoice(
+              GlassChoiceOption(
+                value: _EventRoomScope.team,
                 label: 'Team',
                 icon: Icons.groups_2_outlined,
-                selected: selectedScope == _EventRoomScope.team,
-                onTap: isCreating
-                    ? null
-                    : () => onScopeSelected(_EventRoomScope.team),
               ),
             ],
           ),
@@ -647,43 +639,43 @@ class _EventRoomForm extends ConsumerWidget {
                 selectedScope == _EventRoomScope.team) &&
             selectedLeagueId != null) ...[
           const SizedBox(height: 18),
-          const _SectionLabel('Hub'),
+          const GlassFormSectionLabel('Hub'),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: hubs
+          GlassDropdownField<String>(
+            value: selectedHubId,
+            hintText: 'Select hub',
+            items: hubs
                 .map(
-                  (hub) => _GlassTextChoice(
-                    label: hub.name,
-                    selected: selectedHubId == hub.id,
-                    onTap: isCreating ? null : () => onHubSelected(hub.id),
+                  (hub) => DropdownMenuItem<String>(
+                    value: hub.id,
+                    child: Text(hub.name),
                   ),
                 )
                 .toList(),
+            onChanged: isCreating ? null : onHubSelected,
           ),
         ],
         if (selectedScope == _EventRoomScope.team && selectedHubId != null) ...[
           const SizedBox(height: 18),
-          const _SectionLabel('Team'),
+          const GlassFormSectionLabel('Team'),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: teams
+          GlassDropdownField<String>(
+            value: selectedTeamId,
+            hintText: 'Select team',
+            items: teams
                 .map(
-                  (team) => _GlassTextChoice(
-                    label: team.name,
-                    selected: selectedTeamId == team.id,
-                    onTap: isCreating ? null : () => onTeamSelected(team.id),
+                  (team) => DropdownMenuItem<String>(
+                    value: team.id,
+                    child: Text(team.name),
                   ),
                 )
                 .toList(),
+            onChanged: isCreating ? null : onTeamSelected,
           ),
         ],
         const SizedBox(height: 24),
-        _GlassSubmitButton(
-          onPressed: isCreating ? null : onCreate,
+        GlassSubmitButton(
+          onTap: isCreating ? null : onCreate,
           label: isCreating ? 'Creating...' : 'Create Room',
         ),
       ],
@@ -759,242 +751,6 @@ class _DirectMessagePicker extends ConsumerWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String label;
-
-  const _SectionLabel(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w800,
-        color: AppGlassColors.inkMuted,
-        letterSpacing: 0.2,
-      ),
-    );
-  }
-}
-
-class _GlassTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String? labelText;
-  final String hintText;
-  final IconData? leadingIcon;
-  final TextInputAction? textInputAction;
-
-  const _GlassTextField({
-    required this.controller,
-    required this.hintText,
-    this.labelText,
-    this.leadingIcon,
-    this.textInputAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      padding: EdgeInsets.zero,
-      radius: 22,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          inputDecorationTheme: const InputDecorationTheme(
-            filled: false,
-            fillColor: Colors.transparent,
-          ),
-          textSelectionTheme: const TextSelectionThemeData(
-            cursorColor: AppGlassColors.aqua,
-            selectionColor: Color(0x3367E8D4),
-            selectionHandleColor: AppGlassColors.aqua,
-          ),
-        ),
-        child: TextField(
-          controller: controller,
-          textInputAction: textInputAction,
-          cursorColor: AppGlassColors.aqua,
-          style: const TextStyle(
-            color: AppGlassColors.ink,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
-          decoration: InputDecoration(
-            labelText: labelText,
-            hintText: hintText,
-            prefixIcon: leadingIcon == null
-                ? null
-                : Icon(
-                    leadingIcon,
-                    color: AppGlassColors.inkSecondary,
-                    size: 20,
-                  ),
-            hintStyle: const TextStyle(
-              color: AppGlassColors.inkMuted,
-              fontWeight: FontWeight.w600,
-            ),
-            labelStyle: const TextStyle(
-              color: AppGlassColors.inkMuted,
-              fontWeight: FontWeight.w700,
-            ),
-            filled: false,
-            fillColor: Colors.transparent,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassIconChoice extends StatelessWidget {
-  final IconData icon;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  const _GlassIconChoice({
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      width: 60,
-      height: 50,
-      padding: EdgeInsets.zero,
-      radius: 18,
-      onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: selected
-              ? AppGlassColors.aqua.withValues(alpha: 0.13)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected
-                ? AppGlassColors.aqua.withValues(alpha: 0.34)
-                : Colors.transparent,
-          ),
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            color: selected ? AppGlassColors.aqua : AppGlassColors.inkSecondary,
-            size: 20,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassTextChoice extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  const _GlassTextChoice({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      height: 50,
-      padding: EdgeInsets.zero,
-      radius: 18,
-      onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: selected
-              ? AppGlassColors.aqua.withValues(alpha: 0.13)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected
-                ? AppGlassColors.aqua.withValues(alpha: 0.34)
-                : Colors.transparent,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  size: 18,
-                  color: selected
-                      ? AppGlassColors.aqua
-                      : AppGlassColors.inkSecondary,
-                ),
-                const SizedBox(width: 8),
-              ],
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 156),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color:
-                        selected ? AppGlassColors.ink : AppGlassColors.inkMuted,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassSubmitButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onPressed;
-
-  const _GlassSubmitButton({
-    required this.label,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      height: 58,
-      padding: EdgeInsets.zero,
-      radius: 22,
-      onTap: onPressed,
-      child: Center(
-        child: Text(
-          label,
-          style: TextStyle(
-            color: onPressed == null
-                ? AppGlassColors.inkMuted
-                : AppGlassColors.ink,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
     );
   }
 }

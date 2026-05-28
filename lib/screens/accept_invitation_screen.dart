@@ -2,13 +2,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/invitation.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
-import '../services/firestore_service.dart';
 import '../services/authorized_firestore_service.dart';
+import '../services/firestore_service.dart';
+import '../widgets/app_glass.dart';
+import '../widgets/auth_flow_widgets.dart';
+import '../widgets/glass_form_widgets.dart';
 
 class AcceptInvitationScreen extends ConsumerStatefulWidget {
   const AcceptInvitationScreen({super.key});
@@ -22,6 +24,7 @@ class _AcceptInvitationScreenState
     extends ConsumerState<AcceptInvitationScreen> {
   final _tokenController = TextEditingController();
   final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
@@ -37,6 +40,7 @@ class _AcceptInvitationScreenState
   void dispose() {
     _tokenController.dispose();
     _nameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -50,6 +54,7 @@ class _AcceptInvitationScreenState
       _lookingUp = true;
       _lookupError = null;
       _invitation = null;
+      _emailController.clear();
     });
 
     try {
@@ -66,11 +71,9 @@ class _AcceptInvitationScreenState
         setState(() {
           _invitation = invite;
           _lookingUp = false;
-          if (invite.email.isNotEmpty) {
-            // Pre-fill name if provided
-            if (invite.displayName != null && invite.displayName!.isNotEmpty) {
-              _nameController.text = invite.displayName!;
-            }
+          _emailController.text = invite.email;
+          if (invite.displayName != null && invite.displayName!.isNotEmpty) {
+            _nameController.text = invite.displayName!;
           }
         });
       }
@@ -115,7 +118,6 @@ class _AcceptInvitationScreenState
         invite,
       );
 
-      // Mark invitation as accepted using authorized service
       final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
       await authorizedSvc.acceptInvitation(
         invite.orgId,
@@ -154,145 +156,136 @@ class _AcceptInvitationScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Accept Invitation'),
-        backgroundColor: AppColors.primary,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
+    return AppGlassRouteBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.mail_outline, color: AppColors.primary),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Enter the invite code shared by your organization admin.',
-                      style: TextStyle(
-                          fontSize: 13, color: AppColors.textSecondary),
+            AuthTopBar(
+              title: 'Accept Invitation',
+              icon: Icons.mark_email_read_outlined,
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  8,
+                  24,
+                  28 + MediaQuery.paddingOf(context).bottom,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppGlassSurface(
+                      padding: const EdgeInsets.all(16),
+                      radius: 22,
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.mail_outline,
+                            color: AppGlassColors.aqua,
+                            size: 20,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Enter the invite code shared by your league admin.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppGlassColors.inkSecondary,
+                                fontWeight: FontWeight.w600,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    GlassTextFormField(
+                      controller: _tokenController,
+                      labelText: 'Invite Code',
+                      leadingIcon: Icons.key_outlined,
+                      enabled: _invitation == null,
+                      autocorrect: false,
+                      suffixIcon: _invitation != null
+                          ? const Icon(Icons.check_circle,
+                              color: AppGlassColors.aqua)
+                          : null,
+                    ),
+                    if (_lookupError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _lookupError!,
+                        style: const TextStyle(
+                          color: AppGlassColors.rose,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (_invitation == null)
+                      GlassSubmitButton(
+                        label: 'Look Up Invitation',
+                        isLoading: _lookingUp,
+                        onTap: _lookingUp ? null : _lookupInvitation,
+                      ),
+                    if (_invitation != null) ...[
+                      _buildInvitationPreview(_invitation!),
+                      const SizedBox(height: 24),
+                      const GlassFormSectionLabel('Create your account'),
+                      const SizedBox(height: 12),
+                      GlassTextFormField(
+                        controller: _nameController,
+                        labelText: 'Display Name *',
+                        leadingIcon: Icons.person_outline,
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      const SizedBox(height: 14),
+                      GlassTextFormField(
+                        controller: _emailController,
+                        labelText: 'Email',
+                        leadingIcon: Icons.email_outlined,
+                        enabled: false,
+                      ),
+                      const SizedBox(height: 14),
+                      GlassTextFormField(
+                        controller: _passwordController,
+                        labelText: 'Password *',
+                        leadingIcon: Icons.lock_outlined,
+                        obscureText: _obscurePassword,
+                        suffixIcon: glassPasswordToggle(
+                          obscure: _obscurePassword,
+                          onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      GlassTextFormField(
+                        controller: _confirmPasswordController,
+                        labelText: 'Confirm Password *',
+                        leadingIcon: Icons.lock_outlined,
+                        obscureText: _obscureConfirm,
+                        suffixIcon: glassPasswordToggle(
+                          obscure: _obscureConfirm,
+                          onPressed: () => setState(
+                              () => _obscureConfirm = !_obscureConfirm),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      GlassSubmitButton(
+                        label: 'Create Account',
+                        isLoading: _submitting,
+                        onTap: _submitting ? null : _createAccount,
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _tokenController,
-              autocorrect: false,
-              enabled: _invitation == null,
-              decoration: InputDecoration(
-                labelText: 'Invite Code',
-                prefixIcon: const Icon(Icons.key_outlined),
-                suffixIcon: _invitation != null
-                    ? const Icon(Icons.check_circle, color: AppColors.success)
-                    : null,
-              ),
-            ),
-            if (_lookupError != null) ...[
-              const SizedBox(height: 8),
-              Text(_lookupError!,
-                  style:
-                      const TextStyle(color: AppColors.danger, fontSize: 13)),
-            ],
-            const SizedBox(height: 12),
-            if (_invitation == null)
-              ElevatedButton(
-                onPressed: _lookingUp ? null : _lookupInvitation,
-                child: _lookingUp
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Text('Look Up Invitation'),
-              ),
-            if (_invitation != null) ...[
-              _buildInvitationPreview(_invitation!),
-              const SizedBox(height: 24),
-              const Text(
-                'Create Your Account',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.text),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _nameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Display Name *',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                enabled: false,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  hintText: _invitation!.email,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: 'Password *',
-                  prefixIcon: const Icon(Icons.lock_outlined),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _confirmPasswordController,
-                obscureText: _obscureConfirm,
-                decoration: InputDecoration(
-                  labelText: 'Confirm Password *',
-                  prefixIcon: const Icon(Icons.lock_outlined),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureConfirm
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined),
-                    onPressed: () =>
-                        setState(() => _obscureConfirm = !_obscureConfirm),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _submitting ? null : _createAccount,
-                child: _submitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Text('Create Account',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
-              ),
-            ],
           ],
         ),
       ),
@@ -300,41 +293,42 @@ class _AcceptInvitationScreenState
   }
 
   Widget _buildInvitationPreview(Invitation invite) {
-    return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.check_circle,
-                  color: AppColors.success, size: 20),
-              const SizedBox(width: 8),
-              const Text('Invitation Found',
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: AppGlassSurface(
+        padding: const EdgeInsets.all(16),
+        radius: 22,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.check_circle, color: AppGlassColors.aqua, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Invitation Found',
                   style: TextStyle(
-                      fontWeight: FontWeight.bold, color: AppColors.success)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _PreviewRow(label: 'Email', value: invite.email),
-          const SizedBox(height: 6),
-          _PreviewRow(label: 'Role', value: invite.roleLabel),
-          const SizedBox(height: 6),
-          _PreviewRow(label: 'Invited by', value: invite.invitedByName),
-          if (invite.hubIds.isNotEmpty) ...[
+                    fontWeight: FontWeight.w800,
+                    color: AppGlassColors.ink,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _PreviewRow(label: 'Email', value: invite.email),
             const SizedBox(height: 6),
-            _PreviewRow(
-                label: 'Hubs',
-                value:
-                    '${invite.hubIds.length} hub${invite.hubIds.length == 1 ? '' : 's'} assigned'),
+            _PreviewRow(label: 'Role', value: invite.roleLabel),
+            const SizedBox(height: 6),
+            _PreviewRow(label: 'Invited by', value: invite.invitedByName),
+            if (invite.hubIds.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _PreviewRow(
+                  label: 'Hubs',
+                  value:
+                      '${invite.hubIds.length} hub${invite.hubIds.length == 1 ? '' : 's'} assigned'),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -352,16 +346,24 @@ class _PreviewRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 90,
-          child: Text('$label:',
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary)),
+          child: Text(
+            '$label:',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppGlassColors.inkMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
         Expanded(
-          child: Text(value,
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.text)),
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppGlassColors.ink,
+            ),
+          ),
         ),
       ],
     );

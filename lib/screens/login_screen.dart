@@ -2,9 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../core/theme.dart';
 import '../core/utils.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/app_glass.dart';
+import '../widgets/auth_flow_widgets.dart';
+import '../widgets/glass_form_widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -71,58 +73,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final resetEmailController = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Enter your email address and we\'ll send you a link to reset your password.',
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: resetEmailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final email = resetEmailController.text.trim();
-              if (email.isEmpty) {
-                _showError('Please enter your email address.');
-                return;
-              }
-              try {
-                await ref
-                    .read(authServiceProvider)
-                    .sendPasswordResetEmail(email);
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  AppUtils.showSuccessSnackBar(
-                      context, 'Password reset email sent. Check your inbox.');
-                }
-              } on FirebaseAuthException catch (e) {
-                _showError(_authErrorMessage(e.code));
-              } catch (e) {
-                _showError('Failed to send reset email. Please try again.');
-              }
-            },
-            child: const Text('Send Reset Link'),
-          ),
-        ],
+      barrierColor: Colors.black.withValues(alpha: 0.64),
+      builder: (ctx) => AuthDialogSurface(
+        title: 'Reset Password',
+        message:
+            'Enter your email address and we\'ll send you a link to reset your password.',
+        controller: resetEmailController,
+        onCancel: () => Navigator.pop(ctx),
+        onSubmit: () async {
+          final email = resetEmailController.text.trim();
+          if (email.isEmpty) {
+            _showError('Please enter your email address.');
+            return;
+          }
+          try {
+            await ref.read(authServiceProvider).sendPasswordResetEmail(email);
+            if (ctx.mounted) Navigator.pop(ctx);
+            if (mounted) {
+              AppUtils.showSuccessSnackBar(
+                  context, 'Password reset email sent. Check your inbox.');
+            }
+          } on FirebaseAuthException catch (e) {
+            _showError(_authErrorMessage(e.code));
+          } catch (e) {
+            _showError('Failed to send reset email. Please try again.');
+          }
+        },
       ),
-    );
+    ).whenComplete(resetEmailController.dispose);
   }
 
   void _showError(String message) {
@@ -132,131 +110,78 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 48),
-              // Logo
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(Icons.sports, color: Colors.white, size: 40),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'League Hub',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.text,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Sign in to manage your leagues',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 48),
-              // Email field
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                autocorrect: false,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Password field
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _signIn(),
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outlined),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _showForgotPasswordDialog,
-                  child: const Text('Forgot password?'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _signIn,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text('Sign In',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
-              ),
-              const SizedBox(height: 24),
-              const Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('or',
-                        style: TextStyle(color: AppColors.textMuted)),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 24),
-              OutlinedButton(
-                onPressed: () => context.push('/create-org'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Create Organization',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: TextButton(
-                  onPressed: () => context.push('/accept-invite'),
-                  child: const Text('Accept Invitation'),
-                ),
-              ),
-            ],
+    return AuthFlowScaffold(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const AuthHeroHeader(
+            title: 'League Hub',
+            subtitle: 'Sign in to manage your leagues',
           ),
-        ),
+          const SizedBox(height: 38),
+          GlassTextFormField(
+            controller: _emailController,
+            labelText: 'Email',
+            leadingIcon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: 14),
+          GlassTextFormField(
+            controller: _passwordController,
+            labelText: 'Password',
+            leadingIcon: Icons.lock_outlined,
+            obscureText: _obscurePassword,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => _signIn(),
+            suffixIcon: glassPasswordToggle(
+              obscure: _obscurePassword,
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: AuthTextLink(
+              label: 'Forgot password?',
+              onTap: _showForgotPasswordDialog,
+            ),
+          ),
+          const SizedBox(height: 14),
+          GlassSubmitButton(
+            label: 'Sign In',
+            isLoading: _isLoading,
+            onTap: _isLoading ? null : _signIn,
+          ),
+          const SizedBox(height: 24),
+          const AuthDivider(),
+          const SizedBox(height: 24),
+          AuthSecondaryButton(
+            label: 'Create League',
+            icon: Icons.emoji_events_outlined,
+            onTap: () => context.push('/create-league'),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: AuthTextLink(
+              label: 'Accept Invitation',
+              onTap: () => context.push('/accept-invite'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'League admins can invite managers and staff after setup.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+        ],
       ),
     );
   }

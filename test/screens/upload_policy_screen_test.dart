@@ -121,19 +121,19 @@ void main() {
       testWidgets('displays policy name field', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('Policy Name'), findsOneWidget);
+        expect(find.text('POLICY NAME'), findsOneWidget);
       });
 
       testWidgets('displays category selector', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('Category'), findsOneWidget);
+        expect(find.text('CATEGORY'), findsOneWidget);
       });
 
       testWidgets('displays league selector', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('League'), findsOneWidget);
+        expect(find.text('LEAGUE'), findsOneWidget);
       });
     });
 
@@ -189,7 +189,7 @@ void main() {
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('Category'), findsOneWidget);
+        expect(find.text('CATEGORY'), findsOneWidget);
         // Default category should be 'Policy'
       });
 
@@ -206,7 +206,7 @@ void main() {
       testWidgets('displays league selector', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(find.text('League'), findsOneWidget);
+        expect(find.text('LEAGUE'), findsOneWidget);
       });
 
       testWidgets('league selector shows available leagues',
@@ -233,9 +233,9 @@ void main() {
         await tester.pumpAndSettle();
 
         // Check for all major sections
-        expect(find.text('Policy Name'), findsOneWidget);
-        expect(find.text('Category'), findsOneWidget);
-        expect(find.text('League'), findsOneWidget);
+        expect(find.text('POLICY NAME'), findsOneWidget);
+        expect(find.text('CATEGORY'), findsOneWidget);
+        expect(find.text('LEAGUE'), findsOneWidget);
       });
 
       testWidgets('all input fields are present', (WidgetTester tester) async {

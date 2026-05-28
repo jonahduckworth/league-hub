@@ -13,6 +13,7 @@ import '../services/authorized_firestore_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/glass_form_widgets.dart';
 
 class CreateAnnouncementScreen extends ConsumerStatefulWidget {
   /// Pass an existing announcement ID when editing.
@@ -224,10 +225,33 @@ class _CreateAnnouncementScreenState
             bottomContentPadding,
           ),
           children: [
-            const _SectionLabel('Scope'),
+            const GlassFormSectionLabel('Scope'),
             const SizedBox(height: 8),
-            _ScopePicker(
+            GlassScopeSelector<AnnouncementScope>(
               selected: _scope,
+              options: [
+                if (_scope == AnnouncementScope.orgWide)
+                  const GlassChoiceOption(
+                    value: AnnouncementScope.orgWide,
+                    label: 'Org-Wide',
+                    icon: Icons.public,
+                  ),
+                const GlassChoiceOption(
+                  value: AnnouncementScope.league,
+                  label: 'League',
+                  icon: Icons.emoji_events_outlined,
+                ),
+                const GlassChoiceOption(
+                  value: AnnouncementScope.hub,
+                  label: 'Hub',
+                  icon: Icons.location_city_outlined,
+                ),
+                const GlassChoiceOption(
+                  value: AnnouncementScope.team,
+                  label: 'Team',
+                  icon: Icons.groups_2_outlined,
+                ),
+              ],
               onChanged: (s) => setState(() {
                 _scope = s;
                 if (s == AnnouncementScope.league) {
@@ -243,11 +267,11 @@ class _CreateAnnouncementScreenState
                 _scope == AnnouncementScope.team ||
                 _scope == AnnouncementScope.orgWide) ...[
               const SizedBox(height: 16),
-              const _SectionLabel('League'),
+              const GlassFormSectionLabel('League'),
               const SizedBox(height: 8),
-              _GlassDropdownField<String>(
+              GlassDropdownField<String>(
                 value: _selectedLeagueId,
-                hint: 'Select league',
+                hintText: 'Select league',
                 items: leagues
                     .map((l) => DropdownMenuItem(
                           value: l.id,
@@ -267,11 +291,11 @@ class _CreateAnnouncementScreenState
             if (_scope == AnnouncementScope.hub ||
                 _scope == AnnouncementScope.team) ...[
               const SizedBox(height: 16),
-              const _SectionLabel('Hub'),
+              const GlassFormSectionLabel('Hub'),
               const SizedBox(height: 8),
-              _GlassDropdownField<String>(
+              GlassDropdownField<String>(
                 value: _selectedHubId,
-                hint: 'Select hub',
+                hintText: 'Select hub',
                 items: hubs
                     .map((h) => DropdownMenuItem(
                           value: h.id,
@@ -289,11 +313,11 @@ class _CreateAnnouncementScreenState
             ],
             if (_scope == AnnouncementScope.team) ...[
               const SizedBox(height: 16),
-              const _SectionLabel('Team'),
+              const GlassFormSectionLabel('Team'),
               const SizedBox(height: 8),
-              _GlassDropdownField<String>(
+              GlassDropdownField<String>(
                 value: _selectedTeamId,
-                hint: 'Select team',
+                hintText: 'Select team',
                 items: teams
                     .map((team) => DropdownMenuItem(
                           value: team.id,
@@ -307,9 +331,9 @@ class _CreateAnnouncementScreenState
               ),
             ],
             const SizedBox(height: 20),
-            const _SectionLabel('Title'),
+            const GlassFormSectionLabel('Title'),
             const SizedBox(height: 8),
-            _GlassTextField(
+            GlassTextFormField(
               controller: _titleCtrl,
               hintText: 'Announcement title',
               textInputAction: TextInputAction.next,
@@ -317,9 +341,9 @@ class _CreateAnnouncementScreenState
                   v == null || v.trim().isEmpty ? 'Title is required' : null,
             ),
             const SizedBox(height: 16),
-            const _SectionLabel('Body'),
+            const GlassFormSectionLabel('Body'),
             const SizedBox(height: 8),
-            _GlassTextField(
+            GlassTextFormField(
               controller: _bodyCtrl,
               hintText: 'Write your announcement...',
               minLines: 6,
@@ -387,270 +411,14 @@ class _CreateAnnouncementScreenState
               ),
             ),
             const SizedBox(height: 28),
-            Opacity(
-              opacity: _isLoading ? 0.72 : 1,
-              child: AppGlassSurface(
-                height: 58,
-                radius: 22,
-                padding: EdgeInsets.zero,
-                onTap: _isLoading ? null : _submit,
-                child: Center(
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppGlassColors.aqua,
-                          ),
-                        )
-                      : Text(
-                          _isEditing
-                              ? 'Update Announcement'
-                              : 'Post Announcement',
-                          style: const TextStyle(
-                            color: AppGlassColors.ink,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                ),
-              ),
+            GlassSubmitButton(
+              label: _isEditing ? 'Update Announcement' : 'Post Announcement',
+              isLoading: _isLoading,
+              onTap: _isLoading ? null : _submit,
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          color: AppGlassColors.inkMuted,
-          letterSpacing: 0.2,
-        ),
-      );
-}
-
-class _GlassTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hintText;
-  final FormFieldValidator<String>? validator;
-  final int minLines;
-  final int maxLines;
-  final TextInputAction? textInputAction;
-
-  const _GlassTextField({
-    required this.controller,
-    required this.hintText,
-    this.validator,
-    this.minLines = 1,
-    this.maxLines = 1,
-    this.textInputAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      padding: EdgeInsets.zero,
-      radius: 20,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          inputDecorationTheme: const InputDecorationTheme(
-            filled: false,
-            fillColor: Colors.transparent,
-          ),
-          textSelectionTheme: const TextSelectionThemeData(
-            cursorColor: AppGlassColors.aqua,
-            selectionColor: Color(0x3367E8D4),
-            selectionHandleColor: AppGlassColors.aqua,
-          ),
-        ),
-        child: TextFormField(
-          controller: controller,
-          minLines: minLines,
-          maxLines: maxLines,
-          textInputAction: textInputAction,
-          cursorColor: AppGlassColors.aqua,
-          style: const TextStyle(
-            color: AppGlassColors.ink,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            height: 1.35,
-          ),
-          decoration: InputDecoration(
-            hintText: hintText,
-            isDense: true,
-            filled: false,
-            fillColor: Colors.transparent,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            hintStyle: const TextStyle(
-              color: AppGlassColors.inkMuted,
-              fontWeight: FontWeight.w500,
-            ),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            errorBorder: InputBorder.none,
-            focusedErrorBorder: InputBorder.none,
-            errorStyle: const TextStyle(
-              color: AppGlassColors.rose,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          validator: validator,
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassDropdownField<T> extends StatelessWidget {
-  final T? value;
-  final String hint;
-  final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
-
-  const _GlassDropdownField({
-    required this.value,
-    required this.hint,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      padding: EdgeInsets.zero,
-      radius: 20,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          inputDecorationTheme: const InputDecorationTheme(
-            filled: false,
-            fillColor: Colors.transparent,
-          ),
-        ),
-        child: DropdownButtonFormField<T>(
-          initialValue: value,
-          isExpanded: true,
-          dropdownColor: AppGlassColors.pageMid,
-          iconEnabledColor: AppGlassColors.inkMuted,
-          decoration: const InputDecoration(
-            isDense: true,
-            filled: false,
-            fillColor: Colors.transparent,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-          ),
-          hint: Text(
-            hint,
-            style: const TextStyle(
-              color: AppGlassColors.inkMuted,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          style: const TextStyle(
-            color: AppGlassColors.ink,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
-          items: items,
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-}
-
-class _ScopePicker extends StatelessWidget {
-  final AnnouncementScope selected;
-  final ValueChanged<AnnouncementScope> onChanged;
-
-  const _ScopePicker({
-    required this.selected,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final options = [
-      if (selected == AnnouncementScope.orgWide)
-        (AnnouncementScope.orgWide, 'Org-Wide', Icons.public),
-      (AnnouncementScope.league, 'League', Icons.emoji_events_outlined),
-      (AnnouncementScope.hub, 'Hub', Icons.location_city_outlined),
-      (AnnouncementScope.team, 'Team', Icons.groups_2_outlined),
-    ];
-
-    return Row(
-      children: List.generate(options.length, (index) {
-        final entry = options[index];
-        final (scope, label, icon) = entry;
-        final isSelected = selected == scope;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: index == options.length - 1 ? 0 : 8,
-            ),
-            child: AppGlassSurface(
-              height: 86,
-              radius: 20,
-              padding: EdgeInsets.zero,
-              onTap: () => onChanged(scope),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppGlassColors.aqua.withValues(alpha: 0.13)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppGlassColors.aqua.withValues(alpha: 0.34)
-                        : Colors.transparent,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 21,
-                      color: isSelected
-                          ? AppGlassColors.aqua
-                          : AppGlassColors.inkMuted,
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      label,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: isSelected
-                              ? AppGlassColors.ink
-                              : AppGlassColors.inkMuted),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 }

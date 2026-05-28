@@ -956,8 +956,6 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('SL').last);
-        await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField).last, 'Playoffs');
         await tester.tap(find.text('Create Room'));
         await tester.pumpAndSettle();

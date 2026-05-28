@@ -370,7 +370,9 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Select hubs to choose team assignments.'),
+        expect(
+            find.text('Select hubs to choose team assignments.',
+                skipOffstage: false),
             findsOneWidget);
 
         await tester.ensureVisible(find.text('Calgary Canucks'));

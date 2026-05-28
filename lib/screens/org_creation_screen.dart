@@ -3,10 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/picked_file.dart';
-import '../core/theme.dart';
 import '../core/utils.dart';
 import '../services/storage_service.dart';
+import '../widgets/app_glass.dart';
+import '../widgets/auth_flow_widgets.dart';
 import '../widgets/entity_avatar.dart';
+import '../widgets/glass_form_widgets.dart';
 
 // ---------------------------------------------------------------------------
 // Local data classes used only during the wizard (not persisted to Firestore
@@ -135,7 +137,7 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
 
   bool _validateStep0() {
     if (_orgNameCtrl.text.trim().isEmpty) {
-      _showError('Please enter an organization name.');
+      _showError('Please enter a league name.');
       return false;
     }
     if (_nameCtrl.text.trim().isEmpty) {
@@ -529,29 +531,30 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
   // Build
   // -------------------------------------------------------------------------
 
-  static const _stepLabels = ['Details', 'Leagues', 'Hubs', 'Teams'];
+  static const _stepLabels = ['Account', 'League', 'Hubs', 'Teams'];
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Create Organization'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _isLoading ? null : _back,
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
-          child: _StepIndicator(current: _step, labels: _stepLabels),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
+    return AppGlassRouteBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: true,
+        body: Column(
           children: [
+            AuthTopBar(
+              title: 'Create League',
+              icon: Icons.emoji_events_outlined,
+              onBack: _isLoading ? () {} : _back,
+            ),
+            _StepIndicator(current: _step, labels: _stepLabels),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  14,
+                  20,
+                  22 + MediaQuery.paddingOf(context).bottom,
+                ),
                 child: _buildCurrentStep(),
               ),
             ),
@@ -579,107 +582,83 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
 
   Widget _buildBottomBar() {
     final isLast = _step == 3;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        8,
+        20,
+        16 + MediaQuery.paddingOf(context).bottom,
       ),
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _next,
-        child: _isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2),
-              )
-            : Text(
-                isLast ? 'Finish Setup' : 'Next',
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
+      child: GlassSubmitButton(
+        label: isLast ? 'Create League' : 'Next',
+        isLoading: _isLoading,
+        onTap: _isLoading ? null : _next,
       ),
     );
   }
 
   // -------------------------------------------------------------------------
-  // Step 0 — Org Details
+  // Step 0 — League Details
   // -------------------------------------------------------------------------
 
   Widget _buildDetailsStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeader(
-            icon: Icons.location_city_outlined, title: 'Organization'),
+        _SectionHeader(icon: Icons.emoji_events_outlined, title: 'League'),
         const SizedBox(height: 12),
         _card(children: [
-          TextField(
+          GlassTextFormField(
             controller: _orgNameCtrl,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Organization Name',
-              hintText: 'e.g. Metro Sports Alliance',
-              prefixIcon: Icon(Icons.location_city_outlined),
-            ),
+            labelText: 'League Name',
+            hintText: 'e.g. Junior Prospects Hockey League',
+            leadingIcon: Icons.emoji_events_outlined,
           ),
         ]),
         const SizedBox(height: 24),
         _SectionHeader(icon: Icons.person_outlined, title: 'Your Account'),
         const SizedBox(height: 12),
         _card(children: [
-          TextField(
+          GlassTextFormField(
             controller: _nameCtrl,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Your Name',
-              prefixIcon: Icon(Icons.person_outlined),
-            ),
+            labelText: 'Your Name',
+            leadingIcon: Icons.person_outlined,
           ),
           const SizedBox(height: 14),
-          TextField(
+          GlassTextFormField(
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              prefixIcon: Icon(Icons.email_outlined),
-            ),
+            labelText: 'Email',
+            leadingIcon: Icons.email_outlined,
           ),
           const SizedBox(height: 14),
-          TextField(
+          GlassTextFormField(
             controller: _passwordCtrl,
             obscureText: _obscurePassword,
             textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: 'Password',
-              prefixIcon: const Icon(Icons.lock_outlined),
-              suffixIcon: IconButton(
-                icon: Icon(_obscurePassword
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
-              ),
+            labelText: 'Password',
+            leadingIcon: Icons.lock_outlined,
+            suffixIcon: glassPasswordToggle(
+              obscure: _obscurePassword,
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
           ),
           const SizedBox(height: 14),
-          TextField(
+          GlassTextFormField(
             controller: _confirmCtrl,
             obscureText: _obscureConfirm,
             textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: 'Confirm Password',
-              prefixIcon: const Icon(Icons.lock_outlined),
-              suffixIcon: IconButton(
-                icon: Icon(_obscureConfirm
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined),
-                onPressed: () =>
-                    setState(() => _obscureConfirm = !_obscureConfirm),
-              ),
+            labelText: 'Confirm Password',
+            leadingIcon: Icons.lock_outlined,
+            suffixIcon: glassPasswordToggle(
+              obscure: _obscureConfirm,
+              onPressed: () =>
+                  setState(() => _obscureConfirm = !_obscureConfirm),
             ),
           ),
         ]),
@@ -698,8 +677,12 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
         _SectionHeader(icon: Icons.emoji_events_outlined, title: 'Add Leagues'),
         const SizedBox(height: 4),
         const Text(
-          'Add all the leagues in your organization.',
-          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          'Create your first league. You can add more leagues later.',
+          style: TextStyle(
+            fontSize: 13,
+            color: AppGlassColors.inkMuted,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 16),
         _card(children: [
@@ -708,39 +691,30 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
             children: [
               Expanded(
                 flex: 5,
-                child: TextField(
+                child: GlassTextFormField(
                   controller: _leagueNameCtrl,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'League Name',
-                    hintText: 'e.g. Hockey Super League',
-                  ),
+                  labelText: 'League Name',
+                  hintText: 'e.g. Hockey Super League',
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 flex: 3,
-                child: TextField(
+                child: GlassTextFormField(
                   controller: _leagueAbbrevCtrl,
                   textCapitalization: TextCapitalization.characters,
                   textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    labelText: 'Abbrev.',
-                    hintText: 'HSL',
-                  ),
+                  labelText: 'Abbrev.',
+                  hintText: 'HSL',
                 ),
               ),
               const SizedBox(width: 10),
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: ElevatedButton(
-                  onPressed: _addLeague,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 14),
-                    minimumSize: Size.zero,
-                  ),
-                  child: const Icon(Icons.add, size: 20),
+                child: _AddIconButton(
+                  tooltip: 'Add league',
+                  onTap: _addLeague,
                 ),
               ),
             ],
@@ -767,7 +741,10 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
             child: Text(
               'No leagues added yet',
               style: TextStyle(
-                  color: AppColors.textMuted, fontStyle: FontStyle.italic),
+                color: AppGlassColors.inkMuted,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           )
         else
@@ -792,7 +769,11 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
         const SizedBox(height: 4),
         const Text(
           'Hubs are physical locations (arenas, rinks, fields).',
-          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          style: TextStyle(
+            fontSize: 13,
+            color: AppGlassColors.inkMuted,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 16),
         if (_leagues.length > 1) ...[
@@ -800,7 +781,7 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
+                  color: AppGlassColors.inkMuted,
                   letterSpacing: 0.6)),
           const SizedBox(height: 8),
           _LeagueSelector(
@@ -823,38 +804,29 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
             children: [
               Expanded(
                 flex: 5,
-                child: TextField(
+                child: GlassTextFormField(
                   controller: _hubNameCtrl,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Hub Name',
-                    hintText: 'e.g. Calgary',
-                  ),
+                  labelText: 'Hub Name',
+                  hintText: 'e.g. Calgary',
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 flex: 4,
-                child: TextField(
+                child: GlassTextFormField(
                   controller: _hubLocationCtrl,
                   textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    labelText: 'Location',
-                    hintText: 'Calgary, AB',
-                  ),
+                  labelText: 'Location',
+                  hintText: 'Calgary, AB',
                 ),
               ),
               const SizedBox(width: 10),
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: ElevatedButton(
-                  onPressed: _addHub,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 14),
-                    minimumSize: Size.zero,
-                  ),
-                  child: const Icon(Icons.add, size: 20),
+                child: _AddIconButton(
+                  tooltip: 'Add hub',
+                  onTap: _addHub,
                 ),
               ),
             ],
@@ -891,7 +863,10 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
             child: Text(
               'No hubs added for ${_leagues[_selectedLeagueIdx].name} yet',
               style: const TextStyle(
-                  color: AppColors.textMuted, fontStyle: FontStyle.italic),
+                color: AppGlassColors.inkMuted,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w600,
+              ),
               textAlign: TextAlign.center,
             ),
           )
@@ -920,7 +895,11 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
         const SizedBox(height: 4),
         const Text(
           'Add teams to each hub. Age group and division are optional.',
-          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          style: TextStyle(
+            fontSize: 13,
+            color: AppGlassColors.inkMuted,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 16),
         if (_leagues.length > 1) ...[
@@ -928,7 +907,7 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
+                  color: AppGlassColors.inkMuted,
                   letterSpacing: 0.6)),
           const SizedBox(height: 8),
           _LeagueSelector(
@@ -948,22 +927,22 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
           const SizedBox(height: 16),
         ],
         if (hubs.isEmpty)
-          Container(
+          AppGlassSurface(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.warning.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-              border:
-                  Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
-            ),
+            radius: 22,
             child: const Row(
               children: [
-                Icon(Icons.info_outline, color: AppColors.warning, size: 18),
+                Icon(Icons.info_outline, color: AppGlassColors.gold, size: 18),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'No hubs in this league. Go back to add hubs first, or skip this step.',
-                    style: TextStyle(fontSize: 13, color: AppColors.warning),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppGlassColors.inkSecondary,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ],
@@ -974,7 +953,7 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
+                  color: AppGlassColors.inkMuted,
                   letterSpacing: 0.6)),
           const SizedBox(height: 8),
           _HubSelector(
@@ -992,36 +971,30 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
           ),
           const SizedBox(height: 16),
           _card(children: [
-            TextField(
+            GlassTextFormField(
               controller: _teamNameCtrl,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Team Name',
-                hintText: 'e.g. Calgary U11 AA',
-              ),
+              labelText: 'Team Name',
+              hintText: 'e.g. Calgary U11 AA',
             ),
             const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
-                  child: TextField(
+                  child: GlassTextFormField(
                     controller: _teamAgeCtrl,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Age Group',
-                      hintText: 'U11',
-                    ),
+                    labelText: 'Age Group',
+                    hintText: 'U11',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: TextField(
+                  child: GlassTextFormField(
                     controller: _teamDivCtrl,
                     textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(
-                      labelText: 'Division',
-                      hintText: 'AA',
-                    ),
+                    labelText: 'Division',
+                    hintText: 'AA',
                   ),
                 ),
               ],
@@ -1051,10 +1024,10 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
               }),
             ),
             const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: _addTeam,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Team'),
+            AuthSecondaryButton(
+              label: 'Add Team',
+              icon: Icons.add,
+              onTap: _addTeam,
             ),
           ]),
           const SizedBox(height: 16),
@@ -1063,7 +1036,10 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
               child: Text(
                 'No teams added yet',
                 style: TextStyle(
-                    color: AppColors.textMuted, fontStyle: FontStyle.italic),
+                  color: AppGlassColors.inkMuted,
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             )
           else
@@ -1082,18 +1058,7 @@ class _OrgCreationScreenState extends State<OrgCreationScreen> {
 // ---------------------------------------------------------------------------
 
 Widget _card({required List<Widget> children}) {
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: children,
-    ),
-  );
+  return GlassFormCard(children: children);
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -1105,14 +1070,43 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.primary),
+        Icon(icon, size: 18, color: AppGlassColors.aqua),
         const SizedBox(width: 8),
         Text(title,
             style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: AppColors.text)),
+                color: AppGlassColors.ink)),
       ],
+    );
+  }
+}
+
+class _AddIconButton extends StatelessWidget {
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _AddIconButton({
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: AppGlassSurface(
+        width: 52,
+        height: 52,
+        padding: EdgeInsets.zero,
+        radius: 18,
+        onTap: onTap,
+        child: const Icon(
+          Icons.add,
+          color: AppGlassColors.aqua,
+          size: 22,
+        ),
+      ),
     );
   }
 }
@@ -1133,7 +1127,7 @@ class _StepIndicator extends StatelessWidget {
           final isActive = i == current;
           final isDone = i < current;
           final color =
-              isDone || isActive ? AppColors.accent : AppColors.border;
+              isDone || isActive ? AppGlassColors.aqua : AppGlassColors.border;
           return Expanded(
             child: Row(
               children: [
@@ -1156,8 +1150,9 @@ class _StepIndicator extends StatelessWidget {
                           fontSize: 10,
                           fontWeight:
                               isActive ? FontWeight.bold : FontWeight.normal,
-                          color:
-                              isActive ? AppColors.accent : AppColors.textMuted,
+                          color: isActive
+                              ? AppGlassColors.aqua
+                              : AppGlassColors.inkMuted,
                         ),
                       ),
                     ],
@@ -1190,26 +1185,11 @@ class _LeagueSelector extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
           final isSelected = i == selected;
-          return GestureDetector(
+          return GlassChoiceChip(
+            label: leagues[i].abbreviation,
+            selected: isSelected,
+            height: 38,
             onTap: () => onChanged(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: isSelected ? AppColors.primary : AppColors.border),
-              ),
-              child: Text(
-                leagues[i].abbreviation,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : AppColors.text,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ),
           );
         },
       ),
@@ -1234,27 +1214,11 @@ class _HubSelector extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
           final isSelected = i == selected;
-          return GestureDetector(
+          return GlassChoiceChip(
+            label: hubs[i].name,
+            selected: isSelected,
+            height: 38,
             onTap: () => onChanged(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primaryLight : Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color:
-                        isSelected ? AppColors.primaryLight : AppColors.border),
-              ),
-              child: Text(
-                hubs[i].name,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : AppColors.text,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ),
           );
         },
       ),
@@ -1269,14 +1233,10 @@ class _LeagueChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppGlassSurface(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
+      radius: 20,
       child: Row(
         children: [
           EntityAvatar(
@@ -1288,10 +1248,18 @@ class _LeagueChip extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-              child: Text(league.name,
-                  style: const TextStyle(fontSize: 14, color: AppColors.text))),
+            child: Text(
+              league.name,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppGlassColors.ink,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
           IconButton(
-            icon: const Icon(Icons.close, size: 18, color: AppColors.textMuted),
+            icon: const Icon(Icons.close,
+                size: 18, color: AppGlassColors.inkMuted),
             onPressed: onDelete,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -1309,14 +1277,10 @@ class _HubChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppGlassSurface(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
+      radius: 20,
       child: Row(
         children: [
           EntityAvatar(
@@ -1333,17 +1297,18 @@ class _HubChip extends StatelessWidget {
                 Text(hub.name,
                     style: const TextStyle(
                         fontSize: 14,
-                        color: AppColors.text,
-                        fontWeight: FontWeight.w500)),
+                        color: AppGlassColors.ink,
+                        fontWeight: FontWeight.w700)),
                 if (hub.location.isNotEmpty)
                   Text(hub.location,
                       style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary)),
+                          fontSize: 12, color: AppGlassColors.inkMuted)),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 18, color: AppColors.textMuted),
+            icon: const Icon(Icons.close,
+                size: 18, color: AppGlassColors.inkMuted),
             onPressed: onDelete,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -1361,14 +1326,10 @@ class _TeamChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppGlassSurface(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
+      radius: 20,
       child: Row(
         children: [
           EntityAvatar(
@@ -1385,21 +1346,22 @@ class _TeamChip extends StatelessWidget {
                 Text(team.name,
                     style: const TextStyle(
                         fontSize: 14,
-                        color: AppColors.text,
-                        fontWeight: FontWeight.w500)),
+                        color: AppGlassColors.ink,
+                        fontWeight: FontWeight.w700)),
                 if (team.ageGroup.isNotEmpty || team.division.isNotEmpty)
                   Text(
                     [team.ageGroup, team.division]
                         .where((s) => s.isNotEmpty)
                         .join(' · '),
                     style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
+                        fontSize: 12, color: AppGlassColors.inkMuted),
                   ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 18, color: AppColors.textMuted),
+            icon: const Icon(Icons.close,
+                size: 18, color: AppGlassColors.inkMuted),
             onPressed: onDelete,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -1438,13 +1400,9 @@ class _LogoPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final previewName = pickedImage?.name ?? title;
-    return Container(
+    return AppGlassSurface(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
+      radius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1464,12 +1422,15 @@ class _LogoPicker extends StatelessWidget {
                   children: [
                     Text(title,
                         style: const TextStyle(
-                            color: AppColors.text,
+                            color: AppGlassColors.ink,
                             fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
                     Text(subtitle,
                         style: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 12)),
+                          color: AppGlassColors.inkMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        )),
                   ],
                 ),
               ),
@@ -1477,10 +1438,11 @@ class _LogoPicker extends StatelessWidget {
           ),
           if (inheritedLabel != null && onInheritedChanged != null) ...[
             const SizedBox(height: 12),
-            ChoiceChip(
-              label: Text(inheritedLabel!),
+            GlassChoiceChip(
+              label: inheritedLabel!,
               selected: useInherited,
-              onSelected: onInheritedChanged,
+              icon: Icons.check,
+              onTap: () => onInheritedChanged!(!useInherited),
             ),
           ],
           const SizedBox(height: 12),
@@ -1490,26 +1452,24 @@ class _LogoPicker extends StatelessWidget {
             children: _setupLogoIcons.entries.map((entry) {
               final selected =
                   pickedImage == null && !useInherited && iconName == entry.key;
-              return ChoiceChip(
-                avatar: Icon(entry.value, size: 18),
-                label: Text(_setupIconLabel(entry.key)),
+              return GlassChoiceChip(
+                label: _setupIconLabel(entry.key),
+                icon: entry.value,
                 selected: selected,
-                onSelected: (_) => onIconSelected(entry.key),
+                onTap: () => onIconSelected(entry.key),
+                height: 44,
               );
             }).toList(),
           ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () async {
+          AuthSecondaryButton(
+            label: pickedImage == null ? 'Upload image' : pickedImage!.name,
+            icon: Icons.image_outlined,
+            onTap: () async {
               final picked = await pickImageBytes();
               if (picked == null) return;
               onImagePicked(picked);
             },
-            icon: const Icon(Icons.image_outlined),
-            label: Text(
-              pickedImage == null ? 'Upload image' : pickedImage!.name,
-              overflow: TextOverflow.ellipsis,
-            ),
           ),
         ],
       ),

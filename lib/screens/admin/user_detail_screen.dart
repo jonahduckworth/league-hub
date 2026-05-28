@@ -15,6 +15,7 @@ import '../../widgets/app_shell_scaffold.dart';
 import '../../widgets/avatar_widget.dart';
 import '../../widgets/confirmation_dialog.dart';
 import '../../widgets/entity_avatar.dart';
+import '../../widgets/glass_form_widgets.dart';
 import '../../widgets/status_badge.dart';
 
 class UserDetailScreen extends ConsumerStatefulWidget {
@@ -448,29 +449,13 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       onChanged: (v) => setState(() => _editRole = v),
       child: Column(
         children: [
-          RadioListTile<UserRole>(
-            dense: true,
-            title: const Text(
-              'Manager',
-              style: TextStyle(
-                color: AppGlassColors.ink,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+          const GlassRadioTile<UserRole>(
+            label: 'Manager',
             value: UserRole.managerAdmin,
-            activeColor: AppGlassColors.aqua,
           ),
-          RadioListTile<UserRole>(
-            dense: true,
-            title: const Text(
-              'Staff',
-              style: TextStyle(
-                color: AppGlassColors.ink,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+          const GlassRadioTile<UserRole>(
+            label: 'Staff',
             value: UserRole.staff,
-            activeColor: AppGlassColors.aqua,
           ),
         ],
       ),
@@ -505,32 +490,10 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                   style: TextStyle(color: AppGlassColors.inkMuted))
               : Column(
                   children: _allHubs
-                      .map((hub) => CheckboxListTile(
-                            dense: true,
-                            checkboxShape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            title: Text(
-                              hub.name,
-                              style: const TextStyle(
-                                color: AppGlassColors.ink,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            subtitle: hub.location != null
-                                ? Text(
-                                    hub.location!,
-                                    style: const TextStyle(
-                                      color: AppGlassColors.inkMuted,
-                                      fontSize: 12,
-                                    ),
-                                  )
-                                : null,
+                      .map((hub) => GlassCheckTile(
+                            title: hub.name,
+                            subtitle: hub.location,
                             value: _editHubIds.contains(hub.id),
-                            activeColor: AppGlassColors.aqua,
-                            checkColor: AppGlassColors.pageTop,
-                            side: const BorderSide(
-                                color: AppGlassColors.inkMuted),
                             onChanged: (checked) {
                               setState(() {
                                 if (checked == true) {
@@ -584,12 +547,8 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                       style: TextStyle(color: AppGlassColors.inkMuted))
                   : Column(
                       children: availableTeams
-                          .map((team) => CheckboxListTile(
-                                dense: true,
-                                checkboxShape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                secondary: EntityAvatar(
+                          .map((team) => GlassCheckTile(
+                                leading: EntityAvatar(
                                   name: team.name,
                                   imageUrl: team.logoUrl,
                                   iconName: team.iconName,
@@ -597,25 +556,9 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                                   size: 34,
                                   color: AppGlassColors.aqua,
                                 ),
-                                title: Text(
-                                  team.name,
-                                  style: const TextStyle(
-                                    color: AppGlassColors.ink,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  _teamMeta(team, _allHubs),
-                                  style: const TextStyle(
-                                    color: AppGlassColors.inkMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
+                                title: team.name,
+                                subtitle: _teamMeta(team, _allHubs),
                                 value: _editTeamIds.contains(team.id),
-                                activeColor: AppGlassColors.aqua,
-                                checkColor: AppGlassColors.pageTop,
-                                side: const BorderSide(
-                                    color: AppGlassColors.inkMuted),
                                 onChanged: (checked) {
                                   setState(() {
                                     if (checked == true) {
