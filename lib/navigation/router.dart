@@ -360,7 +360,10 @@ final router = GoRouter(
                 ),
                 GoRoute(
                   path: 'app-icon',
-                  builder: (context, state) => const AppIconScreen(),
+                  pageBuilder: (context, state) => _shellTransitionPage(
+                    state,
+                    const AppIconScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'notifications',

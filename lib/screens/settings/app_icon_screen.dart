@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../core/theme.dart';
+import '../../core/league_branding.dart';
 import '../../core/utils.dart';
 import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
-import '../../services/authorized_firestore_service.dart';
+import '../../services/app_icon_service.dart';
+import '../../widgets/app_glass.dart';
+import '../../widgets/app_shell_header.dart';
+import '../../widgets/app_shell_scaffold.dart';
 
 class AppIconScreen extends ConsumerStatefulWidget {
   const AppIconScreen({super.key});
@@ -16,218 +18,246 @@ class AppIconScreen extends ConsumerStatefulWidget {
 }
 
 class _AppIconScreenState extends ConsumerState<AppIconScreen> {
-  int _selectedIndex = 0;
-  bool _isLoading = false;
+  String _selectedIconId = 'default';
+  bool _supportsNativeIcons = true;
+  bool _isLoadingCurrentIcon = true;
+  bool _isApplying = false;
 
-  static const _iconOptions = [
-    _AppIconOption(
-      name: 'Default',
-      icon: Icons.sports,
-      color: Color(0xFF1A3A5C),
-      description: 'The standard League Hub icon',
-    ),
-    _AppIconOption(
-      name: 'Soccer',
-      icon: Icons.sports_soccer,
-      color: Color(0xFF10B981),
-      description: 'Soccer ball icon',
-    ),
-    _AppIconOption(
-      name: 'Basketball',
-      icon: Icons.sports_basketball,
-      color: Color(0xFFF59E0B),
-      description: 'Basketball icon',
-    ),
-    _AppIconOption(
-      name: 'Football',
-      icon: Icons.sports_football,
-      color: Color(0xFF7C3AED),
-      description: 'Football icon',
-    ),
-    _AppIconOption(
-      name: 'Baseball',
-      icon: Icons.sports_baseball,
-      color: Color(0xFFEF4444),
-      description: 'Baseball icon',
-    ),
-    _AppIconOption(
-      name: 'Hockey',
-      icon: Icons.sports_hockey,
-      color: Color(0xFF0EA5E9),
-      description: 'Hockey icon',
-    ),
-    _AppIconOption(
-      name: 'Tennis',
-      icon: Icons.sports_tennis,
-      color: Color(0xFF84CC16),
-      description: 'Tennis icon',
-    ),
-    _AppIconOption(
-      name: 'Trophy',
-      icon: Icons.emoji_events,
-      color: Color(0xFFF97316),
-      description: 'Championship trophy icon',
-    ),
-  ];
+  AppIconOption get _selectedOption => appIconOptions.firstWhere(
+        (option) => option.id == _selectedIconId,
+        orElse: () => appIconOptions.first,
+      );
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadCurrentIcon);
+  }
+
+  Future<void> _loadCurrentIcon() async {
+    final appIconService = ref.read(appIconServiceProvider);
+    final supported = await appIconService.isSupported();
+    final currentIconId = await appIconService.getCurrentIconId();
+
+    if (!mounted) return;
+    setState(() {
+      _supportsNativeIcons = supported;
+      _selectedIconId = currentIconId;
+      _isLoadingCurrentIcon = false;
+    });
+  }
 
   Future<void> _save() async {
     final org = ref.read(organizationProvider).valueOrNull;
-    if (org == null) return;
+    final currentUser = await ref.read(currentUserProvider.future);
+    if (currentUser == null) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isApplying = true);
+    var syncedOrgPreference = true;
+
     try {
-      final currentUser = await ref.read(currentUserProvider.future);
-      if (currentUser == null) return;
+      await ref.read(appIconServiceProvider).setIcon(_selectedIconId);
 
-      final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
-      await authorizedSvc.updateOrganization(
-        currentUser,
-        org.id,
-        {'appIcon': _iconOptions[_selectedIndex].name.toLowerCase()},
-      );
-      ref.invalidate(organizationProvider);
-      if (mounted) {
-        AppUtils.showSuccessSnackBar(context, 'App icon updated');
-        context.pop();
+      if (org != null) {
+        try {
+          final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
+          await authorizedSvc.updateOrganization(
+            currentUser,
+            org.id,
+            {'appIcon': _selectedIconId},
+          );
+          ref.invalidate(organizationProvider);
+        } catch (_) {
+          syncedOrgPreference = false;
+        }
       }
-    } on PermissionDeniedException catch (e) {
+
+      if (!mounted) return;
+      AppUtils.showSuccessSnackBar(
+        context,
+        syncedOrgPreference
+            ? 'App icon updated on this device'
+            : 'App icon updated on this device. Sync failed.',
+      );
+    } on AppIconUnsupportedException {
       if (mounted) {
-        AppUtils.showErrorSnackBar(context, 'Permission denied: $e');
+        AppUtils.showErrorSnackBar(
+          context,
+          'App icon switching is only available on iOS and Android devices.',
+        );
       }
     } catch (e) {
       if (mounted) {
         AppUtils.showErrorSnackBar(context, 'Failed to update icon: $e');
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isApplying = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).valueOrNull;
+    final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, null);
     final canEdit = user?.role == UserRole.platformOwner ||
         user?.role == UserRole.superAdmin;
+    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('App Icon'),
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'App Icon',
+        leadingIcon: Icons.apps_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
+        showBackButton: true,
         actions: [
           if (canEdit)
-            TextButton(
-              onPressed: _isLoading ? null : _save,
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                  : const Text('Save',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+            AppGlassSurface(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              radius: 20,
+              onTap: _isApplying || _isLoadingCurrentIcon ? null : _save,
+              child: Center(
+                child: _isApplying
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppGlassColors.ink,
+                        ),
+                      )
+                    : const Text(
+                        'Save',
+                        style: TextStyle(
+                          color: AppGlassColors.ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+              ),
             ),
         ],
       ),
-      body: Column(
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          topContentPadding,
+          16,
+          bottomContentPadding,
+        ),
         children: [
-          const SizedBox(height: 24),
-          // Preview
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: _iconOptions[_selectedIndex].color,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color:
-                      _iconOptions[_selectedIndex].color.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+          _PreviewCard(
+            option: _selectedOption,
+            isLoading: _isLoadingCurrentIcon,
+            supportsNativeIcons: _supportsNativeIcons,
+          ),
+          const SizedBox(height: 18),
+          const _SectionLabel('HOME SCREEN ICONS'),
+          const SizedBox(height: 10),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.82,
+            ),
+            itemCount: appIconOptions.length,
+            itemBuilder: (context, index) {
+              final option = appIconOptions[index];
+              return _IconOptionTile(
+                option: option,
+                isSelected: option.id == _selectedIconId,
+                isEnabled: canEdit && !_isApplying && !_isLoadingCurrentIcon,
+                onTap: () => setState(() => _selectedIconId = option.id),
+              );
+            },
+          ),
+          if (!canEdit) ...[
+            const SizedBox(height: 18),
+            const _InfoCallout(
+              icon: Icons.lock_outline,
+              text: 'Only Admins can change the organization app icon.',
+            ),
+          ],
+          if (!_supportsNativeIcons) ...[
+            const SizedBox(height: 18),
+            const _InfoCallout(
+              icon: Icons.phone_iphone_outlined,
+              text:
+                  'Native app icon switching works on iOS and Android devices.',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviewCard extends StatelessWidget {
+  final AppIconOption option;
+  final bool isLoading;
+  final bool supportsNativeIcons;
+
+  const _PreviewCard({
+    required this.option,
+    required this.isLoading,
+    required this.supportsNativeIcons,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      radius: 28,
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          _AppIconPreview(option: option, size: 84),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Current icon',
+                  style: TextStyle(
+                    color: AppGlassColors.inkMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  isLoading ? 'Checking device...' : option.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppGlassColors.ink,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  supportsNativeIcons
+                      ? option.description
+                      : 'Preview only on this platform',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppGlassColors.inkSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
                 ),
               ],
-            ),
-            child: Icon(
-              _iconOptions[_selectedIndex].icon,
-              color: Colors.white,
-              size: 48,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _iconOptions[_selectedIndex].name,
-            style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.text),
-          ),
-          Text(
-            _iconOptions[_selectedIndex].description,
-            style:
-                const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 32),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.85,
-              ),
-              itemCount: _iconOptions.length,
-              itemBuilder: (context, index) {
-                final option = _iconOptions[index];
-                final isSelected = index == _selectedIndex;
-                return GestureDetector(
-                  onTap: canEdit
-                      ? () => setState(() => _selectedIndex = index)
-                      : null,
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: option.color,
-                          borderRadius: BorderRadius.circular(16),
-                          border: isSelected
-                              ? Border.all(color: AppColors.primary, width: 3)
-                              : null,
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: option.color.withValues(alpha: 0.4),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Icon(option.icon, color: Colors.white, size: 28),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        option.name,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.normal,
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                );
-              },
             ),
           ),
         ],
@@ -236,16 +266,151 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
   }
 }
 
-class _AppIconOption {
-  final String name;
-  final IconData icon;
-  final Color color;
-  final String description;
+class _IconOptionTile extends StatelessWidget {
+  final AppIconOption option;
+  final bool isSelected;
+  final bool isEnabled;
+  final VoidCallback onTap;
 
-  const _AppIconOption({
-    required this.name,
-    required this.icon,
-    required this.color,
-    required this.description,
+  const _IconOptionTile({
+    required this.option,
+    required this.isSelected,
+    required this.isEnabled,
+    required this.onTap,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: isEnabled || isSelected ? 1 : 0.58,
+      child: AppGlassSurface(
+        radius: 22,
+        padding: const EdgeInsets.all(12),
+        onTap: isEnabled ? onTap : null,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _AppIconPreview(option: option, size: 58),
+                if (isSelected)
+                  Positioned(
+                    right: -4,
+                    bottom: -4,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: AppGlassColors.aqua,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppGlassColors.pageMid,
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        color: AppGlassColors.pageTop,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              option.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color:
+                    isSelected ? AppGlassColors.ink : AppGlassColors.inkMuted,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppIconPreview extends StatelessWidget {
+  final AppIconOption option;
+  final double size;
+
+  const _AppIconPreview({
+    required this.option,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size * 0.22),
+      child: Image.asset(
+        option.assetPath,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+
+  const _SectionLabel(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        color: AppGlassColors.inkMuted,
+        fontSize: 13,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0,
+      ),
+    );
+  }
+}
+
+class _InfoCallout extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _InfoCallout({
+    required this.icon,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      radius: 20,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(icon, color: AppGlassColors.gold, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: AppGlassColors.inkSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
