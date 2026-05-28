@@ -79,7 +79,7 @@ class RolesPermissionsScreen extends ConsumerWidget {
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          appShellTopPadding(context, extra: 12),
+          appShellTopPadding(context),
           16,
           appShellBottomPadding(context, extra: 24),
         ),

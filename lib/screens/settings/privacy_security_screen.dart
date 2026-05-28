@@ -17,7 +17,7 @@ class PrivacySecurityScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider).valueOrNull;
     final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
     return AppShellScaffold(

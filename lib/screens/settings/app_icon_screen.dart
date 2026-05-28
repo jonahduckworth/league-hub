@@ -102,7 +102,7 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
     final headerLeague = resolveHeaderLeague(leagues, null);
     final canEdit = user?.role == UserRole.platformOwner ||
         user?.role == UserRole.superAdmin;
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
     return AppShellScaffold(

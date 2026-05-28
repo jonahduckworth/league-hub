@@ -48,6 +48,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final headerLabel = headerLeague?.name ?? org?.name ?? 'League Hub';
     final topContentPadding = appShellTopPadding(
       context,
+      extra: 0,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
 
@@ -72,6 +73,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onSelected: (id) => setState(() => _selectedLeagueId = id),
             )
           : null,
+      topSpacing: 0,
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
             16, topContentPadding, 16, bottomContentPadding),

@@ -49,7 +49,7 @@ class NotificationsScreen extends ConsumerWidget {
     final notifier = ref.read(notificationPrefsProvider.notifier);
     final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
     return AppShellScaffold(

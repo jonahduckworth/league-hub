@@ -66,7 +66,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
         child: ListView(
           padding: EdgeInsets.fromLTRB(
             16,
-            appShellTopPadding(context, extra: 12),
+            appShellTopPadding(context),
             16,
             appShellBottomPadding(context, extra: 24),
           ),
@@ -93,7 +93,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
             child: ListView(
               padding: EdgeInsets.fromLTRB(
                 16,
-                appShellTopPadding(context, extra: 12),
+                appShellTopPadding(context),
                 16,
                 appShellBottomPadding(context, extra: 24),
               ),
@@ -131,7 +131,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     return ListView(
       padding: EdgeInsets.fromLTRB(
         16,
-        appShellTopPadding(context, extra: 12),
+        appShellTopPadding(context),
         16,
         appShellBottomPadding(context, extra: 24),
       ),

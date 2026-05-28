@@ -322,7 +322,7 @@ class _ChatConversationScreenState
             ? '$participantCount member${participantCount == 1 ? '' : 's'}'
             : null;
 
-    final topContentPadding = appShellTopPadding(context, extra: 10);
+    final topContentPadding = appShellTopPadding(context);
 
     return AppShellScaffold(
       header: AppShellHeader(

@@ -245,7 +245,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       _eventRoomScope = _EventRoomScope.league;
     }
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
     final headerIcon = switch (_step) {
       _NewChatStep.choose => Icons.forum_outlined,
