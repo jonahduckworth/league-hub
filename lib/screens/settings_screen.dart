@@ -6,7 +6,6 @@ import '../core/theme.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
-import '../providers/mock_data.dart';
 import '../services/auth_service.dart';
 import '../services/messaging_service.dart';
 import '../widgets/app_glass.dart';
@@ -101,9 +100,117 @@ class SettingsScreen extends ConsumerWidget {
     final bottomContentPadding = appShellBottomPadding(context);
     final topContentPadding = appShellTopPadding(context);
     final userAsync = ref.watch(currentUserProvider);
-    final user = userAsync.valueOrNull ?? mockCurrentUser;
+    final user = userAsync.valueOrNull;
     final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
+
+    return AppShellScaffold(
+      header: AppShellHeader(
+        leadingIcon: Icons.settings_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
+        showBackButton: true,
+        title: 'Settings',
+      ),
+      child: user == null
+          ? _SettingsProfileLoadingState(
+              topContentPadding: topContentPadding,
+              bottomContentPadding: bottomContentPadding,
+              isLoading: userAsync.isLoading,
+              error: userAsync.error,
+            )
+          : _SettingsContent(
+              user: user,
+              topContentPadding: topContentPadding,
+              bottomContentPadding: bottomContentPadding,
+            ),
+    );
+  }
+}
+
+class _SettingsProfileLoadingState extends ConsumerWidget {
+  final double topContentPadding;
+  final double bottomContentPadding;
+  final bool isLoading;
+  final Object? error;
+
+  const _SettingsProfileLoadingState({
+    required this.topContentPadding,
+    required this.bottomContentPadding,
+    required this.isLoading,
+    required this.error,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final message = error != null
+        ? 'Unable to load your profile.'
+        : isLoading
+            ? 'Loading profile...'
+            : 'Profile setup is still finishing. Sign out and try again if this does not update.';
+
+    return ListView(
+      padding:
+          EdgeInsets.fromLTRB(16, topContentPadding, 16, bottomContentPadding),
+      children: [
+        AppGlassSurface(
+          padding: const EdgeInsets.all(20),
+          radius: 20,
+          child: Row(
+            children: [
+              if (isLoading) ...[
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 14),
+              ],
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: AppGlassColors.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        AppGlassSurface(
+          padding: EdgeInsets.zero,
+          radius: 20,
+          child: ListTile(
+            leading: const Icon(Icons.logout, color: AppColors.danger),
+            title: const Text('Sign Out',
+                style: TextStyle(
+                    color: AppColors.danger, fontWeight: FontWeight.w600)),
+            onTap: () async {
+              await ref.read(authServiceProvider).signOut();
+              if (context.mounted) context.go('/login');
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsContent extends ConsumerWidget {
+  final AppUser user;
+  final double topContentPadding;
+  final double bottomContentPadding;
+
+  const _SettingsContent({
+    required this.user,
+    required this.topContentPadding,
+    required this.bottomContentPadding,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final pendingInviteCount = ref.watch(pendingInviteCountProvider);
     final ps = ref.read(permissionServiceProvider);
     final visibleTiles = ps.visibleSettingsTiles(user);
@@ -115,74 +222,65 @@ class SettingsScreen extends ConsumerWidget {
     final showAdministrationSection =
         shouldShowAdministrationSettings(visibleTiles);
 
-    return AppShellScaffold(
-      header: AppShellHeader(
-        leadingIcon: Icons.settings_outlined,
-        leadingImageUrl: headerLeague?.logoUrl,
-        leadingLabel: headerLeague?.name ?? 'League Hub',
-        showBackButton: true,
-        title: 'Settings',
-      ),
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(
-            16, topContentPadding, 16, bottomContentPadding),
-        children: [
-          _ProfileCard(user: user),
-          const SizedBox(height: 24),
-          if (showAdministrationSection)
-            _SettingsSection(
-              title: 'Administration',
-              items: administrationItems
-                  .map(
-                    (item) => _SettingsItem(
-                      icon: item.icon,
-                      title: item.title,
-                      badge: item.badge,
-                      onTap: () => context.push(item.route),
-                    ),
-                  )
-                  .toList(),
-            ),
-          if (showAdministrationSection) const SizedBox(height: 16),
+    return ListView(
+      padding:
+          EdgeInsets.fromLTRB(16, topContentPadding, 16, bottomContentPadding),
+      children: [
+        _ProfileCard(user: user),
+        const SizedBox(height: 24),
+        if (showAdministrationSection)
           _SettingsSection(
-            title: 'Preferences',
-            items: preferenceItems
+            title: 'Administration',
+            items: administrationItems
                 .map(
                   (item) => _SettingsItem(
                     icon: item.icon,
                     title: item.title,
+                    badge: item.badge,
                     onTap: () => context.push(item.route),
                   ),
                 )
                 .toList(),
           ),
-          const SizedBox(height: 16),
-          AppGlassSurface(
-            padding: EdgeInsets.zero,
-            radius: 20,
-            child: ListTile(
-              leading: const Icon(Icons.logout, color: AppColors.danger),
-              title: const Text('Sign Out',
-                  style: TextStyle(
-                      color: AppColors.danger, fontWeight: FontWeight.w600)),
-              onTap: () async {
-                final user = ref.read(currentUserProvider).valueOrNull;
-                await signOutFromSettings(
-                  user: user,
-                  messagingService: ref.read(messagingServiceProvider),
-                  authService: ref.read(authServiceProvider),
-                );
-                if (context.mounted) context.go('/login');
-              },
-            ),
+        if (showAdministrationSection) const SizedBox(height: 16),
+        _SettingsSection(
+          title: 'Preferences',
+          items: preferenceItems
+              .map(
+                (item) => _SettingsItem(
+                  icon: item.icon,
+                  title: item.title,
+                  onTap: () => context.push(item.route),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 16),
+        AppGlassSurface(
+          padding: EdgeInsets.zero,
+          radius: 20,
+          child: ListTile(
+            leading: const Icon(Icons.logout, color: AppColors.danger),
+            title: const Text('Sign Out',
+                style: TextStyle(
+                    color: AppColors.danger, fontWeight: FontWeight.w600)),
+            onTap: () async {
+              final user = ref.read(currentUserProvider).valueOrNull;
+              await signOutFromSettings(
+                user: user,
+                messagingService: ref.read(messagingServiceProvider),
+                authService: ref.read(authServiceProvider),
+              );
+              if (context.mounted) context.go('/login');
+            },
           ),
-          const SizedBox(height: 24),
-          const Center(
-              child: Text('League Hub v1.0.0',
-                  style:
-                      TextStyle(fontSize: 12, color: AppGlassColors.inkMuted))),
-        ],
-      ),
+        ),
+        const SizedBox(height: 24),
+        const Center(
+            child: Text('League Hub v1.0.0',
+                style:
+                    TextStyle(fontSize: 12, color: AppGlassColors.inkMuted))),
+      ],
     );
   }
 }

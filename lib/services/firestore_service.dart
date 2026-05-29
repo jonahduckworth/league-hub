@@ -755,6 +755,9 @@ class FirestoreService {
       .doc(orgId)
       .collection('invitations');
 
+  CollectionReference _invitationLookupsRef() =>
+      _db.collection(AppConstants.invitationLookupsCollection);
+
   String _generateToken() {
     final random = Random.secure();
     final bytes = List<int>.generate(16, (_) => random.nextInt(256));
@@ -767,7 +770,20 @@ class FirestoreService {
     final data = invitation.toJson()
       ..['token'] = token
       ..['orgId'] = orgId;
-    await ref.set(data);
+
+    final lookupData = {
+      'token': token,
+      'orgId': orgId,
+      'invitationId': ref.id,
+      'email': invitation.email,
+      'status': InvitationStatus.pending.name,
+      'createdAt': invitation.createdAt.toIso8601String(),
+    };
+
+    final batch = _db.batch();
+    batch.set(ref, data);
+    batch.set(_invitationLookupsRef().doc(token), lookupData);
+    await batch.commit();
     return token;
   }
 
@@ -787,32 +803,63 @@ class FirestoreService {
   /// Invitations expire after [expiryDays] days (default 7).
   Future<Invitation?> getInvitationByToken(String token,
       {int expiryDays = 7}) async {
-    final snap = await _db
-        .collectionGroup('invitations')
-        .where('token', isEqualTo: token)
-        .where('status', isEqualTo: 'pending')
-        .limit(1)
-        .get();
-    if (snap.docs.isEmpty) return null;
-    final doc = snap.docs.first;
-    final invitation =
-        Invitation.fromJson({'id': doc.id, ..._convertTimestamps(doc.data())});
+    final lookupDoc = await _invitationLookupsRef().doc(token).get();
+    if (!lookupDoc.exists) return null;
+
+    final lookup = lookupDoc.data() as Map<String, dynamic>;
+    if (lookup['status'] != InvitationStatus.pending.name) return null;
+
+    final orgId = lookup['orgId'] as String?;
+    final invitationId = lookup['invitationId'] as String?;
+    if (orgId == null || invitationId == null) return null;
+
+    final doc = await _invitationsRef(orgId).doc(invitationId).get();
+    if (!doc.exists) return null;
+
+    final invitation = Invitation.fromJson({
+      'id': doc.id,
+      ..._convertTimestamps(doc.data()! as Map<String, dynamic>),
+    });
+    if (invitation.status != InvitationStatus.pending ||
+        invitation.token != token) {
+      return null;
+    }
 
     // Check expiry.
     final expiry = invitation.createdAt.add(Duration(days: expiryDays));
     if (DateTime.now().isAfter(expiry)) {
       // Mark as expired in Firestore.
-      await doc.reference.update({'status': InvitationStatus.expired.name});
+      final batch = _db.batch();
+      batch.update(doc.reference, {'status': InvitationStatus.expired.name});
+      batch.update(lookupDoc.reference, {
+        'status': InvitationStatus.expired.name,
+      });
+      try {
+        await batch.commit();
+      } on FirebaseException catch (e) {
+        if (e.code != 'permission-denied') rethrow;
+      }
       return null;
     }
 
     return invitation;
   }
 
-  Future<void> acceptInvitation(String orgId, String inviteId) =>
-      _invitationsRef(orgId)
-          .doc(inviteId)
-          .update({'status': InvitationStatus.accepted.name});
+  Future<void> acceptInvitation(String orgId, String inviteId) async {
+    final inviteRef = _invitationsRef(orgId).doc(inviteId);
+    final inviteDoc = await inviteRef.get();
+    final inviteData = inviteDoc.data() as Map<String, dynamic>?;
+    final token = inviteData?['token'] as String?;
+
+    final batch = _db.batch();
+    batch.update(inviteRef, {'status': InvitationStatus.accepted.name});
+    if (token != null && token.isNotEmpty) {
+      batch.update(_invitationLookupsRef().doc(token), {
+        'status': InvitationStatus.accepted.name,
+      });
+    }
+    await batch.commit();
+  }
 
   // --- All Hubs Flat ---
 

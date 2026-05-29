@@ -38,6 +38,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>League Hub uses your camera so you can take profile, league, hub, team, and chat photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>League Hub uses your photo library so you can choose profile, league, hub, team, and chat images.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

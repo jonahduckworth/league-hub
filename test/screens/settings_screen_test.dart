@@ -94,7 +94,7 @@ void main() {
 
     // Helper to create a test widget with Riverpod overrides
     Widget createTestWidget({
-      required AppUser user,
+      required AppUser? user,
       int pendingInviteCount = 0,
     }) {
       return ProviderScope(
@@ -119,6 +119,19 @@ void main() {
         ),
       );
     }
+
+    testWidgets('does not fall back to demo admin when profile is unavailable',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(createTestWidget(user: null));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alex Commissioner'), findsNothing);
+      expect(find.text('admin@leaguehub.com'), findsNothing);
+      expect(find.text('ADMINISTRATION'), findsNothing);
+      expect(find.textContaining('Profile setup is still finishing'),
+          findsOneWidget);
+      expect(find.text('Sign Out'), findsOneWidget);
+    });
 
     Widget createRoutedTestWidget({
       required AppUser user,

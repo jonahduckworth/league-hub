@@ -17,6 +17,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/organizations/$(orgId)/invitations/$(inviteId);
     }
 
+    function lookupStatusOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+
     function roomPath(orgId, roomId) {
       return /databases/$(database)/documents/organizations/$(orgId)/chatRooms/$(roomId);
     }
@@ -206,6 +210,37 @@ service cloud.firestore {
         && selfUpdateFieldsOnly()
       ) || canAdminUpdateUser(resource.data);
       allow delete: if false;
+    }
+
+    match /invitationLookups/{token} {
+      allow get: if resource.data.status == 'pending'
+        && resource.data.token == token;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.token == token
+        && request.resource.data.status == 'pending'
+        && request.resource.data.orgId is string
+        && request.resource.data.invitationId is string
+        && request.resource.data.email is string
+        && canManageContent(request.resource.data.orgId);
+      allow update: if (
+        canManageContent(resource.data.orgId)
+      ) || (
+        signedIn()
+        && resource.data.status == 'pending'
+        && resource.data.email == request.auth.token.email
+        && lookupStatusOnly()
+        && request.resource.data.status == 'accepted'
+      );
+      allow delete: if false;
+    }
+
+    // Compatibility for the current TestFlight build, which performs a
+    // collection-group token lookup before the account exists. New builds use
+    // invitationLookups/{token} exact gets instead.
+    match /{path=**}/invitations/{invitationId} {
+      allow list: if request.query.limit == 1
+        && resource.data.status == 'pending';
     }
 
     match /organizations/{orgId} {
