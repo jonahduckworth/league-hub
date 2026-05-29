@@ -1,6 +1,34 @@
 import { onDocumentCreated as onFirestoreCreated } from "firebase-functions/v2/firestore";
 import { db, getUserTokens, sendNotification } from "../helpers";
 
+type UserData = {
+  role?: string;
+  hubIds?: string[];
+  leagueIds?: string[];
+};
+
+const elevatedRoles = new Set(["platformOwner", "superAdmin"]);
+
+function hasId(values: unknown, id: string): boolean {
+  return Array.isArray(values) && values.includes(id);
+}
+
+function canReceiveOpenRoomNotification(
+  user: UserData,
+  roomType: string,
+  hubId?: string,
+  leagueId?: string,
+): boolean {
+  if (elevatedRoles.has(user.role ?? "")) return true;
+  if (roomType === "event") return true;
+  if (roomType !== "league") return false;
+
+  if (hubId) return hasId(user.hubIds, hubId);
+  if (leagueId) return hasId(user.leagueIds, leagueId);
+
+  return true;
+}
+
 /**
  * Triggers when a new message is sent in a chat room.
  * Path: organizations/{orgId}/chatRooms/{roomId}/messages/{messageId}
@@ -32,8 +60,11 @@ export const onMessageCreated = onFirestoreCreated(
     const roomName = (roomData.name as string) || "Chat";
     const participants = (roomData.participants as string[]) || [];
     const roomType = (roomData.type as string) || "league";
+    const hubId = roomData.hubId as string | undefined;
+    const leagueId = roomData.leagueId as string | undefined;
 
-    // For DMs, notify the other participant. For group chats, notify all except sender.
+    // Explicit participants win. Open rooms use the same room visibility
+    // criteria as Firestore rules so scoped rooms do not notify outsiders.
     let recipientIds: string[];
 
     if (roomType === "direct" && participants.length === 2) {
@@ -41,13 +72,20 @@ export const onMessageCreated = onFirestoreCreated(
     } else if (participants.length > 0) {
       recipientIds = participants.filter((id) => id !== senderId);
     } else {
-      // Open room — notify all org members except sender.
       const usersSnap = await db
         .collection("users")
         .where("orgId", "==", orgId)
         .where("isActive", "==", true)
         .get();
       recipientIds = usersSnap.docs
+        .filter((d) =>
+          canReceiveOpenRoomNotification(
+            d.data() as UserData,
+            roomType,
+            hubId,
+            leagueId,
+          ),
+        )
         .map((d) => d.id)
         .filter((id) => id !== senderId);
     }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +9,7 @@ import '../models/hub.dart';
 import '../models/league.dart';
 import 'announcement_navigation_source.dart';
 import 'chat_navigation_source.dart';
-import '../services/permission_service.dart';
+import 'route_guard.dart';
 import '../core/constants.dart';
 import '../screens/login_screen.dart';
 import '../screens/dashboard_screen.dart';
@@ -36,20 +38,47 @@ import '../screens/admin/team_detail_screen.dart';
 import '../screens/unauthorized_screen.dart';
 
 class _AuthNotifier extends ChangeNotifier {
+  StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSubscription;
+
   _AuthNotifier() {
-    FirebaseAuth.instance.authStateChanges().listen((_) => notifyListeners());
+    _authSubscription =
+        FirebaseAuth.instance.authStateChanges().listen(_handleAuthChange);
+  }
+
+  void _handleAuthChange(User? firebaseUser) {
+    _userSubscription?.cancel();
+    _userSubscription = null;
+    _cachedAppUser = null;
+    notifyListeners();
+
+    if (firebaseUser == null) return;
+
+    _userSubscription = FirebaseFirestore.instance
+        .collection(AppConstants.usersCollection)
+        .doc(firebaseUser.uid)
+        .snapshots()
+        .listen((doc) {
+      _cachedAppUser =
+          doc.exists ? AppUser.fromJson({'id': doc.id, ...doc.data()!}) : null;
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    _userSubscription?.cancel();
+    super.dispose();
   }
 }
 
 final _authNotifier = _AuthNotifier();
 
 /// Cache of the current AppUser for route-level permission checks.
-/// Updated on each redirect. This avoids an async Firestore lookup in the
-/// synchronous redirect callback by using a fire-and-forget pattern: the
-/// first load redirects to '/' which triggers a refresh.
+/// Kept in sync by [_AuthNotifier] because GoRouter redirects are synchronous.
 AppUser? _cachedAppUser;
 
-const _permissionService = PermissionService();
 const _shellTransitionDuration = Duration(milliseconds: 220);
 const _shellTransitionSlideFactor = 0.035;
 
@@ -122,33 +151,11 @@ final router = GoRouter(
   redirect: (context, state) {
     final isLoggedIn = FirebaseAuth.instance.currentUser != null;
     final location = state.matchedLocation;
-    final isOnLogin = location == '/login';
-    final isOnCreateLeague =
-        location == '/create-league' || location == '/create-org';
-    final isOnAcceptInvite = location == '/accept-invite';
-
-    // --- Authentication gate ---
-    if (!isLoggedIn && !isOnLogin && !isOnCreateLeague && !isOnAcceptInvite) {
-      return '/login';
-    }
-    if (isLoggedIn && isOnLogin) return '/';
-
-    // --- Role-based gate ---
-    // Skip permission check for auth / onboarding routes.
-    if (isOnLogin || isOnCreateLeague || isOnAcceptInvite) return null;
-
-    final user = _cachedAppUser;
-    if (user == null) {
-      // User doc hasn't loaded yet — let them through to '/' which will
-      // trigger a provider load and re-evaluate on the next navigation.
-      return null;
-    }
-
-    if (!_permissionService.canAccessRoute(user, location)) {
-      return '/unauthorized';
-    }
-
-    return null;
+    return routeRedirectForAuthState(
+      isLoggedIn: isLoggedIn,
+      location: location,
+      user: _cachedAppUser,
+    );
   },
   routes: [
     GoRoute(

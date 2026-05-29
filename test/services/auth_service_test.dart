@@ -1,6 +1,7 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/core/constants.dart';
 import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/league.dart';
@@ -57,30 +58,30 @@ void main() {
       await auth.signOut();
     });
 
-    test('signInWithEmail creates user doc if not exists', () async {
+    test('signInWithEmail does not create user doc if not exists', () async {
       final credential =
           await auth.signInWithEmail('carol@example.com', 'password123');
       final uid = credential.user!.uid;
 
       final appUser = await firestore.getUser(uid);
-      expect(appUser, isNotNull);
-      expect(appUser!.email, 'carol@example.com');
+      expect(appUser, isNull);
     });
 
     test('signInWithEmail does NOT overwrite existing user doc', () async {
-      // First sign-in creates the doc
       final credential =
           await auth.signInWithEmail('carol@example.com', 'password123');
       final uid = credential.user!.uid;
 
-      // Manually update the Firestore doc
-      await firestore.updateUserFields(uid, {'displayName': 'Carol Updated'});
+      await _seedUserDoc(
+        fakeFirestore,
+        uid: uid,
+        email: 'carol@example.com',
+        displayName: 'Carol Updated',
+      );
 
-      // Sign out and sign in again
       await auth.signOut();
       await auth.signInWithEmail('carol@example.com', 'password123');
 
-      // Verify the updated displayName is preserved
       final appUser = await firestore.getUser(uid);
       expect(appUser!.displayName, 'Carol Updated');
     });
@@ -282,7 +283,13 @@ void main() {
     test('getCurrentAppUser returns AppUser when logged in and doc exists',
         () async {
       await auth.createAccount('grace@example.com', 'password123', 'Grace');
-      await auth.signInWithEmail('grace@example.com', 'password123');
+      final uid = auth.currentUser!.uid;
+      await _seedUserDoc(
+        fakeFirestore,
+        uid: uid,
+        email: 'grace@example.com',
+        displayName: 'Grace',
+      );
 
       final appUser = await auth.getCurrentAppUser();
       expect(appUser, isNotNull);
@@ -315,5 +322,25 @@ void main() {
       // If no exception is thrown, the test passes
       expect(true, true);
     });
+  });
+}
+
+Future<void> _seedUserDoc(
+  FakeFirebaseFirestore firestore, {
+  required String uid,
+  required String email,
+  required String displayName,
+}) {
+  return firestore.collection(AppConstants.usersCollection).doc(uid).set({
+    'id': uid,
+    'email': email,
+    'displayName': displayName,
+    'role': 'staff',
+    'orgId': 'org1',
+    'hubIds': <String>[],
+    'leagueIds': <String>[],
+    'teamIds': <String>[],
+    'createdAt': DateTime(2024).toIso8601String(),
+    'isActive': true,
   });
 }

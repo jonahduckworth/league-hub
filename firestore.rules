@@ -235,14 +235,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Compatibility for the current TestFlight build, which performs a
-    // collection-group token lookup before the account exists. New builds use
-    // invitationLookups/{token} exact gets instead.
-    match /{path=**}/invitations/{invitationId} {
-      allow list: if request.query.limit == 1
-        && resource.data.status == 'pending';
-    }
-
     match /organizations/{orgId} {
       allow get, list: if canReadOrg(orgId);
       allow create: if signedIn()
@@ -324,8 +316,9 @@ service cloud.firestore {
       }
 
       match /invitations/{invitationId} {
-        allow get, list: if canManageContent(orgId)
+        allow get: if canManageContent(orgId)
           || (resource.data.status == 'pending' && resource.data.token is string);
+        allow list: if canManageContent(orgId);
         allow create: if canManageContent(orgId)
           && request.resource.data.invitedBy == request.auth.uid;
         allow update: if canManageContent(orgId)
