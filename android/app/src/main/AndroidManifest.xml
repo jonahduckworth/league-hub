@@ -1,8 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="league_hub"
+        android:label="League Hub"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -25,6 +26,110 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity-alias
+            android:name=".MainActivityJphl"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_jphl"
+            android:roundIcon="@mipmap/ic_launcher_jphl"
+            android:label="League Hub"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivitySoccer"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_soccer"
+            android:roundIcon="@mipmap/ic_launcher_soccer"
+            android:label="League Hub"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityBasketball"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_basketball"
+            android:roundIcon="@mipmap/ic_launcher_basketball"
+            android:label="League Hub"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityFootball"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_football"
+            android:roundIcon="@mipmap/ic_launcher_football"
+            android:label="League Hub"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityBaseball"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_baseball"
+            android:roundIcon="@mipmap/ic_launcher_baseball"
+            android:label="League Hub"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityHockey"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_hockey"
+            android:roundIcon="@mipmap/ic_launcher_hockey"
+            android:label="League Hub"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityTennis"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_tennis"
+            android:roundIcon="@mipmap/ic_launcher_tennis"
+            android:label="League Hub"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".MainActivityTrophy"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_trophy"
+            android:roundIcon="@mipmap/ic_launcher_trophy"
+            android:label="League Hub"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -36,7 +36,7 @@ class ChatRoomInfoScreen extends ConsumerWidget {
     final room = roomAsync.valueOrNull;
     final allUsers = usersAsync.valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, room?.leagueId);
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
     if (room == null) {

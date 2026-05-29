@@ -285,7 +285,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
         child: ListView(
           padding: EdgeInsets.fromLTRB(
             16,
-            appShellTopPadding(context, extra: 12),
+            appShellTopPadding(context),
             16,
             appShellBottomPadding(context, extra: 24),
           ),
@@ -354,7 +354,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          appShellTopPadding(context, extra: 12),
+          appShellTopPadding(context),
           16,
           appShellBottomPadding(context, extra: 24),
         ),

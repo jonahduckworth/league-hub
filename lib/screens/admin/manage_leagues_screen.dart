@@ -30,7 +30,7 @@ class ManageLeaguesScreen extends ConsumerWidget {
     final org = ref.watch(organizationProvider).valueOrNull;
     final leagues = leaguesAsync.valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 98);
 
     return AppShellScaffold(
@@ -1612,7 +1612,7 @@ class _StructureFormScaffold extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final headerLeague =
         resolveHeaderLeague(ref.watch(leaguesProvider).valueOrNull ?? [], null);
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 106);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
@@ -1722,7 +1722,7 @@ class _LoadErrorScaffold extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          appShellTopPadding(context, extra: 12),
+          appShellTopPadding(context),
           16,
           appShellBottomPadding(context, extra: 24),
         ),

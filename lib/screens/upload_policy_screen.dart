@@ -288,7 +288,7 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
       _selectedTeamId = teams.first.id;
     }
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
     return AppShellScaffold(

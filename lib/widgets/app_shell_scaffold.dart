@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'app_glass.dart';
 import 'app_shell_header.dart';
 
+const double appShellHeaderContentSpacing = 12;
+
 double appShellBottomPadding(BuildContext context, {double extra = 8}) {
   return MediaQuery.paddingOf(context).bottom + extra;
 }
@@ -14,7 +16,7 @@ double appShellHeaderHeight(BuildContext context) {
 
 double appShellTopPadding(
   BuildContext context, {
-  double extra = 0,
+  double extra = appShellHeaderContentSpacing,
   double stickyHeight = 0,
   double stickySpacing = 12,
 }) {
@@ -38,7 +40,7 @@ class AppShellScaffold extends StatelessWidget {
     required this.child,
     this.stickyContent,
     this.floatingActionButton,
-    this.topSpacing = 0,
+    this.topSpacing = appShellHeaderContentSpacing,
     this.stickySpacing = 12,
     this.topFadeHeight = 128,
   });

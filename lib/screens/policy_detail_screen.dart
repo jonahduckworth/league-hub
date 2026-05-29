@@ -328,7 +328,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
     final leagues = leaguesAsync.valueOrNull ?? [];
     final policy = policyAsync.valueOrNull;
     final headerLeague = resolveHeaderLeague(leagues, policy?.leagueId);
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
     return AppShellScaffold(

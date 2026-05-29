@@ -83,7 +83,7 @@ class AnnouncementDetailScreen extends ConsumerWidget {
             currentUser.id == announcement.authorId);
 
     final headerLeague = resolveHeaderLeague(leagues, announcement.leagueId);
-    final topContentPadding = appShellTopPadding(context, extra: 12);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
     return AppShellScaffold(
