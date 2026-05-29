@@ -13,7 +13,6 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/admin/user_management_screen.dart';
 import 'package:league_hub/services/firestore_service.dart';
-import 'package:league_hub/widgets/app_shell_scaffold.dart';
 
 class MockFirestoreService extends FirestoreService {
   final List<League> leaguesToReturn;
@@ -271,20 +270,6 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.search), findsOneWidget);
-      });
-
-      testWidgets('keeps search tight under the shell header',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        final context = tester.element(find.byType(UserManagementScreen));
-        final searchTop = tester
-            .getTopLeft(find.byKey(const ValueKey('user-management-search')))
-            .dy;
-
-        expect(searchTop, closeTo(appShellHeaderHeight(context), 0.1));
       });
     });
 

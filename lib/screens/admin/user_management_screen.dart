@@ -94,7 +94,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     final pendingCount = ref.watch(pendingInviteCountProvider);
     final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
-    final topContentPadding = appShellTopPadding(context, extra: 0);
+    final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 98);
 
     return AppShellScaffold(
@@ -171,7 +171,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
 
   Widget _buildSearchBar() {
     return AppGlassSurface(
-      key: const ValueKey('user-management-search'),
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       radius: 22,
