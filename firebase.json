@@ -11,7 +11,7 @@
       "ios": {
         "default": {
           "projectId": "jdb-league-hub",
-          "appId": "1:757767295888:ios:f11a0d4fcdd12a5a101915",
+          "appId": "1:757767295888:ios:73784173e425c97d101915",
           "uploadDebugSymbols": false,
           "fileOutput": "ios/Runner/GoogleService-Info.plist"
         }
@@ -21,7 +21,7 @@
           "projectId": "jdb-league-hub",
           "configurations": {
             "android": "1:757767295888:android:c782ff7285966681101915",
-            "ios": "1:757767295888:ios:f11a0d4fcdd12a5a101915"
+            "ios": "1:757767295888:ios:73784173e425c97d101915"
           }
         }
       }
