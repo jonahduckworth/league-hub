@@ -12,6 +12,7 @@ class AppConstants {
   static const String messagesCollection = 'messages';
   static const String policiesCollection = 'policies';
   static const String announcementsCollection = 'announcements';
+  static const String invitationLookupsCollection = 'invitationLookups';
 
   // Routes
   static const String loginRoute = '/login';

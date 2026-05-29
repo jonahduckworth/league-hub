@@ -909,6 +909,21 @@ void main() {
       expect(invites.first.token, token);
     });
 
+    test('createInvitation writes public lookup by token', () async {
+      final token = await svc.createInvitation(orgId, makeInvitation());
+
+      final lookup = await fakeFirestore
+          .collection(AppConstants.invitationLookupsCollection)
+          .doc(token)
+          .get();
+
+      expect(lookup.exists, true);
+      expect(lookup.data()!['orgId'], orgId);
+      expect(lookup.data()!['email'], 'newuser@example.com');
+      expect(lookup.data()!['status'], 'pending');
+      expect(lookup.data()!['invitationId'], isNotEmpty);
+    });
+
     test('getInvitationByToken finds pending invitation', () async {
       final token = await svc.createInvitation(orgId, makeInvitation());
 
@@ -935,6 +950,12 @@ void main() {
           .get();
 
       expect(doc.data()!['status'], 'accepted');
+
+      final lookup = await fakeFirestore
+          .collection(AppConstants.invitationLookupsCollection)
+          .doc(token)
+          .get();
+      expect(lookup.data()!['status'], 'accepted');
     });
   });
 
