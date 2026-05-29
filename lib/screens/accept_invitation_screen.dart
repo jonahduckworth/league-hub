@@ -125,6 +125,10 @@ class _AcceptInvitationScreenState
         invitedAt: invite.createdAt,
       );
 
+      ref.invalidate(currentUserProvider);
+      ref.invalidate(organizationProvider);
+      await ref.read(currentUserProvider.future);
+
       if (mounted) context.go('/');
     } on PermissionDeniedException catch (e) {
       _showError('Permission denied: $e');
