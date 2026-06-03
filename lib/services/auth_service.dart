@@ -18,28 +18,10 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
 
   Future<UserCredential> signInWithEmail(String email, String password) async {
-    final credential = await _auth.signInWithEmailAndPassword(
+    return _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
-    // Ensure Firestore user doc exists
-    final uid = credential.user!.uid;
-    final docRef = _db.collection(AppConstants.usersCollection).doc(uid);
-    final doc = await docRef.get();
-    if (!doc.exists) {
-      final user = AppUser(
-        id: uid,
-        email: email,
-        displayName: credential.user!.displayName ?? email.split('@').first,
-        role: UserRole.staff,
-        hubIds: [],
-        teamIds: [],
-        createdAt: DateTime.now(),
-        isActive: true,
-      );
-      await docRef.set(user.toJson());
-    }
-    return credential;
   }
 
   Future<void> signOut() async {

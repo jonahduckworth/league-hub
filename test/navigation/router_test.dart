@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
+import 'package:league_hub/navigation/route_guard.dart';
 import 'package:league_hub/services/permission_service.dart';
 
 void main() {
@@ -73,6 +74,82 @@ void main() {
   // =========================================================================
   // PUBLIC ROUTES
   // =========================================================================
+
+  group('routeRedirectForAuthState', () {
+    test('sends unauthenticated protected routes to login', () {
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: false,
+          location: '/settings',
+          user: null,
+        ),
+        '/login',
+      );
+    });
+
+    test('sends authenticated login route to dashboard', () {
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: true,
+          location: '/login',
+          user: staff(),
+        ),
+        '/',
+      );
+    });
+
+    test('allows auth routes without a user profile', () {
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: false,
+          location: '/accept-invite',
+          user: null,
+        ),
+        isNull,
+      );
+    });
+
+    test('keeps missing profile users on dashboard while cache loads', () {
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: true,
+          location: '/',
+          user: null,
+        ),
+        isNull,
+      );
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: true,
+          location: '/settings/users',
+          user: null,
+        ),
+        '/',
+      );
+    });
+
+    test('blocks logged-in users without route permission', () {
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: true,
+          location: '/settings/users',
+          user: staff(),
+        ),
+        '/unauthorized',
+      );
+    });
+
+    test('allows logged-in users with route permission', () {
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: true,
+          location: '/settings/users',
+          user: managerAdmin(),
+        ),
+        isNull,
+      );
+    });
+  });
 
   group('Public routes', () {
     const publicRoutes = [
