@@ -97,18 +97,44 @@ service cloud.firestore {
         && invite.teamIds == request.resource.data.teamIds;
     }
 
+    function canCreateInvitationForRole(orgId, role) {
+      return sameOrg(orgId)
+        && (
+          (
+            currentUser().role == 'platformOwner'
+            && role in ['superAdmin', 'managerAdmin', 'staff']
+          )
+          || (
+            currentUser().role in ['superAdmin', 'managerAdmin']
+            && role in ['managerAdmin', 'staff']
+          )
+        );
+    }
+
+    function canAcceptInvitedRole(invite) {
+      return invite.role in ['managerAdmin', 'staff']
+        || (
+          invite.role == 'superAdmin'
+          && exists(userPath(invite.invitedBy))
+          && get(userPath(invite.invitedBy)).data.role == 'platformOwner'
+        );
+    }
+
     function isValidInvitedUserCreate(userId) {
       return isSelf(userId)
         && request.resource.data.id == userId
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.orgId is string
         && request.resource.data.acceptedInvitationId is string
-        && request.resource.data.role in ['managerAdmin', 'staff']
         && request.resource.data.isActive == true
         && exists(invitePath(
           request.resource.data.orgId,
           request.resource.data.acceptedInvitationId
         ))
+        && canAcceptInvitedRole(get(invitePath(
+          request.resource.data.orgId,
+          request.resource.data.acceptedInvitationId
+        )).data)
         && invitationMatchesNewUser(get(invitePath(
           request.resource.data.orgId,
           request.resource.data.acceptedInvitationId
@@ -320,8 +346,12 @@ service cloud.firestore {
           || (resource.data.status == 'pending' && resource.data.token is string);
         allow list: if canManageContent(orgId);
         allow create: if canManageContent(orgId)
-          && request.resource.data.invitedBy == request.auth.uid;
-        allow update: if canManageContent(orgId)
+          && request.resource.data.invitedBy == request.auth.uid
+          && canCreateInvitationForRole(orgId, request.resource.data.role);
+        allow update: if (
+            canManageContent(orgId)
+            && canCreateInvitationForRole(orgId, request.resource.data.role)
+          )
           || (
             signedIn()
             && resource.data.status == 'pending'
