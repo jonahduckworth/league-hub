@@ -249,7 +249,6 @@ void main() {
   group('Admin routes', () {
     const adminRoutes = [
       '/settings/roles',
-      '/settings/app-icon',
       '/settings/leagues',
     ];
 
@@ -755,6 +754,7 @@ void main() {
         '/announcements',
         '/settings',
         '/settings/profile',
+        '/settings/app-icon',
         '/settings/notifications',
         '/settings/privacy',
         '/chat/room123',
@@ -765,7 +765,6 @@ void main() {
       final staffDenied = [
         '/settings/users',
         '/settings/roles',
-        '/settings/app-icon',
         '/settings/leagues',
         '/policy/upload',
         '/announcements/create',
@@ -794,6 +793,7 @@ void main() {
         '/settings/profile',
         '/settings/notifications',
         '/settings/privacy',
+        '/settings/app-icon',
         '/settings/users',
         '/policy/upload',
         '/announcements/create',
@@ -806,7 +806,6 @@ void main() {
 
       final managerDenied = [
         '/settings/roles',
-        '/settings/app-icon',
         '/settings/leagues',
       ];
 

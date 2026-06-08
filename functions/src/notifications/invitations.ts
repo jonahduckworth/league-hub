@@ -1,6 +1,41 @@
 import { onDocumentCreated as onFirestoreCreated } from "firebase-functions/v2/firestore";
 import { db, sendNotification } from "../helpers";
 
+function toIsoString(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  const timestamp = value as { toDate?: () => Date } | undefined;
+  if (timestamp?.toDate) {
+    return timestamp.toDate().toISOString();
+  }
+
+  return new Date().toISOString();
+}
+
+async function ensureInvitationLookup(
+  token: string,
+  orgId: string,
+  invitationId: string,
+  data: FirebaseFirestore.DocumentData,
+): Promise<void> {
+  const lookupRef = db.collection("invitationLookups").doc(token);
+  await db.runTransaction(async (transaction) => {
+    const lookupDoc = await transaction.get(lookupRef);
+    if (lookupDoc.exists) return;
+
+    transaction.set(lookupRef, {
+      token,
+      orgId,
+      invitationId,
+      email: data.email || "",
+      status: data.status || "pending",
+      createdAt: toIsoString(data.createdAt),
+    });
+  });
+}
+
 /**
  * Triggers when a new invitation is created.
  * Path: organizations/{orgId}/invitations/{invitationId}
@@ -16,9 +51,15 @@ export const onInvitationCreated = onFirestoreCreated(
 
     const data = snapshot.data();
     const orgId = event.params.orgId;
+    const invitationId = event.params.invitationId;
+    const token = (data.token as string) || "";
     const inviteeEmail = (data.email as string) || "";
     const inviteeName = (data.displayName as string) || inviteeEmail;
     const invitedByName = (data.invitedByName as string) || "Someone";
+
+    if (token) {
+      await ensureInvitationLookup(token, orgId, invitationId, data);
+    }
 
     // Notify admins in the org about the new invitation.
     const adminsSnap = await db

@@ -29,8 +29,7 @@ class SettingsNavigationItem {
 }
 
 bool shouldShowAdministrationSettings(List<String> visibleTiles) {
-  return visibleTiles
-      .any((t) => ['leagues', 'users', 'roles', 'app-icon'].contains(t));
+  return visibleTiles.any((t) => ['leagues', 'users', 'roles'].contains(t));
 }
 
 List<SettingsNavigationItem> buildAdministrationSettingsItems({
@@ -57,17 +56,16 @@ List<SettingsNavigationItem> buildAdministrationSettingsItems({
         title: 'Roles & Permissions',
         route: '/settings/roles',
       ),
-    if (visibleTiles.contains('app-icon'))
-      const SettingsNavigationItem(
-        icon: Icons.apps,
-        title: 'App Icon',
-        route: '/settings/app-icon',
-      ),
   ];
 }
 
 List<SettingsNavigationItem> buildPreferenceSettingsItems() {
   return const [
+    SettingsNavigationItem(
+      icon: Icons.apps,
+      title: 'App Icon',
+      route: '/settings/app-icon',
+    ),
     SettingsNavigationItem(
       icon: Icons.notifications_outlined,
       title: 'Notifications',
