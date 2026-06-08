@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/league_branding.dart';
 import '../../core/utils.dart';
-import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/app_icon_service.dart';
@@ -48,36 +47,18 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
   }
 
   Future<void> _save() async {
-    final org = ref.read(organizationProvider).valueOrNull;
     final currentUser = await ref.read(currentUserProvider.future);
     if (currentUser == null) return;
 
     setState(() => _isApplying = true);
-    var syncedOrgPreference = true;
 
     try {
       await ref.read(appIconServiceProvider).setIcon(_selectedIconId);
 
-      if (org != null) {
-        try {
-          final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
-          await authorizedSvc.updateOrganization(
-            currentUser,
-            org.id,
-            {'appIcon': _selectedIconId},
-          );
-          ref.invalidate(organizationProvider);
-        } catch (_) {
-          syncedOrgPreference = false;
-        }
-      }
-
       if (!mounted) return;
       AppUtils.showSuccessSnackBar(
         context,
-        syncedOrgPreference
-            ? 'App icon updated on this device'
-            : 'App icon updated on this device. Sync failed.',
+        'App icon updated on this device',
       );
     } on AppIconUnsupportedException {
       if (mounted) {
@@ -100,8 +81,7 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
     final user = ref.watch(currentUserProvider).valueOrNull;
     final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
-    final canEdit = user?.role == UserRole.platformOwner ||
-        user?.role == UserRole.superAdmin;
+    final canEdit = user != null;
     final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
@@ -177,13 +157,6 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
               );
             },
           ),
-          if (!canEdit) ...[
-            const SizedBox(height: 18),
-            const _InfoCallout(
-              icon: Icons.lock_outline,
-              text: 'Only Admins can change the organization app icon.',
-            ),
-          ],
           if (!_supportsNativeIcons) ...[
             const SizedBox(height: 18),
             const _InfoCallout(

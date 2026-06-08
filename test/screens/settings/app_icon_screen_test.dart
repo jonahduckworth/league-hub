@@ -125,7 +125,7 @@ void main() {
       expect(find.text('Save'), findsOneWidget);
     });
 
-    testWidgets('hides Save button for staff users', (tester) async {
+    testWidgets('shows Save button for staff users', (tester) async {
       await tester.pumpWidget(_buildTestWidget(
         overrides: _overrides(
           fakeFirestore: fakeFirestore,
@@ -134,7 +134,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Save'), findsNothing);
+      expect(find.text('Save'), findsOneWidget);
     });
 
     testWidgets('default icon shows correct description', (tester) async {
@@ -200,6 +200,32 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(appIconService.appliedIconId, 'jphl');
+    });
+
+    testWidgets('save does not write an organization-wide icon preference',
+        (tester) async {
+      final appIconService = _FakeAppIconService();
+      await fakeFirestore.collection('organizations').doc('org-1').set(
+        _testOrg().toJson(),
+      );
+      await tester.pumpWidget(_buildTestWidget(
+        overrides: _overrides(
+          fakeFirestore: fakeFirestore,
+          user: _staffUser(),
+          appIconService: appIconService,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Soccer').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      final orgDoc =
+          await fakeFirestore.collection('organizations').doc('org-1').get();
+      expect(appIconService.appliedIconId, 'soccer');
+      expect(orgDoc.data(), isNot(containsPair('appIcon', 'soccer')));
     });
   });
 }

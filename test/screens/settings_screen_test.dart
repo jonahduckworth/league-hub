@@ -39,17 +39,15 @@ void main() {
 
     test('builds administration settings items with optional badge', () {
       final items = buildAdministrationSettingsItems(
-        visibleTiles: ['leagues', 'users', 'app-icon'],
+        visibleTiles: ['leagues', 'users'],
         pendingInviteCount: 3,
       );
 
       expect(items.map((item) => item.title).toList(), [
         'Manage Leagues & Hubs',
         'User Management',
-        'App Icon',
       ]);
       expect(items[1].badge, 3);
-      expect(items[2].route, '/settings/app-icon');
     });
 
     test('omits user badge when there are no pending invites', () {
@@ -65,6 +63,7 @@ void main() {
       final items = buildPreferenceSettingsItems();
 
       expect(items.map((item) => item.route).toList(), [
+        '/settings/app-icon',
         '/settings/notifications',
         '/settings/privacy',
       ]);
@@ -243,7 +242,12 @@ void main() {
         expect(find.text('User Management'), findsNothing);
         expect(find.text('Roles & Permissions'), findsNothing);
         expect(find.text('Branding & Appearance'), findsNothing);
-        expect(find.text('App Icon'), findsNothing);
+      });
+
+      testWidgets('sees App Icon preference', (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(user: staffUser));
+
+        expect(find.text('App Icon'), findsOneWidget);
       });
 
       testWidgets('sees Sign Out button', (WidgetTester tester) async {
@@ -303,13 +307,13 @@ void main() {
         expect(find.text('Manage Leagues & Hubs'), findsNothing);
         expect(find.text('Roles & Permissions'), findsNothing);
         expect(find.text('Branding & Appearance'), findsNothing);
-        expect(find.text('App Icon'), findsNothing);
       });
 
       testWidgets('sees Preferences section', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: managerAdmin));
 
         expect(find.text('PREFERENCES'), findsOneWidget);
+        expect(find.text('App Icon'), findsOneWidget);
         expect(find.text('Notifications'), findsOneWidget);
         expect(find.text('Privacy & Security'), findsOneWidget);
       });
@@ -339,7 +343,6 @@ void main() {
         expect(find.text('User Management'), findsOneWidget);
         expect(find.text('Roles & Permissions'), findsOneWidget);
         expect(find.text('Branding & Appearance'), findsNothing);
-        expect(find.text('App Icon'), findsOneWidget);
       });
 
       testWidgets('displays Owner badge', (WidgetTester tester) async {
@@ -360,7 +363,7 @@ void main() {
         expect(find.text('Roles Route'), findsOneWidget);
       });
 
-      testWidgets('app icon tile navigates to app icon route',
+      testWidgets('app icon preference tile navigates to app icon route',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget(user: superAdmin));
         await tester.pumpAndSettle();
@@ -407,7 +410,6 @@ void main() {
         expect(find.text('User Management'), findsOneWidget);
         expect(find.text('Roles & Permissions'), findsOneWidget);
         expect(find.text('Branding & Appearance'), findsNothing);
-        expect(find.text('App Icon'), findsOneWidget);
       });
 
       testWidgets('displays Owner badge', (WidgetTester tester) async {

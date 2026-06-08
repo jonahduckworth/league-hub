@@ -243,6 +243,7 @@ void main() {
         '/announcements',
         '/settings',
         '/settings/profile',
+        '/settings/app-icon',
         '/settings/notifications',
         '/settings/privacy'
       ]) {
@@ -273,7 +274,7 @@ void main() {
     });
 
     group('admin routes', () {
-      for (final route in ['/settings/roles', '/settings/app-icon']) {
+      for (final route in ['/settings/roles']) {
         test('$route accessible to superAdmin', () {
           expect(service.canAccessRoute(superAdmin(), route), isTrue);
         });

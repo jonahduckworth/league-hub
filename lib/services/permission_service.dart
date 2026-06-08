@@ -53,6 +53,7 @@ class PermissionService {
     '/settings/profile',
     '/settings/notifications',
     '/settings/privacy',
+    '/settings/app-icon',
   };
 
   /// Routes that require at least managerAdmin.
@@ -63,7 +64,6 @@ class PermissionService {
   /// Routes that require at least superAdmin.
   static const _adminRoutes = {
     '/settings/roles',
-    '/settings/app-icon',
     '/settings/leagues',
   };
 
@@ -493,6 +493,7 @@ class PermissionService {
   List<String> visibleSettingsTiles(AppUser user) {
     final tiles = <String>[
       'profile',
+      'app-icon',
       'notifications',
       'privacy',
     ];
@@ -500,7 +501,7 @@ class PermissionService {
       tiles.addAll(['users']);
     }
     if (isAtLeast(user.role, UserRole.superAdmin)) {
-      tiles.addAll(['roles', 'app-icon', 'leagues']);
+      tiles.addAll(['roles', 'leagues']);
     }
     return tiles;
   }
