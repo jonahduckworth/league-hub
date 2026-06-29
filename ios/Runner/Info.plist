@@ -42,6 +42,8 @@
 	<string>League Hub uses your camera so you can take profile, league, hub, team, and chat photos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>League Hub uses your location to show local weather on the home screen.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>League Hub uses your location to show local weather on the home screen.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>League Hub uses your photo library so you can choose profile, league, hub, team, and chat images.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
