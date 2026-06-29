@@ -152,6 +152,55 @@ void main() {
       expect(sections[2].rooms, [dmRoom]);
     });
 
+    test('orders chat rooms for flat display by latest activity', () {
+      final olderLeagueRoom = ChatRoom(
+        id: leagueRoom.id,
+        orgId: leagueRoom.orgId,
+        name: leagueRoom.name,
+        type: leagueRoom.type,
+        leagueId: leagueRoom.leagueId,
+        participants: leagueRoom.participants,
+        createdAt: baseTime,
+        isArchived: false,
+        lastMessageAt: baseTime.add(const Duration(minutes: 1)),
+      );
+      final newestEventRoom = ChatRoom(
+        id: eventRoom.id,
+        orgId: eventRoom.orgId,
+        name: eventRoom.name,
+        type: eventRoom.type,
+        participants: eventRoom.participants,
+        createdAt: baseTime,
+        isArchived: false,
+        lastMessageAt: baseTime.add(const Duration(minutes: 3)),
+      );
+      final middleDmRoom = ChatRoom(
+        id: dmRoom.id,
+        orgId: dmRoom.orgId,
+        name: dmRoom.name,
+        type: dmRoom.type,
+        participants: dmRoom.participants,
+        createdAt: baseTime,
+        isArchived: false,
+        lastMessageAt: baseTime.add(const Duration(minutes: 2)),
+      );
+      final ordered = orderChatRoomsForDisplay(
+          [middleDmRoom, newestEventRoom, olderLeagueRoom]);
+
+      expect(ordered, [newestEventRoom, middleDmRoom, olderLeagueRoom]);
+    });
+
+    test('filters chat rooms by selected room category', () {
+      final filtered = filterChatRooms(
+        rooms: [leagueRoom, eventRoom, dmRoom],
+        searchText: '',
+        selectedLeagueId: null,
+        roomFilter: ChatRoomListFilter.eventsAndTournaments,
+      );
+
+      expect(filtered, [eventRoom]);
+    });
+
     test('builds preview text from sender and message', () {
       final room = ChatRoom(
         id: leagueRoom.id,
@@ -1040,37 +1089,82 @@ void main() {
         expect(find.text('Direct Message'), findsOneWidget);
       });
 
-      testWidgets('shows league rooms section header',
+      testWidgets('shows chat type selector in requested order',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        expect(find.text('League Rooms'), findsOneWidget);
+        final all = find.byKey(const ValueKey('chat-type-filter-all'));
+        final leagueRooms =
+            find.byKey(const ValueKey('chat-type-filter-leagueRooms'));
+        final events =
+            find.byKey(const ValueKey('chat-type-filter-eventsAndTournaments'));
+        final directMessages =
+            find.byKey(const ValueKey('chat-type-filter-directMessages'));
+
+        expect(all, findsOneWidget);
+        expect(leagueRooms, findsOneWidget);
+        expect(events, findsOneWidget);
+        expect(directMessages, findsOneWidget);
+        expect(tester.getTopLeft(all).dx,
+            lessThan(tester.getTopLeft(leagueRooms).dx));
+        expect(tester.getTopLeft(leagueRooms).dx,
+            lessThan(tester.getTopLeft(events).dx));
+        expect(tester.getTopLeft(events).dx,
+            lessThan(tester.getTopLeft(directMessages).dx));
       });
 
-      testWidgets('shows events and tournaments section header',
+      testWidgets('selector defaults to all rooms',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        expect(find.text('Events & Tournaments'), findsOneWidget);
+        expect(find.text('Spring League Hub'), findsOneWidget);
+        expect(find.text('Tournament Bracket'), findsOneWidget);
+        await scrollRoomsUntilVisible(tester, find.text('Direct Message'));
+        expect(find.text('Direct Message'), findsOneWidget);
       });
 
-      testWidgets('shows direct messages section header',
+      testWidgets('selector filters to league rooms',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        expect(find.text('Direct Messages'), findsOneWidget);
+        await tester
+            .tap(find.byKey(const ValueKey('chat-type-filter-leagueRooms')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Spring League Hub'), findsOneWidget);
+        expect(find.text('Tournament Bracket'), findsNothing);
+        expect(find.text('Direct Message'), findsNothing);
       });
 
-      testWidgets('displays room count in section headers',
+      testWidgets('selector filters to events and tournaments',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        // Each section should show count
-        expect(find.text('1'), findsWidgets); // Count for each section
+        await tester.tap(find
+            .byKey(const ValueKey('chat-type-filter-eventsAndTournaments')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Spring League Hub'), findsNothing);
+        expect(find.text('Tournament Bracket'), findsOneWidget);
+        expect(find.text('Direct Message'), findsNothing);
+      });
+
+      testWidgets('selector filters to direct messages',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester
+            .tap(find.byKey(const ValueKey('chat-type-filter-directMessages')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Spring League Hub'), findsNothing);
+        expect(find.text('Tournament Bracket'), findsNothing);
+        expect(find.text('Direct Message'), findsOneWidget);
       });
 
       testWidgets('shows last message preview', (WidgetTester tester) async {
@@ -1163,7 +1257,7 @@ void main() {
     });
 
     group('Chat Room Sections Organization', () {
-      testWidgets('only shows sections with content',
+      testWidgets('keeps selector options visible with one room type',
           (WidgetTester tester) async {
         final onlyDirectRooms = [
           ChatRoom(
@@ -1182,25 +1276,35 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Should only show Direct Messages section
+        expect(
+            find.byKey(const ValueKey('chat-type-filter-all')), findsOneWidget);
+        expect(find.byKey(const ValueKey('chat-type-filter-leagueRooms')),
+            findsOneWidget);
+        expect(
+            find.byKey(const ValueKey('chat-type-filter-eventsAndTournaments')),
+            findsOneWidget);
+        expect(find.byKey(const ValueKey('chat-type-filter-directMessages')),
+            findsOneWidget);
         expect(find.text('Direct Messages'), findsOneWidget);
-        expect(find.text('League Rooms'), findsNothing);
-        expect(find.text('Events & Tournaments'), findsNothing);
+        expect(find.text('Direct Chat'), findsOneWidget);
       });
 
-      testWidgets('sections appear in correct order',
+      testWidgets('all view orders rooms by latest activity',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        // Get positions of section headers
-        final leagueRooms = find.text('League Rooms');
-        final eventRooms = find.text('Events & Tournaments');
-        final directMessages = find.text('Direct Messages');
+        final leagueRoom = find.text('Spring League Hub');
+        final eventRoom = find.text('Tournament Bracket');
+        final directMessage = find.text('Direct Message');
 
-        expect(leagueRooms, findsOneWidget);
-        expect(eventRooms, findsOneWidget);
-        expect(directMessages, findsOneWidget);
+        expect(leagueRoom, findsOneWidget);
+        expect(eventRoom, findsOneWidget);
+        expect(directMessage, findsOneWidget);
+        expect(tester.getTopLeft(directMessage).dy,
+            lessThan(tester.getTopLeft(eventRoom).dy));
+        expect(tester.getTopLeft(eventRoom).dy,
+            lessThan(tester.getTopLeft(leagueRoom).dy));
       });
     });
 
@@ -1363,8 +1467,8 @@ void main() {
 
         expect(find.text('Spring League'), findsOneWidget);
         expect(find.text('Fall League'), findsOneWidget);
-        // Section header should show count of 2
-        expect(find.text('League Rooms'), findsOneWidget);
+        expect(find.byKey(const ValueKey('chat-type-filter-leagueRooms')),
+            findsOneWidget);
       });
     });
 

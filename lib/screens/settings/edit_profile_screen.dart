@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,7 +25,9 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _emailController;
+  late TextEditingController _titleController;
+  late TextEditingController _phoneController;
+  late TextEditingController _addressController;
   bool _isLoading = false;
   bool _isUploadingPhoto = false;
   bool _initialized = false;
@@ -33,7 +36,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
+    _titleController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -44,18 +49,25 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     }
 
     if (user == null || user.id == _loadedUserId) return;
-    if (_nameController.text.isNotEmpty || _emailController.text.isNotEmpty) {
+    if (_nameController.text.isNotEmpty ||
+        _titleController.text.isNotEmpty ||
+        _phoneController.text.isNotEmpty ||
+        _addressController.text.isNotEmpty) {
       return;
     }
 
     _nameController.text = user.displayName;
-    _emailController.text = user.email;
+    _titleController.text = user.title ?? '';
+    _phoneController.text = user.phone ?? '';
+    _addressController.text = user.address ?? '';
     _loadedUserId = user.id;
   }
 
   void _initializeControllers(AppUser? user) {
     _nameController = TextEditingController(text: user?.displayName ?? '');
-    _emailController = TextEditingController(text: user?.email ?? '');
+    _titleController = TextEditingController(text: user?.title ?? '');
+    _phoneController = TextEditingController(text: user?.phone ?? '');
+    _addressController = TextEditingController(text: user?.address ?? '');
     _loadedUserId = user?.id;
     _initialized = true;
   }
@@ -124,11 +136,27 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     setState(() => _isLoading = true);
     try {
       final newName = _nameController.text.trim();
-      final newEmail = _emailController.text.trim();
 
       final updates = <String, dynamic>{};
       if (newName != user.displayName) updates['displayName'] = newName;
-      if (newEmail != user.email) updates['email'] = newEmail;
+      _putOptionalProfileUpdate(
+        updates,
+        field: 'title',
+        currentValue: user.title,
+        nextValue: _titleController.text,
+      );
+      _putOptionalProfileUpdate(
+        updates,
+        field: 'phone',
+        currentValue: user.phone,
+        nextValue: _phoneController.text,
+      );
+      _putOptionalProfileUpdate(
+        updates,
+        field: 'address',
+        currentValue: user.address,
+        nextValue: _addressController.text,
+      );
 
       if (updates.isNotEmpty) {
         // For profile self-edits, use raw FirestoreService with permission check
@@ -171,6 +199,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _putOptionalProfileUpdate(
+    Map<String, dynamic> updates, {
+    required String field,
+    required String? currentValue,
+    required String nextValue,
+  }) {
+    final current = (currentValue ?? '').trim();
+    final next = nextValue.trim();
+    if (next == current) return;
+    updates[field] = next.isEmpty ? FieldValue.delete() : next;
   }
 
   @override
@@ -283,20 +323,30 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             ),
             const SizedBox(height: 16),
             _GlassTextFormField(
-              controller: _emailController,
-              labelText: 'Email',
-              icon: Icons.email_outlined,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.done,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Email is required';
-                }
-                if (!value.contains('@')) {
-                  return 'Please enter a valid email';
-                }
-                return null;
-              },
+              controller: _titleController,
+              labelText: 'Title',
+              icon: Icons.work_outline,
+              textInputAction: TextInputAction.next,
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+            _GlassTextFormField(
+              controller: _phoneController,
+              labelText: 'Phone',
+              icon: Icons.phone_outlined,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 16),
+            _GlassTextFormField(
+              controller: _addressController,
+              labelText: 'Address',
+              icon: Icons.location_on_outlined,
+              keyboardType: TextInputType.streetAddress,
+              textInputAction: TextInputAction.newline,
+              textCapitalization: TextCapitalization.words,
+              minLines: 1,
+              maxLines: 3,
             ),
             const SizedBox(height: 16),
             _GlassTextFormField(
@@ -521,6 +571,9 @@ class _GlassTextFormField extends StatelessWidget {
   final bool readOnly;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
+  final TextCapitalization textCapitalization;
+  final int minLines;
+  final int maxLines;
   final FormFieldValidator<String>? validator;
 
   const _GlassTextFormField({
@@ -532,6 +585,9 @@ class _GlassTextFormField extends StatelessWidget {
     this.readOnly = false,
     this.keyboardType,
     this.textInputAction,
+    this.textCapitalization = TextCapitalization.none,
+    this.minLines = 1,
+    this.maxLines = 1,
     this.validator,
   });
 
@@ -561,6 +617,9 @@ class _GlassTextFormField extends StatelessWidget {
           readOnly: readOnly,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
+          textCapitalization: textCapitalization,
+          minLines: minLines,
+          maxLines: maxLines,
           cursorColor: AppGlassColors.aqua,
           style: TextStyle(
             color: fieldColor,

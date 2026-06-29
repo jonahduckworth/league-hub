@@ -6,6 +6,9 @@ class League {
   final String? description;
   final String? logoUrl;
   final String? iconName;
+  final String? websiteUrl;
+  final String? instagramUrl;
+  final String? xUrl;
   final DateTime createdAt;
 
   League({
@@ -16,6 +19,9 @@ class League {
     this.description,
     this.logoUrl,
     this.iconName,
+    this.websiteUrl,
+    this.instagramUrl,
+    this.xUrl,
     required this.createdAt,
   });
 
@@ -27,6 +33,9 @@ class League {
         description: json['description'] as String?,
         logoUrl: json['logoUrl'] as String?,
         iconName: json['iconName'] as String?,
+        websiteUrl: json['websiteUrl'] as String?,
+        instagramUrl: json['instagramUrl'] as String?,
+        xUrl: json['xUrl'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
       );
 
@@ -38,6 +47,9 @@ class League {
         'description': description,
         'logoUrl': logoUrl,
         'iconName': iconName,
+        'websiteUrl': websiteUrl,
+        'instagramUrl': instagramUrl,
+        'xUrl': xUrl,
         'createdAt': createdAt.toIso8601String(),
       };
 }

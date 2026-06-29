@@ -123,7 +123,7 @@ class NotificationsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               _buildSection(
                 title: 'DELIVERY',
                 children: [
@@ -152,32 +152,6 @@ class NotificationsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              AppGlassSurface(
-                padding: const EdgeInsets.all(16),
-                radius: 20,
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: AppGlassColors.aqua,
-                      size: 20,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Notification preferences sync with FCM topics. Changes take effect immediately for new notifications.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppGlassColors.inkSecondary,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ],
@@ -203,7 +177,7 @@ class NotificationsScreen extends ConsumerWidget {
         ),
         AppGlassSurface(
           padding: EdgeInsets.zero,
-          radius: 22,
+          radius: 20,
           child: Column(children: children),
         ),
       ],
@@ -218,8 +192,8 @@ class _GlassDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Divider(
       height: 1,
-      indent: 68,
-      color: Colors.white.withValues(alpha: 0.12),
+      indent: 54,
+      color: Colors.white.withValues(alpha: 0.1),
     );
   }
 }
@@ -242,24 +216,13 @@ class _ToggleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppGlassColors.aqua.withValues(alpha: 0.13),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppGlassColors.aqua.withValues(alpha: 0.24),
-          ),
-        ),
-        child: Icon(icon, color: AppGlassColors.aqua, size: 21),
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Icon(icon, color: AppGlassColors.aqua, size: 22),
       title: Text(title,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 15,
             color: AppGlassColors.ink,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
           )),
       subtitle: Text(
         subtitle,

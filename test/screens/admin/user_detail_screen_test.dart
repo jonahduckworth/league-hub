@@ -67,6 +67,9 @@ void main() {
       id: 'user-1',
       email: 'staff@example.com',
       displayName: 'John Doe',
+      title: 'Head Coach',
+      phone: '555-0112',
+      address: '34 Visitor Lane',
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: ['hub-1', 'hub-2'],
@@ -167,6 +170,13 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> scrollToText(WidgetTester tester, String text) async {
+      for (var i = 0; i < 8 && find.text(text).evaluate().isEmpty; i++) {
+        await tester.drag(find.byType(ListView), const Offset(0, -280));
+        await tester.pumpAndSettle();
+      }
+    }
+
     group('Screen Rendering', () {
       testWidgets('renders without crashing', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
@@ -205,8 +215,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // "Staff" appears in both the header badge and the info row
-        expect(find.text('Staff'), findsWidgets);
+        expect(find.text('Staff'), findsOneWidget);
       });
 
       testWidgets('shows user active status', (WidgetTester tester) async {
@@ -225,19 +234,45 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // Should show name and email
         expect(find.text('John Doe'), findsOneWidget);
         expect(find.text('staff@example.com'), findsOneWidget);
+        expect(find.text('Head Coach'), findsWidgets);
       });
 
-      testWidgets('shows role and status badges', (WidgetTester tester) async {
+      testWidgets('shows title and active status', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // "Staff" appears in both the header badge and the info row
-        expect(find.text('Staff'), findsWidgets);
+        expect(find.text('Head Coach'), findsWidgets);
         expect(find.text('Active'), findsOneWidget);
+      });
+    });
+
+    group('Contact Details', () {
+      testWidgets('shows phone and address', (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('CONTACT'), findsOneWidget);
+        expect(find.text('555-0112'), findsOneWidget);
+        expect(find.text('34 Visitor Lane'), findsOneWidget);
+      });
+
+      testWidgets('shows editable contact fields in edit mode',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Edit'));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.widgetWithText(TextFormField, 'Title'), findsOneWidget);
+        expect(find.widgetWithText(TextFormField, 'Phone'), findsOneWidget);
+        expect(find.widgetWithText(TextFormField, 'Address'), findsOneWidget);
       });
     });
 
@@ -297,6 +332,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'HUB ASSIGNMENTS');
         expect(find.text('HUB ASSIGNMENTS'), findsOneWidget);
       });
 
@@ -305,6 +341,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'Calgary Hub');
         // User has 2 hubs assigned
         expect(find.text('Calgary Hub'), findsOneWidget);
         expect(find.text('Edmonton Hub'), findsOneWidget);
@@ -315,6 +352,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'Calgary Hub');
         // Hub chips show hub names with location_city icon
         expect(find.text('Calgary Hub'), findsOneWidget);
         expect(find.text('Edmonton Hub'), findsOneWidget);
@@ -340,6 +378,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'No hubs assigned');
         expect(find.text('No hubs assigned'), findsOneWidget);
       });
     });
@@ -351,6 +390,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'TEAM ASSIGNMENTS');
         expect(find.text('TEAM ASSIGNMENTS'), findsOneWidget);
       });
 
@@ -360,6 +400,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'Calgary U18');
         expect(find.text('Calgary U18'), findsOneWidget);
         expect(find.text('Calgary Hub · U18 · AAA'), findsOneWidget);
       });
@@ -384,6 +425,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'No teams assigned');
         expect(find.text('No teams assigned'), findsOneWidget);
       });
     });
@@ -422,6 +464,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'HUB ASSIGNMENTS');
         // Should show checkboxes for hubs
         expect(find.byType(CheckboxListTile), findsWidgets);
       });
@@ -524,6 +567,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'DATES');
         expect(find.text('DATES'), findsOneWidget);
         expect(find.text('Joined'), findsOneWidget);
       });
@@ -545,7 +589,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('ROLE & ACCESS'), findsOneWidget);
+        expect(find.text('PROFILE'), findsOneWidget);
       });
 
       testWidgets('displays Hub Assignments section',
@@ -562,6 +606,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'DATES');
         expect(find.text('DATES'), findsOneWidget);
       });
     });
@@ -644,23 +689,21 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        await scrollToText(tester, 'TEAM ASSIGNMENTS');
         // All sections should be visible
-        expect(find.text('ROLE & ACCESS'), findsOneWidget);
-        expect(find.text('HUB ASSIGNMENTS'), findsOneWidget);
         expect(find.text('TEAM ASSIGNMENTS'), findsOneWidget);
+        await scrollToText(tester, 'DATES');
         expect(find.text('DATES'), findsOneWidget);
       });
     });
 
-    group('Role Badge Styling', () {
-      testWidgets('shows role badge with correct styling',
-          (WidgetTester tester) async {
+    group('Role Row Display', () {
+      testWidgets('shows role value', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        // Staff role badge should be visible
-        expect(find.text('Staff'), findsWidgets);
+        expect(find.text('Staff'), findsOneWidget);
       });
     });
 

@@ -11,8 +11,6 @@ import '../services/messaging_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
-import '../widgets/avatar_widget.dart';
-import 'settings/edit_profile_screen.dart';
 
 class SettingsNavigationItem {
   final IconData icon;
@@ -224,8 +222,6 @@ class _SettingsContent extends ConsumerWidget {
       padding:
           EdgeInsets.fromLTRB(16, topContentPadding, 16, bottomContentPadding),
       children: [
-        _ProfileCard(user: user),
-        const SizedBox(height: 24),
         if (showAdministrationSection)
           _SettingsSection(
             title: 'Administration',
@@ -279,105 +275,6 @@ class _SettingsContent extends ConsumerWidget {
                 style:
                     TextStyle(fontSize: 12, color: AppGlassColors.inkMuted))),
       ],
-    );
-  }
-}
-
-class _ProfileCard extends StatelessWidget {
-  final AppUser user;
-  const _ProfileCard({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      padding: const EdgeInsets.all(20),
-      radius: 24,
-      child: Row(
-        children: [
-          AvatarWidget(
-            imageUrl: user.avatarUrl,
-            name: user.displayName,
-            size: 60,
-            backgroundColor: Colors.white.withValues(alpha: 0.3),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(user.displayName,
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white)),
-                const SizedBox(height: 4),
-                Text(user.email,
-                    style:
-                        const TextStyle(fontSize: 13, color: Colors.white70)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _RoleBadge(label: user.roleLabel),
-                    const SizedBox(width: 8),
-                    if (user.role == UserRole.platformOwner ||
-                        user.role == UserRole.superAdmin)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.warning,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text('Owner',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold)),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-              icon: const Icon(Icons.edit_outlined, color: Colors.white),
-              onPressed: () {
-                if (GoRouter.maybeOf(context) != null) {
-                  context.push('/settings/profile');
-                  return;
-                }
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const EditProfileScreen(),
-                  ),
-                );
-              }),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoleBadge extends StatelessWidget {
-  final String label;
-  const _RoleBadge({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppGlassColors.aqua.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppGlassColors.aqua.withValues(alpha: 0.28)),
-      ),
-      child: Text(label,
-          style: const TextStyle(
-              color: AppGlassColors.aqua,
-              fontSize: 11,
-              fontWeight: FontWeight.w700)),
     );
   }
 }

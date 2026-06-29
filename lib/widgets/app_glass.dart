@@ -221,3 +221,33 @@ class AppGlassIconTile extends StatelessWidget {
     );
   }
 }
+
+class AppGlassFloatingActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final Color color;
+
+  const AppGlassFloatingActionButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.color = AppGlassColors.aqua,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: AppGlassSurface(
+        width: 56,
+        height: 56,
+        padding: EdgeInsets.zero,
+        radius: 28,
+        onTap: onTap,
+        child: Icon(icon, color: color, size: 30),
+      ),
+    );
+  }
+}

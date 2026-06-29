@@ -84,31 +84,6 @@ class RolesPermissionsScreen extends ConsumerWidget {
           appShellBottomPadding(context, extra: 24),
         ),
         children: [
-          AppGlassSurface(
-            padding: const EdgeInsets.all(16),
-            radius: 24,
-            child: const Row(
-              children: [
-                _RoleIconBubble(
-                  icon: Icons.lock_person_outlined,
-                  accent: AppGlassColors.aqua,
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Ownership-level access stays reserved on the backend. Assign day-to-day access with the roles below.',
-                    style: TextStyle(
-                      color: AppGlassColors.inkSecondary,
-                      fontSize: 13,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
           for (final role in _roles) ...[
             _RoleCard(
               definition: role,

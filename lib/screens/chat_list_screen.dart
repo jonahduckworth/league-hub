@@ -17,6 +17,21 @@ import '../widgets/chat_room_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 
+const double _chatTypeSelectorHeight = 44;
+const double _leagueFilterHeight = 38;
+const double _stickyFilterGap = 8;
+
+enum ChatRoomListFilter {
+  all('All'),
+  leagueRooms('League Rooms'),
+  eventsAndTournaments('Events & Tournaments'),
+  directMessages('Direct Messages');
+
+  final String label;
+
+  const ChatRoomListFilter(this.label);
+}
+
 class ChatRoomSectionData {
   final String title;
   final List<ChatRoom> rooms;
@@ -55,6 +70,7 @@ List<ChatRoom> filterChatRooms({
   required List<ChatRoom> rooms,
   required String searchText,
   required String? selectedLeagueId,
+  ChatRoomListFilter roomFilter = ChatRoomListFilter.all,
 }) {
   var filtered = rooms;
 
@@ -69,6 +85,16 @@ List<ChatRoom> filterChatRooms({
             r.leagueId == selectedLeagueId || r.type == ChatRoomType.direct)
         .toList();
   }
+
+  filtered = switch (roomFilter) {
+    ChatRoomListFilter.all => filtered,
+    ChatRoomListFilter.leagueRooms =>
+      filtered.where((r) => r.type == ChatRoomType.league).toList(),
+    ChatRoomListFilter.eventsAndTournaments =>
+      filtered.where((r) => r.type == ChatRoomType.event).toList(),
+    ChatRoomListFilter.directMessages =>
+      filtered.where((r) => r.type == ChatRoomType.direct).toList(),
+  };
 
   return filtered;
 }
@@ -90,6 +116,21 @@ List<ChatRoomSectionData> buildChatRoomSections(List<ChatRoom> rooms) {
   ];
 
   return sections.where((section) => section.rooms.isNotEmpty).toList();
+}
+
+DateTime chatRoomActivityAt(ChatRoom room) {
+  return room.lastMessageAt ?? room.createdAt;
+}
+
+List<ChatRoom> orderChatRoomsForDisplay(List<ChatRoom> rooms) {
+  final ordered = [...rooms];
+  ordered.sort((a, b) {
+    final activityCompare =
+        chatRoomActivityAt(b).compareTo(chatRoomActivityAt(a));
+    if (activityCompare != 0) return activityCompare;
+    return a.name.compareTo(b.name);
+  });
+  return ordered;
 }
 
 String chatRoomImageContentType(String ext) {
@@ -271,6 +312,7 @@ class ChatListScreen extends ConsumerStatefulWidget {
 
 class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   String? _selectedLeagueId;
+  ChatRoomListFilter _selectedRoomFilter = ChatRoomListFilter.all;
 
   @override
   Widget build(BuildContext context) {
@@ -282,37 +324,40 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final leagues = leaguesAsync.valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
     final showLeagueFilter = leagues.length > 1;
+    final stickyHeight = _chatTypeSelectorHeight +
+        (showLeagueFilter ? _stickyFilterGap + _leagueFilterHeight : 0);
     final topContentPadding = appShellTopPadding(
       context,
-      stickyHeight: showLeagueFilter ? 38 : 0,
+      extra: 8,
+      stickyHeight: stickyHeight,
       stickySpacing: 8,
     );
 
     return AppShellScaffold(
       floatingActionButton: orgId == null
           ? null
-          : AppGlassSurface(
-              width: 56,
-              height: 56,
-              padding: EdgeInsets.zero,
-              radius: 28,
+          : AppGlassFloatingActionButton(
+              icon: Icons.add,
+              tooltip: 'New chat',
               onTap: () => context.push('/chat/new'),
-              child: const Icon(Icons.add, color: AppGlassColors.aqua),
             ),
       header: AppShellHeader(
         leadingIcon: Icons.forum_outlined,
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',
-        showBackButton: true,
         title: 'Messages',
       ),
-      stickyContent: showLeagueFilter
-          ? LeagueFilter(
-              leagues: leagues,
-              selectedLeagueId: _selectedLeagueId,
-              onSelected: (id) => setState(() => _selectedLeagueId = id),
-            )
-          : null,
+      stickyContent: _ChatListStickyFilters(
+        selectedRoomFilter: _selectedRoomFilter,
+        onRoomFilterSelected: (filter) {
+          setState(() => _selectedRoomFilter = filter);
+        },
+        showLeagueFilter: showLeagueFilter,
+        leagues: leagues,
+        selectedLeagueId: _selectedLeagueId,
+        onLeagueSelected: (id) => setState(() => _selectedLeagueId = id),
+      ),
+      topSpacing: 8,
       stickySpacing: 8,
       child: chatRoomsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -322,8 +367,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             rooms: rooms,
             searchText: '',
             selectedLeagueId: _selectedLeagueId,
+            roomFilter: _selectedRoomFilter,
           );
-          final sections = buildChatRoomSections(filtered);
+          final visibleRooms = orderChatRoomsForDisplay(filtered);
 
           if (filtered.isEmpty) {
             return const EmptyState(
@@ -337,14 +383,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             padding: EdgeInsets.fromLTRB(
                 16, topContentPadding, 16, bottomContentPadding),
             children: [
-              for (var index = 0; index < sections.length; index++) ...[
-                if (index > 0) const SizedBox(height: 16),
-                _SectionHeader(
-                  title: sections[index].title,
-                  count: sections[index].rooms.length,
-                ),
-                ...sections[index].rooms.map((r) => _ChatRoomTile(room: r)),
-              ],
+              for (final room in visibleRooms) _ChatRoomTile(room: room),
             ],
           );
         },
@@ -353,40 +392,128 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Section header
-// ---------------------------------------------------------------------------
+class _ChatListStickyFilters extends StatelessWidget {
+  final ChatRoomListFilter selectedRoomFilter;
+  final ValueChanged<ChatRoomListFilter> onRoomFilterSelected;
+  final bool showLeagueFilter;
+  final List<League> leagues;
+  final String? selectedLeagueId;
+  final ValueChanged<String?> onLeagueSelected;
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final int count;
-  const _SectionHeader({required this.title, required this.count});
+  const _ChatListStickyFilters({
+    required this.selectedRoomFilter,
+    required this.onRoomFilterSelected,
+    required this.showLeagueFilter,
+    required this.leagues,
+    required this.selectedLeagueId,
+    required this.onLeagueSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppGlassColors.inkMuted,
-                  letterSpacing: 0.5)),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10)),
-            child: Text('$count',
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppGlassColors.inkSecondary)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ChatTypeSelector(
+          selected: selectedRoomFilter,
+          onSelected: onRoomFilterSelected,
+        ),
+        if (showLeagueFilter) ...[
+          const SizedBox(height: _stickyFilterGap),
+          LeagueFilter(
+            leagues: leagues,
+            selectedLeagueId: selectedLeagueId,
+            onSelected: onLeagueSelected,
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _ChatTypeSelector extends StatelessWidget {
+  final ChatRoomListFilter selected;
+  final ValueChanged<ChatRoomListFilter> onSelected;
+
+  const _ChatTypeSelector({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _chatTypeSelectorHeight,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          for (final filter in ChatRoomListFilter.values)
+            _ChatTypePill(
+              key: ValueKey('chat-type-filter-${filter.name}'),
+              label: filter.label,
+              isSelected: selected == filter,
+              onTap: () => onSelected(filter),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatTypePill extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ChatTypePill({
+    super.key,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: _chatTypeSelectorHeight,
+          alignment: Alignment.center,
+          margin: const EdgeInsets.only(right: 8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppGlassColors.aqua.withValues(alpha: 0.22)
+                  : Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: isSelected
+                    ? AppGlassColors.aqua.withValues(alpha: 0.5)
+                    : AppGlassColors.border,
+              ),
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                color:
+                    isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                height: 1,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

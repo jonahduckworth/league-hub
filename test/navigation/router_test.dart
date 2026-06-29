@@ -154,9 +154,12 @@ void main() {
   group('Public routes', () {
     const publicRoutes = [
       '/',
+      '/contacts',
       '/chat',
       '/policy',
       '/announcements',
+      '/profile',
+      '/profile/edit',
       '/settings',
       '/settings/profile',
       '/settings/notifications',
@@ -199,6 +202,14 @@ void main() {
       test('/settings/profile/ is equivalent to /settings/profile', () {
         expect(ps.canAccessRoute(staff(), '/settings/profile/'), isTrue);
       });
+
+      test('/profile/edit/ is equivalent to /profile/edit', () {
+        expect(ps.canAccessRoute(staff(), '/profile/edit/'), isTrue);
+      });
+
+      test('/contacts/:userId is available to active users', () {
+        expect(ps.canAccessRoute(staff(), '/contacts/user-1'), isTrue);
+      });
     });
   });
 
@@ -207,7 +218,11 @@ void main() {
   // =========================================================================
 
   group('Manager routes (/settings/users)', () {
-    const managerRoutes = ['/settings/users', '/settings/users/invite'];
+    const managerRoutes = [
+      '/settings/users',
+      '/settings/users/invite',
+      '/settings/users/invitations',
+    ];
 
     group('platformOwner can access', () {
       for (final route in managerRoutes) {

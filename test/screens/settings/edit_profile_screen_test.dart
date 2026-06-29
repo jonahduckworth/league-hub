@@ -14,6 +14,9 @@ AppUser _testUser() => AppUser(
       id: 'u1',
       email: 'test@example.com',
       displayName: 'Test User',
+      title: 'Head Coach',
+      phone: '555-0101',
+      address: '1 Main Arena',
       role: UserRole.platformOwner,
       orgId: 'org-1',
       hubIds: [],
@@ -39,6 +42,21 @@ void main() {
   late FakeFirebaseFirestore fakeFirestore;
   late MockFirebaseAuth mockAuth;
 
+  Future<void> scrollToText(WidgetTester tester, String text) async {
+    for (var i = 0; i < 8 && find.text(text).evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -220));
+      await tester.pumpAndSettle();
+    }
+  }
+
+  Future<void> scrollToChangePassword(WidgetTester tester) async {
+    await scrollToText(tester, 'Change Password');
+  }
+
+  Future<void> scrollToRole(WidgetTester tester) async {
+    await scrollToText(tester, 'Role');
+  }
+
   setUp(() {
     fakeFirestore = FakeFirebaseFirestore();
     mockAuth = MockFirebaseAuth();
@@ -61,7 +79,12 @@ void main() {
       expect(find.text('Edit Profile'), findsOneWidget);
       expect(find.text('Save'), findsOneWidget);
       expect(find.text('Display Name'), findsOneWidget);
-      expect(find.text('Email'), findsOneWidget);
+      expect(find.text('Title'), findsOneWidget);
+      expect(find.text('Email'), findsNothing);
+      expect(find.text('test@example.com'), findsNothing);
+      expect(find.text('Phone'), findsOneWidget);
+      expect(find.text('Address'), findsOneWidget);
+      await scrollToRole(tester);
       expect(find.text('Role'), findsOneWidget);
     });
 
@@ -78,6 +101,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
+      await scrollToChangePassword(tester);
       expect(find.text('Change Password'), findsOneWidget);
     });
 
@@ -94,6 +118,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
+      await scrollToChangePassword(tester);
       await tester.tap(find.text('Change Password'));
       await tester.pumpAndSettle();
 
@@ -129,7 +154,7 @@ void main() {
       expect(find.text('Display name is required'), findsOneWidget);
     });
 
-    testWidgets('validates invalid email on save', (tester) async {
+    testWidgets('does not render an email field', (tester) async {
       final user = _testUser();
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
@@ -143,13 +168,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final emailField = find.widgetWithText(TextFormField, 'Email');
-      await tester.enterText(emailField, 'invalid');
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Save'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Please enter a valid email'), findsOneWidget);
+      expect(emailField, findsNothing);
+      expect(find.text('test@example.com'), findsNothing);
     });
 
     testWidgets('renders AvatarWidget', (tester) async {

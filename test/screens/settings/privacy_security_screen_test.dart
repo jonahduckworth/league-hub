@@ -61,7 +61,7 @@ void main() {
       expect(find.text('Update your account password'), findsOneWidget);
     });
 
-    testWidgets('shows user email address', (tester) async {
+    testWidgets('does not expose email address updates', (tester) async {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => _testUser()),
@@ -70,7 +70,9 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('test@example.com'), findsOneWidget);
+      expect(find.text('Email Address'), findsNothing);
+      expect(find.text('test@example.com'), findsNothing);
+      expect(find.text('Change Email'), findsNothing);
     });
 
     testWidgets('hides unbuilt or destructive actions', (tester) async {
@@ -105,25 +107,6 @@ void main() {
       expect(find.text('New Password'), findsOneWidget);
       expect(find.text('Confirm New Password'), findsOneWidget);
       expect(find.text('Update'), findsOneWidget);
-    });
-
-    testWidgets('tapping Email Address opens dialog', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => _testUser()),
-        ],
-      ));
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Email Address'));
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      expect(find.text('Change Email'), findsOneWidget);
-      expect(find.text('New Email'), findsOneWidget);
-      expect(find.text('Current Password (to confirm)'), findsOneWidget);
-      expect(find.text('Send Verification'), findsOneWidget);
     });
   });
 }

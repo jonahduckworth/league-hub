@@ -46,9 +46,12 @@ class PermissionService {
   /// Routes that any authenticated + active user can access.
   static const _publicRoutes = {
     '/',
+    '/contacts',
     '/chat',
     '/policy',
     '/announcements',
+    '/profile',
+    '/profile/edit',
     '/settings',
     '/settings/profile',
     '/settings/notifications',
@@ -98,6 +101,7 @@ class PermissionService {
     // Dynamic routes — chat conversations, policy detail, announcement
     // detail, user detail, and announcement edit are accessible to all active
     // users (the data-layer scope filters handle visibility).
+    if (normalised.startsWith('/contacts/')) return true;
     if (normalised.startsWith('/chat/')) return true;
     if (normalised.startsWith('/policy/') && normalised != '/policy/upload') {
       return true;

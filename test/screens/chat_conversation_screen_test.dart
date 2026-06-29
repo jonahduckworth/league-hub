@@ -8,6 +8,7 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/chat_conversation_screen.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/app_shell_scaffold.dart';
 import 'package:league_hub/widgets/avatar_widget.dart';
 
 void main() {
@@ -64,7 +65,20 @@ void main() {
       ChatRoom? room,
       List<Message>? messages,
       List<String>? typingUsers,
+      MediaQueryData? mediaQueryData,
+      double? bottomNavPadding,
     }) {
+      Widget screen = const ChatConversationScreen(roomId: 'room-1');
+      if (bottomNavPadding != null) {
+        screen = AppShellNavigationScope(
+          bottomPadding: bottomNavPadding,
+          child: screen,
+        );
+      }
+      if (mediaQueryData != null) {
+        screen = MediaQuery(data: mediaQueryData, child: screen);
+      }
+
       return ProviderScope(
         overrides: [
           currentUserProvider.overrideWith(
@@ -98,7 +112,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
-          home: ChatConversationScreen(roomId: 'room-1'),
+          home: screen,
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
@@ -221,6 +235,28 @@ void main() {
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), 'Test message');
         expect(find.text('Test message'), findsOneWidget);
+      });
+
+      testWidgets('keeps composer above shell bottom navigation',
+          (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(393, 852));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          createTestWidget(
+            mediaQueryData: const MediaQueryData(
+              size: Size(393, 852),
+              padding: EdgeInsets.only(top: 59, bottom: 34),
+              textScaler: TextScaler.linear(1.15),
+            ),
+            bottomNavPadding: 84,
+          ),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getCenter(find.byIcon(Icons.send)).dy, lessThan(730));
       });
     });
 

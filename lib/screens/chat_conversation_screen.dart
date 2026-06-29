@@ -35,6 +35,9 @@ class ChatConversationScreen extends ConsumerStatefulWidget {
 
 class _ChatConversationScreenState
     extends ConsumerState<ChatConversationScreen> {
+  static const double _inputBarHeight = 56;
+  static const double _editBannerHeight = 52;
+
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   bool _isSending = false;
@@ -323,6 +326,13 @@ class _ChatConversationScreenState
             : null;
 
     final topContentPadding = appShellTopPadding(context);
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final composerBottomInset = keyboardInset > 0
+        ? keyboardInset + 8
+        : appShellBottomPadding(context, extra: 8);
+    final composerHeight =
+        _inputBarHeight + (_editingMessageId != null ? _editBannerHeight : 0);
+    final messagesBottomPadding = composerBottomInset + composerHeight + 12;
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -339,47 +349,59 @@ class _ChatConversationScreenState
           onInfo: () => context.push('/chat/${widget.roomId}/info'),
         ),
       ),
-      child: Column(
+      child: Stack(
         children: [
-          Expanded(
+          Positioned.fill(
             child: messagesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Text(
-                  'Error loading messages: $e',
-                  style: const TextStyle(color: AppGlassColors.rose),
-                ),
-              ),
-              data: (messages) {
-                if (messages.isEmpty) {
-                  return Padding(
-                    padding: EdgeInsets.only(top: topContentPadding),
-                    child: const EmptyState(
-                      icon: Icons.chat_bubble_outline,
-                      title: 'No messages yet',
-                      subtitle: 'Be the first to say something!',
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                      child: Text(
+                        'Error loading messages: $e',
+                        style: const TextStyle(color: AppGlassColors.rose),
+                      ),
                     ),
+                data: (messages) {
+                  if (messages.isEmpty) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        top: topContentPadding,
+                        bottom: messagesBottomPadding,
+                      ),
+                      child: const EmptyState(
+                        icon: Icons.chat_bubble_outline,
+                        title: 'No messages yet',
+                        subtitle: 'Be the first to say something!',
+                      ),
+                    );
+                  }
+
+                  final items = _buildMessageItems(messages, currentUser?.id);
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      0,
+                      topContentPadding,
+                      0,
+                      messagesBottomPadding,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) => items[index],
                   );
-                }
-
-                final items = _buildMessageItems(messages, currentUser?.id);
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.fromLTRB(
-                    0,
-                    topContentPadding,
-                    0,
-                    12,
-                  ),
-                  itemCount: items.length,
-                  itemBuilder: (context, index) => items[index],
-                );
-              },
+                }),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: composerBottomInset,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_editingMessageId != null) _buildEditBanner(),
+                _buildInputBar(),
+              ],
             ),
           ),
-          if (_editingMessageId != null) _buildEditBanner(),
-          _buildInputBar(),
         ],
       ),
     );
@@ -458,12 +480,7 @@ class _ChatConversationScreenState
 
   Widget _buildInputBar() {
     return Padding(
-      padding: EdgeInsets.only(
-        left: 12,
-        right: 12,
-        top: 8,
-        bottom: MediaQuery.paddingOf(context).bottom + 10,
-      ),
+      padding: const EdgeInsets.only(left: 12, right: 12, top: 8),
       child: Row(
         children: [
           AppGlassSurface(
@@ -501,6 +518,8 @@ class _ChatConversationScreenState
                 child: TextField(
                   controller: _messageController,
                   cursorColor: AppGlassColors.aqua,
+                  minLines: 1,
+                  maxLines: 4,
                   style: const TextStyle(
                     color: AppGlassColors.ink,
                     fontSize: 15,
@@ -522,7 +541,6 @@ class _ChatConversationScreenState
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  maxLines: null,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _sendMessage(),
                 ),

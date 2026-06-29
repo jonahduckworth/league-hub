@@ -1,22 +1,23 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/league_branding.dart';
 import '../core/utils.dart';
-import '../models/announcement.dart';
 import '../models/app_user.dart';
-import '../models/chat_room.dart';
-import '../navigation/announcement_navigation_source.dart';
-import '../navigation/chat_navigation_source.dart';
+import '../models/league.dart';
+import '../models/weather_snapshot.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
-import '../screens/chat_list_screen.dart';
+import '../providers/weather_provider.dart';
+import '../services/weather_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
-import '../widgets/chat_room_avatar.dart';
+import '../widgets/glass_bottom_nav.dart';
 import '../widgets/league_filter.dart';
-import '../widgets/avatar_widget.dart';
+import '../widgets/profile_summary_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -26,44 +27,42 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  String? _selectedLeagueId;
-  final TextEditingController _searchController = TextEditingController();
+  static const double _homeHeaderExtraSpacing = 8;
+  static const double _bottomNavBottomInset = 12;
+  static const double _quickLinksHeight = 52;
+  static const double _quickLinksContentGap = 12;
+  static const double _quickLinksNavGap = 40;
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  String? _selectedLeagueId;
 
   @override
   Widget build(BuildContext context) {
-    final bottomContentPadding = appShellBottomPadding(context);
+    final quickLinksBottomOffset = MediaQuery.viewPaddingOf(context).bottom +
+        leagueHubGlassBottomNavBarHeight +
+        _bottomNavBottomInset +
+        _quickLinksNavGap;
+    final bottomContentPadding =
+        quickLinksBottomOffset + _quickLinksHeight + _quickLinksContentGap;
     final leaguesAsync = ref.watch(leaguesProvider);
     final org = ref.watch(organizationProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
 
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
-    final headerImageUrl = headerLeague?.logoUrl;
     final headerLabel = headerLeague?.name ?? org?.name ?? 'League Hub';
     final topContentPadding = appShellTopPadding(
       context,
-      extra: 0,
+      extra: _homeHeaderExtraSpacing,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
 
     return AppShellScaffold(
       header: AppShellHeader(
         title: headerLabel,
-        content: Row(
-          children: [
-            Expanded(child: _buildSearchBar(context)),
-            const SizedBox(width: 12),
-            AppHeaderLogoMark(
-              imageUrl: headerImageUrl,
-              label: headerLabel,
-            ),
-          ],
+        content: _GreetingRow(
+          leagueLogoUrl: headerLeague?.logoUrl,
+          leagueLabel: headerLeague?.name ?? headerLabel,
         ),
       ),
       stickyContent: showLeagueFilter
@@ -73,330 +72,123 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onSelected: (id) => setState(() => _selectedLeagueId = id),
             )
           : null,
-      topSpacing: 0,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-            16, topContentPadding, 16, bottomContentPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      topSpacing: _homeHeaderExtraSpacing,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                topContentPadding,
+                16,
+                bottomContentPadding,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _HomeProfileCard(
+                    user: currentUser,
+                    onProfileTap: () => context.go('/profile'),
+                  ),
+                  const SizedBox(height: 18),
+                  const _SectionHeading(
+                    icon: Icons.grid_view_rounded,
+                    label: 'Quick Access',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildHomeGrid(context),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: quickLinksBottomOffset,
+            child: _QuickLinksRow(
+              league: headerLeague,
+              fallbackLabel: headerLabel,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeGrid(BuildContext context) {
+    return Column(
+      children: [
+        Row(
           children: [
-            _buildAnnouncementsSection(),
-            const SizedBox(height: 18),
-            _buildNavigationTiles(context),
-            const SizedBox(height: 24),
-            _buildChatsSection(),
+            Expanded(
+              child: _CompactHomeTile(
+                icon: Icons.folder_copy_outlined,
+                label: 'Policy',
+                subtitle: 'Files and rules',
+                accentColor: AppGlassColors.aqua,
+                onTap: () => context.go('/policy'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: _WeatherHomeTile()),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSearchBar(BuildContext context) {
-    return AppGlassSurface(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      radius: 22,
-      child: Row(
-        children: [
-          const Icon(
-            Icons.search,
-            color: AppGlassColors.inkSecondary,
-            size: 22,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              cursorColor: AppGlassColors.aqua,
-              textInputAction: TextInputAction.search,
-              style: const TextStyle(
-                color: AppGlassColors.ink,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _CompactHomeTile(
+                icon: Icons.contacts_outlined,
+                label: 'Contacts',
+                subtitle: 'People and roles',
+                accentColor: AppGlassColors.rose,
+                onTap: () => context.go('/contacts'),
               ),
-              decoration: const InputDecoration(
-                hintText: 'Search chats, policies, announcements...',
-                hintStyle: TextStyle(
-                  color: AppGlassColors.inkMuted,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                isDense: true,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-              onSubmitted: (query) => _submitSearch(context, query),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _submitSearch(BuildContext context, String query) {
-    if (query.trim().isEmpty) return;
-    FocusScope.of(context).unfocus();
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Search'),
-        content: const Text('Search functionality is coming soon.'),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavigationTiles(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: AppGlassIconTile(
-            icon: Icons.folder_copy_outlined,
-            label: 'Policies',
-            subtitle: 'Files and rules',
-            accentColor: AppGlassColors.aqua,
-            onTap: () => context.go('/policy'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: AppGlassIconTile(
-            icon: Icons.settings_outlined,
-            label: 'Settings',
-            subtitle: 'Profile and tools',
-            accentColor: AppGlassColors.gold,
-            onTap: () => context.go('/settings'),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _CompactHomeTile(
+                icon: Icons.settings_outlined,
+                label: 'Settings',
+                subtitle: 'Profile and tools',
+                accentColor: AppGlassColors.gold,
+                onTap: () => context.go('/settings'),
+              ),
+            ),
+          ],
         ),
       ],
     );
-  }
-
-  Widget _buildAnnouncementsSection() {
-    final announcements = ref.watch(announcementsProvider).valueOrNull ?? [];
-    final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
-    final recent = announcements.take(5).toList();
-    final cardWidth =
-        (MediaQuery.sizeOf(context).width * 0.82).clamp(292.0, 340.0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Announcements',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppGlassColors.ink)),
-              TextButton(
-                onPressed: () => context.go('/announcements'),
-                child: const Text('See All'),
-              ),
-            ],
-          ),
-        ),
-        if (recent.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              'No announcements yet.',
-              style: TextStyle(fontSize: 13, color: AppGlassColors.inkMuted),
-            ),
-          )
-        else
-          SizedBox(
-            height: 212,
-            child: ListView.separated(
-              clipBehavior: Clip.none,
-              scrollDirection: Axis.horizontal,
-              itemCount: recent.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                if (index == recent.length) {
-                  return _AnnouncementSeeAllCard(
-                    width: cardWidth.toDouble(),
-                    onTap: () => context.go('/announcements'),
-                  );
-                }
-
-                final announcement = recent[index];
-                return SizedBox(
-                  width: cardWidth.toDouble(),
-                  child: _AnnouncementCard(
-                    announcement: announcement,
-                    author: _userById(users, announcement.authorId),
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildChatsSection() {
-    final chatRooms = ref.watch(chatRoomsProvider).valueOrNull ?? [];
-    final currentUser = ref.watch(currentUserProvider).valueOrNull;
-    final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Active Chats',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppGlassColors.ink)),
-              TextButton(
-                onPressed: () => context.go('/chat'),
-                child: const Text('See All'),
-              ),
-            ],
-          ),
-        ),
-        if (chatRooms.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              'No chat rooms yet. Go to Messages to create one.',
-              style: TextStyle(fontSize: 13, color: AppGlassColors.inkMuted),
-            ),
-          )
-        else
-          ...chatRooms.take(3).map((c) => _ChatCard(
-                chatRoom: c,
-                currentUser: currentUser,
-                users: users,
-              )),
-      ],
-    );
-  }
-
-  AppUser? _userById(List<AppUser> users, String id) {
-    for (final user in users) {
-      if (user.id == id) return user;
-    }
-    return null;
   }
 }
 
-class _AnnouncementCard extends StatelessWidget {
-  final Announcement announcement;
-  final AppUser? author;
+class _SectionHeading extends StatelessWidget {
+  final IconData icon;
+  final String label;
 
-  const _AnnouncementCard({
-    required this.announcement,
-    required this.author,
+  const _SectionHeading({
+    required this.icon,
+    required this.label,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AppGlassSurface(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(16),
-      radius: 22,
-      onTap: () => context.go(
-        '/announcements/${announcement.id}',
-        extra: AnnouncementNavigationSource.dashboardCard,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              if (announcement.isPinned)
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppGlassColors.gold.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppGlassColors.gold.withValues(alpha: 0.28),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.push_pin,
-                          size: 12, color: AppGlassColors.gold),
-                      SizedBox(width: 4),
-                      Text('Pinned',
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: AppGlassColors.gold,
-                              fontWeight: FontWeight.w700)),
-                    ],
-                  ),
-                ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppGlassColors.aqua.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppGlassColors.aqua.withValues(alpha: 0.22),
-                  ),
-                ),
-                child: Text(announcement.scopeLabel,
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: AppGlassColors.aqua,
-                        fontWeight: FontWeight.w700)),
-              ),
-            ],
+          Icon(
+            icon,
+            color: AppGlassColors.ink.withValues(alpha: 0.9),
+            size: 18,
           ),
-          const SizedBox(height: 10),
-          Text(announcement.title,
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppGlassColors.ink)),
-          const SizedBox(height: 5),
-          Text(announcement.body,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.35,
-                  color: AppGlassColors.inkSecondary)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              AvatarWidget(
-                imageUrl: author?.avatarUrl,
-                name: announcement.authorName,
-                size: 20,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(announcement.authorName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppGlassColors.inkSecondary)),
-              ),
-              Text(AppUtils.formatDateTime(announcement.createdAt),
-                  style: const TextStyle(
-                      fontSize: 12, color: AppGlassColors.inkMuted)),
-            ],
+          const SizedBox(width: 10),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _homePillTextStyle(),
           ),
         ],
       ),
@@ -404,47 +196,157 @@ class _AnnouncementCard extends StatelessWidget {
   }
 }
 
-class _AnnouncementSeeAllCard extends StatelessWidget {
-  final double width;
+TextStyle _homePillTextStyle() {
+  return TextStyle(
+    color: AppGlassColors.ink.withValues(alpha: 0.9),
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    height: 1.1,
+  );
+}
+
+class _QuickLinksRow extends StatelessWidget {
+  final League? league;
+  final String fallbackLabel;
+
+  const _QuickLinksRow({
+    required this.league,
+    required this.fallbackLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = league?.name ?? fallbackLabel;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _QuickLinkButton(
+          tooltip: 'League Website',
+          url: league?.websiteUrl,
+          icon: _LeagueLogoQuickLinkIcon(
+            imageUrl: league?.logoUrl,
+            label: label,
+          ),
+        ),
+        _QuickLinkButton(
+          tooltip: 'League Instagram',
+          url: league?.instagramUrl,
+          icon: const _InstagramLogoIcon(),
+        ),
+        _QuickLinkButton(
+          tooltip: 'League X',
+          url: league?.xUrl,
+          icon: const _XLogoIcon(),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickLinkButton extends StatelessWidget {
+  final String tooltip;
+  final String? url;
+  final Widget icon;
+
+  const _QuickLinkButton({
+    required this.tooltip,
+    required this.url,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUrl = url != null && url!.trim().isNotEmpty;
+
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _openLink(context),
+          child: SizedBox(
+            width: 58,
+            height: 52,
+            child: Center(
+              child: Opacity(
+                opacity: hasUrl ? 1 : 0.4,
+                child: icon,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openLink(BuildContext context) async {
+    final rawUrl = url?.trim();
+    if (rawUrl == null || rawUrl.isEmpty) {
+      AppUtils.showInfoSnackBar(context, 'Add this link in league settings');
+      return;
+    }
+
+    final uri = _normaliseUrl(rawUrl);
+    if (uri == null) {
+      AppUtils.showErrorSnackBar(context, 'This link is not a valid URL');
+      return;
+    }
+
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && context.mounted) {
+      AppUtils.showErrorSnackBar(context, 'Could not open link');
+    }
+  }
+}
+
+class _CompactHomeTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Color accentColor;
   final VoidCallback onTap;
 
-  const _AnnouncementSeeAllCard({
-    required this.width,
+  const _CompactHomeTile({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.accentColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return AppGlassSurface(
-      width: width,
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      onTap: onTap,
+      height: 136,
       padding: const EdgeInsets.all(18),
       radius: 22,
-      onTap: onTap,
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.arrow_forward,
-            color: AppGlassColors.aqua,
-            size: 28,
-          ),
-          Spacer(),
+          _HomeTileIcon(icon: icon, accentColor: accentColor),
+          const Spacer(),
           Text(
-            'See All',
-            style: TextStyle(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
               color: AppGlassColors.ink,
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
-            'Open the full announcement feed',
-            style: TextStyle(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
               color: AppGlassColors.inkMuted,
-              fontSize: 13,
-              height: 1.3,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -453,65 +355,477 @@ class _AnnouncementSeeAllCard extends StatelessWidget {
   }
 }
 
-class _ChatCard extends StatelessWidget {
-  final ChatRoom chatRoom;
-  final AppUser? currentUser;
-  final List<AppUser> users;
+Uri? _normaliseUrl(String rawUrl) {
+  final value = rawUrl.trim();
+  if (value.isEmpty) return null;
 
-  const _ChatCard({
-    required this.chatRoom,
-    required this.currentUser,
-    required this.users,
+  final withScheme = value.contains('://') ? value : 'https://$value';
+  final uri = Uri.tryParse(withScheme);
+  if (uri == null || uri.host.isEmpty) return null;
+  return uri;
+}
+
+class _LeagueLogoQuickLinkIcon extends StatelessWidget {
+  final String? imageUrl;
+  final String label;
+
+  const _LeagueLogoQuickLinkIcon({
+    required this.imageUrl,
+    required this.label,
   });
 
   @override
   Widget build(BuildContext context) {
-    final displayName = chatRoomDisplayName(chatRoom, currentUser, users);
-    final peer = directMessagePeer(chatRoom, currentUser, users);
-    final preview = chatRoomPreviewText(chatRoom, currentUser: currentUser);
+    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
 
-    return AppGlassSurface(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      radius: 20,
-      onTap: () => context.go(
-        '/chat/${chatRoom.id}',
-        extra: ChatNavigationSource.dashboardCard,
-      ),
-      child: Row(
-        children: [
-          ChatRoomAvatar(
-            room: chatRoom,
-            displayName: displayName,
-            directMessagePeer: peer,
-            size: 44,
-            showImageBorder: true,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(displayName,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: AppGlassColors.ink)),
-                if (preview != null) ...[
-                  const SizedBox(height: 3),
-                  Text(preview,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 13, color: AppGlassColors.inkSecondary)),
-                ],
-              ],
+    if (!hasImage) {
+      return Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: AppGlassColors.aqua.withValues(alpha: 0.14),
+          shape: BoxShape.circle,
+          border:
+              Border.all(color: AppGlassColors.aqua.withValues(alpha: 0.24)),
+        ),
+        child: Center(
+          child: Text(
+            AppUtils.getInitials(label),
+            style: const TextStyle(
+              color: AppGlassColors.ink,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          if (chatRoom.lastMessageAt != null)
-            Text(AppUtils.formatDateTime(chatRoom.lastMessageAt!),
+        ),
+      );
+    }
+
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: AppGlassColors.aqua.withValues(alpha: 0.14),
+        shape: BoxShape.circle,
+        border: Border.all(color: AppGlassColors.aqua.withValues(alpha: 0.22)),
+      ),
+      child: ClipOval(
+        child: Padding(
+          padding: const EdgeInsets.all(5),
+          child: CachedNetworkImage(
+            imageUrl: imageUrl!,
+            fit: BoxFit.contain,
+            placeholder: (_, __) => const SizedBox.shrink(),
+            errorWidget: (_, __, ___) => Center(
+              child: Text(
+                AppUtils.getInitials(label),
                 style: const TextStyle(
-                    fontSize: 11, color: AppGlassColors.inkMuted)),
+                  color: AppGlassColors.ink,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InstagramLogoIcon extends StatelessWidget {
+  const _InstagramLogoIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppGlassColors.rose, width: 2.4),
+          ),
+        ),
+        Container(
+          width: 11,
+          height: 11,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppGlassColors.rose, width: 2),
+          ),
+        ),
+        Positioned(
+          right: 6,
+          top: 6,
+          child: Container(
+            width: 4,
+            height: 4,
+            decoration: const BoxDecoration(
+              color: AppGlassColors.rose,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _XLogoIcon extends StatelessWidget {
+  const _XLogoIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      'X',
+      style: TextStyle(
+        color: AppGlassColors.ink,
+        fontSize: 26,
+        fontWeight: FontWeight.w900,
+        height: 1,
+      ),
+    );
+  }
+}
+
+class _WeatherHomeTile extends ConsumerWidget {
+  const _WeatherHomeTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weatherAsync = ref.watch(currentWeatherProvider);
+
+    return weatherAsync.when(
+      data: (weather) => _WeatherTileSurface(
+        onTap: () => ref.invalidate(currentWeatherProvider),
+        child: _WeatherDataContent(weather: weather),
+      ),
+      loading: () => _WeatherTileSurface(
+        onTap: () => ref.invalidate(currentWeatherProvider),
+        child: const _WeatherMessageContent(
+          icon: Icons.my_location_outlined,
+          title: 'Weather',
+          subtitle: 'Locating...',
+          accentColor: AppGlassColors.aqua,
+        ),
+      ),
+      error: (error, _) {
+        final message = error is WeatherLocationException
+            ? error.message
+            : 'Tap to refresh';
+        return _WeatherTileSurface(
+          onTap: () => ref.invalidate(currentWeatherProvider),
+          child: _WeatherMessageContent(
+            icon: Icons.location_off_outlined,
+            title: 'Weather',
+            subtitle: message,
+            accentColor: AppGlassColors.rose,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _WeatherTileSurface extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _WeatherTileSurface({
+    required this.child,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      onTap: onTap,
+      height: 136,
+      padding: const EdgeInsets.all(18),
+      radius: 22,
+      child: child,
+    );
+  }
+}
+
+class _WeatherDataContent extends StatelessWidget {
+  final WeatherSnapshot weather;
+
+  const _WeatherDataContent({required this.weather});
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = _weatherAccentForCode(weather.weatherCode);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _HomeTileIcon(
+              icon: _weatherIconForCode(weather.weatherCode),
+              accentColor: accentColor,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    weather.temperatureLabel,
+                    style: const TextStyle(
+                      color: AppGlassColors.ink,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const Spacer(),
+        Text(
+          'Weather',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppGlassColors.ink,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                weather.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppGlassColors.inkMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              weather.windLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppGlassColors.inkMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _WeatherMessageContent extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color accentColor;
+
+  const _WeatherMessageContent({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _HomeTileIcon(icon: icon, accentColor: accentColor),
+        const Spacer(),
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppGlassColors.ink,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppGlassColors.inkMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeTileIcon extends StatelessWidget {
+  final IconData icon;
+  final Color accentColor;
+
+  const _HomeTileIcon({
+    required this.icon,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accentColor.withValues(alpha: 0.28)),
+      ),
+      child: Icon(icon, color: accentColor, size: 24),
+    );
+  }
+}
+
+IconData _weatherIconForCode(int code) {
+  if (code == 0) return Icons.wb_sunny_outlined;
+  if (code >= 1 && code <= 3) return Icons.cloud;
+  if (code == 45 || code == 48) return Icons.blur_on;
+  if ((code >= 51 && code <= 57) ||
+      (code >= 61 && code <= 67) ||
+      (code >= 80 && code <= 82)) {
+    return Icons.water_drop_outlined;
+  }
+  if (code >= 71 && code <= 77) return Icons.ac_unit;
+  if (code >= 95) return Icons.thunderstorm;
+  return Icons.cloud_outlined;
+}
+
+Color _weatherAccentForCode(int code) {
+  if (code == 0) return AppGlassColors.gold;
+  if (code >= 71 && code <= 77) return AppGlassColors.inkSecondary;
+  if (code >= 95) return AppGlassColors.rose;
+  return AppGlassColors.aqua;
+}
+
+class _HomeProfileCard extends StatelessWidget {
+  final AppUser? user;
+  final VoidCallback onProfileTap;
+
+  const _HomeProfileCard({
+    required this.user,
+    required this.onProfileTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (user == null) return const _ProfileHeaderPlaceholder();
+
+    return ProfileSummaryCard(
+      user: user!,
+      showEmail: false,
+      compact: true,
+      actionIcon: Icons.chevron_right,
+      actionTooltip: 'Open profile',
+      onTap: onProfileTap,
+    );
+  }
+}
+
+class _GreetingRow extends StatelessWidget {
+  final String? leagueLogoUrl;
+  final String leagueLabel;
+
+  const _GreetingRow({
+    required this.leagueLogoUrl,
+    required this.leagueLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : hour < 17
+            ? 'Good afternoon'
+            : 'Good evening';
+    final icon = hour < 12
+        ? Icons.wb_sunny_outlined
+        : hour < 17
+            ? Icons.wb_sunny
+            : Icons.nightlight_outlined;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Flexible(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: AppHeaderPill(
+              text: greeting,
+              icon: icon,
+              iconSize: 18,
+              showIconBubble: false,
+              padding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+              textStyle: _homePillTextStyle(),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        AppHeaderLogoMark(
+          imageUrl: leagueLogoUrl,
+          label: leagueLabel,
+          size: 40,
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileHeaderPlaceholder extends StatelessWidget {
+  const _ProfileHeaderPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      padding: const EdgeInsets.all(16),
+      radius: 21,
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Loading profile...',
+              style: TextStyle(
+                color: AppGlassColors.inkSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );

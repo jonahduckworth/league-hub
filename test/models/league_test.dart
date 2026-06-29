@@ -14,6 +14,9 @@ void main() {
           'name': 'Premier League',
           'abbreviation': 'PL',
           'description': 'Top tier league',
+          'websiteUrl': 'https://league.example',
+          'instagramUrl': 'https://instagram.com/league',
+          'xUrl': 'https://x.com/league',
           'createdAt': testDateStr,
         };
 
@@ -24,6 +27,9 @@ void main() {
         expect(league.name, 'Premier League');
         expect(league.abbreviation, 'PL');
         expect(league.description, 'Top tier league');
+        expect(league.websiteUrl, 'https://league.example');
+        expect(league.instagramUrl, 'https://instagram.com/league');
+        expect(league.xUrl, 'https://x.com/league');
         expect(league.createdAt, testDate);
       });
 
@@ -65,6 +71,9 @@ void main() {
           name: 'Premier League',
           abbreviation: 'PL',
           description: 'Top tier league',
+          websiteUrl: 'https://league.example',
+          instagramUrl: 'https://instagram.com/league',
+          xUrl: 'https://x.com/league',
           createdAt: testDate,
         );
 
@@ -75,6 +84,9 @@ void main() {
         expect(json['name'], 'Premier League');
         expect(json['abbreviation'], 'PL');
         expect(json['description'], 'Top tier league');
+        expect(json['websiteUrl'], 'https://league.example');
+        expect(json['instagramUrl'], 'https://instagram.com/league');
+        expect(json['xUrl'], 'https://x.com/league');
         expect(json['createdAt'], testDateStr);
       });
 
@@ -100,6 +112,9 @@ void main() {
         name: 'Championship',
         abbreviation: 'CHAMP',
         description: 'Second tier',
+        websiteUrl: 'https://champ.example',
+        instagramUrl: 'https://instagram.com/champ',
+        xUrl: 'https://x.com/champ',
         createdAt: testDate,
       );
 
@@ -113,6 +128,9 @@ void main() {
       expect(restored.name, original.name);
       expect(restored.abbreviation, original.abbreviation);
       expect(restored.description, original.description);
+      expect(restored.websiteUrl, original.websiteUrl);
+      expect(restored.instagramUrl, original.instagramUrl);
+      expect(restored.xUrl, original.xUrl);
       expect(restored.createdAt, original.createdAt);
     });
   });

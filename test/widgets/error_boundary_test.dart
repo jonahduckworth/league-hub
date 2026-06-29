@@ -90,6 +90,79 @@ void main() {
       expect(find.text('Something went wrong'), findsNothing);
     });
 
+    testWidgets('does not show fallback for snackbar layout assertions',
+        (WidgetTester tester) async {
+      FlutterErrorDetails? forwardedError;
+      FlutterError.onError = (details) {
+        forwardedError = details;
+      };
+
+      await tester.pumpWidget(createTestWidget());
+
+      final details = FlutterErrorDetails(
+        exception: FlutterError('Floating SnackBar presented off screen.'),
+        stack: StackTrace.current,
+      );
+      FlutterError.reportError(details);
+
+      await tester.pump();
+      await tester.pump();
+
+      expect(forwardedError, same(details));
+      expect(find.text('Normal Content'), findsOneWidget);
+      expect(find.text('Something went wrong'), findsNothing);
+    });
+
+    testWidgets('does not show fallback for semantics layout assertions',
+        (WidgetTester tester) async {
+      FlutterErrorDetails? forwardedError;
+      FlutterError.onError = (details) {
+        forwardedError = details;
+      };
+
+      await tester.pumpWidget(createTestWidget());
+
+      final details = FlutterErrorDetails(
+        exception: FlutterError(
+          "'package:flutter/src/rendering/object.dart': Failed assertion: line 5737 pos 14: '!childSemantics.renderObject._needsLayout': is not true.",
+        ),
+        stack: StackTrace.current,
+      );
+      FlutterError.reportError(details);
+
+      await tester.pump();
+      await tester.pump();
+
+      expect(forwardedError, same(details));
+      expect(find.text('Normal Content'), findsOneWidget);
+      expect(find.text('Something went wrong'), findsNothing);
+    });
+
+    testWidgets('does not show fallback for RenderFlex overflow warnings',
+        (WidgetTester tester) async {
+      FlutterErrorDetails? forwardedError;
+      FlutterError.onError = (details) {
+        forwardedError = details;
+      };
+
+      await tester.pumpWidget(createTestWidget());
+
+      final details = FlutterErrorDetails(
+        exception: FlutterError(
+          'A RenderFlex overflowed by 67 pixels on the bottom.',
+        ),
+        stack: StackTrace.current,
+      );
+      FlutterError.reportError(details);
+
+      await tester.pump();
+      await tester.pump();
+
+      expect(forwardedError, same(details));
+      expect(find.text('Normal Content'), findsOneWidget);
+      expect(find.text('Something went wrong'), findsNothing);
+    });
+
     testWidgets('restores previous FlutterError handler on dispose',
         (WidgetTester tester) async {
       void originalHandler(FlutterErrorDetails details) {}

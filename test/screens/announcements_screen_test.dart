@@ -13,6 +13,7 @@ import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/announcements_screen.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
+import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/empty_state.dart';
 import 'package:league_hub/widgets/league_filter.dart';
@@ -432,6 +433,13 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.add), findsOneWidget);
+        expect(
+          find.ancestor(
+            of: find.byIcon(Icons.add),
+            matching: find.byType(AppGlassSurface),
+          ),
+          findsOneWidget,
+        );
       });
 
       testWidgets('shows FAB for managerAdmin', (WidgetTester tester) async {
