@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../core/utils.dart';
 import 'app_glass.dart';
 
+const _headerLogoSize = 40.0;
+
 class AppShellHeader extends StatelessWidget {
   final String title;
   final IconData? leadingIcon;
@@ -83,7 +85,6 @@ class AppShellHeader extends StatelessWidget {
                       AppHeaderLogoMark(
                         imageUrl: leadingImageUrl,
                         label: leadingLabel ?? title,
-                        size: 44,
                       ),
                     ],
                   ],
@@ -119,55 +120,109 @@ class _HeaderTitlePill extends StatelessWidget {
         final maxTitleWidth =
             (availableWidth - reservedWidth).clamp(0.0, availableWidth);
 
-        return AppGlassSurface(
-          height: 40,
+        return AppHeaderPill(
+          text: title,
+          icon: leadingIcon,
+          showIconBubble: leadingIcon != null,
           padding: EdgeInsets.fromLTRB(
             leadingIcon == null ? 16 : 8,
             0,
             14,
             0,
           ),
-          radius: 20,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (leadingIcon != null) ...[
-                Container(
-                  width: 27,
-                  height: 27,
-                  decoration: BoxDecoration(
-                    color: AppGlassColors.aqua.withValues(alpha: 0.13),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppGlassColors.aqua.withValues(alpha: 0.24),
-                    ),
-                  ),
-                  child: Icon(
-                    leadingIcon,
-                    color: AppGlassColors.ink.withValues(alpha: 0.94),
-                    size: 15,
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxTitleWidth),
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppGlassColors.ink,
-                    height: 1.1,
-                  ),
-                ),
-              ),
-            ],
+          iconSize: 15,
+          maxTextWidth: maxTitleWidth,
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AppGlassColors.ink,
+            height: 1.1,
           ),
         );
       },
+    );
+  }
+}
+
+class AppHeaderPill extends StatelessWidget {
+  final String text;
+  final IconData? icon;
+  final bool showIconBubble;
+  final EdgeInsetsGeometry padding;
+  final TextStyle textStyle;
+  final double height;
+  final double radius;
+  final double iconSize;
+  final double iconBubbleSize;
+  final double iconGap;
+  final double? maxTextWidth;
+
+  const AppHeaderPill({
+    super.key,
+    required this.text,
+    this.icon,
+    this.showIconBubble = false,
+    this.padding = const EdgeInsets.fromLTRB(12, 0, 14, 0),
+    this.textStyle = const TextStyle(
+      color: AppGlassColors.ink,
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+      height: 1.1,
+    ),
+    this.height = 40,
+    this.radius = 20,
+    this.iconSize = 18,
+    this.iconBubbleSize = 27,
+    this.iconGap = 10,
+    this.maxTextWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      height: height,
+      padding: padding,
+      radius: radius,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            if (showIconBubble)
+              Container(
+                width: iconBubbleSize,
+                height: iconBubbleSize,
+                decoration: BoxDecoration(
+                  color: AppGlassColors.aqua.withValues(alpha: 0.13),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppGlassColors.aqua.withValues(alpha: 0.24),
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppGlassColors.ink.withValues(alpha: 0.94),
+                  size: iconSize,
+                ),
+              )
+            else
+              Icon(
+                icon,
+                color: textStyle.color ?? AppGlassColors.ink,
+                size: iconSize,
+              ),
+            SizedBox(width: iconGap),
+          ],
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxTextWidth ?? 240),
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textStyle,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -181,7 +236,7 @@ class AppHeaderLogoMark extends StatelessWidget {
     super.key,
     required this.imageUrl,
     required this.label,
-    this.size = 44,
+    this.size = _headerLogoSize,
   });
 
   @override
@@ -240,10 +295,10 @@ class _HeaderBackButton extends StatelessWidget {
     return Tooltip(
       message: 'Back',
       child: AppGlassSurface(
-        width: 44,
-        height: 44,
+        width: _headerLogoSize,
+        height: _headerLogoSize,
         padding: EdgeInsets.zero,
-        radius: 22,
+        radius: _headerLogoSize / 2,
         onTap: onTap ??
             () {
               if (context.canPop()) {

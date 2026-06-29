@@ -27,7 +27,7 @@ void main() {
         expect(find.text('Something failed'), findsOneWidget);
         final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
         expect(snackBar.backgroundColor, AppColors.danger);
-        expect(snackBar.behavior, SnackBarBehavior.floating);
+        expect(snackBar.behavior, SnackBarBehavior.fixed);
       });
     });
 
@@ -53,12 +53,12 @@ void main() {
         expect(find.text('Done!'), findsOneWidget);
         final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
         expect(snackBar.backgroundColor, AppColors.success);
-        expect(snackBar.behavior, SnackBarBehavior.floating);
+        expect(snackBar.behavior, SnackBarBehavior.fixed);
       });
     });
 
     group('showInfoSnackBar', () {
-      testWidgets('shows snackbar with floating behavior', (tester) async {
+      testWidgets('shows snackbar with fixed behavior', (tester) async {
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
@@ -78,7 +78,7 @@ void main() {
 
         expect(find.text('Info message'), findsOneWidget);
         final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-        expect(snackBar.behavior, SnackBarBehavior.floating);
+        expect(snackBar.behavior, SnackBarBehavior.fixed);
         // backgroundColor should be null (default)
         expect(snackBar.backgroundColor, isNull);
       });

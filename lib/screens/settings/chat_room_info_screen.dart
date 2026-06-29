@@ -766,6 +766,7 @@ class _MembersSection extends StatelessWidget {
                   children: participants.asMap().entries.map((entry) {
                     final user = entry.value;
                     final isLast = entry.key == participants.length - 1;
+                    final memberTitle = user.title?.trim();
                     return Column(
                       children: [
                         ListTile(
@@ -779,10 +780,12 @@ class _MembersSection extends StatelessWidget {
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                   color: AppGlassColors.ink)),
-                          subtitle: Text(user.roleLabel,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppGlassColors.inkSecondary)),
+                          subtitle: memberTitle == null || memberTitle.isEmpty
+                              ? null
+                              : Text(memberTitle,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppGlassColors.inkSecondary)),
                           trailing: user.id == currentUser?.id
                               ? Container(
                                   padding: const EdgeInsets.symmetric(

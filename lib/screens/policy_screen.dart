@@ -65,11 +65,10 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
 
     return AppShellScaffold(
       floatingActionButton: _canUpload(currentUser)
-          ? FloatingActionButton(
-              heroTag: 'policy_fab',
-              onPressed: () => context.push('/policy/upload'),
-              backgroundColor: AppGlassColors.aqua,
-              child: const Icon(Icons.add, color: Colors.white),
+          ? AppGlassFloatingActionButton(
+              icon: Icons.add,
+              tooltip: 'Upload policy',
+              onTap: () => context.push('/policy/upload'),
             )
           : null,
       header: AppShellHeader(

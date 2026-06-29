@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/hub.dart';
@@ -146,6 +147,57 @@ void main() {
         ],
         child: MaterialApp(
           home: UserManagementScreen(),
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget createRoutedTestWidget({
+      AppUser? user,
+      List<AppUser>? users,
+      List<Invitation>? invitations,
+      FirestoreService? firestoreService,
+    }) {
+      final router = GoRouter(
+        initialLocation: '/settings/users',
+        routes: [
+          GoRoute(
+            path: '/settings/users',
+            builder: (context, state) => const UserManagementScreen(),
+            routes: [
+              GoRoute(
+                path: 'invitations',
+                builder: (context, state) => const PendingInvitationsScreen(),
+              ),
+            ],
+          ),
+        ],
+      );
+
+      return ProviderScope(
+        overrides: [
+          currentUserProvider.overrideWith(
+            (ref) => user ?? managerAdmin,
+          ),
+          organizationProvider.overrideWith(
+            (ref) => testOrg,
+          ),
+          orgUsersProvider.overrideWith(
+            (ref) => Stream.value(users ?? testUsers),
+          ),
+          invitationsProvider.overrideWith(
+            (ref) => Stream.value(invitations ?? testInvitations),
+          ),
+          if (firestoreService != null)
+            firestoreServiceProvider.overrideWithValue(firestoreService),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
@@ -457,6 +509,19 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.mail_outline), findsOneWidget);
+      });
+
+      testWidgets('mail icon opens pending invitations page',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.mail_outline));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Pending Invitations'), findsOneWidget);
+        expect(find.text('pending@example.com'), findsOneWidget);
       });
 
       testWidgets('badge is not shown when no pending invites',

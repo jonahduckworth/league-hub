@@ -82,6 +82,7 @@ void main() {
       expect(find.text('Admin'), findsOneWidget);
       expect(find.text('Manager'), findsOneWidget);
       expect(find.text('Staff'), findsOneWidget);
+      expect(find.textContaining('Ownership-level access'), findsNothing);
     });
 
     testWidgets('shows correct member counts per role', (tester) async {

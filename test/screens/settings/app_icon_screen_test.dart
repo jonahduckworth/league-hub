@@ -206,8 +206,8 @@ void main() {
         (tester) async {
       final appIconService = _FakeAppIconService();
       await fakeFirestore.collection('organizations').doc('org-1').set(
-        _testOrg().toJson(),
-      );
+            _testOrg().toJson(),
+          );
       await tester.pumpWidget(_buildTestWidget(
         overrides: _overrides(
           fakeFirestore: fakeFirestore,

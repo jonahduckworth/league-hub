@@ -80,18 +80,17 @@ void main() {
       expect(switches.any((sw) => !sw.value), isTrue);
     });
 
-    testWidgets('shows FCM info note', (tester) async {
+    testWidgets('does not show the old bottom FCM info note', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
       await tester.pump();
       await tester.pumpAndSettle();
 
-      // Scroll to bottom of ListView to ensure FCM note is built
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
 
       expect(
           find.textContaining('Notification preferences sync with FCM topics'),
-          findsOneWidget);
+          findsNothing);
     });
 
     testWidgets('shows subtitles for each notification type', (tester) async {
@@ -178,17 +177,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ListView), findsOneWidget);
-    });
-
-    testWidgets('info box contains info icon', (tester) async {
-      await tester.pumpWidget(_buildTestWidget());
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
-      await tester.pumpAndSettle();
-
-      expect(find.byIcon(Icons.info_outline), findsOneWidget);
     });
   });
 

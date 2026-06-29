@@ -12,6 +12,9 @@ void main() {
           'id': 'user1',
           'email': 'user@example.com',
           'displayName': 'John Doe',
+          'title': 'Head Coach',
+          'phone': '555-0100',
+          'address': '123 Rink Road',
           'avatarUrl': 'https://example.com/avatar.png',
           'role': 'superAdmin',
           'orgId': 'org1',
@@ -26,6 +29,9 @@ void main() {
         expect(user.id, 'user1');
         expect(user.email, 'user@example.com');
         expect(user.displayName, 'John Doe');
+        expect(user.title, 'Head Coach');
+        expect(user.phone, '555-0100');
+        expect(user.address, '123 Rink Road');
         expect(user.avatarUrl, 'https://example.com/avatar.png');
         expect(user.role, UserRole.superAdmin);
         expect(user.orgId, 'org1');
@@ -113,6 +119,28 @@ void main() {
         expect(user.avatarUrl, isNull);
         expect(user.orgId, isNull);
       });
+
+      test('optional profile fields are null when not provided or blank', () {
+        final json = {
+          'id': 'user1',
+          'email': 'user@example.com',
+          'displayName': 'John',
+          'title': '   ',
+          'phone': '',
+          'address': null,
+          'role': 'staff',
+          'hubIds': [],
+          'teamIds': [],
+          'createdAt': testDateStr,
+          'isActive': true,
+        };
+
+        final user = AppUser.fromJson(json);
+
+        expect(user.title, isNull);
+        expect(user.phone, isNull);
+        expect(user.address, isNull);
+      });
     });
 
     group('toJson', () {
@@ -121,6 +149,9 @@ void main() {
           id: 'user1',
           email: 'user@example.com',
           displayName: 'Jane Doe',
+          title: 'Assistant Coach',
+          phone: '555-0123',
+          address: '456 Arena Avenue',
           avatarUrl: 'https://example.com/avatar.png',
           role: UserRole.managerAdmin,
           orgId: 'org1',
@@ -135,6 +166,9 @@ void main() {
         expect(json['id'], 'user1');
         expect(json['email'], 'user@example.com');
         expect(json['displayName'], 'Jane Doe');
+        expect(json['title'], 'Assistant Coach');
+        expect(json['phone'], '555-0123');
+        expect(json['address'], '456 Arena Avenue');
         expect(json['avatarUrl'], 'https://example.com/avatar.png');
         expect(json['role'], 'managerAdmin');
         expect(json['orgId'], 'org1');
@@ -175,6 +209,9 @@ void main() {
         id: 'user1',
         email: 'test@test.com',
         displayName: 'Test User',
+        title: 'Head Coach',
+        phone: '555-0199',
+        address: '789 League Lane',
         avatarUrl: 'https://example.com/pic.jpg',
         role: UserRole.superAdmin,
         orgId: 'org42',
@@ -190,6 +227,9 @@ void main() {
       expect(restored.id, original.id);
       expect(restored.email, original.email);
       expect(restored.displayName, original.displayName);
+      expect(restored.title, original.title);
+      expect(restored.phone, original.phone);
+      expect(restored.address, original.address);
       expect(restored.avatarUrl, original.avatarUrl);
       expect(restored.role, original.role);
       expect(restored.orgId, original.orgId);

@@ -12,6 +12,7 @@ import '../../models/team.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
+import '../../services/permission_service.dart';
 import '../../services/storage_service.dart';
 import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
@@ -28,10 +29,13 @@ class ManageLeaguesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final leaguesAsync = ref.watch(leaguesProvider);
     final org = ref.watch(organizationProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final leagues = leaguesAsync.valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
     final topContentPadding = appShellTopPadding(context);
-    final bottomContentPadding = appShellBottomPadding(context, extra: 98);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 24);
+    final canManage = currentUser != null &&
+        const PermissionService().canCreateLeague(currentUser);
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -43,10 +47,14 @@ class ManageLeaguesScreen extends ConsumerWidget {
             : null,
         showBackButton: true,
         backFallbackLocation: '/settings',
-      ),
-      floatingActionButton: _GlassAddButton(
-        label: 'Add League',
-        onTap: org == null ? null : () => context.push('/settings/leagues/new'),
+        actions: [
+          if (canManage && org != null)
+            AppHeaderIconButton(
+              icon: Icons.add,
+              tooltip: 'Add League',
+              onPressed: () => context.push('/settings/leagues/new'),
+            ),
+        ],
       ),
       child: leaguesAsync.when(
         loading: () => const Center(
@@ -82,7 +90,7 @@ class ManageLeaguesScreen extends ConsumerWidget {
                 EmptyState(
                   icon: Icons.emoji_events_outlined,
                   title: 'No leagues yet',
-                  subtitle: 'Tap the button below to add your first league.',
+                  subtitle: 'Use + in the header to add your first league.',
                 ),
               ],
             );
@@ -95,8 +103,7 @@ class ManageLeaguesScreen extends ConsumerWidget {
               bottomContentPadding,
             ),
             itemCount: leagues.length,
-            itemBuilder: (_, i) =>
-                _LeagueTile(league: leagues[i], orgId: org?.id ?? ''),
+            itemBuilder: (_, i) => _LeagueListTile(league: leagues[i]),
           );
         },
       ),
@@ -118,6 +125,9 @@ class AddLeagueScreen extends ConsumerStatefulWidget {
 class _AddLeagueScreenState extends ConsumerState<AddLeagueScreen> {
   final _nameCtrl = TextEditingController();
   final _abbrevCtrl = TextEditingController();
+  final _websiteCtrl = TextEditingController();
+  final _instagramCtrl = TextEditingController();
+  final _xCtrl = TextEditingController();
   bool _saving = false;
   final _identity = _IdentitySelection(defaultIconName: 'league');
 
@@ -125,6 +135,9 @@ class _AddLeagueScreenState extends ConsumerState<AddLeagueScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _abbrevCtrl.dispose();
+    _websiteCtrl.dispose();
+    _instagramCtrl.dispose();
+    _xCtrl.dispose();
     super.dispose();
   }
 
@@ -168,6 +181,12 @@ class _AddLeagueScreenState extends ConsumerState<AddLeagueScreen> {
             fallbackIcon: Icons.emoji_events_outlined,
             onChanged: () => setState(() {}),
           ),
+          const SizedBox(height: 16),
+          _LeagueLinksFormCard(
+            websiteController: _websiteCtrl,
+            instagramController: _instagramCtrl,
+            xController: _xCtrl,
+          ),
         ],
       ),
     );
@@ -201,6 +220,9 @@ class _AddLeagueScreenState extends ConsumerState<AddLeagueScreen> {
         abbreviation: abbrev,
         logoUrl: logoUrl,
         iconName: logoUrl == null ? _identity.iconName : null,
+        websiteUrl: _optionalText(_websiteCtrl),
+        instagramUrl: _optionalText(_instagramCtrl),
+        xUrl: _optionalText(_xCtrl),
         createdAt: DateTime.now(),
       );
       await authDb.createLeague(currentUser, org.id, league);
@@ -246,6 +268,9 @@ class EditLeagueScreen extends ConsumerStatefulWidget {
 class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
   final _nameCtrl = TextEditingController();
   final _abbrevCtrl = TextEditingController();
+  final _websiteCtrl = TextEditingController();
+  final _instagramCtrl = TextEditingController();
+  final _xCtrl = TextEditingController();
   bool _saving = false;
   bool _seeded = false;
   _IdentitySelection? _identity;
@@ -254,6 +279,9 @@ class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _abbrevCtrl.dispose();
+    _websiteCtrl.dispose();
+    _instagramCtrl.dispose();
+    _xCtrl.dispose();
     super.dispose();
   }
 
@@ -261,6 +289,9 @@ class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
     if (_seeded) return;
     _nameCtrl.text = league.name;
     _abbrevCtrl.text = league.abbreviation;
+    _websiteCtrl.text = league.websiteUrl ?? '';
+    _instagramCtrl.text = league.instagramUrl ?? '';
+    _xCtrl.text = league.xUrl ?? '';
     _identity = _IdentitySelection(
       defaultIconName: 'league',
       initialImageUrl: league.logoUrl,
@@ -325,6 +356,12 @@ class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
                 fallbackIcon: Icons.emoji_events_outlined,
                 onChanged: () => setState(() {}),
               ),
+              const SizedBox(height: 16),
+              _LeagueLinksFormCard(
+                websiteController: _websiteCtrl,
+                instagramController: _instagramCtrl,
+                xController: _xCtrl,
+              ),
             ],
           ),
         );
@@ -357,6 +394,9 @@ class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
         'logoUrl': effectiveLogoUrl,
         'iconName':
             effectiveLogoUrl == null ? identity.effectiveIconName : null,
+        'websiteUrl': _optionalText(_websiteCtrl),
+        'instagramUrl': _optionalText(_instagramCtrl),
+        'xUrl': _optionalText(_xCtrl),
       });
       if (mounted) context.pop();
     } on PermissionDeniedException {
@@ -374,132 +414,267 @@ class _EditLeagueScreenState extends ConsumerState<EditLeagueScreen> {
   }
 }
 
+String? _optionalText(TextEditingController controller) {
+  final value = controller.text.trim();
+  return value.isEmpty ? null : value;
+}
+
+class _LeagueLinksFormCard extends StatelessWidget {
+  final TextEditingController websiteController;
+  final TextEditingController instagramController;
+  final TextEditingController xController;
+
+  const _LeagueLinksFormCard({
+    required this.websiteController,
+    required this.instagramController,
+    required this.xController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _FormCard(
+      children: [
+        const GlassFormSectionLabel('Quick links'),
+        const SizedBox(height: 12),
+        GlassTextFormField(
+          controller: websiteController,
+          labelText: 'League Website URL',
+          hintText: 'https://example.com',
+          leadingIcon: Icons.language_outlined,
+          keyboardType: TextInputType.url,
+          textInputAction: TextInputAction.next,
+          autocorrect: false,
+        ),
+        const SizedBox(height: 14),
+        GlassTextFormField(
+          controller: instagramController,
+          labelText: 'Instagram URL',
+          hintText: 'https://instagram.com/league',
+          leadingIcon: Icons.camera_alt_outlined,
+          keyboardType: TextInputType.url,
+          textInputAction: TextInputAction.next,
+          autocorrect: false,
+        ),
+        const SizedBox(height: 14),
+        GlassTextFormField(
+          controller: xController,
+          labelText: 'X URL',
+          hintText: 'https://x.com/league',
+          leadingIcon: Icons.close_rounded,
+          keyboardType: TextInputType.url,
+          textInputAction: TextInputAction.done,
+          autocorrect: false,
+        ),
+      ],
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
-// League tile (expands to show hubs)
+// League list and detail screens
 // ---------------------------------------------------------------------------
 
-class _LeagueTile extends ConsumerWidget {
+class _LeagueListTile extends ConsumerWidget {
   final League league;
-  final String orgId;
-  const _LeagueTile({required this.league, required this.orgId});
+
+  const _LeagueListTile({required this.league});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hubsAsync = ref.watch(hubsProvider(league.id));
 
-    return AppGlassSurface(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: EdgeInsets.zero,
-      radius: 24,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          dividerColor: Colors.transparent,
-          splashColor: Colors.white.withValues(alpha: 0.05),
-          highlightColor: Colors.white.withValues(alpha: 0.04),
-        ),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
-          iconColor: AppGlassColors.inkMuted,
-          collapsedIconColor: AppGlassColors.inkMuted,
-          leading: EntityAvatar(
-            name: league.abbreviation,
-            imageUrl: league.logoUrl,
-            iconName: league.iconName,
-            fallbackIcon: Icons.emoji_events_outlined,
-            textFallback: league.abbreviation,
-            size: 42,
-            color: AppGlassColors.aqua,
-          ),
-          title: Text(league.name,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  color: AppGlassColors.ink)),
-          subtitle: hubsAsync.maybeWhen(
-            data: (hubs) => Text(
-              '${hubs.length} hub${hubs.length == 1 ? '' : 's'}',
-              style:
-                  const TextStyle(fontSize: 12, color: AppGlassColors.inkMuted),
+    return _StructureNavigationRow(
+      margin: const EdgeInsets.only(bottom: 10),
+      avatar: EntityAvatar(
+        name: league.abbreviation,
+        imageUrl: league.logoUrl,
+        iconName: league.iconName,
+        fallbackIcon: Icons.emoji_events_outlined,
+        textFallback: league.abbreviation,
+        size: 44,
+        color: AppGlassColors.aqua,
+      ),
+      title: league.name,
+      subtitle: hubsAsync.when(
+        loading: () => 'Loading hubs',
+        error: (_, __) => 'Could not load hubs',
+        data: (hubs) => _countLabel(hubs.length, 'hub'),
+      ),
+      onTap: () => context.push(
+        '/settings/leagues/${league.id}',
+        extra: league,
+      ),
+    );
+  }
+}
+
+class LeagueDetailScreen extends ConsumerWidget {
+  final String leagueId;
+  final League? initialLeague;
+
+  const LeagueDetailScreen({
+    super.key,
+    required this.leagueId,
+    this.initialLeague,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final org = ref.watch(organizationProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final leaguesAsync = ref.watch(leaguesProvider);
+    final hubsAsync = ref.watch(hubsProvider(leagueId));
+
+    if (initialLeague == null && leaguesAsync.isLoading) {
+      return const _ShellLoadingScaffold(title: 'League Details');
+    }
+    if (leaguesAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load league: ${leaguesAsync.error}');
+    }
+
+    final league = initialLeague ??
+        (leaguesAsync.valueOrNull ?? const <League>[])
+            .cast<League?>()
+            .firstWhere((league) => league?.id == leagueId, orElse: () => null);
+    if (league == null) {
+      return const _LoadErrorScaffold(message: 'League not found.');
+    }
+
+    final canManage = currentUser != null &&
+        const PermissionService().canCreateLeague(currentUser);
+    final topContentPadding = appShellTopPadding(context);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 24);
+
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'League Details',
+        leadingIcon: Icons.emoji_events_outlined,
+        leadingImageUrl: league.logoUrl,
+        leadingLabel: league.logoUrl?.isNotEmpty == true ? league.name : null,
+        showBackButton: true,
+        backFallbackLocation: '/settings/leagues',
+        actions: [
+          if (canManage)
+            AppHeaderIconButton(
+              icon: Icons.add_location_alt_outlined,
+              tooltip: 'Add Hub',
+              onPressed: () => context.push(
+                '/settings/leagues/${league.id}/hubs/new',
+                extra: league,
+              ),
             ),
-            orElse: () => const SizedBox.shrink(),
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined,
-                    color: AppGlassColors.inkMuted, size: 20),
-                tooltip: 'Edit League',
-                onPressed: () => context.push(
-                  '/settings/leagues/${league.id}/edit',
-                  extra: league,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add_location_alt_outlined,
-                    color: AppGlassColors.aqua, size: 20),
-                tooltip: 'Add Hub',
-                onPressed: () => context.push(
-                  '/settings/leagues/${league.id}/hubs/new',
-                  extra: league,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline,
-                    color: AppGlassColors.rose, size: 20),
-                tooltip: 'Delete League',
-                onPressed: () => _confirmDelete(context, ref, orgId, league),
+        ],
+      ),
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          topContentPadding,
+          16,
+          bottomContentPadding,
+        ),
+        children: [
+          _StructureHeroCard(
+            avatar: EntityAvatar(
+              name: league.abbreviation,
+              imageUrl: league.logoUrl,
+              iconName: league.iconName,
+              fallbackIcon: Icons.emoji_events_outlined,
+              textFallback: league.abbreviation,
+              size: 62,
+              color: AppGlassColors.aqua,
+            ),
+            title: league.name,
+            subtitle: league.abbreviation,
+            metrics: [
+              hubsAsync.maybeWhen(
+                data: (hubs) => _countLabel(hubs.length, 'hub'),
+                orElse: () => 'Hubs',
               ),
             ],
           ),
-          children: [
-            hubsAsync.when(
-              loading: () => const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppGlassColors.aqua,
-                    ),
-                  )),
-              error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Error: $e',
-                      style: const TextStyle(color: AppGlassColors.rose))),
-              data: (hubs) {
-                if (hubs.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: AppGlassSurface(
-                      padding: const EdgeInsets.all(12),
-                      radius: 16,
-                      child: const Text(
-                        'No hubs yet. Tap + to add one.',
-                        style: TextStyle(
-                          color: AppGlassColors.inkMuted,
-                          fontStyle: FontStyle.italic,
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }
-                return Column(
-                    children: hubs
-                        .map((hub) =>
-                            _HubTile(hub: hub, league: league, orgId: orgId))
-                        .toList());
-              },
+          const SizedBox(height: 14),
+          if (canManage && org != null) ...[
+            _StructureListCard(
+              children: [
+                _StructureListAction(
+                  icon: Icons.edit_outlined,
+                  title: 'Edit League',
+                  subtitle: 'Name, logo, abbreviation, and links',
+                  onTap: () => context.push(
+                    '/settings/leagues/${league.id}/edit',
+                    extra: league,
+                  ),
+                ),
+                _StructureListAction(
+                  icon: Icons.add_location_alt_outlined,
+                  title: 'Add Hub',
+                  subtitle: 'Create a new hub inside this league',
+                  onTap: () => context.push(
+                    '/settings/leagues/${league.id}/hubs/new',
+                    extra: league,
+                  ),
+                ),
+                _StructureListAction(
+                  icon: Icons.delete_outline,
+                  title: 'Delete League',
+                  subtitle: 'Remove the league, hubs, and teams',
+                  color: AppGlassColors.rose,
+                  onTap: () => _confirmDeleteLeague(
+                    context,
+                    ref,
+                    org.id,
+                    league,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 18),
           ],
-        ),
+          _StructureSectionHeader(
+            title: 'Hubs',
+            trailing: hubsAsync.maybeWhen(
+              data: (hubs) => _countLabel(hubs.length, 'hub'),
+              orElse: () => null,
+            ),
+          ),
+          const SizedBox(height: 10),
+          hubsAsync.when(
+            loading: () => const _StructureLoadingCard(),
+            error: (e, _) => _GlassMessageCard(
+              icon: Icons.error_outline,
+              title: 'Could not load hubs',
+              message: '$e',
+              color: AppGlassColors.rose,
+            ),
+            data: (hubs) {
+              if (hubs.isEmpty) {
+                return const _GlassMessageCard(
+                  icon: Icons.location_off_outlined,
+                  title: 'No hubs yet',
+                  message: 'Add a hub when this league is ready.',
+                  color: AppGlassColors.aqua,
+                );
+              }
+              return Column(
+                children: [
+                  for (final hub in hubs)
+                    _HubListTile(league: league, hub: hub),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
-  Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, String orgId, League league) async {
+  Future<void> _confirmDeleteLeague(
+    BuildContext context,
+    WidgetRef ref,
+    String orgId,
+    League league,
+  ) async {
     final ok = await showConfirmationDialog(
       context,
       title: 'Delete League',
@@ -515,6 +690,7 @@ class _LeagueTile extends ConsumerWidget {
         await ref
             .read(authorizedFirestoreServiceProvider)
             .deleteLeagueCascade(currentUser, orgId, league.id);
+        if (context.mounted) context.pop();
       } on PermissionDeniedException {
         if (context.mounted) {
           AppUtils.showErrorSnackBar(
@@ -849,150 +1025,232 @@ class _EditHubScreenState extends ConsumerState<EditHubScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Hub tile (expands to show teams)
+// Hub list and detail screens
 // ---------------------------------------------------------------------------
 
-class _HubTile extends ConsumerWidget {
-  final Hub hub;
+class _HubListTile extends ConsumerWidget {
   final League league;
-  final String orgId;
-  const _HubTile(
-      {required this.hub, required this.league, required this.orgId});
+  final Hub hub;
+
+  const _HubListTile({
+    required this.league,
+    required this.hub,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final teamsAsync =
         ref.watch(teamsProvider((leagueId: league.id, hubId: hub.id)));
 
-    return AppGlassSurface(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      padding: EdgeInsets.zero,
-      radius: 20,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          dividerColor: Colors.transparent,
-          splashColor: Colors.white.withValues(alpha: 0.05),
-          highlightColor: Colors.white.withValues(alpha: 0.04),
+    return _StructureNavigationRow(
+      margin: const EdgeInsets.only(bottom: 10),
+      avatar: EntityAvatar(
+        name: hub.name,
+        imageUrl: hub.logoUrl,
+        iconName: hub.iconName,
+        fallbackIcon: Icons.location_on_outlined,
+        size: 42,
+        color: AppGlassColors.aqua,
+      ),
+      title: hub.name,
+      subtitle: _joinParts([
+        hub.location,
+        teamsAsync.when(
+          loading: () => 'Loading teams',
+          error: (_, __) => 'Could not load teams',
+          data: (teams) => _countLabel(teams.length, 'team'),
         ),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
-          iconColor: AppGlassColors.inkMuted,
-          collapsedIconColor: AppGlassColors.inkMuted,
-          leading: EntityAvatar(
-            name: hub.name,
-            imageUrl: hub.logoUrl,
-            iconName: hub.iconName,
-            fallbackIcon: Icons.location_on_outlined,
-            size: 34,
-            color: AppGlassColors.aqua,
-          ),
-          title: Text(hub.name,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: AppGlassColors.ink)),
-          subtitle: hub.location != null
-              ? Text(hub.location!,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppGlassColors.inkMuted))
-              : null,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+      ]),
+      onTap: () => context.push(
+        '/settings/leagues/${league.id}/hubs/${hub.id}',
+        extra: (league: league, hub: hub),
+      ),
+    );
+  }
+}
+
+class HubDetailScreen extends ConsumerWidget {
+  final String leagueId;
+  final String hubId;
+  final League? initialLeague;
+  final Hub? initialHub;
+
+  const HubDetailScreen({
+    super.key,
+    required this.leagueId,
+    required this.hubId,
+    this.initialLeague,
+    this.initialHub,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final org = ref.watch(organizationProvider).valueOrNull;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final leaguesAsync = ref.watch(leaguesProvider);
+    final hubsAsync = ref.watch(hubsProvider(leagueId));
+    final teamsAsync =
+        ref.watch(teamsProvider((leagueId: leagueId, hubId: hubId)));
+
+    if ((initialLeague == null && leaguesAsync.isLoading) ||
+        (initialHub == null && hubsAsync.isLoading)) {
+      return const _ShellLoadingScaffold(title: 'Hub Details');
+    }
+    if (leaguesAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load league: ${leaguesAsync.error}');
+    }
+    if (hubsAsync.hasError) {
+      return _LoadErrorScaffold(
+          message: 'Could not load hub: ${hubsAsync.error}');
+    }
+
+    final league = initialLeague ??
+        (leaguesAsync.valueOrNull ?? const <League>[])
+            .cast<League?>()
+            .firstWhere((league) => league?.id == leagueId, orElse: () => null);
+    final hub = initialHub ??
+        (hubsAsync.valueOrNull ?? const <Hub>[])
+            .cast<Hub?>()
+            .firstWhere((hub) => hub?.id == hubId, orElse: () => null);
+    if (league == null || hub == null) {
+      return const _LoadErrorScaffold(message: 'Hub not found.');
+    }
+
+    final canManage = currentUser != null &&
+        const PermissionService().canCreateTeam(currentUser, hubId: hub.id);
+    final topContentPadding = appShellTopPadding(context);
+    final bottomContentPadding = appShellBottomPadding(context, extra: 24);
+
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'Hub Details',
+        leadingIcon: Icons.location_on_outlined,
+        leadingImageUrl: hub.logoUrl ?? league.logoUrl,
+        leadingLabel: hub.name,
+        showBackButton: true,
+        backFallbackLocation: '/settings/leagues/${league.id}',
+        actions: [
+          if (canManage)
+            AppHeaderIconButton(
+              icon: Icons.group_add_outlined,
+              tooltip: 'Add Team',
+              onPressed: () => context.push(
+                '/settings/leagues/${league.id}/hubs/${hub.id}/teams/new',
+                extra: (league: league, hub: hub),
+              ),
+            ),
+        ],
+      ),
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          topContentPadding,
+          16,
+          bottomContentPadding,
+        ),
+        children: [
+          _StructureHeroCard(
+            avatar: EntityAvatar(
+              name: hub.name,
+              imageUrl: hub.logoUrl,
+              iconName: hub.iconName,
+              fallbackIcon: Icons.location_on_outlined,
+              size: 62,
+              color: AppGlassColors.aqua,
+            ),
+            title: hub.name,
+            subtitle: _joinParts([hub.location, league.name]),
+            metrics: [
               teamsAsync.maybeWhen(
-                data: (teams) => Text(
-                  '${teams.length}t',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppGlassColors.inkMuted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                orElse: () => const SizedBox.shrink(),
-              ),
-              const SizedBox(width: 2),
-              IconButton(
-                icon: const Icon(Icons.edit_outlined,
-                    color: AppGlassColors.inkMuted, size: 18),
-                tooltip: 'Edit Hub',
-                onPressed: () => context.push(
-                  '/settings/leagues/${league.id}/hubs/${hub.id}/edit',
-                  extra: (league: league, hub: hub),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.group_add_outlined,
-                    color: AppGlassColors.aqua, size: 18),
-                tooltip: 'Add Team',
-                onPressed: () => context.push(
-                  '/settings/leagues/${league.id}/hubs/${hub.id}/teams/new',
-                  extra: (league: league, hub: hub),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline,
-                    color: AppGlassColors.rose, size: 18),
-                tooltip: 'Delete Hub',
-                onPressed: () =>
-                    _confirmDelete(context, ref, orgId, league.id, hub),
+                data: (teams) => _countLabel(teams.length, 'team'),
+                orElse: () => 'Teams',
               ),
             ],
           ),
-          children: [
-            teamsAsync.when(
-              loading: () => const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppGlassColors.aqua,
-                    ),
-                  )),
-              error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text('Error: $e',
-                      style: const TextStyle(color: AppGlassColors.rose))),
-              data: (teams) {
-                if (teams.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: Text('No teams yet. Tap + to add one.',
-                        style: TextStyle(
-                            color: AppGlassColors.inkMuted,
-                            fontStyle: FontStyle.italic,
-                            fontSize: 12),
-                        textAlign: TextAlign.center),
-                  );
-                }
-                return Column(
-                    children: teams
-                        .map((t) => _TeamRow(
-                              team: t,
-                              onDelete: () async {
-                                try {
-                                  final currentUser =
-                                      ref.read(currentUserProvider).value;
-                                  if (currentUser == null) return;
-                                  await ref
-                                      .read(authorizedFirestoreServiceProvider)
-                                      .deleteTeam(currentUser, orgId, league.id,
-                                          hub.id, t.id);
-                                } on PermissionDeniedException {
-                                  // Permission denied, but dismissible already triggered
-                                }
-                              },
-                            ))
-                        .toList());
-              },
+          const SizedBox(height: 14),
+          if (canManage && org != null) ...[
+            _StructureListCard(
+              children: [
+                _StructureListAction(
+                  icon: Icons.edit_outlined,
+                  title: 'Edit Hub',
+                  subtitle: 'Name, location, and logo',
+                  onTap: () => context.push(
+                    '/settings/leagues/${league.id}/hubs/${hub.id}/edit',
+                    extra: (league: league, hub: hub),
+                  ),
+                ),
+                _StructureListAction(
+                  icon: Icons.group_add_outlined,
+                  title: 'Add Team',
+                  subtitle: 'Create a team inside this hub',
+                  onTap: () => context.push(
+                    '/settings/leagues/${league.id}/hubs/${hub.id}/teams/new',
+                    extra: (league: league, hub: hub),
+                  ),
+                ),
+                _StructureListAction(
+                  icon: Icons.delete_outline,
+                  title: 'Delete Hub',
+                  subtitle: 'Remove this hub and its teams',
+                  color: AppGlassColors.rose,
+                  onTap: () => _confirmDeleteHub(
+                    context,
+                    ref,
+                    org.id,
+                    league.id,
+                    hub,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 18),
           ],
-        ),
+          _StructureSectionHeader(
+            title: 'Teams',
+            trailing: teamsAsync.maybeWhen(
+              data: (teams) => _countLabel(teams.length, 'team'),
+              orElse: () => null,
+            ),
+          ),
+          const SizedBox(height: 10),
+          teamsAsync.when(
+            loading: () => const _StructureLoadingCard(),
+            error: (e, _) => _GlassMessageCard(
+              icon: Icons.error_outline,
+              title: 'Could not load teams',
+              message: '$e',
+              color: AppGlassColors.rose,
+            ),
+            data: (teams) {
+              if (teams.isEmpty) {
+                return const _GlassMessageCard(
+                  icon: Icons.groups_2_outlined,
+                  title: 'No teams yet',
+                  message: 'Add teams when this hub is ready.',
+                  color: AppGlassColors.aqua,
+                );
+              }
+              return Column(
+                children: [
+                  for (final team in teams) _TeamListTile(team: team),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, String orgId,
-      String leagueId, Hub hub) async {
+  Future<void> _confirmDeleteHub(
+    BuildContext context,
+    WidgetRef ref,
+    String orgId,
+    String leagueId,
+    Hub hub,
+  ) async {
     final ok = await showConfirmationDialog(
       context,
       title: 'Delete Hub',
@@ -1007,6 +1265,7 @@ class _HubTile extends ConsumerWidget {
         await ref
             .read(authorizedFirestoreServiceProvider)
             .deleteHubCascade(currentUser, orgId, leagueId, hub.id);
+        if (context.mounted) context.pop();
       } on PermissionDeniedException {
         if (context.mounted) {
           AppUtils.showErrorSnackBar(
@@ -1392,121 +1651,369 @@ class _EditTeamScreenState extends ConsumerState<EditTeamScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Team row (swipe to delete)
+// Shared hierarchy UI
 // ---------------------------------------------------------------------------
 
-class _TeamRow extends StatelessWidget {
+class _TeamListTile extends StatelessWidget {
   final Team team;
-  final VoidCallback onDelete;
-  const _TeamRow({required this.team, required this.onDelete});
+
+  const _TeamListTile({required this.team});
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: GestureDetector(
-        onTap: () => context.push(
-          '/teams/${team.id}?leagueId=${team.leagueId}&hubId=${team.hubId}',
-        ),
-        child: Dismissible(
-          key: Key(team.id),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 16),
-            decoration: BoxDecoration(
-              color: AppGlassColors.rose.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.delete_outline, color: AppGlassColors.rose),
-          ),
-          confirmDismiss: (_) => showConfirmationDialog(
-            context,
-            title: 'Delete Team',
-            message: 'Delete "${team.name}"?',
-            confirmLabel: 'Delete',
-            confirmColor: AppColors.danger,
-          ),
-          onDismissed: (_) => onDelete(),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            decoration: BoxDecoration(
-              border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-            ),
-            child: Row(
+    return _StructureNavigationRow(
+      margin: const EdgeInsets.only(bottom: 10),
+      avatar: EntityAvatar(
+        name: team.name,
+        imageUrl: team.logoUrl,
+        iconName: team.iconName,
+        fallbackIcon: Icons.groups_outlined,
+        size: 40,
+        color: AppGlassColors.aqua,
+      ),
+      title: team.name,
+      subtitle: _joinParts([team.ageGroup, team.division]),
+      onTap: () => context.push(
+        '/teams/${team.id}?leagueId=${team.leagueId}&hubId=${team.hubId}',
+      ),
+    );
+  }
+}
+
+class _StructureHeroCard extends StatelessWidget {
+  final Widget avatar;
+  final String title;
+  final String? subtitle;
+  final List<String> metrics;
+
+  const _StructureHeroCard({
+    required this.avatar,
+    required this.title,
+    this.subtitle,
+    this.metrics = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      padding: const EdgeInsets.all(16),
+      radius: 24,
+      child: Row(
+        children: [
+          avatar,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                EntityAvatar(
-                  name: team.name,
-                  imageUrl: team.logoUrl,
-                  iconName: team.iconName,
-                  fallbackIcon: Icons.groups_outlined,
-                  size: 28,
-                  color: AppGlassColors.aqua,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(team.name,
-                      style: const TextStyle(
-                          fontSize: 13, color: AppGlassColors.ink)),
-                ),
-                if (team.ageGroup != null || team.division != null)
-                  Text(
-                    [team.ageGroup, team.division]
-                        .where((s) => s != null && s.isNotEmpty)
-                        .join(' · '),
-                    style: const TextStyle(
-                        fontSize: 11, color: AppGlassColors.inkMuted),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppGlassColors.ink,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
                   ),
+                ),
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppGlassColors.inkMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (metrics.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final metric in metrics)
+                        _StructureBadge(
+                          label: metric,
+                          color: AppGlassColors.aqua,
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StructureNavigationRow extends StatelessWidget {
+  final Widget avatar;
+  final String title;
+  final String subtitle;
+  final EdgeInsetsGeometry? margin;
+  final VoidCallback onTap;
+
+  const _StructureNavigationRow({
+    required this.avatar,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.margin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      margin: margin,
+      padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+      radius: 22,
+      onTap: onTap,
+      child: Row(
+        children: [
+          avatar,
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppGlassColors.ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppGlassColors.inkMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Icon(
+            Icons.chevron_right,
+            color: AppGlassColors.inkMuted,
+            size: 24,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StructureSectionHeader extends StatelessWidget {
+  final String title;
+  final String? trailing;
+
+  const _StructureSectionHeader({
+    required this.title,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            color: AppGlassColors.inkMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+          ),
+        ),
+        if (trailing != null) ...[
+          const SizedBox(width: 8),
+          _StructureBadge(label: trailing!, color: AppGlassColors.inkMuted),
+        ],
+      ],
+    );
+  }
+}
+
+class _StructureListCard extends StatelessWidget {
+  final List<_StructureListAction> children;
+
+  const _StructureListCard({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      padding: EdgeInsets.zero,
+      radius: 24,
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i != children.length - 1)
+              Divider(
+                height: 1,
+                color: Colors.white.withValues(alpha: 0.09),
+                indent: 74,
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StructureListAction extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _StructureListAction({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.color = AppGlassColors.aqua,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.13),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: color.withValues(alpha: 0.28)),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: color == AppGlassColors.rose
+                          ? AppGlassColors.rose
+                          : AppGlassColors.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppGlassColors.inkMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              color == AppGlassColors.rose
+                  ? Icons.warning_amber_rounded
+                  : Icons.chevron_right,
+              color: color == AppGlassColors.rose
+                  ? AppGlassColors.rose
+                  : AppGlassColors.inkMuted,
+              size: color == AppGlassColors.rose ? 20 : 23,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _GlassAddButton extends StatelessWidget {
+class _StructureBadge extends StatelessWidget {
   final String label;
-  final VoidCallback? onTap;
+  final Color color;
 
-  const _GlassAddButton({
+  const _StructureBadge({
     required this.label,
-    required this.onTap,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null;
-
     return AppGlassSurface(
-      padding: EdgeInsets.zero,
-      radius: 24,
-      onTap: onTap,
-      child: Opacity(
-        opacity: enabled ? 1 : 0.55,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 13, 18, 13),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.add, color: AppGlassColors.aqua, size: 22),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppGlassColors.ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      radius: 999,
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          height: 1,
         ),
       ),
     );
   }
+}
+
+class _StructureLoadingCard extends StatelessWidget {
+  const _StructureLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AppGlassSurface(
+      padding: EdgeInsets.all(20),
+      radius: 22,
+      child: Center(
+        child: CircularProgressIndicator(color: AppGlassColors.aqua),
+      ),
+    );
+  }
+}
+
+String _countLabel(int count, String noun) {
+  return '$count $noun${count == 1 ? '' : 's'}';
+}
+
+String _joinParts(Iterable<String?> parts) {
+  return parts
+      .where((part) => part != null && part.trim().isNotEmpty)
+      .map((part) => part!.trim())
+      .join(' · ');
 }
 
 class _GlassMessageCard extends StatelessWidget {

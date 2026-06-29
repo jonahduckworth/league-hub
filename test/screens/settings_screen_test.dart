@@ -176,6 +176,11 @@ void main() {
                 const Scaffold(body: Text('Privacy Route')),
           ),
           GoRoute(
+            path: '/profile',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Profile Route')),
+          ),
+          GoRoute(
             path: '/login',
             builder: (context, state) =>
                 const Scaffold(body: Text('Login Route')),
@@ -211,6 +216,7 @@ void main() {
         id: 'staff-user',
         email: 'staff@example.com',
         displayName: 'Staff Member',
+        title: 'Head Coach',
         role: UserRole.staff,
         orgId: 'org-1',
         createdAt: DateTime(2024),
@@ -270,13 +276,14 @@ void main() {
         );
       });
 
-      testWidgets('displays profile card with user info',
+      testWidgets('does not display profile summary tile',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: staffUser));
 
-        expect(find.text(staffUser.displayName), findsWidgets);
-        expect(find.text(staffUser.email), findsOneWidget);
-        expect(find.text('Staff'), findsOneWidget); // Role badge
+        expect(find.text(staffUser.displayName), findsNothing);
+        expect(find.text('Head Coach'), findsNothing);
+        expect(find.text(staffUser.email), findsNothing);
+        expect(find.text('Staff'), findsNothing);
       });
     });
 
@@ -345,11 +352,10 @@ void main() {
         expect(find.text('Branding & Appearance'), findsNothing);
       });
 
-      testWidgets('displays Owner badge', (WidgetTester tester) async {
+      testWidgets('does not display Owner badge', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: superAdmin));
 
-        // Admin should show Owner badge
-        expect(find.text('Owner'), findsOneWidget);
+        expect(find.text('Owner'), findsNothing);
       });
 
       testWidgets('roles tile navigates to roles route',
@@ -412,18 +418,19 @@ void main() {
         expect(find.text('Branding & Appearance'), findsNothing);
       });
 
-      testWidgets('displays Owner badge', (WidgetTester tester) async {
+      testWidgets('does not display Owner badge', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: platformOwner));
 
-        expect(find.text('Owner'), findsOneWidget);
+        expect(find.text('Owner'), findsNothing);
       });
     });
 
-    group('Profile card', () {
+    group('Profile summary tile', () {
       final testUser = AppUser(
         id: 'test-user',
         email: 'test@example.com',
         displayName: 'Test User',
+        title: 'Assistant Coach',
         role: UserRole.staff,
         orgId: 'org-1',
         createdAt: DateTime(2024),
@@ -432,38 +439,24 @@ void main() {
         isActive: true,
       );
 
-      testWidgets('displays user name', (WidgetTester tester) async {
+      testWidgets('does not display user name', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: testUser));
 
-        expect(find.text('Test User'), findsWidgets);
+        expect(find.text('Test User'), findsNothing);
       });
 
-      testWidgets('displays user email', (WidgetTester tester) async {
+      testWidgets('does not display user title', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: testUser));
 
-        expect(find.text('test@example.com'), findsOneWidget);
+        expect(find.text('Assistant Coach'), findsNothing);
       });
 
-      testWidgets('displays role badge', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(user: testUser));
-
-        expect(find.text('Staff'), findsOneWidget);
-      });
-
-      testWidgets('has edit button', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(user: testUser));
-
-        expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
-      });
-
-      testWidgets('edit button opens edit profile screen',
+      testWidgets('does not display user email or role badge',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: testUser));
 
-        await tester.tap(find.byIcon(Icons.edit_outlined));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Edit Profile'), findsOneWidget);
+        expect(find.text('test@example.com'), findsNothing);
+        expect(find.text('Staff'), findsNothing);
       });
     });
 

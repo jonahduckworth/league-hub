@@ -18,7 +18,6 @@ import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
 import '../../widgets/app_shell_scaffold.dart';
 import '../../widgets/avatar_widget.dart';
-import '../../widgets/bottom_sheet_handle.dart';
 import '../../widgets/confirmation_dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entity_avatar.dart';
@@ -50,7 +49,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     final filtered = users.where((u) {
       final matchesSearch = _searchQuery.isEmpty ||
           u.displayName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          u.email.toLowerCase().contains(_searchQuery.toLowerCase());
+          u.email.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (u.title?.toLowerCase().contains(_searchQuery.toLowerCase()) ??
+              false);
       final matchesRole = _roleFilter == 'All' || u.roleLabel == _roleFilter;
       return matchesSearch && matchesRole;
     }).toList();
@@ -111,7 +112,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
           if (pendingCount > 0)
             _HeaderInviteButton(
               count: pendingCount,
-              onTap: () => _showInvitationsSheet(context),
+              onTap: () => context.push('/settings/users/invitations'),
             ),
         ],
       ),
@@ -235,15 +236,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
       ),
     );
   }
-
-  void _showInvitationsSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _PendingInvitationsSheet(),
-    );
-  }
 }
 
 // --- User Card ---
@@ -313,6 +305,19 @@ class _UserCard extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
+                  if (user.title != null) ...[
+                    Text(
+                      user.title!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppGlassColors.aqua,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
                   Text(user.email,
                       style: const TextStyle(
                           fontSize: 13, color: AppGlassColors.inkSecondary)),
@@ -382,67 +387,50 @@ class _UserCard extends ConsumerWidget {
   }
 }
 
-// --- Pending Invitations Sheet ---
+// --- Pending Invitations Page ---
 
-class _PendingInvitationsSheet extends ConsumerWidget {
-  const _PendingInvitationsSheet();
+class PendingInvitationsScreen extends ConsumerWidget {
+  const PendingInvitationsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pending = ref.watch(activePendingInvitationsProvider);
+    final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, null);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      maxChildSize: 0.9,
-      minChildSize: 0.3,
-      builder: (_, scrollController) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
-        child: AppGlassSurface(
-          margin: const EdgeInsets.symmetric(horizontal: 10),
-          padding: EdgeInsets.zero,
-          radius: 30,
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              const BottomSheetHandle(),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: Row(
-                  children: [
-                    Icon(Icons.mark_email_unread_outlined,
-                        color: AppGlassColors.aqua, size: 22),
-                    SizedBox(width: 10),
-                    Text(
-                      'Pending Invitations',
-                      style: TextStyle(
-                        color: AppGlassColors.ink,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: pending.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No pending invitations',
-                          style: TextStyle(color: AppGlassColors.inkMuted),
-                        ),
-                      )
-                    : ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-                        itemCount: pending.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) =>
-                            _InvitationTile(invite: pending[i]),
-                      ),
-              ),
-            ],
-          ),
+    return AppShellScaffold(
+      header: AppShellHeader(
+        title: 'Pending Invitations',
+        leadingIcon: Icons.mark_email_unread_outlined,
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.logoUrl?.isNotEmpty == true
+            ? headerLeague?.name
+            : null,
+        showBackButton: true,
+        backFallbackLocation: '/settings/users',
+      ),
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          appShellTopPadding(context),
+          16,
+          appShellBottomPadding(context, extra: 24),
         ),
+        children: [
+          if (pending.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 96),
+              child: EmptyState(
+                icon: Icons.mark_email_read_outlined,
+                title: 'No pending invitations',
+              ),
+            )
+          else
+            for (var i = 0; i < pending.length; i++) ...[
+              _InvitationTile(invite: pending[i]),
+              if (i != pending.length - 1) const SizedBox(height: 10),
+            ],
+        ],
       ),
     );
   }

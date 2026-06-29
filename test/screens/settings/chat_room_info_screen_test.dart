@@ -65,6 +65,7 @@ AppUser _adminUser() => AppUser(
       id: 'u1',
       email: 'admin@test.com',
       displayName: 'Admin',
+      title: 'League Director',
       role: UserRole.platformOwner,
       orgId: 'org-1',
       hubIds: [],
@@ -78,6 +79,7 @@ AppUser _staffUser() => AppUser(
       id: 'u2',
       email: 'staff@test.com',
       displayName: 'Staff Member',
+      title: 'Head Coach',
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: [],
@@ -214,7 +216,10 @@ void main() {
 
       expect(find.text('MEMBERS (2)'), findsOneWidget);
       expect(find.text('Admin'), findsOneWidget);
+      expect(find.text('League Director'), findsOneWidget);
       expect(find.text('Staff Member'), findsOneWidget);
+      expect(find.text('Head Coach'), findsOneWidget);
+      expect(find.text('Staff'), findsNothing);
       expect(
         find.byWidgetPredicate(
           (widget) =>

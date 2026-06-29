@@ -183,18 +183,16 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
     return AppShellScaffold(
       floatingActionButton: canManage
-          ? FloatingActionButton(
-              heroTag: 'announcements_fab',
-              onPressed: () => context.push('/announcements/create'),
-              backgroundColor: AppGlassColors.aqua,
-              child: const Icon(Icons.add, color: Colors.white),
+          ? AppGlassFloatingActionButton(
+              icon: Icons.add,
+              tooltip: 'Create announcement',
+              onTap: () => context.push('/announcements/create'),
             )
           : null,
       header: AppShellHeader(
         leadingIcon: Icons.campaign_outlined,
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',
-        showBackButton: true,
         title: 'Announcements',
       ),
       stickyContent: showLeagueFilter

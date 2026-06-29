@@ -32,6 +32,9 @@ class AppTheme {
         onSecondary: Colors.white,
         onSurface: AppColors.text,
       ),
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
       scaffoldBackgroundColor: AppColors.background,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.shellBlack,

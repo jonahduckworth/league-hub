@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/league_branding.dart';
 import '../../core/utils.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
@@ -14,7 +13,6 @@ class PrivacySecurityScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
     final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
     final topContentPadding = appShellTopPadding(context);
@@ -44,13 +42,6 @@ class PrivacySecurityScreen extends ConsumerWidget {
                 title: 'Change Password',
                 subtitle: 'Update your account password',
                 onTap: () => _showChangePasswordDialog(context),
-              ),
-              const _GlassDivider(),
-              _SecurityTile(
-                icon: Icons.email_outlined,
-                title: 'Email Address',
-                subtitle: user?.email ?? '',
-                onTap: () => _showChangeEmailDialog(context),
               ),
             ],
           ),
@@ -160,85 +151,6 @@ class PrivacySecurityScreen extends ConsumerWidget {
       confirmPassCtrl.dispose();
     });
   }
-
-  void _showChangeEmailDialog(BuildContext context) {
-    final emailCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.54),
-      builder: (ctx) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: AppGlassSurface(
-          radius: 30,
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Change Email',
-                style: TextStyle(
-                  color: AppGlassColors.ink,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 18),
-              _GlassDialogField(
-                controller: emailCtrl,
-                labelText: 'New Email',
-                icon: Icons.email_outlined,
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              _GlassDialogField(
-                controller: passCtrl,
-                labelText: 'Current Password (to confirm)',
-                icon: Icons.lock_outline,
-                obscureText: true,
-              ),
-              const SizedBox(height: 22),
-              _DialogActions(
-                confirmLabel: 'Send Verification',
-                onCancel: () => Navigator.pop(ctx),
-                onConfirm: () async {
-                  try {
-                    final user = FirebaseAuth.instance.currentUser;
-                    if (user != null && user.email != null) {
-                      final cred = EmailAuthProvider.credential(
-                        email: user.email!,
-                        password: passCtrl.text,
-                      );
-                      await user.reauthenticateWithCredential(cred);
-                      await user.verifyBeforeUpdateEmail(emailCtrl.text.trim());
-                    }
-                    if (ctx.mounted) Navigator.pop(ctx);
-                    if (context.mounted) {
-                      AppUtils.showSuccessSnackBar(
-                        context,
-                        'Verification email sent. Please check your new email.',
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      AppUtils.showErrorSnackBar(context, 'Failed: $e');
-                    }
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    ).whenComplete(() {
-      emailCtrl.dispose();
-      passCtrl.dispose();
-    });
-  }
 }
 
 class _SettingsSection extends StatelessWidget {
@@ -269,7 +181,7 @@ class _SettingsSection extends StatelessWidget {
         ),
         AppGlassSurface(
           padding: EdgeInsets.zero,
-          radius: 22,
+          radius: 20,
           child: Column(children: children),
         ),
       ],
@@ -293,25 +205,14 @@ class _SecurityTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppGlassColors.aqua.withValues(alpha: 0.13),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppGlassColors.aqua.withValues(alpha: 0.24),
-          ),
-        ),
-        child: Icon(icon, color: AppGlassColors.aqua, size: 21),
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Icon(icon, color: AppGlassColors.aqua, size: 22),
       title: Text(
         title,
         style: const TextStyle(
           color: AppGlassColors.ink,
-          fontSize: 14,
-          fontWeight: FontWeight.w800,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
         ),
       ),
       subtitle: Text(
@@ -332,32 +233,17 @@ class _SecurityTile extends StatelessWidget {
   }
 }
 
-class _GlassDivider extends StatelessWidget {
-  const _GlassDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Divider(
-      height: 1,
-      indent: 68,
-      color: Colors.white.withValues(alpha: 0.12),
-    );
-  }
-}
-
 class _GlassDialogField extends StatelessWidget {
   final TextEditingController controller;
   final String labelText;
   final IconData icon;
   final bool obscureText;
-  final TextInputType? keyboardType;
 
   const _GlassDialogField({
     required this.controller,
     required this.labelText,
     required this.icon,
     this.obscureText = false,
-    this.keyboardType,
   });
 
   @override
@@ -379,7 +265,6 @@ class _GlassDialogField extends StatelessWidget {
         ),
         child: TextField(
           controller: controller,
-          keyboardType: keyboardType,
           obscureText: obscureText,
           cursorColor: AppGlassColors.aqua,
           style: const TextStyle(

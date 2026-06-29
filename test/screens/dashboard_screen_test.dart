@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/app_user.dart';
-import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/models/league.dart';
-import 'package:league_hub/navigation/announcement_navigation_source.dart';
+import 'package:league_hub/models/weather_snapshot.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
+import 'package:league_hub/providers/weather_provider.dart';
 import 'package:league_hub/screens/dashboard_screen.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/app_glass.dart';
@@ -22,6 +21,7 @@ void main() {
       id: 'user-1',
       email: 'user@example.com',
       displayName: 'Test User',
+      title: 'Head Coach',
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: [],
@@ -46,6 +46,10 @@ void main() {
         orgId: 'org-1',
         name: 'Spring League',
         abbreviation: 'SL',
+        logoUrl: 'https://example.com/logo.png',
+        websiteUrl: 'https://spring.example',
+        instagramUrl: 'https://instagram.com/spring',
+        xUrl: 'https://x.com/spring',
         createdAt: DateTime.now(),
       ),
       League(
@@ -57,71 +61,18 @@ void main() {
       ),
     ];
 
-    final testAnnouncements = [
-      Announcement(
-        id: 'ann-1',
-        orgId: 'org-1',
-        title: 'Welcome Announcement',
-        body: 'Welcome to the league hub platform',
-        authorId: 'user-1',
-        authorName: 'Test User',
-        authorRole: 'Staff',
-        scope: AnnouncementScope.orgWide,
-        attachments: [],
-        isPinned: true,
-        createdAt: DateTime.now().subtract(Duration(days: 1)),
-      ),
-      Announcement(
-        id: 'ann-2',
-        orgId: 'org-1',
-        title: 'Schedule Update',
-        body: 'The schedule has been updated for this week',
-        authorId: 'user-1',
-        authorName: 'Test User',
-        authorRole: 'Staff',
-        scope: AnnouncementScope.league,
-        leagueId: 'league-1',
-        attachments: [],
-        isPinned: false,
-        createdAt: DateTime.now().subtract(Duration(hours: 2)),
-      ),
-    ];
-
-    final testChatRooms = [
-      ChatRoom(
-        id: 'chat-1',
-        orgId: 'org-1',
-        name: 'General Discussion',
-        type: ChatRoomType.league,
-        leagueId: 'league-1',
-        participants: ['user-1', 'user-2'],
-        createdAt: DateTime.now(),
-        isArchived: false,
-        lastMessage: 'See you at the game!',
-        lastMessageBy: 'user-2',
-        lastMessageAt: DateTime.now().subtract(Duration(hours: 1)),
-      ),
-      ChatRoom(
-        id: 'chat-2',
-        orgId: 'org-1',
-        name: 'Tournament Bracket',
-        type: ChatRoomType.event,
-        participants: ['user-1', 'user-2', 'user-3'],
-        createdAt: DateTime.now(),
-        isArchived: false,
-        lastMessage: 'Bracket updates available',
-        lastMessageBy: 'user-1',
-        lastMessageAt: DateTime.now().subtract(Duration(minutes: 30)),
-      ),
-    ];
+    final testWeather = WeatherSnapshot(
+      temperatureC: 18.4,
+      apparentTemperatureC: 17.9,
+      windSpeedKph: 12,
+      weatherCode: 1,
+      observedAt: DateTime(2026),
+    );
 
     Widget createTestWidget({
       AppUser? user,
       Organization? org,
       List<League>? leagues,
-      List<Announcement>? announcements,
-      List<ChatRoom>? chatRooms,
-      List<AppUser>? users,
       int hubCount = 3,
       int teamCount = 12,
       int memberCount = 45,
@@ -137,15 +88,6 @@ void main() {
           leaguesProvider.overrideWith(
             (ref) => Stream.value(leagues ?? testLeagues),
           ),
-          announcementsProvider.overrideWith(
-            (ref) => Stream.value(announcements ?? testAnnouncements),
-          ),
-          chatRoomsProvider.overrideWith(
-            (ref) => Stream.value(chatRooms ?? testChatRooms),
-          ),
-          orgUsersProvider.overrideWith(
-            (ref) => Stream.value(users ?? [testUser]),
-          ),
           hubCountProvider.overrideWith(
             (ref) => hubCount,
           ),
@@ -156,6 +98,7 @@ void main() {
             (ref) => memberCount,
           ),
           unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
+          currentWeatherProvider.overrideWith((ref) => testWeather),
         ],
         child: MaterialApp(
           home: DashboardScreen(),
@@ -173,9 +116,6 @@ void main() {
       AppUser? user,
       Organization? org,
       List<League>? leagues,
-      List<Announcement>? announcements,
-      List<ChatRoom>? chatRooms,
-      List<AppUser>? users,
       int hubCount = 3,
       int teamCount = 12,
       int memberCount = 45,
@@ -208,22 +148,19 @@ void main() {
                 const Scaffold(body: Text('Policy Route')),
           ),
           GoRoute(
+            path: '/contacts',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Contacts Route')),
+          ),
+          GoRoute(
             path: '/settings',
             builder: (context, state) =>
                 const Scaffold(body: Text('Settings Route')),
           ),
           GoRoute(
-            path: '/announcements/:id',
-            builder: (context, state) => Scaffold(
-              body: Column(
-                children: [
-                  Text('Announcement Route ${state.pathParameters['id']}'),
-                  Text(
-                    'Announcement Source ${state.extra == AnnouncementNavigationSource.dashboardCard ? 'dashboardCard' : 'none'}',
-                  ),
-                ],
-              ),
-            ),
+            path: '/profile',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Profile Route')),
           ),
           GoRoute(
             path: '/chat/:id',
@@ -240,19 +177,11 @@ void main() {
           leaguesProvider.overrideWith(
             (ref) => Stream.value(leagues ?? testLeagues),
           ),
-          announcementsProvider.overrideWith(
-            (ref) => Stream.value(announcements ?? testAnnouncements),
-          ),
-          chatRoomsProvider.overrideWith(
-            (ref) => Stream.value(chatRooms ?? testChatRooms),
-          ),
-          orgUsersProvider.overrideWith(
-            (ref) => Stream.value(users ?? [testUser]),
-          ),
           hubCountProvider.overrideWith((ref) => hubCount),
           teamCountProvider.overrideWith((ref) => teamCount),
           activeUserCountProvider.overrideWith((ref) => memberCount),
           unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
+          currentWeatherProvider.overrideWith((ref) => testWeather),
         ],
         child: MaterialApp.router(
           routerConfig: router,
@@ -277,19 +206,41 @@ void main() {
         expect(find.text('Members'), findsNothing);
       });
 
-      testWidgets('starts main content with announcements',
+      testWidgets('shows profile, quick access, and quick tiles',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Announcements'), findsOneWidget);
-        expect(find.text('Welcome Announcement'), findsOneWidget);
+        expect(find.text('Quick Access'), findsOneWidget);
+        expect(find.text('Test User'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.text('Test User'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Policy'), findsOneWidget);
+        expect(find.text('Weather'), findsOneWidget);
+        expect(find.text('Contacts'), findsOneWidget);
+        expect(find.text('Settings'), findsOneWidget);
+      });
+
+      testWidgets('does not render chat previews on home',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Active Chats'), findsNothing);
+        expect(find.text('General Discussion'), findsNothing);
+        expect(find.text('Tournament Bracket'), findsNothing);
       });
     });
 
     group('AppBar and Header', () {
-      testWidgets('shows logo search header instead of greeting text',
+      testWidgets('shows greeting and compact profile row',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(
           org: Organization(
@@ -307,21 +258,48 @@ void main() {
 
         expect(
           find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
-          findsNothing,
-        );
-        expect(find.text('Custom Org Name'), findsNothing);
-        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
-        expect(
-          find.text('Search chats, policies, announcements...'),
           findsOneWidget,
         );
+        expect(find.text('Test User'), findsWidgets);
+        expect(find.text('Head Coach'), findsOneWidget);
+        expect(find.text('user@example.com'), findsNothing);
+        expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+        expect(find.byType(TextField), findsNothing);
+        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+      });
+
+      testWidgets('aligns the league mark with the greeting row',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        final greetingFinder = find.textContaining(
+          RegExp(r'Good (morning|afternoon|evening)'),
+        );
+        final logoFinder = find.byType(AppHeaderLogoMark);
+        final greetingSurface = find
+            .ancestor(
+              of: greetingFinder,
+              matching: find.byType(AppGlassSurface),
+            )
+            .first;
+
+        expect(greetingFinder, findsOneWidget);
+        expect(logoFinder, findsOneWidget);
         expect(
-          tester.getTopLeft(find.byType(AppHeaderLogoMark)).dx,
-          greaterThan(tester.getTopLeft(find.byType(TextField)).dx),
+          tester.getSize(greetingSurface).height,
+          closeTo(tester.getSize(logoFinder).height, 1),
+        );
+        expect(tester.getCenter(logoFinder).dy,
+            closeTo(tester.getCenter(greetingFinder).dy, 2));
+        expect(
+          tester.getTopRight(logoFinder).dx,
+          greaterThan(tester.getTopRight(greetingFinder).dx),
         );
       });
 
-      testWidgets('uses a compact header without welcome copy',
+      testWidgets('uses a compact header without org welcome copy',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -329,7 +307,7 @@ void main() {
 
         expect(
           find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
-          findsNothing,
+          findsOneWidget,
         );
         expect(find.text('Test Organization'), findsNothing);
         expect(find.text('Welcome back, Test User'), findsNothing);
@@ -347,36 +325,76 @@ void main() {
         );
       });
 
-      testWidgets('shows header search bar', (WidgetTester tester) async {
+      testWidgets('does not show the old header search bar',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
         expect(
           find.text('Search chats, policies, announcements...'),
-          findsOneWidget,
+          findsNothing,
         );
+        expect(find.byType(TextField), findsNothing);
       });
 
-      testWidgets('keeps main content close under the header controls',
+      testWidgets('places quick access below the profile row',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
         await tester.pump();
         await tester.pumpAndSettle();
 
-        final searchSurface = find
+        final profileSurface = find
             .ancestor(
-              of: find.byType(TextField),
+              of: find.byIcon(Icons.chevron_right),
               matching: find.byType(AppGlassSurface),
             )
             .first;
-        final headerBottom = tester.getBottomLeft(searchSurface).dy;
-        final contentTop = tester.getTopLeft(find.text('Announcements')).dy;
+        final headerBottom = tester.getBottomLeft(profileSurface).dy;
+        final policySurface = find
+            .ancestor(
+              of: find.text('Policy'),
+              matching: find.byType(AppGlassSurface),
+            )
+            .last;
+        final contentTop = tester.getTopLeft(policySurface).dy;
 
-        expect(contentTop - headerBottom, lessThanOrEqualTo(20));
+        expect(contentTop, greaterThan(headerBottom));
+        expect(contentTop - headerBottom, lessThanOrEqualTo(96));
       });
 
-      testWidgets('uses a masked fade over the scrolling content',
+      testWidgets('matches quick access heading to the greeting pill',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        final greetingFinder = find.textContaining(
+          RegExp(r'Good (morning|afternoon|evening)'),
+        );
+        final quickAccessFinder = find.text('Quick Access');
+        expect(greetingFinder, findsOneWidget);
+        expect(quickAccessFinder, findsOneWidget);
+
+        final greetingText = tester.widget<Text>(greetingFinder);
+        final quickAccessText = tester.widget<Text>(quickAccessFinder);
+
+        expect(quickAccessText.style?.fontSize, greetingText.style?.fontSize);
+        expect(
+          quickAccessText.style?.fontWeight,
+          greetingText.style?.fontWeight,
+        );
+        expect(
+          find.ancestor(
+            of: quickAccessFinder,
+            matching: find.byType(AppHeaderPill),
+          ),
+          findsNothing,
+        );
+        expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
+      });
+
+      testWidgets('uses a masked fade over the home content',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -386,20 +404,74 @@ void main() {
         expect(find.byType(ShaderMask), findsOneWidget);
       });
 
+      testWidgets('home grid shows policy, weather, contacts, and settings',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Policy'), findsOneWidget);
+        expect(find.text('Policies'), findsNothing);
+        expect(find.text('Weather'), findsOneWidget);
+        expect(find.text('Contacts'), findsOneWidget);
+        expect(find.text('Settings'), findsOneWidget);
+        expect(find.text('18°'), findsOneWidget);
+      });
+
+      testWidgets('home shows quick link icons for the selected league',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Quick Links'), findsNothing);
+        expect(find.byTooltip('League Website'), findsOneWidget);
+        expect(find.byTooltip('League Instagram'), findsOneWidget);
+        expect(find.byTooltip('League X'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byTooltip('League Website'),
+          ),
+          findsNothing,
+        );
+      });
+
+      testWidgets('positions quick links above the bottom nav area',
+          (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(createTestWidget());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        final websiteBottom =
+            tester.getBottomLeft(find.byTooltip('League Website')).dy;
+
+        expect(websiteBottom, closeTo(844 - 64 - 12 - 40, 1));
+      });
+
       testWidgets('policy tile navigates to policy',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.scrollUntilVisible(
-          find.text('Policies'),
-          300,
-          scrollable: find.byType(Scrollable).last,
-        );
-        await tester.tap(find.text('Policies'));
+        await tester.tap(find.text('Policy'));
         await tester.pumpAndSettle();
 
         expect(find.text('Policy Route'), findsOneWidget);
+      });
+
+      testWidgets('contacts tile navigates to contacts',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Contacts'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Contacts Route'), findsOneWidget);
       });
 
       testWidgets('settings tile navigates to settings',
@@ -407,31 +479,21 @@ void main() {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.scrollUntilVisible(
-          find.text('Settings'),
-          300,
-          scrollable: find.byType(Scrollable).last,
-        );
         await tester.tap(find.text('Settings'));
         await tester.pumpAndSettle();
 
         expect(find.text('Settings Route'), findsOneWidget);
       });
 
-      testWidgets('search submit shows coming soon dialog',
+      testWidgets('profile row opens the profile route',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.enterText(
-          find.byType(TextField),
-          'registrations',
-        );
-        await tester.testTextInput.receiveAction(TextInputAction.search);
+        await tester.tap(find.byIcon(Icons.chevron_right));
         await tester.pumpAndSettle();
 
-        expect(
-            find.text('Search functionality is coming soon.'), findsOneWidget);
+        expect(find.text('Profile Route'), findsOneWidget);
       });
     });
 
@@ -465,270 +527,6 @@ void main() {
       });
     });
 
-    group('Announcements Section', () {
-      testWidgets('displays announcements section header',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('Announcements'), findsOneWidget);
-        expect(find.text('See All'), findsWidgets); // One for announcements
-      });
-
-      testWidgets('displays recent announcements', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('Welcome Announcement'), findsOneWidget);
-        expect(find.text('Schedule Update'), findsOneWidget);
-      });
-
-      testWidgets('shows pinned indicator', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('Pinned'), findsOneWidget);
-        expect(find.byIcon(Icons.push_pin), findsOneWidget);
-      });
-
-      testWidgets('displays scope tags', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('Org-Wide'), findsOneWidget);
-        expect(find.text('SL'), findsWidgets); // League abbreviation
-      });
-
-      testWidgets('shows empty state when no announcements',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(announcements: []));
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('No announcements yet.'), findsOneWidget);
-      });
-
-      testWidgets('limits home announcements to first 5',
-          (WidgetTester tester) async {
-        final manyAnnouncements = List.generate(
-          6,
-          (i) => Announcement(
-            id: 'ann-$i',
-            orgId: 'org-1',
-            title: 'Announcement $i',
-            body: 'Body $i',
-            authorId: 'user-1',
-            authorName: 'Test User',
-            authorRole: 'Staff',
-            scope: AnnouncementScope.orgWide,
-            attachments: [],
-            isPinned: false,
-            createdAt: DateTime.now().subtract(Duration(hours: i)),
-          ),
-        );
-
-        await tester
-            .pumpWidget(createTestWidget(announcements: manyAnnouncements));
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        // Horizontal cards are lazily built; the sixth item should not be
-        // available because the home feed caps the section at five.
-        expect(find.text('Announcement 0'), findsOneWidget);
-        expect(find.text('Announcement 5'), findsNothing);
-        expect(find.text('See All'), findsWidgets);
-      });
-
-      testWidgets('see all navigates to announcements route',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('See All').first);
-        await tester.pumpAndSettle();
-
-        expect(find.text('Announcements Route'), findsOneWidget);
-      });
-
-      testWidgets('announcement card tap navigates to detail',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('Welcome Announcement'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Announcement Route ann-1'), findsOneWidget);
-        expect(find.text('Announcement Source dashboardCard'), findsOneWidget);
-      });
-    });
-
-    group('Active Chats Section', () {
-      testWidgets('displays active chats section header',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('Active Chats'), findsOneWidget);
-      });
-
-      testWidgets('displays recent chat rooms', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('General Discussion'), findsOneWidget);
-        expect(find.text('Tournament Bracket'), findsOneWidget);
-      });
-
-      testWidgets('shows chat room types with icons',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.byIcon(Icons.forum), findsOneWidget); // League room
-        expect(find.byIcon(Icons.event_outlined), findsOneWidget); // Event room
-      });
-
-      testWidgets('uses direct message peer details on chat cards',
-          (WidgetTester tester) async {
-        final peer = AppUser(
-          id: 'user-2',
-          email: 'sam@example.com',
-          displayName: 'Sam Orr',
-          avatarUrl: 'https://example.com/sam.jpg',
-          role: UserRole.staff,
-          orgId: 'org-1',
-          hubIds: [],
-          teamIds: [],
-          createdAt: DateTime(2024),
-          isActive: true,
-        );
-        final directRoom = ChatRoom(
-          id: 'dm-1',
-          orgId: 'org-1',
-          name: 'Test User & Sam Orr',
-          type: ChatRoomType.direct,
-          participants: ['user-1', 'user-2'],
-          createdAt: DateTime.now(),
-          isArchived: false,
-          lastMessage: 'See you there',
-          lastMessageBy: 'Sam Orr',
-          lastMessageAt: DateTime.now(),
-        );
-
-        await tester.pumpWidget(createTestWidget(
-          chatRooms: [directRoom],
-          users: [testUser, peer],
-        ));
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.text('Sam Orr'), findsOneWidget);
-        expect(find.text('Test User & Sam Orr'), findsNothing);
-        expect(find.byIcon(Icons.person), findsNothing);
-      });
-
-      testWidgets('shows empty state when no chats',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget(chatRooms: []));
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(
-          find.text('No chat rooms yet. Go to Messages to create one.'),
-          findsOneWidget,
-        );
-      });
-
-      testWidgets('takes first 3 chat rooms', (WidgetTester tester) async {
-        final manyChatRooms = List.generate(
-          5,
-          (i) => ChatRoom(
-            id: 'chat-$i',
-            orgId: 'org-1',
-            name: 'Chat Room $i',
-            type: ChatRoomType.league,
-            participants: ['user-1'],
-            createdAt: DateTime.now(),
-            isArchived: false,
-            lastMessage: 'Message $i',
-            lastMessageBy: 'user-1',
-            lastMessageAt: DateTime.now().subtract(Duration(hours: i)),
-          ),
-        );
-
-        await tester.pumpWidget(createTestWidget(chatRooms: manyChatRooms));
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        // Should only show first 3
-        expect(find.text('Chat Room 0'), findsOneWidget);
-        expect(find.text('Chat Room 1'), findsOneWidget);
-        expect(find.text('Chat Room 2'), findsOneWidget);
-        expect(find.text('Chat Room 3'), findsNothing);
-        expect(find.text('Chat Room 4'), findsNothing);
-      });
-
-      testWidgets('displays last message preview', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        expect(find.textContaining('See you at the game!'), findsOneWidget);
-        expect(
-            find.textContaining('Bracket updates available'), findsOneWidget);
-      });
-
-      testWidgets('shows timestamp of last message',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        // Should find timestamps (exact format depends on formatDateTime)
-        expect(find.byType(Text), findsWidgets);
-      });
-
-      testWidgets('see all navigates to chat route',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
-        await tester.pumpAndSettle();
-
-        await tester.scrollUntilVisible(
-          find.text('See All').last,
-          300,
-          scrollable: find.byType(Scrollable).last,
-        );
-        await tester.tap(find.text('See All').last);
-        await tester.pumpAndSettle();
-
-        expect(find.text('Chat Route'), findsOneWidget);
-      });
-
-      testWidgets('chat card tap navigates to chat detail',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
-        await tester.pumpAndSettle();
-
-        await tester.scrollUntilVisible(
-          find.text('General Discussion'),
-          300,
-          scrollable: find.byType(Scrollable).last,
-        );
-        await tester.tap(find.text('General Discussion'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Chat Detail chat-1'), findsOneWidget);
-      });
-    });
-
     group('Loading and Error States', () {
       testWidgets('shows loading indicator when data is loading',
           (WidgetTester tester) async {
@@ -738,6 +536,7 @@ void main() {
               currentUserProvider.overrideWith(
                 (ref) => throw UnimplementedError(),
               ),
+              currentWeatherProvider.overrideWith((ref) => testWeather),
             ],
             child: MaterialApp(
               home: DashboardScreen(),
@@ -783,6 +582,7 @@ void main() {
               ),
               unreadCountProvider
                   .overrideWith((ref, roomId) => Stream.value(0)),
+              currentWeatherProvider.overrideWith((ref) => testWeather),
             ],
             child: MaterialApp(
               home: DashboardScreen(),
@@ -799,19 +599,22 @@ void main() {
 
         expect(
           find.textContaining(RegExp(r'Good (morning|afternoon|evening)')),
-          findsNothing,
+          findsOneWidget,
         );
         expect(find.text('League Hub'), findsNothing);
         expect(
           find.text('Search chats, policies, announcements...'),
-          findsOneWidget,
+          findsNothing,
         );
-        expect(find.text('Announcements'), findsOneWidget);
+        expect(find.text('Loading profile...'), findsOneWidget);
+        expect(find.text('Quick Links'), findsNothing);
+        expect(find.text('Policy'), findsOneWidget);
       });
     });
 
     group('Content Spacing and Layout', () {
-      testWidgets('sections are properly spaced', (WidgetTester tester) async {
+      testWidgets('home content is vertically scrollable',
+          (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -819,7 +622,7 @@ void main() {
         expect(find.byType(SingleChildScrollView), findsOneWidget);
       });
 
-      testWidgets('league filter stays outside the scrollable content',
+      testWidgets('league filter stays outside the home content',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();

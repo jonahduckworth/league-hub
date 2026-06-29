@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/league_branding.dart';
@@ -31,6 +32,9 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   bool _loading = true;
   bool _editing = false;
   bool _saving = false;
+  final _titleController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
 
   // Edit state
   UserRole? _editRole;
@@ -51,6 +55,14 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     _loadTeams();
   }
 
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUser() async {
     final svc = ref.read(firestoreServiceProvider);
     final user = await svc.getUserById(widget.userId);
@@ -66,6 +78,9 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
           _editTeamIds
             ..clear()
             ..addAll(user.teamIds);
+          _titleController.text = user.title ?? '';
+          _phoneController.text = user.phone ?? '';
+          _addressController.text = user.address ?? '';
         }
       });
       if (user != null) {
@@ -135,6 +150,30 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       final hubIdsList = _editHubIds.toList();
       // Derive leagueIds from hub assignments.
       final leagueIds = await fs.deriveLeagueIdsFromHubs(orgId, hubIdsList);
+      final updates = <String, dynamic>{
+        'role': (_editRole ?? _user!.role).name,
+        'hubIds': hubIdsList,
+        'leagueIds': leagueIds,
+        'teamIds': teamIdsList,
+      };
+      _putOptionalProfileUpdate(
+        updates,
+        field: 'title',
+        currentValue: _user!.title,
+        nextValue: _titleController.text,
+      );
+      _putOptionalProfileUpdate(
+        updates,
+        field: 'phone',
+        currentValue: _user!.phone,
+        nextValue: _phoneController.text,
+      );
+      _putOptionalProfileUpdate(
+        updates,
+        field: 'address',
+        currentValue: _user!.address,
+        nextValue: _addressController.text,
+      );
       await _syncTeamMemberships(
         authorizedSvc,
         currentUser,
@@ -142,12 +181,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
         _user!,
         teamIdsList,
       );
-      await authorizedSvc.updateUserFields(currentUser, _user!, {
-        'role': _editRole!.name,
-        'hubIds': hubIdsList,
-        'leagueIds': leagueIds,
-        'teamIds': teamIdsList,
-      });
+      await authorizedSvc.updateUserFields(currentUser, _user!, updates);
       // Reload user
       await _loadUser();
       if (mounted) setState(() => _editing = false);
@@ -162,6 +196,18 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _putOptionalProfileUpdate(
+    Map<String, dynamic> updates, {
+    required String field,
+    required String? currentValue,
+    required String nextValue,
+  }) {
+    final current = (currentValue ?? '').trim();
+    final next = nextValue.trim();
+    if (next == current) return;
+    updates[field] = next.isEmpty ? FieldValue.delete() : next;
   }
 
   Future<void> _toggleActive() async {
@@ -345,6 +391,9 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                   _editTeamIds
                     ..clear()
                     ..addAll(user.teamIds);
+                  _titleController.text = user.title ?? '';
+                  _phoneController.text = user.phone ?? '';
+                  _addressController.text = user.address ?? '';
                 });
               },
             ),
@@ -362,6 +411,8 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
           _buildProfileHeader(user),
           const SizedBox(height: 16),
           _buildInfoSection(user, canChangeRole),
+          const SizedBox(height: 16),
+          _buildContactSection(user),
           const SizedBox(height: 16),
           _buildHubSection(user),
           const SizedBox(height: 16),
@@ -403,28 +454,31 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                 Text(user.email,
                     style: const TextStyle(
                         fontSize: 13, color: AppGlassColors.inkSecondary)),
+                if (user.title != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    user.title!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppGlassColors.aqua,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    StatusBadge(
-                        label: user.roleLabel,
-                        color: AppGlassColors.aqua,
-                        backgroundColor:
-                            AppGlassColors.aqua.withValues(alpha: 0.14),
-                        textColor: AppGlassColors.aqua,
-                        showBorder: false),
-                    const SizedBox(width: 8),
-                    StatusBadge(
-                        label: user.isActive ? 'Active' : 'Inactive',
-                        color: user.isActive
-                            ? AppColors.success
-                            : AppColors.danger,
-                        backgroundColor: user.isActive
-                            ? AppColors.success.withValues(alpha: 0.3)
-                            : AppColors.danger.withValues(alpha: 0.3),
-                        textColor: AppGlassColors.ink,
-                        showBorder: false),
-                  ],
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: StatusBadge(
+                      label: user.isActive ? 'Active' : 'Inactive',
+                      color:
+                          user.isActive ? AppColors.success : AppColors.danger,
+                      backgroundColor: user.isActive
+                          ? AppColors.success.withValues(alpha: 0.3)
+                          : AppColors.danger.withValues(alpha: 0.3),
+                      textColor: AppGlassColors.ink,
+                      showBorder: false),
                 ),
               ],
             ),
@@ -436,10 +490,77 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
 
   Widget _buildInfoSection(AppUser user, bool canChangeRole) {
     return _SectionCard(
-      title: 'Role & Access',
-      child: _editing && canChangeRole
-          ? _buildRolePicker()
-          : _InfoRow(label: 'Role', value: user.roleLabel),
+      title: 'Profile',
+      child: Column(
+        children: [
+          if (_editing) ...[
+            GlassTextFormField(
+              controller: _titleController,
+              labelText: 'Title',
+              leadingIcon: Icons.work_outline,
+              textInputAction: TextInputAction.next,
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+          ] else ...[
+            _InfoRow(label: 'Title', value: user.title ?? 'Not set'),
+            const SizedBox(height: 14),
+          ],
+          if (_editing && canChangeRole)
+            _buildRolePicker()
+          else
+            _InfoRow(label: 'Role', value: user.roleLabel),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactSection(AppUser user) {
+    return _SectionCard(
+      title: 'Contact',
+      child: _editing
+          ? Column(
+              children: [
+                GlassTextFormField(
+                  controller: _phoneController,
+                  labelText: 'Phone',
+                  leadingIcon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 16),
+                GlassTextFormField(
+                  controller: _addressController,
+                  labelText: 'Address',
+                  leadingIcon: Icons.location_on_outlined,
+                  keyboardType: TextInputType.streetAddress,
+                  textInputAction: TextInputAction.newline,
+                  textCapitalization: TextCapitalization.words,
+                  minLines: 1,
+                  maxLines: 3,
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                if (user.phone == null && user.address == null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'No contact details shared.',
+                      style: TextStyle(color: AppGlassColors.inkMuted),
+                    ),
+                  )
+                else ...[
+                  if (user.phone != null)
+                    _InfoRow(label: 'Phone', value: user.phone!),
+                  if (user.phone != null && user.address != null)
+                    const SizedBox(height: 14),
+                  if (user.address != null)
+                    _InfoRow(label: 'Address', value: user.address!),
+                ],
+              ],
+            ),
     );
   }
 
@@ -719,15 +840,25 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
             style:
                 const TextStyle(fontSize: 14, color: AppGlassColors.inkMuted)),
-        Text(value,
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppGlassColors.ink)),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppGlassColors.ink,
+            ),
+          ),
+        ),
       ],
     );
   }

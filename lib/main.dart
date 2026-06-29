@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'core/scroll_behavior.dart';
 import 'core/theme.dart';
 import 'firebase_options.dart';
 import 'navigation/router.dart';
@@ -99,6 +100,7 @@ class _LeagueHubAppState extends ConsumerState<LeagueHubApp> {
     return MaterialApp.router(
       title: 'League Hub',
       theme: AppTheme.lightTheme,
+      scrollBehavior: const LeagueHubScrollBehavior(),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {

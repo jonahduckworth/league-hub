@@ -134,28 +134,12 @@ class _AppIconScreenState extends ConsumerState<AppIconScreen> {
             isLoading: _isLoadingCurrentIcon,
             supportsNativeIcons: _supportsNativeIcons,
           ),
-          const SizedBox(height: 18),
-          const _SectionLabel('HOME SCREEN ICONS'),
-          const SizedBox(height: 10),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.82,
-            ),
-            itemCount: appIconOptions.length,
-            itemBuilder: (context, index) {
-              final option = appIconOptions[index];
-              return _IconOptionTile(
-                option: option,
-                isSelected: option.id == _selectedIconId,
-                isEnabled: canEdit && !_isApplying && !_isLoadingCurrentIcon,
-                onTap: () => setState(() => _selectedIconId = option.id),
-              );
-            },
+          const SizedBox(height: 16),
+          _IconOptionsSection(
+            options: appIconOptions,
+            selectedIconId: _selectedIconId,
+            isEnabled: canEdit && !_isApplying && !_isLoadingCurrentIcon,
+            onSelected: (iconId) => setState(() => _selectedIconId = iconId),
           ),
           if (!_supportsNativeIcons) ...[
             const SizedBox(height: 18),
@@ -185,11 +169,11 @@ class _PreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppGlassSurface(
-      radius: 28,
-      padding: const EdgeInsets.all(18),
+      radius: 20,
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          _AppIconPreview(option: option, size: 84),
+          _AppIconPreview(option: option, size: 72),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -211,7 +195,7 @@ class _PreviewCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppGlassColors.ink,
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.w900,
                     height: 1.05,
                   ),
@@ -239,13 +223,74 @@ class _PreviewCard extends StatelessWidget {
   }
 }
 
-class _IconOptionTile extends StatelessWidget {
+class _IconOptionsSection extends StatelessWidget {
+  final List<AppIconOption> options;
+  final String selectedIconId;
+  final bool isEnabled;
+  final ValueChanged<String> onSelected;
+
+  const _IconOptionsSection({
+    required this.options,
+    required this.selectedIconId,
+    required this.isEnabled,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'HOME SCREEN ICONS',
+            style: TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+        AppGlassSurface(
+          padding: EdgeInsets.zero,
+          radius: 20,
+          child: Column(
+            children: options.asMap().entries.map((entry) {
+              final option = entry.value;
+              final isLast = entry.key == options.length - 1;
+              return Column(
+                children: [
+                  _IconOptionRow(
+                    option: option,
+                    isSelected: option.id == selectedIconId,
+                    isEnabled: isEnabled,
+                    onTap: () => onSelected(option.id),
+                  ),
+                  if (!isLast)
+                    Divider(
+                      height: 1,
+                      indent: 70,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _IconOptionRow extends StatelessWidget {
   final AppIconOption option;
   final bool isSelected;
   final bool isEnabled;
   final VoidCallback onTap;
 
-  const _IconOptionTile({
+  const _IconOptionRow({
     required this.option,
     required this.isSelected,
     required this.isEnabled,
@@ -256,56 +301,42 @@ class _IconOptionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Opacity(
       opacity: isEnabled || isSelected ? 1 : 0.58,
-      child: AppGlassSurface(
-        radius: 22,
-        padding: const EdgeInsets.all(12),
-        onTap: isEnabled ? onTap : null,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                _AppIconPreview(option: option, size: 58),
-                if (isSelected)
-                  Positioned(
-                    right: -4,
-                    bottom: -4,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: AppGlassColors.aqua,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppGlassColors.pageMid,
-                          width: 2,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        color: AppGlassColors.pageTop,
-                        size: 14,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              option.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color:
-                    isSelected ? AppGlassColors.ink : AppGlassColors.inkMuted,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
-              ),
-            ),
-          ],
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        leading: _AppIconPreview(option: option, size: 42),
+        title: Text(
+          option.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: isSelected ? AppGlassColors.ink : AppGlassColors.inkMuted,
+            fontSize: 15,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+          ),
         ),
+        trailing: isSelected
+            ? Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: AppGlassColors.aqua.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppGlassColors.aqua.withValues(alpha: 0.34),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: AppGlassColors.aqua,
+                  size: 16,
+                ),
+              )
+            : const Icon(
+                Icons.chevron_right,
+                color: AppGlassColors.inkMuted,
+                size: 20,
+              ),
+        onTap: isEnabled ? onTap : null,
       ),
     );
   }
@@ -329,25 +360,6 @@ class _AppIconPreview extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String label;
-
-  const _SectionLabel(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        color: AppGlassColors.inkMuted,
-        fontSize: 13,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 0,
       ),
     );
   }

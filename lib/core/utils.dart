@@ -8,7 +8,7 @@ class AppUtils {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
       backgroundColor: AppColors.danger,
-      behavior: SnackBarBehavior.floating,
+      behavior: SnackBarBehavior.fixed,
     ));
   }
 
@@ -16,14 +16,14 @@ class AppUtils {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
       backgroundColor: AppColors.success,
-      behavior: SnackBarBehavior.floating,
+      behavior: SnackBarBehavior.fixed,
     ));
   }
 
   static void showInfoSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
-      behavior: SnackBarBehavior.floating,
+      behavior: SnackBarBehavior.fixed,
     ));
   }
 

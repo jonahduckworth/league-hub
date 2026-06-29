@@ -8,6 +8,30 @@ bool isRecoverableHardwareKeyboardMismatch(FlutterErrorDetails details) {
       message.contains('physical key is not pressed');
 }
 
+bool isRecoverableSnackBarLayoutError(FlutterErrorDetails details) {
+  return details
+      .exceptionAsString()
+      .contains('Floating SnackBar presented off screen');
+}
+
+bool isRecoverableSemanticsNeedsLayout(FlutterErrorDetails details) {
+  final message = details.exceptionAsString();
+  return message.contains("!childSemantics.renderObject._needsLayout") ||
+      message.contains("!_childSemantics.renderObject._needsLayout");
+}
+
+bool isRecoverableRenderFlexOverflow(FlutterErrorDetails details) {
+  final message = details.exceptionAsString();
+  return message.contains('A RenderFlex overflowed by');
+}
+
+bool isRecoverableFrameworkError(FlutterErrorDetails details) {
+  return isRecoverableHardwareKeyboardMismatch(details) ||
+      isRecoverableSnackBarLayoutError(details) ||
+      isRecoverableSemanticsNeedsLayout(details) ||
+      isRecoverableRenderFlexOverflow(details);
+}
+
 /// A widget that catches errors in its child tree and displays a
 /// user-friendly fallback instead of crashing.
 class ErrorBoundary extends StatefulWidget {
@@ -29,8 +53,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
     // Intercept Flutter framework errors.
     _originalOnError = FlutterError.onError;
     FlutterError.onError = (details) {
-      final shouldShowFallback =
-          !isRecoverableHardwareKeyboardMismatch(details);
+      final shouldShowFallback = !isRecoverableFrameworkError(details);
       if (mounted && shouldShowFallback) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -129,26 +152,37 @@ class _ErrorFallback extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 28),
-                    AppGlassSurface(
+                    SizedBox(
                       height: 52,
-                      padding: EdgeInsets.zero,
-                      radius: 20,
-                      onTap: onRetry,
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.refresh, color: AppGlassColors.aqua),
-                          SizedBox(width: 10),
-                          Text(
-                            'Try Again',
-                            style: TextStyle(
-                              color: AppGlassColors.ink,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
+                      child: FilledButton(
+                        onPressed: onRetry,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.12),
+                          foregroundColor: AppGlassColors.ink,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.22),
                             ),
                           ),
-                        ],
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.refresh, color: AppGlassColors.aqua),
+                            SizedBox(width: 10),
+                            Text(
+                              'Try Again',
+                              style: TextStyle(
+                                color: AppGlassColors.ink,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
