@@ -1,0 +1,719 @@
+import { randomBytes } from "crypto";
+import * as admin from "firebase-admin";
+import { logger } from "firebase-functions";
+import { CallableRequest, HttpsError, onCall } from "firebase-functions/v2/https";
+import { db } from "./helpers";
+import {
+  ActorLike,
+  UserRole,
+  assignableRoles,
+  canAccessOrg,
+  canManageTarget,
+  isAdminRole,
+  isUserRole,
+  normalizeStringArray,
+} from "./adminLogic";
+
+type DocumentData = FirebaseFirestore.DocumentData;
+type FieldValue = FirebaseFirestore.FieldValue;
+
+type Actor = ActorLike & {
+  id: string;
+  email?: string;
+  displayName?: string;
+  role: UserRole;
+  isActive: true;
+};
+
+type RequestRecord = Record<string, unknown>;
+
+const adminRuntime = {
+  timeoutSeconds: 60,
+  memory: "256MiB" as const,
+};
+
+const usersRef = () => db.collection("users");
+const orgsRef = () => db.collection("organizations");
+const orgRef = (orgId: string) => orgsRef().doc(orgId);
+const now = () => admin.firestore.FieldValue.serverTimestamp();
+const arrayUnion = (...values: string[]): FieldValue =>
+  admin.firestore.FieldValue.arrayUnion(...values);
+const arrayRemove = (...values: string[]): FieldValue =>
+  admin.firestore.FieldValue.arrayRemove(...values);
+
+function requireAuth(request: CallableRequest): string {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Sign in is required.");
+  }
+  return uid;
+}
+
+async function loadActor(uid: string): Promise<Actor> {
+  const snap = await usersRef().doc(uid).get();
+  if (!snap.exists) {
+    throw new HttpsError("permission-denied", "No League Hub user profile exists for this account.");
+  }
+
+  const data = snap.data() ?? {};
+  const role = data.role;
+  if (!isUserRole(role) || !isAdminRole(role)) {
+    throw new HttpsError("permission-denied", "Only platform owners and admins can use the admin dashboard.");
+  }
+  if (data.isActive !== true) {
+    throw new HttpsError("permission-denied", "Inactive users cannot use the admin dashboard.");
+  }
+
+  return {
+    id: snap.id,
+    email: data.email as string | undefined,
+    displayName: (data.displayName as string | undefined) ?? "Admin",
+    orgId: data.orgId as string | undefined,
+    role,
+    isActive: true,
+  };
+}
+
+function dataOf(request: CallableRequest): RequestRecord {
+  if (request.data == null || typeof request.data !== "object" || Array.isArray(request.data)) {
+    return {};
+  }
+  return request.data as RequestRecord;
+}
+
+function optionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function requiredString(value: unknown, field: string): string {
+  const result = optionalString(value);
+  if (!result) {
+    throw new HttpsError("invalid-argument", `${field} is required.`);
+  }
+  return result;
+}
+
+function optionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function objectValue(value: unknown, field: string): RequestRecord {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpsError("invalid-argument", `${field} must be an object.`);
+  }
+  return value as RequestRecord;
+}
+
+function requestedOrgId(data: RequestRecord): string {
+  return requiredString(data.orgId, "orgId");
+}
+
+function assertOrgAccess(actor: Actor, orgId: string): void {
+  if (!canAccessOrg(actor, orgId)) {
+    throw new HttpsError("permission-denied", "You cannot manage this organization.");
+  }
+}
+
+function docData(snapshot: FirebaseFirestore.DocumentSnapshot): DocumentData {
+  return snapshot.data() ?? {};
+}
+
+function scrubAuditData(data: RequestRecord): RequestRecord {
+  const hiddenKeys = new Set(["token", "password", "secret"]);
+  const scrubbed: RequestRecord = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (hiddenKeys.has(key)) {
+      scrubbed[key] = "[redacted]";
+    } else if (Array.isArray(value)) {
+      scrubbed[key] = value.length <= 12 ? value : { count: value.length };
+    } else if (value != null && typeof value === "object") {
+      scrubbed[key] = scrubAuditData(value as RequestRecord);
+    } else {
+      scrubbed[key] = value;
+    }
+  }
+  return scrubbed;
+}
+
+async function writeAudit(
+  orgId: string,
+  actor: Actor,
+  action: string,
+  data: RequestRecord,
+  result: RequestRecord = {},
+): Promise<void> {
+  await orgRef(orgId).collection("auditLogs").add({
+    action,
+    actorId: actor.id,
+    actorName: actor.displayName ?? actor.email ?? actor.id,
+    actorEmail: actor.email ?? null,
+    actorRole: actor.role,
+    request: scrubAuditData(data),
+    result: scrubAuditData(result),
+    createdAt: now(),
+  });
+}
+
+async function withAdmin<T>(
+  request: CallableRequest,
+  action: string,
+  handler: (actor: Actor, data: RequestRecord, orgId: string) => Promise<T>,
+): Promise<T> {
+  const actor = await loadActor(requireAuth(request));
+  const data = dataOf(request);
+  const orgId = requestedOrgId(data);
+  assertOrgAccess(actor, orgId);
+  const result = await handler(actor, data, orgId);
+  await writeAudit(orgId, actor, action, data, result && typeof result === "object" ? result as RequestRecord : {});
+  return result;
+}
+
+async function getStructure(orgId: string) {
+  const leaguesSnap = await orgRef(orgId).collection("leagues").orderBy("createdAt").get();
+  const leagues = leaguesSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const hubs: DocumentData[] = [];
+  const teams: DocumentData[] = [];
+
+  for (const leagueDoc of leaguesSnap.docs) {
+    const hubsSnap = await leagueDoc.ref.collection("hubs").orderBy("createdAt").get();
+    for (const hubDoc of hubsSnap.docs) {
+      hubs.push({ id: hubDoc.id, ...hubDoc.data() });
+      const teamsSnap = await hubDoc.ref.collection("teams").orderBy("createdAt").get();
+      for (const teamDoc of teamsSnap.docs) {
+        teams.push({ id: teamDoc.id, ...teamDoc.data() });
+      }
+    }
+  }
+
+  return { leagues, hubs, teams };
+}
+
+async function ensureLeagueRoom(orgId: string, leagueId: string, league: RequestRecord): Promise<void> {
+  const rooms = orgRef(orgId).collection("chatRooms");
+  const existing = await rooms
+    .where("type", "==", "league")
+    .where("leagueId", "==", leagueId)
+    .where("hubId", "==", null)
+    .limit(1)
+    .get();
+  if (!existing.empty) return;
+
+  await rooms.add({
+    orgId,
+    name: `${requiredString(league.name, "league.name")} - General`,
+    type: "league",
+    leagueId,
+    hubId: null,
+    teamId: null,
+    participants: [],
+    isArchived: false,
+    createdAt: now(),
+    lastMessage: null,
+    lastMessageAt: now(),
+    lastMessageBy: null,
+    roomIconName: optionalString(league.iconName) ?? null,
+    roomImageUrl: optionalString(league.logoUrl) ?? null,
+  });
+}
+
+async function ensureHubRoom(
+  orgId: string,
+  leagueId: string,
+  hubId: string,
+  hub: RequestRecord,
+): Promise<void> {
+  const rooms = orgRef(orgId).collection("chatRooms");
+  const existing = await rooms
+    .where("type", "==", "league")
+    .where("leagueId", "==", leagueId)
+    .where("hubId", "==", hubId)
+    .limit(1)
+    .get();
+  if (!existing.empty) return;
+
+  await rooms.add({
+    orgId,
+    name: `${requiredString(hub.name, "hub.name")} - General`,
+    type: "league",
+    leagueId,
+    hubId,
+    teamId: null,
+    participants: [],
+    isArchived: false,
+    createdAt: now(),
+    lastMessage: null,
+    lastMessageAt: now(),
+    lastMessageBy: null,
+    roomIconName: optionalString(hub.iconName) ?? null,
+    roomImageUrl: optionalString(hub.logoUrl) ?? null,
+  });
+}
+
+async function deleteCollection(query: FirebaseFirestore.Query): Promise<number> {
+  const snap = await query.get();
+  let deleted = 0;
+  let batch = db.batch();
+  let pending = 0;
+  for (const doc of snap.docs) {
+    batch.delete(doc.ref);
+    pending++;
+    deleted++;
+    if (pending >= 450) {
+      await batch.commit();
+      batch = db.batch();
+      pending = 0;
+    }
+  }
+  if (pending > 0) await batch.commit();
+  return deleted;
+}
+
+async function syncTeamMemberships(
+  orgId: string,
+  teamId: string,
+  beforeIds: string[],
+  afterIds: string[],
+): Promise<void> {
+  const before = new Set(beforeIds);
+  const after = new Set(afterIds);
+  const added = [...after].filter((id) => !before.has(id));
+  const removed = [...before].filter((id) => !after.has(id));
+
+  const batch = db.batch();
+  for (const userId of added) {
+    batch.set(usersRef().doc(userId), { teamIds: arrayUnion(teamId), orgId }, { merge: true });
+  }
+  for (const userId of removed) {
+    batch.update(usersRef().doc(userId), { teamIds: arrayRemove(teamId) });
+  }
+  if (added.length > 0 || removed.length > 0) {
+    await batch.commit();
+  }
+}
+
+export const adminGetOverview = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminGetOverview", async (_actor, _data, orgId) => {
+    const [
+      orgSnap,
+      usersSnap,
+      invitationsSnap,
+      policiesSnap,
+      announcementsSnap,
+      chatRoomsSnap,
+      auditSnap,
+      notificationSnap,
+    ] = await Promise.all([
+      orgRef(orgId).get(),
+      usersRef().where("orgId", "==", orgId).get(),
+      orgRef(orgId).collection("invitations").orderBy("createdAt", "desc").limit(50).get(),
+      orgRef(orgId).collection("policies").orderBy("updatedAt", "desc").limit(20).get(),
+      orgRef(orgId).collection("announcements").orderBy("createdAt", "desc").limit(20).get(),
+      orgRef(orgId).collection("chatRooms").where("isArchived", "==", false).get(),
+      orgRef(orgId).collection("auditLogs").orderBy("createdAt", "desc").limit(20).get(),
+      orgRef(orgId).collection("notificationEvents").orderBy("createdAt", "desc").limit(20).get(),
+    ]);
+    if (!orgSnap.exists) {
+      throw new HttpsError("not-found", "Organization was not found.");
+    }
+
+    const structure = await getStructure(orgId);
+    const users: DocumentData[] = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const activeUsers = users.filter((user) => user.isActive === true);
+    const pendingInvites = invitationsSnap.docs.filter((doc) => doc.data().status === "pending");
+    const orphanedTeamAssignments = users.reduce((count, user) => {
+      const teamIds = normalizeStringArray(user.teamIds);
+      return count + teamIds.filter((teamId) => !structure.teams.some((team) => team.id === teamId)).length;
+    }, 0);
+
+    return {
+      org: { id: orgSnap.id, ...orgSnap.data() },
+      metrics: {
+        users: users.length,
+        activeUsers: activeUsers.length,
+        pendingInvites: pendingInvites.length,
+        leagues: structure.leagues.length,
+        hubs: structure.hubs.length,
+        teams: structure.teams.length,
+        policies: policiesSnap.size,
+        announcements: announcementsSnap.size,
+        chatRooms: chatRoomsSnap.size,
+        orphanedTeamAssignments,
+      },
+      recent: {
+        invitations: invitationsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+        policies: policiesSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+        announcements: announcementsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+        auditLogs: auditSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+        notificationEvents: notificationSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      },
+      structure,
+    };
+  });
+});
+
+export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminCreateInvitation", async (actor, data, orgId) => {
+    const email = requiredString(data.email, "email").toLowerCase();
+    const role = requiredString(data.role, "role") as UserRole;
+    if (!assignableRoles(actor.role).includes(role)) {
+      throw new HttpsError("permission-denied", "You cannot invite users with that role.");
+    }
+
+    const invitationRef = orgRef(orgId).collection("invitations").doc();
+    const token = randomBytes(16).toString("hex");
+    const invitationData = {
+      orgId,
+      email,
+      displayName: optionalString(data.displayName) ?? null,
+      role,
+      hubIds: normalizeStringArray(data.hubIds),
+      teamIds: normalizeStringArray(data.teamIds),
+      invitedBy: actor.id,
+      invitedByName: actor.displayName ?? actor.email ?? "Admin",
+      createdAt: now(),
+      status: "pending",
+      token,
+    };
+    await db.batch()
+      .set(invitationRef, invitationData)
+      .set(db.collection("invitationLookups").doc(token), {
+        token,
+        orgId,
+        invitationId: invitationRef.id,
+        email,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+      })
+      .commit();
+    return { invitationId: invitationRef.id, token };
+  });
+});
+
+export const adminExpireInvitation = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminExpireInvitation", async (_actor, data, orgId) => {
+    const invitationId = requiredString(data.invitationId, "invitationId");
+    const invitationRef = orgRef(orgId).collection("invitations").doc(invitationId);
+    const snap = await invitationRef.get();
+    if (!snap.exists) throw new HttpsError("not-found", "Invitation was not found.");
+    const token = optionalString(snap.data()?.token);
+    const batch = db.batch();
+    batch.update(invitationRef, { status: "expired" });
+    if (token) {
+      batch.set(db.collection("invitationLookups").doc(token), { status: "expired" }, { merge: true });
+    }
+    await batch.commit();
+    return { invitationId, status: "expired" };
+  });
+});
+
+export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminUpdateUserAccess", async (actor, data, orgId) => {
+    const targetUserId = requiredString(data.targetUserId, "targetUserId");
+    const targetRef = usersRef().doc(targetUserId);
+    const targetSnap = await targetRef.get();
+    if (!targetSnap.exists) throw new HttpsError("not-found", "User was not found.");
+    const targetData = docData(targetSnap);
+    if (!canManageTarget(actor, { id: targetSnap.id, orgId: targetData.orgId, role: targetData.role })) {
+      throw new HttpsError("permission-denied", "You cannot manage this user.");
+    }
+
+    const updates: DocumentData = {};
+    const nextRole = optionalString(data.role);
+    if (nextRole) {
+      if (!isUserRole(nextRole) || !assignableRoles(actor.role).includes(nextRole)) {
+        throw new HttpsError("permission-denied", "You cannot assign that role.");
+      }
+      updates.role = nextRole;
+    }
+    const hubIds = data.hubIds === undefined ? undefined : normalizeStringArray(data.hubIds);
+    const teamIds = data.teamIds === undefined ? undefined : normalizeStringArray(data.teamIds);
+    if (hubIds) updates.hubIds = hubIds;
+    if (teamIds) updates.teamIds = teamIds;
+    const isActive = optionalBoolean(data.isActive);
+    if (isActive !== undefined) updates.isActive = isActive;
+
+    const profilePatch = data.profilePatch === undefined ? undefined : objectValue(data.profilePatch, "profilePatch");
+    if (profilePatch) {
+      for (const field of ["title", "phone", "address"] as const) {
+        if (field in profilePatch) {
+          updates[field] = optionalString(profilePatch[field]) ?? admin.firestore.FieldValue.delete();
+        }
+      }
+    }
+
+    if (hubIds) {
+      const structure = await getStructure(orgId);
+      updates.leagueIds = [...new Set(structure.hubs
+        .filter((hub) => hubIds.includes(hub.id as string))
+        .map((hub) => hub.leagueId as string)
+        .filter(Boolean))];
+    }
+
+    if (teamIds) {
+      const beforeTeamIds = normalizeStringArray(targetData.teamIds);
+      await syncTeamMemberships(orgId, targetUserId, beforeTeamIds, teamIds);
+    }
+
+    await targetRef.update(updates);
+    return { targetUserId, updatedFields: Object.keys(updates) };
+  });
+});
+
+export const adminUpsertLeague = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminUpsertLeague", async (_actor, data, orgId) => {
+    const league = objectValue(data.league, "league");
+    const leagueId = optionalString(league.id) ?? orgRef(orgId).collection("leagues").doc().id;
+    const leagueRef = orgRef(orgId).collection("leagues").doc(leagueId);
+    const exists = (await leagueRef.get()).exists;
+    const payload = {
+      orgId,
+      name: requiredString(league.name, "league.name"),
+      abbreviation: requiredString(league.abbreviation, "league.abbreviation"),
+      description: optionalString(league.description) ?? null,
+      logoUrl: optionalString(league.logoUrl) ?? null,
+      iconName: optionalString(league.iconName) ?? null,
+      websiteUrl: optionalString(league.websiteUrl) ?? null,
+      instagramUrl: optionalString(league.instagramUrl) ?? null,
+      xUrl: optionalString(league.xUrl) ?? null,
+      ...(exists ? {} : { createdAt: now() }),
+    };
+    await leagueRef.set(payload, { merge: true });
+    if (!exists) await ensureLeagueRoom(orgId, leagueId, payload);
+    return { leagueId, created: !exists };
+  });
+});
+
+export const adminDeleteLeague = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminDeleteLeague", async (_actor, data, orgId) => {
+    const leagueId = requiredString(data.leagueId, "leagueId");
+    const leagueRef = orgRef(orgId).collection("leagues").doc(leagueId);
+    const hubsSnap = await leagueRef.collection("hubs").get();
+    let deletedTeams = 0;
+    for (const hub of hubsSnap.docs) {
+      deletedTeams += await deleteCollection(hub.ref.collection("teams"));
+    }
+    const deletedHubs = await deleteCollection(leagueRef.collection("hubs"));
+    await leagueRef.delete();
+    return { leagueId, deletedHubs, deletedTeams };
+  });
+});
+
+export const adminUpsertHub = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminUpsertHub", async (_actor, data, orgId) => {
+    const leagueId = requiredString(data.leagueId, "leagueId");
+    const hub = objectValue(data.hub, "hub");
+    const hubId = optionalString(hub.id) ?? orgRef(orgId).collection("leagues").doc(leagueId).collection("hubs").doc().id;
+    const hubRef = orgRef(orgId).collection("leagues").doc(leagueId).collection("hubs").doc(hubId);
+    const exists = (await hubRef.get()).exists;
+    const payload = {
+      orgId,
+      leagueId,
+      name: requiredString(hub.name, "hub.name"),
+      location: optionalString(hub.location) ?? null,
+      logoUrl: optionalString(hub.logoUrl) ?? null,
+      iconName: optionalString(hub.iconName) ?? null,
+      ...(exists ? {} : { createdAt: now() }),
+    };
+    await hubRef.set(payload, { merge: true });
+    if (!exists) await ensureHubRoom(orgId, leagueId, hubId, payload);
+    return { hubId, created: !exists };
+  });
+});
+
+export const adminDeleteHub = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminDeleteHub", async (_actor, data, orgId) => {
+    const leagueId = requiredString(data.leagueId, "leagueId");
+    const hubId = requiredString(data.hubId, "hubId");
+    const hubRef = orgRef(orgId).collection("leagues").doc(leagueId).collection("hubs").doc(hubId);
+    const deletedTeams = await deleteCollection(hubRef.collection("teams"));
+    await hubRef.delete();
+    return { hubId, deletedTeams };
+  });
+});
+
+export const adminUpsertTeam = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminUpsertTeam", async (_actor, data, orgId) => {
+    const leagueId = requiredString(data.leagueId, "leagueId");
+    const hubId = requiredString(data.hubId, "hubId");
+    const team = objectValue(data.team, "team");
+    const teamId = optionalString(team.id) ??
+      orgRef(orgId).collection("leagues").doc(leagueId).collection("hubs").doc(hubId).collection("teams").doc().id;
+    const teamRef = orgRef(orgId).collection("leagues").doc(leagueId).collection("hubs").doc(hubId).collection("teams").doc(teamId);
+    const before = await teamRef.get();
+    const memberIds = team.memberIds === undefined ?
+      normalizeStringArray(before.data()?.memberIds) :
+      normalizeStringArray(team.memberIds);
+    const payload = {
+      orgId,
+      leagueId,
+      hubId,
+      name: requiredString(team.name, "team.name"),
+      ageGroup: optionalString(team.ageGroup) ?? null,
+      division: optionalString(team.division) ?? null,
+      logoUrl: optionalString(team.logoUrl) ?? null,
+      iconName: optionalString(team.iconName) ?? null,
+      memberIds,
+      ...(before.exists ? {} : { createdAt: now() }),
+    };
+    await teamRef.set(payload, { merge: true });
+    await syncTeamMemberships(orgId, teamId, normalizeStringArray(before.data()?.memberIds), memberIds);
+    return { teamId, created: !before.exists };
+  });
+});
+
+export const adminDeleteTeam = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminDeleteTeam", async (_actor, data, orgId) => {
+    const leagueId = requiredString(data.leagueId, "leagueId");
+    const hubId = requiredString(data.hubId, "hubId");
+    const teamId = requiredString(data.teamId, "teamId");
+    const teamRef = orgRef(orgId).collection("leagues").doc(leagueId).collection("hubs").doc(hubId).collection("teams").doc(teamId);
+    const before = await teamRef.get();
+    await syncTeamMemberships(orgId, teamId, normalizeStringArray(before.data()?.memberIds), []);
+    await teamRef.delete();
+    return { teamId };
+  });
+});
+
+export const adminCreateAnnouncement = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminCreateAnnouncement", async (actor, data, orgId) => {
+    const ref = orgRef(orgId).collection("announcements").doc();
+    await ref.set({
+      orgId,
+      scope: requiredString(data.scope, "scope"),
+      leagueId: optionalString(data.leagueId) ?? null,
+      hubId: optionalString(data.hubId) ?? null,
+      teamId: optionalString(data.teamId) ?? null,
+      title: requiredString(data.title, "title"),
+      body: requiredString(data.body, "body"),
+      authorId: actor.id,
+      authorName: actor.displayName ?? actor.email ?? "Admin",
+      authorRole: actor.role,
+      attachments: Array.isArray(data.attachments) ? data.attachments : [],
+      isPinned: optionalBoolean(data.isPinned) ?? false,
+      createdAt: now(),
+    });
+    return { announcementId: ref.id };
+  });
+});
+
+export const adminUpdateAnnouncement = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminUpdateAnnouncement", async (_actor, data, orgId) => {
+    const announcementId = requiredString(data.announcementId, "announcementId");
+    const patch = objectValue(data.patch, "patch");
+    await orgRef(orgId).collection("announcements").doc(announcementId).update({
+      ...patch,
+      updatedAt: now(),
+    });
+    return { announcementId, updatedFields: Object.keys(patch) };
+  });
+});
+
+export const adminDeleteAnnouncement = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminDeleteAnnouncement", async (_actor, data, orgId) => {
+    const announcementId = requiredString(data.announcementId, "announcementId");
+    await orgRef(orgId).collection("announcements").doc(announcementId).delete();
+    return { announcementId };
+  });
+});
+
+export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminCreatePolicy", async (actor, data, orgId) => {
+    const requestedPolicyId = optionalString(data.policyId);
+    const ref = requestedPolicyId ?
+      orgRef(orgId).collection("policies").doc(requestedPolicyId) :
+      orgRef(orgId).collection("policies").doc();
+    await ref.set({
+      orgId,
+      leagueId: optionalString(data.leagueId) ?? null,
+      hubId: optionalString(data.hubId) ?? null,
+      teamId: optionalString(data.teamId) ?? null,
+      name: requiredString(data.name, "name"),
+      fileUrl: requiredString(data.fileUrl, "fileUrl"),
+      fileType: requiredString(data.fileType, "fileType"),
+      fileSize: typeof data.fileSize === "number" ? data.fileSize : 0,
+      category: requiredString(data.category, "category"),
+      uploadedBy: actor.id,
+      uploadedByName: actor.displayName ?? actor.email ?? "Admin",
+      versions: [],
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    return { policyId: ref.id };
+  });
+});
+
+export const adminAddPolicyVersion = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminAddPolicyVersion", async (actor, data, orgId) => {
+    const policyId = requiredString(data.policyId, "policyId");
+    const policyRef = orgRef(orgId).collection("policies").doc(policyId);
+    await db.runTransaction(async (transaction) => {
+      const snap = await transaction.get(policyRef);
+      if (!snap.exists) throw new HttpsError("not-found", "Policy was not found.");
+      const versions = Array.isArray(snap.data()?.versions) ? snap.data()?.versions as DocumentData[] : [];
+      const nextVersion = {
+        url: requiredString(data.fileUrl, "fileUrl"),
+        fileUrl: requiredString(data.fileUrl, "fileUrl"),
+        version: versions.length + 1,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: actor.id,
+        uploadedByName: actor.displayName ?? actor.email ?? "Admin",
+        fileSize: typeof data.fileSize === "number" ? data.fileSize : 0,
+      };
+      transaction.update(policyRef, {
+        versions: [...versions, nextVersion],
+        fileUrl: nextVersion.fileUrl,
+        fileSize: nextVersion.fileSize,
+        updatedAt: now(),
+      });
+    });
+    return { policyId };
+  });
+});
+
+export const adminDeletePolicy = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminDeletePolicy", async (_actor, data, orgId) => {
+    const policyId = requiredString(data.policyId, "policyId");
+    await orgRef(orgId).collection("policies").doc(policyId).delete();
+    return { policyId };
+  });
+});
+
+export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminUpdateChatRoom", async (_actor, data, orgId) => {
+    const roomId = requiredString(data.roomId, "roomId");
+    const patch = objectValue(data.patch, "patch");
+    await orgRef(orgId).collection("chatRooms").doc(roomId).update(patch);
+    return { roomId, updatedFields: Object.keys(patch) };
+  });
+});
+
+export const adminArchiveChatRoom = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminArchiveChatRoom", async (_actor, data, orgId) => {
+    const roomId = requiredString(data.roomId, "roomId");
+    await orgRef(orgId).collection("chatRooms").doc(roomId).update({ isArchived: true });
+    return { roomId, isArchived: true };
+  });
+});
+
+export const adminDeleteMessage = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminDeleteMessage", async (_actor, data, orgId) => {
+    const roomId = requiredString(data.roomId, "roomId");
+    const messageId = requiredString(data.messageId, "messageId");
+    await orgRef(orgId)
+      .collection("chatRooms")
+      .doc(roomId)
+      .collection("messages")
+      .doc(messageId)
+      .update({
+        text: null,
+        mediaUrl: null,
+        deleted: true,
+        deletedAt: now(),
+      });
+    return { roomId, messageId };
+  });
+});
+
+logger.info("League Hub admin callable functions loaded");
