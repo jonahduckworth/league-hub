@@ -106,6 +106,19 @@ function objectValue(value: unknown, field: string): RequestRecord {
   return value as RequestRecord;
 }
 
+function allowedPatch(value: unknown, field: string, allowedFields: string[]): RequestRecord {
+  const patch = objectValue(value, field);
+  const allowed = new Set(allowedFields);
+  const disallowed = Object.keys(patch).filter((key) => !allowed.has(key));
+  if (disallowed.length > 0) {
+    throw new HttpsError("invalid-argument", `${field} includes unsupported fields: ${disallowed.join(", ")}.`);
+  }
+  if (Object.keys(patch).length === 0) {
+    throw new HttpsError("invalid-argument", `${field} must include at least one field.`);
+  }
+  return patch;
+}
+
 function requestedOrgId(data: RequestRecord): string {
   return requiredString(data.orgId, "orgId");
 }
@@ -643,7 +656,16 @@ export const adminCreateAnnouncement = onCall(adminRuntime, async (request) => {
 export const adminUpdateAnnouncement = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminUpdateAnnouncement", async (_actor, data, orgId) => {
     const announcementId = requiredString(data.announcementId, "announcementId");
-    const patch = objectValue(data.patch, "patch");
+    const patch = allowedPatch(data.patch, "patch", [
+      "scope",
+      "leagueId",
+      "hubId",
+      "teamId",
+      "title",
+      "body",
+      "attachments",
+      "isPinned",
+    ]);
     await orgRef(orgId).collection("announcements").doc(announcementId).update({
       ...patch,
       updatedAt: now(),
@@ -725,7 +747,16 @@ export const adminDeletePolicy = onCall(adminRuntime, async (request) => {
 export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminUpdateChatRoom", async (_actor, data, orgId) => {
     const roomId = requiredString(data.roomId, "roomId");
-    const patch = objectValue(data.patch, "patch");
+    const patch = allowedPatch(data.patch, "patch", [
+      "name",
+      "type",
+      "leagueId",
+      "hubId",
+      "teamId",
+      "participants",
+      "roomIconName",
+      "roomImageUrl",
+    ]);
     await orgRef(orgId).collection("chatRooms").doc(roomId).update(patch);
     return { roomId, updatedFields: Object.keys(patch) };
   });
