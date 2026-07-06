@@ -286,9 +286,51 @@ async function syncTeamMemberships(
     batch.set(usersRef().doc(userId), { teamIds: arrayUnion(teamId), orgId }, { merge: true });
   }
   for (const userId of removed) {
-    batch.update(usersRef().doc(userId), { teamIds: arrayRemove(teamId) });
+    batch.set(usersRef().doc(userId), { teamIds: arrayRemove(teamId) }, { merge: true });
   }
   if (added.length > 0 || removed.length > 0) {
+    await batch.commit();
+  }
+}
+
+async function syncUserTeamAssignments(
+  orgId: string,
+  userId: string,
+  beforeTeamIds: string[],
+  afterTeamIds: string[],
+): Promise<void> {
+  const before = new Set(beforeTeamIds);
+  const after = new Set(afterTeamIds);
+  const touchedTeamIds = new Set([
+    ...beforeTeamIds.filter((teamId) => !after.has(teamId)),
+    ...afterTeamIds.filter((teamId) => !before.has(teamId)),
+  ]);
+  if (touchedTeamIds.size === 0) return;
+
+  const leaguesSnap = await orgRef(orgId).collection("leagues").get();
+  let batch = db.batch();
+  let pending = 0;
+
+  for (const leagueDoc of leaguesSnap.docs) {
+    const hubsSnap = await leagueDoc.ref.collection("hubs").get();
+    for (const hubDoc of hubsSnap.docs) {
+      const teamsSnap = await hubDoc.ref.collection("teams").get();
+      for (const teamDoc of teamsSnap.docs) {
+        if (!touchedTeamIds.has(teamDoc.id)) continue;
+        batch.update(teamDoc.ref, {
+          memberIds: after.has(teamDoc.id) ? arrayUnion(userId) : arrayRemove(userId),
+        });
+        pending++;
+        if (pending >= 450) {
+          await batch.commit();
+          batch = db.batch();
+          pending = 0;
+        }
+      }
+    }
+  }
+
+  if (pending > 0) {
     await batch.commit();
   }
 }
@@ -453,7 +495,7 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
 
     if (teamIds) {
       const beforeTeamIds = normalizeStringArray(targetData.teamIds);
-      await syncTeamMemberships(orgId, targetUserId, beforeTeamIds, teamIds);
+      await syncUserTeamAssignments(orgId, targetUserId, beforeTeamIds, teamIds);
     }
 
     await targetRef.update(updates);

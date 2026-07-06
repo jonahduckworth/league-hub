@@ -364,6 +364,16 @@ service cloud.firestore {
           );
         allow delete: if canManageOrg(orgId);
       }
+
+      match /auditLogs/{auditLogId} {
+        allow get, list: if canManageOrg(orgId);
+        allow create, update, delete: if false;
+      }
+
+      match /notificationEvents/{notificationEventId} {
+        allow get, list: if canManageOrg(orgId);
+        allow create, update, delete: if false;
+      }
     }
 
     match /{document=**} {

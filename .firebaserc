@@ -2,6 +2,14 @@
   "projects": {
     "default": "jdb-league-hub"
   },
-  "targets": {},
+  "targets": {
+    "jdb-league-hub": {
+      "hosting": {
+        "admin": [
+          "jdb-league-hub"
+        ]
+      }
+    }
+  },
   "etags": {}
 }
