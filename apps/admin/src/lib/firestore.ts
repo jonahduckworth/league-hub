@@ -90,7 +90,6 @@ export function useAdminData(currentUser?: AppUser | null) {
   useEffect(() => {
     if (demoMode) return undefined;
     if (!db || !currentUser) {
-      setState((current) => ({ ...current, loading: false }));
       return undefined;
     }
 
@@ -103,6 +102,7 @@ export function useAdminData(currentUser?: AppUser | null) {
         setState((current) => ({
           ...current,
           selectedOrgId: current.selectedOrgId ?? currentUser.orgId ?? orgs[0]?.id,
+          loading: orgs.length > 0 ? current.loading : false,
           data: {
             ...current.data,
             orgs,
@@ -118,6 +118,7 @@ export function useAdminData(currentUser?: AppUser | null) {
         setState((current) => ({
           ...current,
           selectedOrgId: current.selectedOrgId ?? currentUser.orgId ?? undefined,
+          loading: org ? current.loading : false,
           data: {
             ...current.data,
             orgs: org ? [org] : [],
@@ -137,7 +138,6 @@ export function useAdminData(currentUser?: AppUser | null) {
   useEffect(() => {
     if (demoMode) return undefined;
     if (!db || !selectedOrgId) {
-      setState((current) => ({ ...current, loading: false }));
       return undefined;
     }
 
@@ -202,7 +202,7 @@ export function useAdminData(currentUser?: AppUser | null) {
 
   return {
     data,
-    loading: state.loading,
+    loading: !demoMode && Boolean(currentUser) && Boolean(db) ? state.loading : false,
     error: state.error,
     selectedOrgId,
     setSelectedOrgId,
