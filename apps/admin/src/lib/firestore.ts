@@ -8,6 +8,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  type FirestoreError,
   where
 } from "firebase/firestore";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -35,6 +36,8 @@ type LoadState = {
   selectedOrgId?: string;
 };
 
+type RestrictedFeed = "auditLogs" | "notificationEvents";
+
 const emptyData: AdminData = {
   orgs: [],
   users: [],
@@ -48,6 +51,13 @@ const emptyData: AdminData = {
   auditLogs: [],
   notificationEvents: []
 };
+
+function clearRestrictedFeedData(data: AdminData, feed: RestrictedFeed): AdminData {
+  if (feed === "auditLogs") {
+    return { ...data, auditLogs: [] };
+  }
+  return { ...data, notificationEvents: [] };
+}
 
 export function useAdminData(currentUser?: AppUser | null) {
   const [state, setState] = useState<LoadState>({
@@ -141,49 +151,61 @@ export function useAdminData(currentUser?: AppUser | null) {
       return undefined;
     }
 
+    const requiredSnapshotError = (label: string) => (error: FirestoreError) => {
+      setState((current) => ({ ...current, error: `${label}: ${error.message}`, loading: false }));
+    };
+
+    const restrictedSnapshotError = (feed: RestrictedFeed, label: string) => (error: FirestoreError) => {
+      if (error.code === "permission-denied") {
+        setState((current) => ({ ...current, data: clearRestrictedFeedData(current.data, feed) }));
+        return;
+      }
+      requiredSnapshotError(label)(error);
+    };
+
     const unsubscribers = [
       onSnapshot(query(collection(db, "users"), where("orgId", "==", selectedOrgId)), (snap) => {
         setState((current) => ({
           ...current,
           data: { ...current.data, users: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as AppUser[] }
         }));
-      }),
+      }, requiredSnapshotError("Users")),
       onSnapshot(query(collection(db, "organizations", selectedOrgId, "invitations"), orderBy("createdAt", "desc")), (snap) => {
         setState((current) => ({
           ...current,
           data: { ...current.data, invitations: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Invitation[] }
         }));
-      }),
+      }, requiredSnapshotError("Invitations")),
       onSnapshot(query(collection(db, "organizations", selectedOrgId, "announcements"), orderBy("createdAt", "desc"), limit(100)), (snap) => {
         setState((current) => ({
           ...current,
           data: { ...current.data, announcements: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Announcement[] }
         }));
-      }),
+      }, requiredSnapshotError("Announcements")),
       onSnapshot(query(collection(db, "organizations", selectedOrgId, "policies"), orderBy("updatedAt", "desc"), limit(100)), (snap) => {
         setState((current) => ({
           ...current,
           data: { ...current.data, policies: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Policy[] }
         }));
-      }),
+      }, requiredSnapshotError("Policies")),
       onSnapshot(query(collection(db, "organizations", selectedOrgId, "chatRooms"), where("isArchived", "==", false)), (snap) => {
         setState((current) => ({
           ...current,
           data: { ...current.data, chatRooms: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as ChatRoom[] }
         }));
-      }),
+      }, requiredSnapshotError("Chat rooms")),
       onSnapshot(query(collection(db, "organizations", selectedOrgId, "auditLogs"), orderBy("createdAt", "desc"), limit(100)), (snap) => {
         setState((current) => ({
           ...current,
           data: { ...current.data, auditLogs: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as AuditLog[] }
         }));
-      }),
+      }, restrictedSnapshotError("auditLogs", "Audit logs")),
       onSnapshot(query(collection(db, "organizations", selectedOrgId, "notificationEvents"), orderBy("createdAt", "desc"), limit(100)), (snap) => {
         setState((current) => ({
           ...current,
           data: { ...current.data, notificationEvents: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as NotificationEvent[] }
         }));
-      })
+      }, restrictedSnapshotError("notificationEvents", "Notification events"))
     ];
 
     reloadStructure(selectedOrgId)
