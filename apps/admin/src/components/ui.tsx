@@ -9,7 +9,7 @@ export function Button({
   return (
     <button
       className={clsx(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55",
+        "inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:cursor-not-allowed disabled:opacity-55",
         variant === "primary" && "bg-teal text-white hover:bg-[#066a75]",
         variant === "secondary" && "border border-line bg-white text-ink hover:bg-shell",
         variant === "danger" && "bg-coral text-white hover:bg-[#bd493d]",
@@ -64,7 +64,7 @@ export function Field({ label, children }: { label: string; children: React.Reac
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={clsx("min-h-11 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-muted", className)}
+      className={clsx("min-h-11 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal", className)}
       {...props}
     />
   );
@@ -73,7 +73,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={clsx("min-h-24 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-muted", className)}
+      className={clsx("min-h-24 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal", className)}
       {...props}
     />
   );
@@ -82,7 +82,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className={clsx("min-h-11 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink", className)}
+      className={clsx("min-h-11 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal", className)}
       {...props}
     />
   );

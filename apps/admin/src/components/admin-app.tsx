@@ -16,17 +16,22 @@ import {
   ShieldAlert,
   ShieldCheck,
   Trash2,
+  UploadCloud,
+  X,
   Users
 } from "lucide-react";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { auth, db, demoMode, hasFirebaseConfig } from "@/lib/firebase";
+import { collection, doc, getDoc } from "firebase/firestore";
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { DragEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { auth, db, demoMode, hasFirebaseConfig, storage } from "@/lib/firebase";
+import { formatAdminActionError } from "@/lib/action-errors";
 import { callAdmin, type CallableName } from "@/lib/callables";
 import { useAdminData } from "@/lib/firestore";
 import { assignableRoles, canAccessAdmin, canManageUser, roleLabel } from "@/lib/admin-access";
 import { buildHealthChecks } from "@/lib/health";
 import { bytesLabel, dateLabel, timeAgo } from "@/lib/format";
+import { isPolicyFileAllowed, policyStoragePath, POLICY_FILE_MAX_BYTES } from "@/lib/policy-upload";
 import { demoUser } from "@/lib/demo-data";
 import type {
   AdminData,
@@ -53,13 +58,18 @@ const navItems: Array<{ id: SectionId; label: string; icon: React.ComponentType<
   { id: "platform", label: "Platform", icon: ShieldCheck }
 ];
 
-type ActionRunner = (name: CallableName, payload?: Record<string, unknown>) => Promise<unknown>;
+type ActionResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+type ActionRunner = (name: CallableName, payload?: Record<string, unknown>) => Promise<ActionResult>;
 
 export function AdminApp() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(demoMode ? demoUser : null);
   const [authLoading, setAuthLoading] = useState(!demoMode && hasFirebaseConfig());
   const [section, setSection] = useState<SectionId>("overview");
   const [message, setMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const { data, loading, error, selectedOrgId, setSelectedOrgId, reloadStructure } = useAdminData(currentUser);
 
   useEffect(() => {
@@ -82,17 +92,29 @@ export function AdminApp() {
 
   const runAction: ActionRunner = async (name, payload = {}) => {
     const orgId = selectedOrgId;
-    if (!orgId) throw new Error("Select an organization first.");
+    if (!orgId) {
+      const missingOrg = "Select an organization first.";
+      setActionError(missingOrg);
+      return { ok: false, error: missingOrg };
+    }
     if (demoMode) {
       setMessage(`${name} is disabled in demo mode.`);
-      return null;
+      return { ok: false, error: "Demo mode" };
     }
-    const result = await callAdmin(name, { orgId, ...payload });
-    if (name.startsWith("adminUpsert") || name.startsWith("adminDelete")) {
-      await reloadStructure(orgId);
+    setActionError(null);
+    setMessage(null);
+    try {
+      const result = await callAdmin(name, { orgId, ...payload });
+      if (name.startsWith("adminUpsert") || name.startsWith("adminDelete")) {
+        await reloadStructure(orgId);
+      }
+      setMessage(`${name} completed.`);
+      return { ok: true, data: result };
+    } catch (caught) {
+      const errorMessage = formatAdminActionError(caught);
+      setActionError(errorMessage);
+      return { ok: false, error: errorMessage };
     }
-    setMessage(`${name} completed.`);
-    return result;
   };
 
   if (!demoMode && !hasFirebaseConfig()) {
@@ -194,26 +216,31 @@ export function AdminApp() {
               {message}
             </div>
           )}
+          {actionError && (
+            <div className="mb-4 rounded-md border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-semibold text-coral">
+              {actionError}
+            </div>
+          )}
           {error && (
             <div className="mb-4 rounded-md border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-semibold text-coral">
               {error}
             </div>
           )}
-          {loading ? <LoadingState /> : renderSection(section, data, currentUser, runAction)}
+          {loading ? <LoadingState /> : renderSection(section, data, currentUser, runAction, selectedOrgId)}
         </div>
       </main>
     </div>
   );
 }
 
-function renderSection(section: SectionId, data: AdminData, currentUser: AppUser, runAction: ActionRunner) {
+function renderSection(section: SectionId, data: AdminData, currentUser: AppUser, runAction: ActionRunner, selectedOrgId?: string) {
   switch (section) {
     case "people":
       return <PeopleSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "structure":
       return <StructureSection data={data} runAction={runAction} />;
     case "content":
-      return <ContentSection data={data} runAction={runAction} />;
+      return <ContentSection data={data} runAction={runAction} selectedOrgId={selectedOrgId} />;
     case "communications":
       return <CommunicationsSection data={data} runAction={runAction} />;
     case "audit":
@@ -374,13 +401,14 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
 
   async function submitInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await runAction("adminCreateInvitation", {
+    const result = await runAction("adminCreateInvitation", {
       email: inviteEmail,
       displayName: inviteName || undefined,
       role: inviteRole,
       hubIds: inviteHubIds,
       teamIds: inviteTeamIds
     });
+    if (!result.ok) return;
     setInviteEmail("");
     setInviteName("");
     setInviteHubIds([]);
@@ -557,14 +585,16 @@ function StructureForms({ data, runAction }: { data: AdminData; runAction: Actio
 
   async function createLeague(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await runAction("adminUpsertLeague", { league: { name: leagueName, abbreviation: leagueAbbrev, iconName: "league" } });
+    const result = await runAction("adminUpsertLeague", { league: { name: leagueName, abbreviation: leagueAbbrev, iconName: "league" } });
+    if (!result.ok) return;
     setLeagueName("");
     setLeagueAbbrev("");
   }
 
   async function createHub(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await runAction("adminUpsertHub", { leagueId, hub: { name: hubName, location: hubLocation, iconName: "hub" } });
+    const result = await runAction("adminUpsertHub", { leagueId, hub: { name: hubName, location: hubLocation, iconName: "hub" } });
+    if (!result.ok) return;
     setHubName("");
     setHubLocation("");
   }
@@ -573,7 +603,8 @@ function StructureForms({ data, runAction }: { data: AdminData; runAction: Actio
     event.preventDefault();
     const hub = data.hubs.find((item) => item.id === hubId);
     if (!hub) return;
-    await runAction("adminUpsertTeam", { leagueId: hub.leagueId, hubId, team: { name: teamName, ageGroup: teamAge, division: teamDivision, iconName: "team" } });
+    const result = await runAction("adminUpsertTeam", { leagueId: hub.leagueId, hubId, team: { name: teamName, ageGroup: teamAge, division: teamDivision, iconName: "team" } });
+    if (!result.ok) return;
     setTeamName("");
     setTeamAge("");
     setTeamDivision("");
@@ -614,32 +645,106 @@ function StructureForms({ data, runAction }: { data: AdminData; runAction: Actio
   );
 }
 
-function ContentSection({ data, runAction }: { data: AdminData; runAction: ActionRunner }) {
+function ContentSection({ data, runAction, selectedOrgId }: { data: AdminData; runAction: ActionRunner; selectedOrgId?: string }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [scope, setScope] = useState<AnnouncementScope>("orgWide");
   const [policyName, setPolicyName] = useState("");
-  const [policyUrl, setPolicyUrl] = useState("");
   const [policyCategory, setPolicyCategory] = useState("General");
+  const [policyFile, setPolicyFile] = useState<File | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+  const [policySubmitting, setPolicySubmitting] = useState(false);
+  const policyFileInputRef = useRef<HTMLInputElement>(null);
+  const policyInputId = "policy-file-upload";
 
   async function createAnnouncement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await runAction("adminCreateAnnouncement", { title, body, scope, isPinned: false });
+    const result = await runAction("adminCreateAnnouncement", { title, body, scope, isPinned: false });
+    if (!result.ok) return;
     setTitle("");
     setBody("");
   }
 
   async function createPolicy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await runAction("adminCreatePolicy", {
-      name: policyName,
-      fileUrl: policyUrl,
-      fileType: "application/pdf",
-      fileSize: 0,
-      category: policyCategory
-    });
-    setPolicyName("");
-    setPolicyUrl("");
+    setPolicyError(null);
+
+    if (!selectedOrgId) {
+      setPolicyError("Select an organization first.");
+      return;
+    }
+    if (!db || !storage) {
+      setPolicyError("Firebase Storage is not configured for this environment.");
+      return;
+    }
+    if (!policyFile) {
+      setPolicyError("Choose a policy file.");
+      return;
+    }
+    if (!isPolicyFileAllowed(policyFile)) {
+      setPolicyError(`Policy files must be ${bytesLabel(POLICY_FILE_MAX_BYTES)} or smaller.`);
+      return;
+    }
+
+    setPolicySubmitting(true);
+    const policyId = doc(collection(db, "organizations", selectedOrgId, "policies")).id;
+    const fileRef = storageRef(storage, policyStoragePath(selectedOrgId, policyId, policyFile.name));
+
+    try {
+      await uploadBytes(fileRef, policyFile, {
+        contentType: policyFile.type || "application/octet-stream"
+      });
+      const fileUrl = await getDownloadURL(fileRef);
+      const result = await runAction("adminCreatePolicy", {
+        policyId,
+        name: policyName,
+        fileUrl,
+        fileType: policyFile.type || "application/octet-stream",
+        fileSize: policyFile.size,
+        category: policyCategory
+      });
+
+      if (!result.ok) {
+        await deleteObject(fileRef).catch(() => undefined);
+        return;
+      }
+
+      setPolicyName("");
+      setPolicyCategory("General");
+      clearPolicyFile();
+      event.currentTarget.reset();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Policy file upload failed.";
+      setPolicyError(message);
+    } finally {
+      setPolicySubmitting(false);
+    }
+  }
+
+  function selectPolicyFile(file?: File) {
+    setPolicyError(null);
+    if (!file) return;
+    if (!isPolicyFileAllowed(file)) {
+      clearPolicyFile();
+      setPolicyError(`Policy files must be ${bytesLabel(POLICY_FILE_MAX_BYTES)} or smaller.`);
+      return;
+    }
+    setPolicyFile(file);
+    if (!policyName) {
+      setPolicyName(file.name.replace(/\.[^.]+$/, ""));
+    }
+  }
+
+  function clearPolicyFile() {
+    setPolicyFile(null);
+    if (policyFileInputRef.current) {
+      policyFileInputRef.current.value = "";
+    }
+  }
+
+  function handlePolicyDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    selectPolicyFile(event.dataTransfer.files[0]);
   }
 
   return (
@@ -663,9 +768,58 @@ function ContentSection({ data, runAction }: { data: AdminData; runAction: Actio
         <SectionTitle icon={FileText} title="Policies" />
         <form className="mt-3 grid gap-3" onSubmit={createPolicy}>
           <Field label="Name"><Input value={policyName} onChange={(event) => setPolicyName(event.target.value)} required /></Field>
-          <Field label="File URL"><Input type="url" value={policyUrl} onChange={(event) => setPolicyUrl(event.target.value)} required /></Field>
+          <div className="grid gap-1 text-sm font-semibold text-ink">
+            <span>File</span>
+            <label
+              htmlFor={policyInputId}
+              role="button"
+              tabIndex={0}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={handlePolicyDrop}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  document.getElementById(policyInputId)?.click();
+                }
+              }}
+              className="grid min-h-36 cursor-pointer place-items-center rounded-md border border-dashed border-line bg-white px-4 py-5 text-center transition-colors hover:border-teal hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+            >
+              <input
+                id={policyInputId}
+                ref={policyFileInputRef}
+                className="sr-only"
+                type="file"
+                onChange={(event) => selectPolicyFile(event.target.files?.[0])}
+              />
+              <span className="grid justify-items-center gap-2">
+                <UploadCloud className="size-7 text-teal" aria-hidden />
+                <span className="text-sm font-black text-ink">Drop a policy file here or browse</span>
+                <span className="text-xs font-semibold text-muted">Up to {bytesLabel(POLICY_FILE_MAX_BYTES)}</span>
+              </span>
+            </label>
+            {policyFile && (
+              <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-line bg-shell px-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-ink">{policyFile.name}</p>
+                  <p className="text-xs font-semibold text-muted">{policyFile.type || "File"} · {bytesLabel(policyFile.size)}</p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Remove selected policy file"
+                  className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-white hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                  onClick={() => {
+                    clearPolicyFile();
+                    setPolicyError(null);
+                  }}
+                >
+                  <X className="size-4" aria-hidden />
+                </button>
+              </div>
+            )}
+            {policyError && <p className="text-sm font-semibold text-coral">{policyError}</p>}
+          </div>
           <Field label="Category"><Input value={policyCategory} onChange={(event) => setPolicyCategory(event.target.value)} required /></Field>
-          <Button type="submit">Create Policy</Button>
+          <Button type="submit" disabled={policySubmitting}>{policySubmitting ? "Uploading..." : "Create Policy"}</Button>
         </form>
         <ListStack items={data.policies.slice(0, 8).map((item) => ({
           id: item.id,
