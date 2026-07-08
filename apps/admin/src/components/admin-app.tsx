@@ -4,18 +4,27 @@ import {
   Activity,
   Bell,
   Building2,
+  ChevronRight,
   ClipboardList,
+  ExternalLink,
   FileText,
+  Layers,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Megaphone,
+  Pin,
+  PinOff,
   Plus,
   RefreshCw,
+  Save,
   Search,
   ShieldAlert,
   ShieldCheck,
   Trash2,
+  Trophy,
   UploadCloud,
+  UserPlus,
   X,
   Users
 } from "lucide-react";
@@ -35,23 +44,26 @@ import { isPolicyFileAllowed, policyStoragePath, POLICY_FILE_MAX_BYTES } from "@
 import { demoUser } from "@/lib/demo-data";
 import type {
   AdminData,
+  Announcement,
   AnnouncementScope,
   AppUser,
   HealthCheck,
   Hub,
   League,
+  Policy,
   Team,
   UserRole
 } from "@/lib/types";
 import { Badge, Button, Card, Field, Input, Select, TableWrap, Td, Textarea, Th } from "./ui";
 
-type SectionId = "overview" | "people" | "structure" | "content";
+type SectionId = "overview" | "people" | "structure" | "announcements" | "policies";
 
 const navItems: Array<{ id: SectionId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "people", label: "People", icon: Users },
   { id: "structure", label: "Structure", icon: Building2 },
-  { id: "content", label: "Content", icon: FileText }
+  { id: "announcements", label: "Announcements", icon: Megaphone },
+  { id: "policies", label: "Policies", icon: FileText }
 ];
 
 type ActionResult<T = unknown> =
@@ -235,8 +247,10 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
       return <PeopleSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "structure":
       return <StructureSection data={data} runAction={runAction} />;
-    case "content":
-      return <ContentSection data={data} runAction={runAction} selectedOrgId={selectedOrgId} />;
+    case "announcements":
+      return <AnnouncementsSection data={data} runAction={runAction} />;
+    case "policies":
+      return <PoliciesSection data={data} runAction={runAction} selectedOrgId={selectedOrgId} />;
     default:
       return <OverviewSection data={data} />;
   }
@@ -377,8 +391,198 @@ function OverviewSection({ data }: { data: AdminData }) {
   );
 }
 
+function ManagementLayout({
+  children,
+  sidebar
+}: {
+  children: React.ReactNode;
+  sidebar: React.ReactNode;
+}) {
+  return (
+    <div className="grid min-h-[calc(100vh-154px)] gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="min-w-0">{children}</div>
+      <aside className="grid content-start gap-4 xl:sticky xl:top-28 xl:max-h-[calc(100vh-8rem)] xl:overflow-auto">
+        {sidebar}
+      </aside>
+    </div>
+  );
+}
+
+function PanelHeader({
+  icon: Icon,
+  title,
+  description,
+  action
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 border-b border-line bg-white px-4 py-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-md border border-line bg-shell text-teal">
+          <Icon className="size-5" aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-base font-black text-ink">{title}</h2>
+          {description && <p className="mt-1 text-sm font-semibold leading-5 text-muted">{description}</p>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function RowButton({
+  children,
+  selected,
+  onClick,
+  ariaLabel
+}: {
+  children: React.ReactNode;
+  selected?: boolean;
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className={`group flex min-h-[74px] w-full items-center gap-3 border-b border-line px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal ${
+        selected ? "bg-teal/10" : "bg-white"
+      }`}
+    >
+      <div className="min-w-0 flex-1">{children}</div>
+      <ChevronRight className="size-5 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-ink" aria-hidden />
+    </button>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  icon: Icon,
+  tone = "teal"
+}: {
+  label: string;
+  value: React.ReactNode;
+  icon: React.ComponentType<{ className?: string }>;
+  tone?: "teal" | "mint" | "amber" | "coral";
+}) {
+  const toneClass =
+    tone === "mint" ? "bg-mint/10 text-[#1f765a]" :
+    tone === "amber" ? "bg-amber/10 text-[#8b5a17]" :
+    tone === "coral" ? "bg-coral/10 text-[#a83d32]" :
+    "bg-teal/10 text-teal";
+
+  return (
+    <div className="rounded-lg border border-line bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase text-muted">{label}</p>
+          <p className="mt-1 text-2xl font-black text-ink">{value}</p>
+        </div>
+        <span className={`grid size-11 shrink-0 place-items-center rounded-md ${toneClass}`}>
+          <Icon className="size-5" aria-hidden />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({
+  label,
+  value
+}: {
+  label: string;
+  value?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-md bg-shell px-3 py-2">
+      <p className="text-xs font-bold uppercase text-muted">{label}</p>
+      <div className="mt-1 text-sm font-semibold text-ink">{value || "Not set"}</div>
+    </div>
+  );
+}
+
+function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="grid gap-3">
+      <h3 className="text-sm font-black uppercase text-muted">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function SideDrawer({
+  open,
+  title,
+  description,
+  icon: Icon,
+  onClose,
+  children,
+  footer
+}: {
+  open: boolean;
+  title: string;
+  description?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-40">
+      <button
+        type="button"
+        aria-label="Close drawer"
+        className="absolute inset-0 cursor-default bg-slate-950/30"
+        onClick={onClose}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="absolute right-0 top-0 flex h-full w-full max-w-xl flex-col border-l border-line bg-white shadow-2xl"
+      >
+        <div className="border-b border-line px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-md border border-line bg-shell text-teal">
+                <Icon className="size-5" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-lg font-black text-ink">{title}</h2>
+                {description && <p className="mt-1 text-sm font-semibold leading-5 text-muted">{description}</p>}
+              </div>
+            </div>
+            <Button variant="ghost" aria-label="Close drawer" onClick={onClose}>
+              <X className="size-4" aria-hidden />
+            </Button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="grid gap-6">{children}</div>
+        </div>
+        {footer && (
+          <div className="flex flex-col-reverse gap-3 border-t border-line px-6 py-4 sm:flex-row sm:justify-end">
+            {footer}
+          </div>
+        )}
+      </aside>
+    </div>
+  );
+}
+
 function PeopleSection({ data, currentUser, runAction }: { data: AdminData; currentUser: AppUser; runAction: ActionRunner }) {
   const [query, setQuery] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedInviteId, setSelectedInviteId] = useState<string | null>(null);
   const [inviteRole, setInviteRole] = useState<UserRole>("staff");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
@@ -390,6 +594,10 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
     return haystack.includes(query.toLowerCase());
   });
   const pendingInvitations = activePendingInvitations(data);
+  const selectedUser = selectedUserId ? data.users.find((user) => user.id === selectedUserId) ?? null : null;
+  const selectedInvite = selectedInviteId ? pendingInvitations.find((invite) => invite.id === selectedInviteId) ?? null : null;
+  const activeUsers = data.users.filter((user) => user.isActive);
+  const manageable = selectedUser ? canManageUser(currentUser, selectedUser) : false;
 
   async function submitInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -408,159 +616,413 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-      <div className="grid gap-4">
-        <Card>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <SectionTitle icon={Users} title="Users" />
-            <label className="relative block md:w-80">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
-              <Input aria-label="Search users" className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search users" />
-            </label>
-          </div>
-        </Card>
-        <TableWrap>
-          <table className="min-w-[820px] w-full border-collapse">
-            <thead className="bg-shell">
-              <tr>
-                <Th>Name</Th>
-                <Th>Role</Th>
-                <Th>Status</Th>
-                <Th>Scope</Th>
-                <Th>Actions</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="border-t border-line">
-                  <Td>
-                    <div className="font-bold">{user.displayName}</div>
-                    <div className="truncate text-xs font-semibold text-muted">{user.email}</div>
-                  </Td>
-                  <Td><Badge tone={user.role === "staff" ? "neutral" : "info"}>{roleLabel(user.role)}</Badge></Td>
-                  <Td><Badge tone={user.isActive ? "good" : "danger"}>{user.isActive ? "Active" : "Inactive"}</Badge></Td>
-                  <Td>{user.hubIds.length} hubs · {user.teamIds.length} teams</Td>
-                  <Td>
-                    <div className="flex flex-wrap gap-2">
-                      {canManageUser(currentUser, user) && (
-                        <>
-                          <RoleAction user={user} currentUser={currentUser} runAction={runAction} />
-                          <Button
-                            variant={user.isActive ? "danger" : "secondary"}
-                            onClick={() => runAction("adminUpdateUserAccess", { targetUserId: user.id, isActive: !user.isActive })}
-                          >
-                            {user.isActive ? "Deactivate" : "Reactivate"}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableWrap>
-      </div>
-      <div className="grid gap-4 content-start">
-        <Card>
-          <SectionTitle icon={Plus} title="Invite" />
-          <form className="mt-3 grid gap-3" onSubmit={submitInvite}>
-            <Field label="Email"><Input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required /></Field>
-            <Field label="Name"><Input value={inviteName} onChange={(event) => setInviteName(event.target.value)} /></Field>
-            <Field label="Role">
-              <Select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as UserRole)}>
-                {assignableRoles(currentUser).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
-              </Select>
-            </Field>
-            <CheckboxGroup label="Hubs" options={data.hubs.map((hub) => ({ id: hub.id, label: hub.name }))} values={inviteHubIds} setValues={setInviteHubIds} />
-            <CheckboxGroup label="Teams" options={data.teams.filter((team) => inviteHubIds.includes(team.hubId)).map((team) => ({ id: team.id, label: team.name }))} values={inviteTeamIds} setValues={setInviteTeamIds} />
-            <Button type="submit"><Plus className="size-4" aria-hidden />Create Invite</Button>
-          </form>
-        </Card>
-        <Card>
-          <SectionTitle icon={Bell} title="Pending Invites" />
-          <div className="mt-3 grid gap-2">
-            {pendingInvitations.map((invite) => (
-              <div key={invite.id} className="rounded-md border border-line p-3">
-                <div className="font-bold">{invite.email}</div>
-                <div className="text-xs font-semibold text-muted">{roleLabel(invite.role)} · {dateLabel(invite.createdAt)}</div>
-                <Button className="mt-2" variant="secondary" onClick={() => runAction("adminExpireInvitation", { invitationId: invite.id })}>Expire</Button>
+    <>
+      <ManagementLayout
+        sidebar={
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <StatTile label="Active Users" value={activeUsers.length} icon={Users} />
+              <StatTile label="Pending Invites" value={pendingInvitations.length} icon={UserPlus} tone="amber" />
+            </div>
+            <Card>
+              <SectionTitle icon={Plus} title="Invite" />
+              <form className="mt-3 grid gap-3" onSubmit={submitInvite}>
+                <Field label="Email"><Input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required /></Field>
+                <Field label="Name"><Input value={inviteName} onChange={(event) => setInviteName(event.target.value)} /></Field>
+                <Field label="Role">
+                  <Select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as UserRole)}>
+                    {assignableRoles(currentUser).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+                  </Select>
+                </Field>
+                <CheckboxGroup label="Hubs" options={data.hubs.map((hub) => ({ id: hub.id, label: hub.name }))} values={inviteHubIds} setValues={setInviteHubIds} />
+                <CheckboxGroup label="Teams" options={data.teams.filter((team) => inviteHubIds.includes(team.hubId)).map((team) => ({ id: team.id, label: team.name }))} values={inviteTeamIds} setValues={setInviteTeamIds} />
+                <Button type="submit"><Plus className="size-4" aria-hidden />Create Invite</Button>
+              </form>
+            </Card>
+            <Card>
+              <SectionTitle icon={Bell} title="Pending Invites" />
+              <div className="mt-3 overflow-hidden rounded-lg border border-line bg-white">
+                {pendingInvitations.map((invite) => (
+                  <RowButton
+                    key={invite.id}
+                    selected={selectedInvite?.id === invite.id}
+                    onClick={() => {
+                      setSelectedInviteId(invite.id);
+                      setSelectedUserId(null);
+                    }}
+                    ariaLabel={`Open invite for ${invite.email}`}
+                  >
+                    <div className="font-bold text-ink">{invite.email}</div>
+                    <div className="mt-1 text-xs font-semibold text-muted">{roleLabel(invite.role)} · {dateLabel(invite.createdAt)}</div>
+                  </RowButton>
+                ))}
+                {pendingInvitations.length === 0 && <EmptyLine label="No pending invites" />}
               </div>
-            ))}
-            {pendingInvitations.length === 0 && <EmptyLine label="No pending invites" />}
-          </div>
-        </Card>
-      </div>
-    </div>
+            </Card>
+          </>
+        }
+      >
+        <section className="overflow-hidden rounded-lg border border-line bg-white">
+          <PanelHeader
+            icon={Users}
+            title="Users"
+            description="Open a user row to adjust role and access in a drawer."
+            action={
+              <label className="relative block w-full md:w-80">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
+                <Input aria-label="Search users" className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search users" />
+              </label>
+            }
+          />
+          <TableWrap>
+            <table className="min-w-[780px] w-full border-collapse">
+              <thead className="bg-shell">
+                <tr>
+                  <Th>Name</Th>
+                  <Th>Role</Th>
+                  <Th>Status</Th>
+                  <Th>Scope</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((user) => (
+                  <tr
+                    key={user.id}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Open ${user.displayName}`}
+                    onClick={() => {
+                      setSelectedUserId(user.id);
+                      setSelectedInviteId(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedUserId(user.id);
+                        setSelectedInviteId(null);
+                      }
+                    }}
+                    className={`cursor-pointer border-t border-line transition-colors hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal ${
+                      selectedUser?.id === user.id ? "bg-teal/10" : ""
+                    }`}
+                  >
+                    <Td>
+                      <div className="font-bold">{user.displayName}</div>
+                      <div className="truncate text-xs font-semibold text-muted">{user.email}</div>
+                    </Td>
+                    <Td><Badge tone={user.role === "staff" ? "neutral" : "info"}>{roleLabel(user.role)}</Badge></Td>
+                    <Td><Badge tone={user.isActive ? "good" : "danger"}>{user.isActive ? "Active" : "Inactive"}</Badge></Td>
+                    <Td>{user.hubIds.length} hubs · {user.teamIds.length} teams</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableWrap>
+          {filteredUsers.length === 0 && <div className="p-4"><EmptyLine label="No users match this search" /></div>}
+        </section>
+      </ManagementLayout>
+
+      <SideDrawer
+        open={Boolean(selectedUser || selectedInvite)}
+        title={selectedUser?.displayName ?? selectedInvite?.email ?? "Details"}
+        description={selectedUser ? selectedUser.email : selectedInvite ? "Pending invitation" : undefined}
+        icon={selectedUser ? Users : UserPlus}
+        onClose={() => {
+          setSelectedUserId(null);
+          setSelectedInviteId(null);
+        }}
+      >
+        {selectedUser && (
+          <>
+            <DrawerSection title="Profile">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoRow label="Email" value={selectedUser.email} />
+                <InfoRow label="Status" value={<Badge tone={selectedUser.isActive ? "good" : "danger"}>{selectedUser.isActive ? "Active" : "Inactive"}</Badge>} />
+                <InfoRow label="Role" value={roleLabel(selectedUser.role)} />
+                <InfoRow label="Scope" value={`${selectedUser.hubIds.length} hubs · ${selectedUser.teamIds.length} teams`} />
+              </div>
+            </DrawerSection>
+            <DrawerSection title="Access">
+              {manageable ? (
+                <div className="grid gap-3">
+                  <Field label="Role">
+                    <Select
+                      value={selectedUser.role}
+                      onChange={(event) => runAction("adminUpdateUserAccess", { targetUserId: selectedUser.id, role: event.target.value })}
+                    >
+                      {assignableRoles(currentUser).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+                    </Select>
+                  </Field>
+                  <Button
+                    variant={selectedUser.isActive ? "danger" : "secondary"}
+                    onClick={() => runAction("adminUpdateUserAccess", { targetUserId: selectedUser.id, isActive: !selectedUser.isActive })}
+                  >
+                    {selectedUser.isActive ? "Deactivate User" : "Reactivate User"}
+                  </Button>
+                </div>
+              ) : (
+                <EmptyLine label="You cannot manage this user from your current role" />
+              )}
+            </DrawerSection>
+          </>
+        )}
+        {selectedInvite && (
+          <>
+            <DrawerSection title="Invite">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoRow label="Email" value={selectedInvite.email} />
+                <InfoRow label="Role" value={roleLabel(selectedInvite.role)} />
+                <InfoRow label="Created" value={dateLabel(selectedInvite.createdAt)} />
+                <InfoRow label="Status" value={<Badge tone="warning">Pending</Badge>} />
+              </div>
+            </DrawerSection>
+            <DrawerSection title="Scope">
+              <InfoRow label="Hubs" value={selectedInvite.hubIds.length || "None"} />
+              <InfoRow label="Teams" value={selectedInvite.teamIds.length || "None"} />
+            </DrawerSection>
+            <Button variant="danger" onClick={() => runAction("adminExpireInvitation", { invitationId: selectedInvite.id })}>
+              Expire Invite
+            </Button>
+          </>
+        )}
+      </SideDrawer>
+    </>
   );
 }
 
-function RoleAction({ user, currentUser, runAction }: { user: AppUser; currentUser: AppUser; runAction: ActionRunner }) {
-  const roles = assignableRoles(currentUser);
-  if (roles.length === 0) return null;
-  return (
-    <select
-      aria-label={`Change role for ${user.displayName}`}
-      value={user.role}
-      className="min-h-11 rounded-md border border-line bg-white px-2 text-sm font-semibold"
-      onChange={(event) => runAction("adminUpdateUserAccess", { targetUserId: user.id, role: event.target.value })}
-    >
-      {roles.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
-    </select>
-  );
-}
+type StructureSelection =
+  | { type: "league"; league: League }
+  | { type: "hub"; league: League; hub: Hub }
+  | { type: "team"; league: League; hub: Hub; team: Team };
 
 function StructureSection({ data, runAction }: { data: AdminData; runAction: ActionRunner }) {
+  const [selection, setSelection] = useState<StructureSelection | null>(null);
+
   return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
-      <Card>
-        <SectionTitle icon={Building2} title="League Structure" />
-        <div className="mt-4 grid gap-3">
-          {data.leagues.map((league) => (
-            <StructureLeague key={league.id} league={league} hubs={data.hubs.filter((hub) => hub.leagueId === league.id)} teams={data.teams} runAction={runAction} />
-          ))}
-          {data.leagues.length === 0 && <EmptyLine label="No leagues" />}
-        </div>
-      </Card>
-      <StructureForms data={data} runAction={runAction} />
-    </div>
+    <>
+      <ManagementLayout
+        sidebar={
+          <>
+            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <StatTile label="Leagues" value={data.leagues.length} icon={Trophy} />
+              <StatTile label="Hubs" value={data.hubs.length} icon={MapPin} tone="mint" />
+              <StatTile label="Teams" value={data.teams.length} icon={Users} tone="amber" />
+            </div>
+            <StructureForms data={data} runAction={runAction} />
+          </>
+        }
+      >
+        <section className="overflow-hidden rounded-lg border border-line bg-white">
+          <PanelHeader
+            icon={Building2}
+            title="League Structure"
+            description="Click any league, hub, or team to edit it in the drawer."
+          />
+          <div className="divide-y divide-line">
+            {data.leagues.map((league) => {
+              const hubs = data.hubs.filter((hub) => hub.leagueId === league.id);
+              const leagueTeams = data.teams.filter((team) => team.leagueId === league.id);
+              return (
+                <div key={league.id} className="bg-white">
+                  <RowButton
+                    selected={selection?.type === "league" && selection.league.id === league.id}
+                    onClick={() => setSelection({ type: "league", league })}
+                    ariaLabel={`Open ${league.name}`}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-black text-ink">{league.name}</span>
+                      <Badge tone="info">{league.abbreviation}</Badge>
+                    </div>
+                    <div className="mt-1 text-xs font-semibold text-muted">{hubs.length} hubs · {leagueTeams.length} teams</div>
+                  </RowButton>
+                  <div className="bg-shell/60 px-4 py-3">
+                    <div className="grid gap-2">
+                      {hubs.map((hub) => {
+                        const hubTeams = data.teams.filter((team) => team.hubId === hub.id);
+                        return (
+                          <div key={hub.id} className="overflow-hidden rounded-md border border-line bg-white">
+                            <RowButton
+                              selected={selection?.type === "hub" && selection.hub.id === hub.id}
+                              onClick={() => setSelection({ type: "hub", league, hub })}
+                              ariaLabel={`Open ${hub.name}`}
+                            >
+                              <div className="font-bold text-ink">{hub.name}</div>
+                              <div className="mt-1 text-xs font-semibold text-muted">{hub.location || "No location"} · {hubTeams.length} teams</div>
+                            </RowButton>
+                            <div className="grid gap-1 border-t border-line bg-shell p-2 sm:grid-cols-2 2xl:grid-cols-3">
+                              {hubTeams.map((team) => (
+                                <button
+                                  key={team.id}
+                                  type="button"
+                                  onClick={() => setSelection({ type: "team", league, hub, team })}
+                                  className={`flex min-h-10 items-center justify-between gap-2 rounded-md border border-line bg-white px-3 text-left text-xs font-semibold transition-colors hover:border-teal hover:bg-teal/5 ${
+                                    selection?.type === "team" && selection.team.id === team.id ? "border-teal bg-teal/10" : ""
+                                  }`}
+                                >
+                                  <span className="truncate">{team.name}</span>
+                                  <ChevronRight className="size-3 shrink-0 text-muted" aria-hidden />
+                                </button>
+                              ))}
+                              {hubTeams.length === 0 && <div className="rounded-md border border-dashed border-line bg-white px-3 py-3 text-xs font-semibold text-muted">No teams</div>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {hubs.length === 0 && <EmptyLine label="No hubs in this league" />}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {data.leagues.length === 0 && <div className="p-4"><EmptyLine label="No leagues" /></div>}
+          </div>
+        </section>
+      </ManagementLayout>
+      <StructureEditorDrawer selection={selection} onClose={() => setSelection(null)} runAction={runAction} />
+    </>
   );
 }
 
-function StructureLeague({ league, hubs, teams, runAction }: { league: League; hubs: Hub[]; teams: Team[]; runAction: ActionRunner }) {
+function StructureEditorDrawer({
+  selection,
+  onClose,
+  runAction
+}: {
+  selection: StructureSelection | null;
+  onClose: () => void;
+  runAction: ActionRunner;
+}) {
+  const [name, setName] = useState("");
+  const [abbreviation, setAbbreviation] = useState("");
+  const [location, setLocation] = useState("");
+  const [ageGroup, setAgeGroup] = useState("");
+  const [division, setDivision] = useState("");
+
+  useEffect(() => {
+    if (!selection) return;
+    if (selection.type === "league") {
+      setName(selection.league.name);
+      setAbbreviation(selection.league.abbreviation);
+      setLocation("");
+      setAgeGroup("");
+      setDivision("");
+    }
+    if (selection.type === "hub") {
+      setName(selection.hub.name);
+      setAbbreviation("");
+      setLocation(selection.hub.location ?? "");
+      setAgeGroup("");
+      setDivision("");
+    }
+    if (selection.type === "team") {
+      setName(selection.team.name);
+      setAbbreviation("");
+      setLocation("");
+      setAgeGroup(selection.team.ageGroup ?? "");
+      setDivision(selection.team.division ?? "");
+    }
+  }, [selection]);
+
+  async function save() {
+    if (!selection) return;
+    if (selection.type === "league") {
+      await runAction("adminUpsertLeague", {
+        league: {
+          id: selection.league.id,
+          name,
+          abbreviation,
+          iconName: selection.league.iconName ?? "league"
+        }
+      });
+    }
+    if (selection.type === "hub") {
+      await runAction("adminUpsertHub", {
+        leagueId: selection.league.id,
+        hub: {
+          id: selection.hub.id,
+          name,
+          location,
+          iconName: selection.hub.iconName ?? "hub"
+        }
+      });
+    }
+    if (selection.type === "team") {
+      await runAction("adminUpsertTeam", {
+        leagueId: selection.league.id,
+        hubId: selection.hub.id,
+        team: {
+          id: selection.team.id,
+          name,
+          ageGroup,
+          division,
+          iconName: selection.team.iconName ?? "team",
+          memberIds: selection.team.memberIds
+        }
+      });
+    }
+  }
+
+  async function deleteSelection() {
+    if (!selection) return;
+    if (selection.type === "league") {
+      await runAction("adminDeleteLeague", { leagueId: selection.league.id });
+    }
+    if (selection.type === "hub") {
+      await runAction("adminDeleteHub", { leagueId: selection.league.id, hubId: selection.hub.id });
+    }
+    if (selection.type === "team") {
+      await runAction("adminDeleteTeam", { leagueId: selection.league.id, hubId: selection.hub.id, teamId: selection.team.id });
+    }
+    onClose();
+  }
+
+  const title =
+    selection?.type === "league" ? selection.league.name :
+    selection?.type === "hub" ? selection.hub.name :
+    selection?.type === "team" ? selection.team.name :
+    "Structure";
+  const Icon =
+    selection?.type === "league" ? Trophy :
+    selection?.type === "hub" ? MapPin :
+    Users;
+
   return (
-    <div className="rounded-lg border border-line bg-white p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="font-black">{league.name}</div>
-          <div className="text-xs font-semibold text-muted">{league.abbreviation} · {hubs.length} hubs</div>
-        </div>
-        <Button variant="danger" onClick={() => runAction("adminDeleteLeague", { leagueId: league.id })}><Trash2 className="size-4" aria-hidden />Delete</Button>
-      </div>
-      <div className="mt-3 grid gap-2">
-        {hubs.map((hub) => (
-          <div key={hub.id} className="rounded-md border border-line bg-shell p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="font-bold">
-                {hub.name}
-                {hub.location && <span className="ml-2 text-xs text-muted">· {hub.location}</span>}
+    <SideDrawer
+      open={Boolean(selection)}
+      title={title}
+      description={selection ? `${selection.type[0].toUpperCase()}${selection.type.slice(1)} details` : undefined}
+      icon={Icon}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={save}><Save className="size-4" aria-hidden />Save</Button>
+          <Button variant="danger" onClick={deleteSelection}><Trash2 className="size-4" aria-hidden />Delete</Button>
+        </>
+      }
+    >
+      {selection && (
+        <>
+          <DrawerSection title="Details">
+            <Field label="Name"><Input value={name} onChange={(event) => setName(event.target.value)} required /></Field>
+            {selection.type === "league" && <Field label="Abbreviation"><Input value={abbreviation} onChange={(event) => setAbbreviation(event.target.value)} required /></Field>}
+            {selection.type === "hub" && <Field label="Location"><Input value={location} onChange={(event) => setLocation(event.target.value)} /></Field>}
+            {selection.type === "team" && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Age"><Input value={ageGroup} onChange={(event) => setAgeGroup(event.target.value)} /></Field>
+                <Field label="Division"><Input value={division} onChange={(event) => setDivision(event.target.value)} /></Field>
               </div>
-              <Button variant="secondary" onClick={() => runAction("adminDeleteHub", { leagueId: league.id, hubId: hub.id })}>Delete Hub</Button>
+            )}
+          </DrawerSection>
+          <DrawerSection title="Context">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {selection.type !== "league" && <InfoRow label="League" value={selection.league.name} />}
+              {selection.type === "team" && <InfoRow label="Hub" value={selection.hub.name} />}
+              {selection.type === "team" && <InfoRow label="Members" value={selection.team.memberIds.length} />}
             </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {teams.filter((team) => team.hubId === hub.id).map((team) => (
-                <span key={team.id} className="inline-flex min-h-8 items-center gap-2 rounded-md border border-line bg-white px-2 text-xs font-semibold">
-                  {team.name}
-                  <button type="button" aria-label={`Delete ${team.name}`} onClick={() => runAction("adminDeleteTeam", { leagueId: league.id, hubId: hub.id, teamId: team.id })}>
-                    <Trash2 className="size-3 text-coral" aria-hidden />
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+          </DrawerSection>
+        </>
+      )}
+    </SideDrawer>
   );
 }
 
@@ -637,17 +1099,12 @@ function StructureForms({ data, runAction }: { data: AdminData; runAction: Actio
   );
 }
 
-function ContentSection({ data, runAction, selectedOrgId }: { data: AdminData; runAction: ActionRunner; selectedOrgId?: string }) {
+function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction: ActionRunner }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [scope, setScope] = useState<AnnouncementScope>("orgWide");
-  const [policyName, setPolicyName] = useState("");
-  const [policyCategory, setPolicyCategory] = useState("General");
-  const [policyFile, setPolicyFile] = useState<File | null>(null);
-  const [policyError, setPolicyError] = useState<string | null>(null);
-  const [policySubmitting, setPolicySubmitting] = useState(false);
-  const policyFileInputRef = useRef<HTMLInputElement>(null);
-  const policyInputId = "policy-file-upload";
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedAnnouncement = selectedId ? data.announcements.find((item) => item.id === selectedId) ?? null : null;
 
   async function createAnnouncement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -656,6 +1113,142 @@ function ContentSection({ data, runAction, selectedOrgId }: { data: AdminData; r
     setTitle("");
     setBody("");
   }
+
+  return (
+    <>
+      <ManagementLayout
+        sidebar={
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <StatTile label="Announcements" value={data.announcements.length} icon={Megaphone} />
+              <StatTile label="Pinned" value={data.announcements.filter((item) => item.isPinned).length} icon={Pin} tone="amber" />
+            </div>
+            <Card>
+              <SectionTitle icon={Plus} title="New Announcement" />
+              <form className="mt-3 grid gap-3" onSubmit={createAnnouncement}>
+                <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} required /></Field>
+                <Field label="Body"><Textarea value={body} onChange={(event) => setBody(event.target.value)} required /></Field>
+                <Field label="Scope"><Select value={scope} onChange={(event) => setScope(event.target.value as AnnouncementScope)}><option value="orgWide">Org Wide</option><option value="league">League</option><option value="hub">Hub</option><option value="team">Team</option></Select></Field>
+                <Button type="submit">Post Announcement</Button>
+              </form>
+            </Card>
+          </>
+        }
+      >
+        <section className="overflow-hidden rounded-lg border border-line bg-white">
+          <PanelHeader
+            icon={Megaphone}
+            title="Announcements"
+            description="Click a row to edit, pin, or delete the announcement."
+          />
+          <div>
+            {data.announcements.map((announcement) => (
+              <RowButton
+                key={announcement.id}
+                selected={selectedAnnouncement?.id === announcement.id}
+                onClick={() => setSelectedId(announcement.id)}
+                ariaLabel={`Open ${announcement.title}`}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-bold text-ink">{announcement.title}</span>
+                  {announcement.isPinned && <Badge tone="warning">Pinned</Badge>}
+                </div>
+                <div className="mt-1 truncate text-sm font-semibold text-muted">{announcement.body}</div>
+                <div className="mt-2 text-xs font-semibold text-muted">{announcement.scope} · {timeAgo(announcement.createdAt)}</div>
+              </RowButton>
+            ))}
+            {data.announcements.length === 0 && <div className="p-4"><EmptyLine label="No announcements" /></div>}
+          </div>
+        </section>
+      </ManagementLayout>
+      <AnnouncementDrawer announcement={selectedAnnouncement} onClose={() => setSelectedId(null)} runAction={runAction} />
+    </>
+  );
+}
+
+function AnnouncementDrawer({
+  announcement,
+  onClose,
+  runAction
+}: {
+  announcement: Announcement | null;
+  onClose: () => void;
+  runAction: ActionRunner;
+}) {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [scope, setScope] = useState<AnnouncementScope>("orgWide");
+  const [isPinned, setIsPinned] = useState(false);
+
+  useEffect(() => {
+    if (!announcement) return;
+    setTitle(announcement.title);
+    setBody(announcement.body);
+    setScope(announcement.scope);
+    setIsPinned(announcement.isPinned);
+  }, [announcement]);
+
+  async function save() {
+    if (!announcement) return;
+    await runAction("adminUpdateAnnouncement", {
+      announcementId: announcement.id,
+      patch: { title, body, scope, isPinned }
+    });
+  }
+
+  async function remove() {
+    if (!announcement) return;
+    await runAction("adminDeleteAnnouncement", { announcementId: announcement.id });
+    onClose();
+  }
+
+  return (
+    <SideDrawer
+      open={Boolean(announcement)}
+      title={announcement?.title ?? "Announcement"}
+      description={announcement ? `${announcement.scope} · ${timeAgo(announcement.createdAt)}` : undefined}
+      icon={Megaphone}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={save}><Save className="size-4" aria-hidden />Save</Button>
+          <Button variant="danger" onClick={remove}><Trash2 className="size-4" aria-hidden />Delete</Button>
+        </>
+      }
+    >
+      {announcement && (
+        <>
+          <DrawerSection title="Content">
+            <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
+            <Field label="Body"><Textarea value={body} onChange={(event) => setBody(event.target.value)} /></Field>
+            <Field label="Scope"><Select value={scope} onChange={(event) => setScope(event.target.value as AnnouncementScope)}><option value="orgWide">Org Wide</option><option value="league">League</option><option value="hub">Hub</option><option value="team">Team</option></Select></Field>
+            <label className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-line bg-white px-3 text-sm font-semibold">
+              <span className="inline-flex items-center gap-2">{isPinned ? <Pin className="size-4 text-amber" aria-hidden /> : <PinOff className="size-4 text-muted" aria-hidden />}Pinned</span>
+              <input type="checkbox" checked={isPinned} onChange={(event) => setIsPinned(event.target.checked)} />
+            </label>
+          </DrawerSection>
+          <DrawerSection title="Author">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <InfoRow label="Author" value={announcement.authorName} />
+              <InfoRow label="Role" value={announcement.authorRole} />
+            </div>
+          </DrawerSection>
+        </>
+      )}
+    </SideDrawer>
+  );
+}
+
+function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; runAction: ActionRunner; selectedOrgId?: string }) {
+  const [policyName, setPolicyName] = useState("");
+  const [policyCategory, setPolicyCategory] = useState("General");
+  const [policyFile, setPolicyFile] = useState<File | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+  const [policySubmitting, setPolicySubmitting] = useState(false);
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
+  const policyFileInputRef = useRef<HTMLInputElement>(null);
+  const policyInputId = "policy-file-upload";
+  const selectedPolicy = selectedPolicyId ? data.policies.find((policy) => policy.id === selectedPolicyId) ?? null : null;
 
   async function createPolicy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -740,87 +1333,288 @@ function ContentSection({ data, runAction, selectedOrgId }: { data: AdminData; r
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-2">
-      <Card>
-        <SectionTitle icon={Megaphone} title="Announcements" />
-        <form className="mt-3 grid gap-3" onSubmit={createAnnouncement}>
-          <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} required /></Field>
-          <Field label="Body"><Textarea value={body} onChange={(event) => setBody(event.target.value)} required /></Field>
-          <Field label="Scope"><Select value={scope} onChange={(event) => setScope(event.target.value as AnnouncementScope)}><option value="orgWide">Org Wide</option><option value="league">League</option><option value="hub">Hub</option><option value="team">Team</option></Select></Field>
-          <Button type="submit">Post Announcement</Button>
-        </form>
-        <ListStack items={data.announcements.slice(0, 8).map((item) => ({
-          id: item.id,
-          title: item.title,
-          subtitle: `${item.scope} · ${timeAgo(item.createdAt)}`,
-          action: <Button variant="danger" onClick={() => runAction("adminDeleteAnnouncement", { announcementId: item.id })}>Delete</Button>
-        }))} />
-      </Card>
-      <Card>
-        <SectionTitle icon={FileText} title="Policies" />
-        <form className="mt-3 grid gap-3" onSubmit={createPolicy}>
-          <Field label="Name"><Input value={policyName} onChange={(event) => setPolicyName(event.target.value)} required /></Field>
-          <div className="grid gap-1 text-sm font-semibold text-ink">
-            <span>File</span>
-            <label
-              htmlFor={policyInputId}
-              role="button"
-              tabIndex={0}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={handlePolicyDrop}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  document.getElementById(policyInputId)?.click();
-                }
-              }}
-              className="grid min-h-36 cursor-pointer place-items-center rounded-md border border-dashed border-line bg-white px-4 py-5 text-center transition-colors hover:border-teal hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
-            >
-              <input
-                id={policyInputId}
-                ref={policyFileInputRef}
-                className="sr-only"
-                type="file"
-                onChange={(event) => selectPolicyFile(event.target.files?.[0])}
-              />
-              <span className="grid justify-items-center gap-2">
-                <UploadCloud className="size-7 text-teal" aria-hidden />
-                <span className="text-sm font-black text-ink">Drop a policy file here or browse</span>
-                <span className="text-xs font-semibold text-muted">Up to {bytesLabel(POLICY_FILE_MAX_BYTES)}</span>
-              </span>
-            </label>
-            {policyFile && (
-              <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-line bg-shell px-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-ink">{policyFile.name}</p>
-                  <p className="text-xs font-semibold text-muted">{policyFile.type || "File"} · {bytesLabel(policyFile.size)}</p>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Remove selected policy file"
-                  className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-white hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
-                  onClick={() => {
+    <>
+      <ManagementLayout
+        sidebar={
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <StatTile label="Policies" value={data.policies.length} icon={FileText} />
+              <StatTile label="Versions" value={data.policies.reduce((sum, policy) => sum + policy.versions.length, 0)} icon={Layers} tone="mint" />
+            </div>
+            <Card>
+              <SectionTitle icon={Plus} title="New Policy" />
+              <form className="mt-3 grid gap-3" onSubmit={createPolicy}>
+                <Field label="Name"><Input value={policyName} onChange={(event) => setPolicyName(event.target.value)} required /></Field>
+                <PolicyFileField
+                  inputId={policyInputId}
+                  inputRef={policyFileInputRef}
+                  file={policyFile}
+                  error={policyError}
+                  onDrop={handlePolicyDrop}
+                  onSelect={selectPolicyFile}
+                  onClear={() => {
                     clearPolicyFile();
                     setPolicyError(null);
                   }}
-                >
-                  <X className="size-4" aria-hidden />
-                </button>
-              </div>
-            )}
-            {policyError && <p className="text-sm font-semibold text-coral">{policyError}</p>}
+                />
+                <Field label="Category"><Input value={policyCategory} onChange={(event) => setPolicyCategory(event.target.value)} required /></Field>
+                <Button type="submit" disabled={policySubmitting}>{policySubmitting ? "Uploading..." : "Create Policy"}</Button>
+              </form>
+            </Card>
+          </>
+        }
+      >
+        <section className="overflow-hidden rounded-lg border border-line bg-white">
+          <PanelHeader
+            icon={FileText}
+            title="Policies"
+            description="Click a row to review file details, upload a version, or delete."
+          />
+          <div>
+            {data.policies.map((policy) => (
+              <RowButton
+                key={policy.id}
+                selected={selectedPolicy?.id === policy.id}
+                onClick={() => setSelectedPolicyId(policy.id)}
+                ariaLabel={`Open ${policy.name}`}
+              >
+                <div className="font-bold text-ink">{policy.name}</div>
+                <div className="mt-1 text-sm font-semibold text-muted">{policy.category} · {bytesLabel(policy.fileSize)}</div>
+                <div className="mt-2 text-xs font-semibold text-muted">Updated {timeAgo(policy.updatedAt)} · {policy.versions.length} versions</div>
+              </RowButton>
+            ))}
+            {data.policies.length === 0 && <div className="p-4"><EmptyLine label="No policies" /></div>}
           </div>
-          <Field label="Category"><Input value={policyCategory} onChange={(event) => setPolicyCategory(event.target.value)} required /></Field>
-          <Button type="submit" disabled={policySubmitting}>{policySubmitting ? "Uploading..." : "Create Policy"}</Button>
-        </form>
-        <ListStack items={data.policies.slice(0, 8).map((item) => ({
-          id: item.id,
-          title: item.name,
-          subtitle: `${item.category} · ${bytesLabel(item.fileSize)}`,
-          action: <Button variant="danger" onClick={() => runAction("adminDeletePolicy", { policyId: item.id })}>Delete</Button>
-        }))} />
-      </Card>
+        </section>
+      </ManagementLayout>
+      <PolicyDrawer policy={selectedPolicy} selectedOrgId={selectedOrgId} onClose={() => setSelectedPolicyId(null)} runAction={runAction} />
+    </>
+  );
+}
+
+function PolicyFileField({
+  inputId,
+  inputRef,
+  file,
+  error,
+  onDrop,
+  onSelect,
+  onClear
+}: {
+  inputId: string;
+  inputRef: React.RefObject<HTMLInputElement>;
+  file: File | null;
+  error: string | null;
+  onDrop: (event: DragEvent<HTMLLabelElement>) => void;
+  onSelect: (file?: File) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="grid gap-1 text-sm font-semibold text-ink">
+      <span>File</span>
+      <label
+        htmlFor={inputId}
+        role="button"
+        tabIndex={0}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={onDrop}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            document.getElementById(inputId)?.click();
+          }
+        }}
+        className="grid min-h-36 cursor-pointer place-items-center rounded-md border border-dashed border-line bg-white px-4 py-5 text-center transition-colors hover:border-teal hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+      >
+        <input
+          id={inputId}
+          ref={inputRef}
+          className="sr-only"
+          type="file"
+          onChange={(event) => onSelect(event.target.files?.[0])}
+        />
+        <span className="grid justify-items-center gap-2">
+          <UploadCloud className="size-7 text-teal" aria-hidden />
+          <span className="text-sm font-black text-ink">Drop a policy file here or browse</span>
+          <span className="text-xs font-semibold text-muted">Up to {bytesLabel(POLICY_FILE_MAX_BYTES)}</span>
+        </span>
+      </label>
+      {file && (
+        <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-line bg-shell px-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-ink">{file.name}</p>
+            <p className="text-xs font-semibold text-muted">{file.type || "File"} · {bytesLabel(file.size)}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Remove selected policy file"
+            className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-white hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+            onClick={onClear}
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+      )}
+      {error && <p className="text-sm font-semibold text-coral">{error}</p>}
     </div>
+  );
+}
+
+function PolicyDrawer({
+  policy,
+  selectedOrgId,
+  onClose,
+  runAction
+}: {
+  policy: Policy | null;
+  selectedOrgId?: string;
+  onClose: () => void;
+  runAction: ActionRunner;
+}) {
+  const [versionFile, setVersionFile] = useState<File | null>(null);
+  const [versionError, setVersionError] = useState<string | null>(null);
+  const [versionSubmitting, setVersionSubmitting] = useState(false);
+  const versionInputRef = useRef<HTMLInputElement>(null);
+  const inputId = policy ? `policy-version-${policy.id}` : "policy-version-upload";
+
+  useEffect(() => {
+    setVersionFile(null);
+    setVersionError(null);
+    if (versionInputRef.current) {
+      versionInputRef.current.value = "";
+    }
+  }, [policy?.id]);
+
+  function selectVersionFile(file?: File) {
+    setVersionError(null);
+    if (!file) return;
+    if (!isPolicyFileAllowed(file)) {
+      setVersionFile(null);
+      setVersionError(`Policy files must be ${bytesLabel(POLICY_FILE_MAX_BYTES)} or smaller.`);
+      return;
+    }
+    setVersionFile(file);
+  }
+
+  function clearVersionFile() {
+    setVersionFile(null);
+    if (versionInputRef.current) {
+      versionInputRef.current.value = "";
+    }
+  }
+
+  function handleDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    selectVersionFile(event.dataTransfer.files[0]);
+  }
+
+  async function addVersion() {
+    if (!policy) return;
+    setVersionError(null);
+    if (!selectedOrgId) {
+      setVersionError("Select an organization first.");
+      return;
+    }
+    if (!db || !storage) {
+      setVersionError("Firebase Storage is not configured for this environment.");
+      return;
+    }
+    if (!versionFile) {
+      setVersionError("Choose a policy file.");
+      return;
+    }
+
+    setVersionSubmitting(true);
+    const fileRef = storageRef(storage, policyStoragePath(selectedOrgId, policy.id, versionFile.name));
+    try {
+      await uploadBytes(fileRef, versionFile, {
+        contentType: versionFile.type || "application/octet-stream"
+      });
+      const fileUrl = await getDownloadURL(fileRef);
+      const result = await runAction("adminAddPolicyVersion", {
+        policyId: policy.id,
+        fileUrl,
+        fileSize: versionFile.size
+      });
+      if (!result.ok) {
+        await deleteObject(fileRef).catch(() => undefined);
+        return;
+      }
+      clearVersionFile();
+    } catch (caught) {
+      setVersionError(caught instanceof Error ? caught.message : "Policy version upload failed.");
+    } finally {
+      setVersionSubmitting(false);
+    }
+  }
+
+  async function remove() {
+    if (!policy) return;
+    await runAction("adminDeletePolicy", { policyId: policy.id });
+    onClose();
+  }
+
+  return (
+    <SideDrawer
+      open={Boolean(policy)}
+      title={policy?.name ?? "Policy"}
+      description={policy ? `${policy.category} · ${bytesLabel(policy.fileSize)}` : undefined}
+      icon={FileText}
+      onClose={onClose}
+      footer={policy && (
+        <>
+          <a
+            href={policy.fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink transition-colors hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+          >
+            <ExternalLink className="size-4" aria-hidden />
+            Open File
+          </a>
+          <Button variant="danger" onClick={remove}><Trash2 className="size-4" aria-hidden />Delete</Button>
+        </>
+      )}
+    >
+      {policy && (
+        <>
+          <DrawerSection title="Details">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <InfoRow label="Category" value={policy.category} />
+              <InfoRow label="Size" value={bytesLabel(policy.fileSize)} />
+              <InfoRow label="Uploaded By" value={policy.uploadedByName} />
+              <InfoRow label="Updated" value={dateLabel(policy.updatedAt)} />
+            </div>
+          </DrawerSection>
+          <DrawerSection title="Upload Version">
+            <PolicyFileField
+              inputId={inputId}
+              inputRef={versionInputRef}
+              file={versionFile}
+              error={versionError}
+              onDrop={handleDrop}
+              onSelect={selectVersionFile}
+              onClear={() => {
+                clearVersionFile();
+                setVersionError(null);
+              }}
+            />
+            <Button onClick={addVersion} disabled={versionSubmitting}>{versionSubmitting ? "Uploading..." : "Add Version"}</Button>
+          </DrawerSection>
+          <DrawerSection title="Versions">
+            <div className="grid gap-2">
+              {policy.versions.map((version, index) => (
+                <div key={`${policy.id}-${index}`} className="rounded-md border border-line bg-white px-3 py-2">
+                  <div className="text-sm font-bold text-ink">Version {String(version.version ?? index + 1)}</div>
+                  <div className="mt-1 text-xs font-semibold text-muted">{typeof version.fileSize === "number" ? bytesLabel(version.fileSize) : "File"} · {String(version.uploadedAt ?? "Uploaded")}</div>
+                </div>
+              ))}
+              {policy.versions.length === 0 && <EmptyLine label="No previous versions" />}
+            </div>
+          </DrawerSection>
+        </>
+      )}
+    </SideDrawer>
   );
 }
 
@@ -845,23 +1639,6 @@ function HealthGrid({ checks }: { checks: HealthCheck[] }) {
           <p className="mt-2 text-sm font-semibold text-muted">{check.value}</p>
         </div>
       ))}
-    </div>
-  );
-}
-
-function ListStack({ items }: { items: Array<{ id: string; title: string; subtitle: string; action?: React.ReactNode }> }) {
-  return (
-    <div className="mt-3 grid gap-2">
-      {items.map((item) => (
-        <div key={item.id} className="flex min-h-14 items-center justify-between gap-3 rounded-md border border-line bg-white px-3 py-2">
-          <div className="min-w-0">
-            <div className="truncate text-sm font-bold">{item.title}</div>
-            <div className="truncate text-xs font-semibold text-muted">{item.subtitle}</div>
-          </div>
-          {item.action}
-        </div>
-      ))}
-      {items.length === 0 && <EmptyLine label="No records" />}
     </div>
   );
 }
