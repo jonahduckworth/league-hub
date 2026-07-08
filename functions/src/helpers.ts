@@ -64,13 +64,19 @@ export async function sendNotification(
   notification: { title: string; body: string },
   data: Record<string, string>,
 ): Promise<void> {
-  if (tokens.length === 0) return;
+  if (tokens.length === 0) {
+    await logNotificationEvent(data, notification, 0, 0, 0, 0);
+    return;
+  }
 
   // Deduplicate tokens.
   const uniqueTokens = [...new Set(tokens)];
 
   // FCM multicast supports max 500 tokens per call.
   const chunks = chunkArray(uniqueTokens, 500);
+  let successCount = 0;
+  let failureCount = 0;
+  let staleTokenCount = 0;
 
   for (const chunk of chunks) {
     const response = await messaging.sendEachForMulticast({
@@ -93,6 +99,8 @@ export async function sendNotification(
         },
       },
     });
+    successCount += response.successCount;
+    failureCount += response.failureCount;
 
     // Clean up stale tokens.
     if (response.failureCount > 0) {
@@ -110,10 +118,20 @@ export async function sendNotification(
       });
 
       if (staleTokens.length > 0) {
+        staleTokenCount += staleTokens.length;
         await removeStaleTokens(staleTokens);
       }
     }
   }
+
+  await logNotificationEvent(
+    data,
+    notification,
+    uniqueTokens.length,
+    successCount,
+    failureCount,
+    staleTokenCount,
+  );
 }
 
 /**
@@ -142,4 +160,32 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
     chunks.push(arr.slice(i, i + size));
   }
   return chunks;
+}
+
+async function logNotificationEvent(
+  data: Record<string, string>,
+  notification: { title: string; body: string },
+  requestedTokens: number,
+  successCount: number,
+  failureCount: number,
+  staleTokenCount: number,
+): Promise<void> {
+  const orgId = data.orgId;
+  if (!orgId) return;
+
+  await db
+    .collection("organizations")
+    .doc(orgId)
+    .collection("notificationEvents")
+    .add({
+      type: data.type || "unknown",
+      title: notification.title,
+      body: notification.body,
+      requestedTokens,
+      successCount,
+      failureCount,
+      staleTokenCount,
+      data,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 }
