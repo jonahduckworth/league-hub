@@ -1,6 +1,14 @@
 import { onDocumentCreated as onFirestoreCreated } from "firebase-functions/v2/firestore";
 import { db, sendNotification } from "../helpers";
 
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeEmail(value: unknown): string {
+  return stringValue(value).toLowerCase();
+}
+
 function toIsoString(value: unknown): string {
   if (typeof value === "string") {
     return value;
@@ -33,6 +41,56 @@ async function ensureInvitationLookup(
       status: data.status || "pending",
       createdAt: toIsoString(data.createdAt),
     });
+  });
+}
+
+function sameInvitee(
+  userData: FirebaseFirestore.DocumentData,
+  inviteData: FirebaseFirestore.DocumentData,
+  orgId: string,
+): boolean {
+  const userEmail = normalizeEmail(userData.email);
+  const inviteEmail = normalizeEmail(inviteData.email);
+  if (!userEmail || userEmail !== inviteEmail) return false;
+
+  const inviteOrgId = stringValue(inviteData.orgId);
+  if (inviteOrgId && inviteOrgId !== orgId) return false;
+
+  const inviteRole = stringValue(inviteData.role);
+  const userRole = stringValue(userData.role);
+  if (inviteRole && userRole && inviteRole !== userRole) return false;
+
+  return true;
+}
+
+async function markInvitationAcceptedFromUser(
+  orgId: string,
+  invitationId: string,
+  userData: FirebaseFirestore.DocumentData,
+): Promise<void> {
+  const invitationRef = db
+    .collection("organizations")
+    .doc(orgId)
+    .collection("invitations")
+    .doc(invitationId);
+
+  await db.runTransaction(async (transaction) => {
+    const invitationDoc = await transaction.get(invitationRef);
+    if (!invitationDoc.exists) return;
+
+    const invitationData = invitationDoc.data() ?? {};
+    if (invitationData.status !== "pending") return;
+    if (!sameInvitee(userData, invitationData, orgId)) return;
+
+    transaction.update(invitationRef, { status: "accepted" });
+    const token = stringValue(invitationData.token);
+    if (token) {
+      transaction.set(
+        db.collection("invitationLookups").doc(token),
+        { status: "accepted" },
+        { merge: true },
+      );
+    }
   });
 }
 
@@ -116,5 +174,22 @@ export const onInvitationCreated = onFirestoreCreated(
         );
       }
     }
+  },
+);
+
+export const onUserCreatedFromInvitation = onFirestoreCreated(
+  "users/{userId}",
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+
+    const userData = snapshot.data();
+    if (userData.isActive !== true) return;
+
+    const orgId = stringValue(userData.orgId);
+    const acceptedInvitationId = stringValue(userData.acceptedInvitationId);
+    if (!orgId || !acceptedInvitationId) return;
+
+    await markInvitationAcceptedFromUser(orgId, acceptedInvitationId, userData);
   },
 );

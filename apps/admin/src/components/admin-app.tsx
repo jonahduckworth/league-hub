@@ -29,6 +29,7 @@ import { callAdmin, type CallableName } from "@/lib/callables";
 import { useAdminData } from "@/lib/firestore";
 import { assignableRoles, canAccessAdmin, canManageUser, roleLabel } from "@/lib/admin-access";
 import { buildHealthChecks } from "@/lib/health";
+import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, timeAgo } from "@/lib/format";
 import { isPolicyFileAllowed, policyStoragePath, POLICY_FILE_MAX_BYTES } from "@/lib/policy-upload";
 import { demoUser } from "@/lib/demo-data";
@@ -332,9 +333,10 @@ function LoadingState() {
 
 function OverviewSection({ data }: { data: AdminData }) {
   const checks = buildHealthChecks(data);
+  const pendingInvitations = activePendingInvitations(data);
   const metrics = [
     ["Active Users", data.users.filter((user) => user.isActive).length],
-    ["Pending Invites", data.invitations.filter((invite) => invite.status === "pending").length],
+    ["Pending Invites", pendingInvitations.length],
     ["Leagues", data.leagues.length],
     ["Hubs", data.hubs.length],
     ["Teams", data.teams.length],
@@ -387,6 +389,7 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
     const haystack = `${user.displayName} ${user.email} ${user.title ?? ""}`.toLowerCase();
     return haystack.includes(query.toLowerCase());
   });
+  const pendingInvitations = activePendingInvitations(data);
 
   async function submitInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -477,14 +480,14 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
         <Card>
           <SectionTitle icon={Bell} title="Pending Invites" />
           <div className="mt-3 grid gap-2">
-            {data.invitations.filter((invite) => invite.status === "pending").map((invite) => (
+            {pendingInvitations.map((invite) => (
               <div key={invite.id} className="rounded-md border border-line p-3">
                 <div className="font-bold">{invite.email}</div>
                 <div className="text-xs font-semibold text-muted">{roleLabel(invite.role)} · {dateLabel(invite.createdAt)}</div>
                 <Button className="mt-2" variant="secondary" onClick={() => runAction("adminExpireInvitation", { invitationId: invite.id })}>Expire</Button>
               </div>
             ))}
-            {data.invitations.filter((invite) => invite.status === "pending").length === 0 && <EmptyLine label="No pending invites" />}
+            {pendingInvitations.length === 0 && <EmptyLine label="No pending invites" />}
           </div>
         </Card>
       </div>

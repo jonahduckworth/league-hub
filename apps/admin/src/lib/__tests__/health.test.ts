@@ -33,4 +33,29 @@ describe("buildHealthChecks", () => {
       value: "1 failed"
     });
   });
+
+  it("does not count pending invitations for active users", () => {
+    const checks = buildHealthChecks({
+      ...demoData,
+      users: [
+        ...demoData.users,
+        {
+          id: "accepted-user",
+          email: "coach@example.com",
+          displayName: "Coach Active",
+          role: "managerAdmin",
+          orgId: "org-demo",
+          hubIds: ["hub-calgary"],
+          leagueIds: ["league-winter"],
+          teamIds: [],
+          isActive: true
+        }
+      ]
+    });
+
+    expect(checks.find((check) => check.id === "invites")).toMatchObject({
+      severity: "good",
+      value: "0 pending"
+    });
+  });
 });

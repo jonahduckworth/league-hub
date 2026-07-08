@@ -9,7 +9,10 @@ export { onAnnouncementCreated } from "./notifications/announcements";
 export { onMessageCreated } from "./notifications/messages";
 export { onPolicyCreated } from "./notifications/policies";
 export { onTeamUpdated } from "./notifications/teams";
-export { onInvitationCreated } from "./notifications/invitations";
+export {
+  onInvitationCreated,
+  onUserCreatedFromInvitation,
+} from "./notifications/invitations";
 export { onUserRoleChanged } from "./notifications/roleChanges";
 export {
   adminGetOverview,

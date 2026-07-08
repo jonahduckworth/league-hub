@@ -376,7 +376,15 @@ export const adminGetOverview = onCall(adminRuntime, async (request) => {
     const structure = await getStructure(orgId);
     const users: DocumentData[] = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     const activeUsers = users.filter((user) => user.isActive === true);
-    const pendingInvites = invitationsSnap.docs.filter((doc) => doc.data().status === "pending");
+    const activeUserEmails = new Set(activeUsers
+      .map((user) => typeof user.email === "string" ? user.email.trim().toLowerCase() : "")
+      .filter(Boolean));
+    const pendingInvites = invitationsSnap.docs.filter((doc) => {
+      const invite = doc.data();
+      if (invite.status !== "pending") return false;
+      const inviteEmail = typeof invite.email === "string" ? invite.email.trim().toLowerCase() : "";
+      return inviteEmail.length === 0 || !activeUserEmails.has(inviteEmail);
+    });
     const orphanedTeamAssignments = users.reduce((count, user) => {
       const teamIds = normalizeStringArray(user.teamIds);
       return count + teamIds.filter((teamId) => !structure.teams.some((team) => team.id === teamId)).length;

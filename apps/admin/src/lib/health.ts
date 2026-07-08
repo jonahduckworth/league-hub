@@ -1,4 +1,5 @@
 import type { AdminData, HealthCheck } from "./types";
+import { activePendingInvitations } from "./invitations";
 
 export function buildHealthChecks(data: AdminData): HealthCheck[] {
   const teamIds = new Set(data.teams.map((team) => team.id));
@@ -13,6 +14,7 @@ export function buildHealthChecks(data: AdminData): HealthCheck[] {
   const notificationFailures = data.notificationEvents.reduce((count, event) => {
     return count + event.failureCount;
   }, 0);
+  const pendingInvitations = activePendingInvitations(data);
 
   return [
     {
@@ -36,8 +38,8 @@ export function buildHealthChecks(data: AdminData): HealthCheck[] {
     {
       id: "invites",
       label: "Invitations",
-      severity: data.invitations.some((invite) => invite.status === "pending") ? "warning" : "good",
-      value: `${data.invitations.filter((invite) => invite.status === "pending").length} pending`
+      severity: pendingInvitations.length > 0 ? "warning" : "good",
+      value: `${pendingInvitations.length} pending`
     }
   ];
 }
