@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
-  MessageSquare,
   Plus,
   RefreshCw,
   Search,
@@ -37,7 +36,6 @@ import type {
   AdminData,
   AnnouncementScope,
   AppUser,
-  ChatRoom,
   HealthCheck,
   Hub,
   League,
@@ -46,16 +44,13 @@ import type {
 } from "@/lib/types";
 import { Badge, Button, Card, Field, Input, Select, TableWrap, Td, Textarea, Th } from "./ui";
 
-type SectionId = "overview" | "people" | "structure" | "content" | "communications" | "audit" | "platform";
+type SectionId = "overview" | "people" | "structure" | "content";
 
 const navItems: Array<{ id: SectionId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "people", label: "People", icon: Users },
   { id: "structure", label: "Structure", icon: Building2 },
-  { id: "content", label: "Content", icon: FileText },
-  { id: "communications", label: "Comms", icon: MessageSquare },
-  { id: "audit", label: "Audit", icon: Activity },
-  { id: "platform", label: "Platform", icon: ShieldCheck }
+  { id: "content", label: "Content", icon: FileText }
 ];
 
 type ActionResult<T = unknown> =
@@ -241,12 +236,6 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
       return <StructureSection data={data} runAction={runAction} />;
     case "content":
       return <ContentSection data={data} runAction={runAction} selectedOrgId={selectedOrgId} />;
-    case "communications":
-      return <CommunicationsSection data={data} runAction={runAction} />;
-    case "audit":
-      return <AuditSection data={data} />;
-    case "platform":
-      return <PlatformSection data={data} currentUser={currentUser} />;
     default:
       return <OverviewSection data={data} />;
   }
@@ -829,100 +818,6 @@ function ContentSection({ data, runAction, selectedOrgId }: { data: AdminData; r
         }))} />
       </Card>
     </div>
-  );
-}
-
-function CommunicationsSection({ data, runAction }: { data: AdminData; runAction: ActionRunner }) {
-  const [roomId, setRoomId] = useState("");
-  const [messageId, setMessageId] = useState("");
-
-  return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-      <Card>
-        <SectionTitle icon={MessageSquare} title="Chat Rooms" />
-        <ListStack items={data.chatRooms.map((room: ChatRoom) => ({
-          id: room.id,
-          title: room.name,
-          subtitle: `${room.type} · ${room.lastMessage ?? "No messages"}`,
-          action: <Button variant="secondary" onClick={() => runAction("adminArchiveChatRoom", { roomId: room.id })}>Archive</Button>
-        }))} />
-      </Card>
-      <Card>
-        <SectionTitle icon={Trash2} title="Moderation" />
-        <form
-          className="mt-3 grid gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            runAction("adminDeleteMessage", { roomId, messageId });
-          }}
-        >
-          <Field label="Room ID"><Input value={roomId} onChange={(event) => setRoomId(event.target.value)} required /></Field>
-          <Field label="Message ID"><Input value={messageId} onChange={(event) => setMessageId(event.target.value)} required /></Field>
-          <Button type="submit" variant="danger">Soft Delete Message</Button>
-        </form>
-      </Card>
-    </div>
-  );
-}
-
-function AuditSection({ data }: { data: AdminData }) {
-  return (
-    <div className="grid gap-5 xl:grid-cols-2">
-      <Card>
-        <SectionTitle icon={Activity} title="Audit Log" />
-        <ListStack items={data.auditLogs.map((log) => ({
-          id: log.id,
-          title: log.action,
-          subtitle: `${log.actorName ?? log.actorId} · ${timeAgo(log.createdAt)}`
-        }))} />
-      </Card>
-      <Card>
-        <SectionTitle icon={Bell} title="Notification Events" />
-        <ListStack items={data.notificationEvents.map((event) => ({
-          id: event.id,
-          title: event.title,
-          subtitle: `${event.successCount}/${event.requestedTokens} sent · ${event.failureCount} failed`
-        }))} />
-      </Card>
-      <Card className="xl:col-span-2">
-        <SectionTitle icon={ClipboardList} title="Health Checks" />
-        <HealthGrid checks={buildHealthChecks(data)} />
-      </Card>
-    </div>
-  );
-}
-
-function PlatformSection({ data, currentUser }: { data: AdminData; currentUser: AppUser }) {
-  if (currentUser.role !== "platformOwner") {
-    return (
-      <Card>
-        <SectionTitle icon={ShieldAlert} title="Platform Owner" />
-        <EmptyLine label="Platform owner access only" />
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <SectionTitle icon={ShieldCheck} title="Organizations" />
-      <TableWrap>
-        <table className="mt-3 min-w-[700px] w-full border-collapse">
-          <thead className="bg-shell">
-            <tr><Th>Name</Th><Th>Users</Th><Th>Leagues</Th><Th>Owner</Th></tr>
-          </thead>
-          <tbody>
-            {data.orgs.map((org) => (
-              <tr key={org.id} className="border-t border-line">
-                <Td><div className="font-bold">{org.name}</div><div className="text-xs text-muted">{org.id}</div></Td>
-                <Td>{data.users.filter((user) => user.orgId === org.id).length}</Td>
-                <Td>{data.leagues.filter((league) => league.orgId === org.id).length}</Td>
-                <Td>{org.ownerId ?? "Not set"}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </TableWrap>
-    </Card>
   );
 }
 
