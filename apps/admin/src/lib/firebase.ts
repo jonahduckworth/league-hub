@@ -14,6 +14,7 @@ const firebaseConfig = {
 };
 
 export const demoMode = process.env.NEXT_PUBLIC_ADMIN_DEMO_MODE === "true";
+export const firebaseProjectId = firebaseConfig.projectId;
 
 export function hasFirebaseConfig(): boolean {
   return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);

@@ -37,11 +37,11 @@ import {
   X,
   Users
 } from "lucide-react";
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User as FirebaseUser } from "firebase/auth";
 import { collection, doc, getDoc } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-import { DragEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { auth, db, demoMode, hasFirebaseConfig, storage } from "@/lib/firebase";
+import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { auth, db, demoMode, firebaseProjectId, hasFirebaseConfig, storage } from "@/lib/firebase";
 import { formatAdminActionError } from "@/lib/action-errors";
 import { callAdmin, type CallableName } from "@/lib/callables";
 import { useAdminData } from "@/lib/firestore";
@@ -81,29 +81,68 @@ type ActionResult<T = unknown> =
 
 type ActionRunner = (name: CallableName, payload?: Record<string, unknown>) => Promise<ActionResult>;
 
+async function fetchAdminProfile(firebaseUser: FirebaseUser): Promise<ActionResult<AppUser>> {
+  if (!db) {
+    return { ok: false, error: "Firestore is not configured for the admin app." };
+  }
+  try {
+    const userSnap = await getDoc(doc(db, "users", firebaseUser.uid));
+    if (!userSnap.exists()) {
+      const account = firebaseUser.email ?? firebaseUser.uid;
+      return {
+        ok: false,
+        error: `Signed in to ${firebaseProjectId} as ${account}, but no League Hub admin profile exists for that Firebase account.`
+      };
+    }
+    return { ok: true, data: { id: userSnap.id, ...userSnap.data() } as AppUser };
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : "Unable to load your League Hub admin profile.";
+    return {
+      ok: false,
+      error: `Signed in to ${firebaseProjectId}, but the admin profile could not be loaded: ${message}`
+    };
+  }
+}
+
 export function AdminApp() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(demoMode ? demoUser : null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [section, setSection] = useState<SectionId>("overview");
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const { data, loading, error, selectedOrgId, setSelectedOrgId, reloadStructure } = useAdminData(currentUser);
 
+  const loadSignedInUser = useCallback(async (firebaseUser: FirebaseUser): Promise<ActionResult<AppUser>> => {
+    const result = await fetchAdminProfile(firebaseUser);
+    if (result.ok) {
+      setCurrentUser(result.data);
+      setAuthError(null);
+    } else {
+      setCurrentUser(null);
+      setAuthError(result.error);
+    }
+    return result;
+  }, []);
+
   useEffect(() => {
     if (demoMode || !auth || !db) return undefined;
-    const firestore = db;
     let mounted = true;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (!firebaseUser) {
-          if (mounted) setCurrentUser(null);
-          return;
-        }
-        const userSnap = await getDoc(doc(firestore, "users", firebaseUser.uid));
+      if (!firebaseUser) {
         if (mounted) {
-          setCurrentUser(userSnap.exists() ? { id: userSnap.id, ...userSnap.data() } as AppUser : null);
+          setCurrentUser(null);
+          setAuthError(null);
         }
-      } catch {
-        if (mounted) setCurrentUser(null);
+        return;
+      }
+      const result = await fetchAdminProfile(firebaseUser);
+      if (!mounted) return;
+      if (result.ok) {
+        setCurrentUser(result.data);
+        setAuthError(null);
+      } else {
+        setCurrentUser(null);
+        setAuthError(result.error);
       }
     });
     return () => {
@@ -144,7 +183,13 @@ export function AdminApp() {
   }
 
   if (!currentUser) {
-    return <LoginPanel />;
+    return (
+      <LoginPanel
+        authError={authError}
+        onClearAuthError={() => setAuthError(null)}
+        onSignedIn={loadSignedInUser}
+      />
+    );
   }
 
   if (!canAccessAdmin(currentUser)) {
@@ -247,7 +292,15 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
   }
 }
 
-function LoginPanel() {
+function LoginPanel({
+  authError,
+  onClearAuthError,
+  onSignedIn
+}: {
+  authError?: string | null;
+  onClearAuthError: () => void;
+  onSignedIn: (firebaseUser: FirebaseUser) => Promise<ActionResult<AppUser>>;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -255,6 +308,7 @@ function LoginPanel() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    onClearAuthError();
     setError(null);
     if (!auth) {
       setError("Firebase auth is not configured.");
@@ -262,7 +316,11 @@ function LoginPanel() {
     }
     setSubmitting(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const result = await onSignedIn(credential.user);
+      if (!result.ok) {
+        setError(result.error);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Sign in failed.");
     } finally {
@@ -289,7 +347,7 @@ function LoginPanel() {
           <Field label="Password">
             <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
           </Field>
-          {error && <p className="text-sm font-semibold text-coral">{error}</p>}
+          {(error ?? authError) && <p className="text-sm font-semibold text-coral">{error ?? authError}</p>}
           <Button type="submit" disabled={submitting}>{submitting ? "Signing in..." : "Sign in"}</Button>
         </div>
       </form>
