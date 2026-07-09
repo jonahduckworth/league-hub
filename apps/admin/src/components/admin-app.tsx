@@ -83,7 +83,6 @@ type ActionRunner = (name: CallableName, payload?: Record<string, unknown>) => P
 
 export function AdminApp() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(demoMode ? demoUser : null);
-  const [authLoading, setAuthLoading] = useState(!demoMode && hasFirebaseConfig());
   const [section, setSection] = useState<SectionId>("overview");
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -92,19 +91,25 @@ export function AdminApp() {
   useEffect(() => {
     if (demoMode || !auth || !db) return undefined;
     const firestore = db;
-    return onAuthStateChanged(auth, async (firebaseUser) => {
-      setAuthLoading(true);
+    let mounted = true;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (!firebaseUser) {
-          setCurrentUser(null);
+          if (mounted) setCurrentUser(null);
           return;
         }
         const userSnap = await getDoc(doc(firestore, "users", firebaseUser.uid));
-        setCurrentUser(userSnap.exists() ? { id: userSnap.id, ...userSnap.data() } as AppUser : null);
-      } finally {
-        setAuthLoading(false);
+        if (mounted) {
+          setCurrentUser(userSnap.exists() ? { id: userSnap.id, ...userSnap.data() } as AppUser : null);
+        }
+      } catch {
+        if (mounted) setCurrentUser(null);
       }
     });
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const runAction: ActionRunner = async (name, payload = {}) => {
@@ -139,7 +144,7 @@ export function AdminApp() {
   }
 
   if (!currentUser) {
-    return <LoginPanel loading={authLoading} />;
+    return <LoginPanel />;
   }
 
   if (!canAccessAdmin(currentUser)) {
@@ -242,19 +247,26 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
   }
 }
 
-function LoginPanel({ loading }: { loading: boolean }) {
+function LoginPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    if (!auth) return;
+    if (!auth) {
+      setError("Firebase auth is not configured.");
+      return;
+    }
+    setSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Sign in failed.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -278,7 +290,7 @@ function LoginPanel({ loading }: { loading: boolean }) {
             <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
           </Field>
           {error && <p className="text-sm font-semibold text-coral">{error}</p>}
-          <Button type="submit" disabled={loading}>{loading ? "Checking..." : "Sign in"}</Button>
+          <Button type="submit" disabled={submitting}>{submitting ? "Signing in..." : "Sign in"}</Button>
         </div>
       </form>
     </main>
