@@ -235,13 +235,59 @@ describe("useAdminData scope isolation", () => {
       await orgALeagues.promise;
     });
 
-    await waitFor(() => {
-      expect(requestedPaths).toContain("organizations/org-a/leagues/league-a/hubs/hub-a/teams");
-    });
+    expect(requestedPaths).not.toContain("organizations/org-a/leagues/league-a/hubs");
+    expect(requestedPaths).not.toContain("organizations/org-a/leagues/league-a/hubs/hub-a/teams");
     expect(result.current.selectedOrgId).toBe("org-b");
     expect(result.current.data.leagues.map((league) => league.id)).toEqual(["league-b"]);
     expect(result.current.data.hubs.map((hub) => hub.id)).toEqual(["hub-b"]);
     expect(result.current.data.teams.map((team) => team.id)).toEqual(["team-b"]);
+  });
+
+  it("rejects a delayed organization A reload that starts after organization B is active", async () => {
+    const requestedPaths: string[] = [];
+    const recordsByPath = new Map<string, TestRecord[]>([
+      ["organizations/org-a/leagues", [record("league-a", {
+        abbreviation: "LA",
+        name: "League A",
+        orgId: "org-a"
+      })]],
+      ["organizations/org-a/leagues/league-a/hubs", []],
+      ["organizations/org-b/leagues", [record("league-b", {
+        abbreviation: "LB",
+        name: "League B",
+        orgId: "org-b"
+      })]],
+      ["organizations/org-b/leagues/league-b/hubs", []]
+    ]);
+    firestoreMocks.getDocs.mockImplementation((reference: TestReference) => {
+      requestedPaths.push(reference.path);
+      return Promise.resolve(querySnapshot(recordsByPath.get(reference.path) ?? []));
+    });
+
+    const owner = appUser("owner", "platformOwner", "org-a");
+    const { result } = renderHook(() => useAdminData(owner));
+
+    await waitFor(() => {
+      expect(result.current.data.leagues.map((league) => league.id)).toEqual(["league-a"]);
+    });
+    act(() => {
+      result.current.setSelectedOrgId("org-b");
+    });
+    await waitFor(() => {
+      expect(result.current.selectedOrgId).toBe("org-b");
+      expect(result.current.data.leagues.map((league) => league.id)).toEqual(["league-b"]);
+    });
+
+    const orgARequestsBeforeDelayedReload = requestedPaths.filter((path) => path.startsWith("organizations/org-a/")).length;
+    let delayedReloadAccepted = true;
+    await act(async () => {
+      delayedReloadAccepted = await result.current.reloadStructure("org-a");
+    });
+
+    expect(delayedReloadAccepted).toBe(false);
+    expect(requestedPaths.filter((path) => path.startsWith("organizations/org-a/")).length).toBe(orgARequestsBeforeDelayedReload);
+    expect(result.current.selectedOrgId).toBe("org-b");
+    expect(result.current.data.leagues.map((league) => league.id)).toEqual(["league-b"]);
   });
 
   it("returns an empty scope immediately when the account changes and pins non-platform users to their organization", async () => {

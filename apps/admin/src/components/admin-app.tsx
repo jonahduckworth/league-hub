@@ -121,7 +121,7 @@ export function AdminApp() {
   const [section, setSection] = useState<SectionId>("overview");
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { data, loading, error, selectedOrgId, setSelectedOrgId, reloadStructure } = useAdminData(currentUser);
+  const { data, loading, error, selectedOrgId, setSelectedOrgId, reloadStructure, isActiveDataScope } = useAdminData(currentUser);
 
   const loadSignedInUser = useCallback(async (firebaseUser: FirebaseUser): Promise<ActionResult<AppUser>> => {
     const result = await fetchAdminProfile(firebaseUser);
@@ -191,7 +191,7 @@ export function AdminApp() {
     window.location.hash = nextSection;
   }, []);
 
-  const runAction: ActionRunner = async (name, payload = {}) => {
+  const runAction = useCallback<ActionRunner>(async (name, payload = {}) => {
     const orgId = selectedOrgId;
     if (!orgId) {
       const missingOrg = "Select an organization first.";
@@ -206,17 +206,19 @@ export function AdminApp() {
     setMessage(null);
     try {
       const result = await callAdmin(name, { orgId, ...payload });
+      if (!isActiveDataScope(orgId)) return { ok: true, data: result };
       if (name.startsWith("adminUpsert") || name.startsWith("adminDelete")) {
         await reloadStructure(orgId);
       }
+      if (!isActiveDataScope(orgId)) return { ok: true, data: result };
       setMessage(`${adminActionLabel(name)} completed.`);
       return { ok: true, data: result };
     } catch (caught) {
       const errorMessage = formatAdminActionError(caught);
-      setActionError(errorMessage);
+      if (isActiveDataScope(orgId)) setActionError(errorMessage);
       return { ok: false, error: errorMessage };
     }
-  };
+  }, [isActiveDataScope, reloadStructure, selectedOrgId]);
 
   if (!demoMode && !hasFirebaseConfig()) {
     return <ConfigMissing />;

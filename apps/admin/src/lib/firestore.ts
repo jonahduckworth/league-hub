@@ -90,6 +90,14 @@ export function useAdminData(currentUser?: AppUser | null) {
     : currentUserRole === "platformOwner"
       ? (stateMatchesCurrentUser ? state.selectedOrgId : undefined) ?? currentUserOrgId ?? scopedData.orgs[0]?.id
       : currentUserOrgId;
+  const activeDataScope = useRef<{ orgId?: string; userScopeKey?: string }>({
+    orgId: selectedOrgId,
+    userScopeKey
+  });
+
+  useEffect(() => {
+    activeDataScope.current = { orgId: selectedOrgId, userScopeKey };
+  }, [selectedOrgId, userScopeKey]);
 
   useEffect(() => {
     if (state.userScopeKey === userScopeKey) return;
@@ -104,6 +112,7 @@ export function useAdminData(currentUser?: AppUser | null) {
 
   const setSelectedOrgId = useCallback((orgId: string) => {
     if (currentUserRole !== "platformOwner") return;
+    activeDataScope.current = { orgId, userScopeKey };
     structureRequestGeneration.current += 1;
     setState((current) => ({
       ...current,
@@ -112,19 +121,33 @@ export function useAdminData(currentUser?: AppUser | null) {
       error: undefined,
       data: clearOrganizationScopedData(current.data)
     }));
-  }, [currentUserRole]);
+  }, [currentUserRole, userScopeKey]);
+
+  const isActiveDataScope = useCallback((orgId: string) => (
+    activeDataScope.current.orgId === orgId &&
+    activeDataScope.current.userScopeKey === userScopeKey
+  ), [userScopeKey]);
 
   const reloadStructure = useCallback(async (orgId: string): Promise<boolean> => {
     if (!db) return false;
+    const requestScope = activeDataScope.current;
+    if (!requestScope.userScopeKey || requestScope.orgId !== orgId) return false;
     const requestGeneration = ++structureRequestGeneration.current;
+    const requestIsCurrent = () => (
+      requestGeneration === structureRequestGeneration.current &&
+      activeDataScope.current.orgId === orgId &&
+      activeDataScope.current.userScopeKey === requestScope.userScopeKey
+    );
     try {
       const leagueSnap = await getDocs(query(collection(db, "organizations", orgId, "leagues"), orderBy("createdAt")));
+      if (!requestIsCurrent()) return false;
       const leagues = leagueSnap.docs.map((item) => ({ id: item.id, ...item.data() })) as League[];
       const hubs: Hub[] = [];
       const teams: Team[] = [];
 
       for (const league of leagues) {
         const hubSnap = await getDocs(query(collection(db, "organizations", orgId, "leagues", league.id, "hubs"), orderBy("createdAt")));
+        if (!requestIsCurrent()) return false;
         const leagueHubs = hubSnap.docs.map((item) => ({ id: item.id, ...item.data() })) as Hub[];
         hubs.push(...leagueHubs);
         for (const hub of leagueHubs) {
@@ -132,18 +155,19 @@ export function useAdminData(currentUser?: AppUser | null) {
             collection(db, "organizations", orgId, "leagues", league.id, "hubs", hub.id, "teams"),
             orderBy("createdAt")
           ));
+          if (!requestIsCurrent()) return false;
           teams.push(...teamSnap.docs.map((item) => ({ id: item.id, ...item.data() })) as Team[]);
         }
       }
 
-      if (requestGeneration !== structureRequestGeneration.current) return false;
+      if (!requestIsCurrent()) return false;
       setState((current) => ({
         ...current,
         data: { ...current.data, leagues, hubs, teams }
       }));
       return true;
     } catch (error) {
-      if (requestGeneration !== structureRequestGeneration.current) return false;
+      if (!requestIsCurrent()) return false;
       throw error;
     }
   }, []);
@@ -324,6 +348,7 @@ export function useAdminData(currentUser?: AppUser | null) {
     error: state.userScopeKey === userScopeKey ? state.error : undefined,
     selectedOrgId,
     setSelectedOrgId,
-    reloadStructure
+    reloadStructure,
+    isActiveDataScope
   };
 }
