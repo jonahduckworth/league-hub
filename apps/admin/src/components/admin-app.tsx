@@ -5,7 +5,10 @@ import {
   Bell,
   Building2,
   CalendarDays,
+  CheckCircle2,
+  ChevronRight,
   ClipboardList,
+  Clock3,
   ExternalLink,
   FileText,
   FolderOpen,
@@ -16,6 +19,7 @@ import {
   Mail,
   MapPin,
   Megaphone,
+  MessageSquare,
   Phone,
   Pin,
   PinOff,
@@ -27,6 +31,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Tags,
   Trash2,
   Trophy,
@@ -67,12 +72,18 @@ import { Badge, Button, Card, Field, Input, Select, Textarea } from "./ui";
 
 type SectionId = "overview" | "people" | "structure" | "announcements" | "policies";
 
-const navItems: Array<{ id: SectionId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "people", label: "People", icon: Users },
-  { id: "structure", label: "Structure", icon: Building2 },
-  { id: "announcements", label: "Announcements", icon: Megaphone },
-  { id: "policies", label: "Policies", icon: FileText }
+const navItems: Array<{
+  id: SectionId;
+  label: string;
+  mobileLabel: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { id: "overview", label: "Overview", mobileLabel: "Home", description: "Operations at a glance", icon: LayoutDashboard },
+  { id: "people", label: "People", mobileLabel: "People", description: "Members and access", icon: Users },
+  { id: "structure", label: "Structure", mobileLabel: "Structure", description: "Leagues, hubs, and teams", icon: Building2 },
+  { id: "announcements", label: "Announcements", mobileLabel: "News", description: "League communications", icon: Megaphone },
+  { id: "policies", label: "Policies", mobileLabel: "Policies", description: "Documents and versions", icon: FileText }
 ];
 
 type ActionResult<T = unknown> =
@@ -110,7 +121,7 @@ export function AdminApp() {
   const [section, setSection] = useState<SectionId>("overview");
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { data, loading, error, selectedOrgId, setSelectedOrgId, reloadStructure } = useAdminData(currentUser);
+  const { data, loading, error, selectedOrgId, setSelectedOrgId, reloadStructure, isActiveDataScope } = useAdminData(currentUser);
 
   const loadSignedInUser = useCallback(async (firebaseUser: FirebaseUser): Promise<ActionResult<AppUser>> => {
     const result = await fetchAdminProfile(firebaseUser);
@@ -151,7 +162,36 @@ export function AdminApp() {
     };
   }, []);
 
-  const runAction: ActionRunner = async (name, payload = {}) => {
+  useEffect(() => {
+    const syncSectionFromUrl = () => {
+      const requested = window.location.hash.replace("#", "") as SectionId;
+      setSection(navItems.some((item) => item.id === requested) ? requested : "overview");
+    };
+
+    syncSectionFromUrl();
+    window.addEventListener("hashchange", syncSectionFromUrl);
+    window.addEventListener("popstate", syncSectionFromUrl);
+    return () => {
+      window.removeEventListener("hashchange", syncSectionFromUrl);
+      window.removeEventListener("popstate", syncSectionFromUrl);
+    };
+  }, []);
+
+  useEffect(() => {
+    setMessage(null);
+    setActionError(null);
+  }, [selectedOrgId]);
+
+  const navigateToSection = useCallback((nextSection: SectionId) => {
+    if (nextSection === "overview") {
+      window.history.pushState(null, "", `${window.location.pathname}${window.location.search}`);
+      setSection("overview");
+      return;
+    }
+    window.location.hash = nextSection;
+  }, []);
+
+  const runAction = useCallback<ActionRunner>(async (name, payload = {}) => {
     const orgId = selectedOrgId;
     if (!orgId) {
       const missingOrg = "Select an organization first.";
@@ -159,24 +199,26 @@ export function AdminApp() {
       return { ok: false, error: missingOrg };
     }
     if (demoMode) {
-      setMessage(`${name} is disabled in demo mode.`);
+      setMessage(`${adminActionLabel(name)} is disabled in demo mode.`);
       return { ok: false, error: "Demo mode" };
     }
     setActionError(null);
     setMessage(null);
     try {
       const result = await callAdmin(name, { orgId, ...payload });
+      if (!isActiveDataScope(orgId)) return { ok: true, data: result };
       if (name.startsWith("adminUpsert") || name.startsWith("adminDelete")) {
         await reloadStructure(orgId);
       }
-      setMessage(`${name} completed.`);
+      if (!isActiveDataScope(orgId)) return { ok: true, data: result };
+      setMessage(`${adminActionLabel(name)} completed.`);
       return { ok: true, data: result };
     } catch (caught) {
       const errorMessage = formatAdminActionError(caught);
-      setActionError(errorMessage);
+      if (isActiveDataScope(orgId)) setActionError(errorMessage);
       return { ok: false, error: errorMessage };
     }
-  };
+  }, [isActiveDataScope, reloadStructure, selectedOrgId]);
 
   if (!demoMode && !hasFirebaseConfig()) {
     return <ConfigMissing />;
@@ -196,83 +238,178 @@ export function AdminApp() {
     return <BlockedPanel user={currentUser} />;
   }
 
-  const title = navItems.find((item) => item.id === section)?.label ?? "Overview";
+  const activeNavItem = navItems.find((item) => item.id === section) ?? navItems[0];
+  const organizationLabel = data.selectedOrg?.name ?? "No organization selected";
 
   return (
     <div className="min-h-screen bg-shell">
-      <header className="sticky top-0 z-30 border-b border-line bg-white">
-        <div className="flex min-h-16 items-center justify-between gap-4 px-4 md:px-6">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-white text-ink">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col overflow-hidden bg-navy text-white lg:flex">
+        <div className="border-b border-white/10 px-6 py-6">
+          <div className="flex items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-2xl bg-teal text-white shadow-[0_14px_30px_-14px_rgba(45,212,191,0.65)]">
               <ShieldCheck className="size-5" aria-hidden />
             </span>
-            <div className="min-w-0">
-              <h1 className="truncate text-xl font-black text-ink">{title}</h1>
-              <p className="truncate text-xs font-semibold text-muted">{data.selectedOrg?.name ?? "No organization selected"}</p>
+            <div>
+              <div className="text-base font-extrabold tracking-[-0.02em]">League Hub</div>
+              <div className="text-xs font-semibold text-white/55">Admin workspace</div>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {currentUser.role === "platformOwner" && (
-              <select
-                aria-label="Organization"
-                value={selectedOrgId ?? ""}
-                onChange={(event) => setSelectedOrgId(event.target.value)}
-                className="hidden min-h-11 rounded-md border border-line bg-white px-3 text-sm font-semibold md:block"
-              >
-                {data.orgs.map((org) => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </select>
-            )}
-            <Badge tone="info">{roleLabel(currentUser.role)}</Badge>
-            <Button variant="secondary" onClick={() => selectedOrgId && reloadStructure(selectedOrgId)} aria-label="Refresh data">
-              <RefreshCw className="size-4" aria-hidden />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button variant="ghost" onClick={() => auth ? signOut(auth) : setCurrentUser(null)} aria-label="Sign out">
-              <LogOut className="size-4" aria-hidden />
-            </Button>
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/60">Current organization</p>
+            <p className="mt-2 truncate text-sm font-bold text-white">{organizationLabel}</p>
+            <div className="mt-3">
+              {demoMode ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber/20 px-2.5 py-1 text-[11px] font-bold text-[#fde68a]">
+                  <Sparkles className="size-3" aria-hidden /> Demo workspace
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-white/65">
+                  <span className="size-1.5 rounded-full bg-[#34d399]" /> Production workspace
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <nav className="flex gap-2 overflow-x-auto border-t border-line px-4 py-2 md:px-6" aria-label="Admin sections">
+
+        <nav className="thin-scrollbar flex-1 overflow-y-auto px-4 py-5" aria-label="Admin sections">
+          <p className="px-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/60">Workspace</p>
+          <div className="mt-3 grid gap-1.5">
           {navItems.map((item) => {
+            const Icon = item.icon;
             const selected = section === item.id;
             return (
               <button
                 key={item.id}
                 type="button"
-                className={`min-h-10 whitespace-nowrap rounded-md px-3 text-sm font-semibold transition-colors ${
-                  selected ? "bg-ink text-white" : "text-muted hover:bg-shell hover:text-ink"
+                aria-label={item.label}
+                aria-current={selected ? "page" : undefined}
+                className={`group flex min-h-[58px] items-center gap-3 rounded-2xl px-3.5 text-left transition-[background-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5eead4] ${
+                  selected ? "bg-white text-navy shadow-lift" : "text-white/65 hover:bg-white/[0.07] hover:text-white"
                 }`}
-                onClick={() => setSection(item.id)}
+                onClick={() => navigateToSection(item.id)}
               >
-                {item.label}
+                <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${selected ? "bg-teal/10 text-teal" : "bg-white/[0.07] text-white/60 group-hover:text-white"}`}>
+                  <Icon className="size-[18px]" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold">{item.label}</span>
+                  <span className={`mt-0.5 block truncate text-[11px] font-medium ${selected ? "text-muted" : "text-white/60"}`}>{item.description}</span>
+                </span>
+                {selected && <ChevronRight className="size-4 text-teal" aria-hidden />}
+              </button>
+            );
+          })}
+          </div>
+        </nav>
+
+        <div className="border-t border-white/10 p-4">
+          <div className="flex items-center gap-3 rounded-2xl bg-white/[0.05] p-3">
+            <EntityAvatar name={currentUser.displayName} imageUrl={currentUser.avatarUrl} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-white">{currentUser.displayName}</p>
+              <p className="truncate text-xs font-medium text-white/60">{roleLabel(currentUser.role)}</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Sign out"
+              onClick={() => auth ? signOut(auth) : setCurrentUser(null)}
+              className="grid size-10 shrink-0 place-items-center rounded-xl text-white/65 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5eead4]"
+            >
+              <LogOut className="size-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <div className="min-w-0 lg:pl-72">
+        <header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 backdrop-blur-xl">
+          <div className="flex min-h-[72px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-navy text-white lg:hidden">
+                <ShieldCheck className="size-5" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-extrabold tracking-[-0.02em] text-ink sm:text-xl">{activeNavItem.label}</h1>
+                <p className="truncate text-xs font-semibold text-muted">{organizationLabel}</p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {currentUser.role === "platformOwner" && (
+                <select
+                  aria-label="Organization"
+                  value={selectedOrgId ?? ""}
+                  onChange={(event) => setSelectedOrgId(event.target.value)}
+                  className="hidden min-h-11 max-w-[260px] rounded-xl border border-line bg-white px-3 text-sm font-bold text-ink shadow-sm outline-none hover:border-[#b8c4d2] focus:border-teal focus:ring-4 focus:ring-teal/10 sm:block"
+                >
+                  {data.orgs.map((org) => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+              )}
+              <Button variant="secondary" className="size-11 px-0 sm:w-auto sm:px-4" onClick={() => selectedOrgId && reloadStructure(selectedOrgId)} aria-label="Refresh data">
+                <RefreshCw className="size-4" aria-hidden />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+              <Button variant="ghost" className="size-11 px-0 lg:hidden" onClick={() => auth ? signOut(auth) : setCurrentUser(null)} aria-label="Sign out">
+                <LogOut className="size-4" aria-hidden />
+              </Button>
+            </div>
+          </div>
+          {currentUser.role === "platformOwner" && (
+            <div className="border-t border-line/70 px-4 py-2.5 sm:hidden">
+              <label className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 text-xs font-bold text-muted">
+                <span>Organization</span>
+                <select
+                  aria-label="Organization"
+                  value={selectedOrgId ?? ""}
+                  onChange={(event) => setSelectedOrgId(event.target.value)}
+                  className="min-h-10 w-full rounded-xl border border-line bg-white px-3 text-sm font-bold text-ink outline-none focus:border-teal focus:ring-4 focus:ring-teal/10"
+                >
+                  {data.orgs.map((org) => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+        </header>
+
+        <main className="px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-12">
+          <div className="mx-auto max-w-[1440px]">
+            <div className="grid gap-3">
+              {message && <StatusNotice tone="success" message={message} />}
+              {actionError && <StatusNotice tone="error" message={actionError} />}
+              {error && <StatusNotice tone="error" message={error} />}
+            </div>
+            <div key={`${selectedOrgId ?? "none"}:${section}`} className={`${message || actionError || error ? "mt-5" : ""} page-enter`}>
+              {loading ? <LoadingState /> : renderSection(section, data, currentUser, runAction, selectedOrgId)}
+            </div>
+          </div>
+        </main>
+
+        <nav
+          className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-[22px] border border-white/10 bg-navy/95 p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-lift backdrop-blur-xl lg:hidden"
+          aria-label="Admin sections"
+        >
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const selected = section === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={item.label}
+                aria-current={selected ? "page" : undefined}
+                onClick={() => navigateToSection(item.id)}
+                className={`flex min-h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5eead4] ${selected ? "bg-white text-navy" : "text-white/70 hover:text-white"}`}
+              >
+                <Icon className={`size-[18px] ${selected ? "text-teal" : ""}`} aria-hidden />
+                <span className="max-w-full truncate">{item.mobileLabel}</span>
               </button>
             );
           })}
         </nav>
-      </header>
-
-      <main className="px-4 py-8 md:px-6 md:py-10">
-        <div className="mx-auto max-w-[1536px]">
-          {message && (
-            <div className="mb-4 rounded-md border border-teal/20 bg-teal/10 px-4 py-3 text-sm font-semibold text-teal">
-              {message}
-            </div>
-          )}
-          {actionError && (
-            <div className="mb-4 rounded-md border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-semibold text-coral">
-              {actionError}
-            </div>
-          )}
-          {error && (
-            <div className="mb-4 rounded-md border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-semibold text-coral">
-              {error}
-            </div>
-          )}
-          {loading ? <LoadingState /> : renderSection(section, data, currentUser, runAction, selectedOrgId)}
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
@@ -329,74 +466,157 @@ function LoginPanel({
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4">
-      <form className="w-full max-w-sm rounded-lg border border-line bg-white p-5 shadow-soft" onSubmit={submit}>
-        <div className="mb-5 flex items-center gap-3">
-          <div className="grid size-11 place-items-center rounded-md bg-teal text-white">
-            <ShieldCheck className="size-5" aria-hidden />
+    <main className="relative min-h-screen overflow-hidden bg-navy px-4 py-5 sm:px-6 sm:py-8">
+      <div className="pointer-events-none absolute -left-32 top-1/3 size-80 rounded-full bg-sky/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 -top-20 size-96 rounded-full bg-teal/25 blur-3xl" />
+      <div className="relative mx-auto grid min-h-[calc(100vh-2.5rem)] max-w-6xl overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-lift sm:min-h-[calc(100vh-4rem)] lg:grid-cols-[1.08fr_0.92fr]">
+        <section className="hidden flex-col justify-between bg-hero-glow p-12 text-white lg:flex">
+          <div className="flex items-center gap-3">
+            <span className="grid size-12 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur-sm">
+              <ShieldCheck className="size-6" aria-hidden />
+            </span>
+            <div>
+              <p className="text-lg font-extrabold tracking-[-0.02em]">League Hub</p>
+              <p className="text-xs font-semibold text-white/55">Admin operations</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-black text-ink">League Hub Admin</h1>
-            <p className="text-sm font-semibold text-muted">Sign in</p>
+          <div className="max-w-lg">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs font-bold text-white/75">
+              <Sparkles className="size-3.5 text-[#5eead4]" aria-hidden /> One place to run the league
+            </span>
+            <h2 className="mt-6 text-5xl font-extrabold leading-[1.08] tracking-[-0.045em]">
+              Clear operations.<br />Better game days.
+            </h2>
+            <p className="mt-5 max-w-md text-base font-medium leading-7 text-white/65">
+              Manage people, league structure, announcements, and policies from a focused operations workspace.
+            </p>
+            <div className="mt-8 grid gap-3">
+              {["Role-aware member access", "League and team structure", "Communications and policy control"].map((feature) => (
+                <div key={feature} className="flex items-center gap-3 text-sm font-semibold text-white/80">
+                  <span className="grid size-7 place-items-center rounded-full bg-[#2dd4bf]/15 text-[#5eead4]">
+                    <CheckCircle2 className="size-4" aria-hidden />
+                  </span>
+                  {feature}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="grid gap-3">
-          <Field label="Email">
-            <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />
-          </Field>
-          <Field label="Password">
-            <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
-          </Field>
-          {(error ?? authError) && <p className="text-sm font-semibold text-coral">{error ?? authError}</p>}
-          <Button type="submit" disabled={submitting}>{submitting ? "Signing in..." : "Sign in"}</Button>
-        </div>
-      </form>
+          <p className="text-xs font-semibold text-white/55">Secure access for authorized League Hub administrators.</p>
+        </section>
+
+        <section className="flex items-center px-5 py-8 sm:px-10 lg:px-14">
+          <form className="mx-auto w-full max-w-md" onSubmit={submit}>
+            <div className="mb-9">
+              <div className="mb-8 flex items-center gap-3 lg:hidden">
+                <span className="grid size-11 place-items-center rounded-2xl bg-navy text-white">
+                  <ShieldCheck className="size-5" aria-hidden />
+                </span>
+                <div>
+                  <p className="font-extrabold text-ink">League Hub</p>
+                  <p className="text-xs font-semibold text-muted">Admin operations</p>
+                </div>
+              </div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-teal">Administrator access</p>
+              <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-ink sm:text-4xl">Welcome back</h1>
+              <p className="mt-3 text-sm font-medium leading-6 text-muted">Sign in with your League Hub administrator account.</p>
+            </div>
+            <div className="grid gap-5">
+              <Field label="Email address">
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  placeholder="you@league.ca"
+                  required
+                />
+              </Field>
+              <Field label="Password">
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  required
+                />
+              </Field>
+              {(error ?? authError) && (
+                <div role="alert" className="rounded-xl border border-coral/20 bg-coral/10 px-3.5 py-3 text-sm font-semibold leading-5 text-coral">
+                  {error ?? authError}
+                </div>
+              )}
+              <Button className="mt-1 w-full" type="submit" disabled={submitting}>
+                {submitting ? <><RefreshCw className="size-4 animate-spin" aria-hidden />Signing in...</> : <>Sign in<ChevronRight className="size-4" aria-hidden /></>}
+              </Button>
+            </div>
+            <div className="mt-8 flex items-center gap-2 border-t border-line pt-5 text-xs font-semibold text-muted">
+              <ShieldCheck className="size-4 text-teal" aria-hidden /> Protected by Firebase Authentication
+            </div>
+          </form>
+        </section>
+      </div>
     </main>
   );
 }
 
 function ConfigMissing() {
   return (
-    <main className="grid min-h-screen place-items-center px-4">
-      <Card className="max-w-xl">
-        <div className="flex items-start gap-3">
-          <ShieldAlert className="mt-1 size-5 text-coral" aria-hidden />
-          <div>
-            <h1 className="text-lg font-black">Firebase web config required</h1>
-            <p className="mt-2 text-sm font-semibold leading-6 text-muted">
-              Add the values from `apps/admin/.env.example` before running the production admin app.
-            </p>
-          </div>
-        </div>
-      </Card>
-    </main>
+    <SystemPanel
+      title="Firebase web config required"
+      description="Add the values from apps/admin/.env.example before running the production admin app."
+    />
   );
 }
 
 function BlockedPanel({ user }: { user: AppUser }) {
   return (
-    <main className="grid min-h-screen place-items-center px-4">
-      <Card className="max-w-xl">
-        <div className="flex items-start gap-3">
-          <ShieldAlert className="mt-1 size-5 text-coral" aria-hidden />
-          <div>
-            <h1 className="text-lg font-black">Admin access unavailable</h1>
-            <p className="mt-2 text-sm font-semibold leading-6 text-muted">
-              {user.email} is signed in as {roleLabel(user.role)}.
-            </p>
-          </div>
-        </div>
+    <SystemPanel
+      title="Admin access unavailable"
+      description={`${user.email} is signed in as ${roleLabel(user.role)}. Ask a platform owner to update this account's access.`}
+    />
+  );
+}
+
+function SystemPanel({ title, description }: { title: string; description: string }) {
+  return (
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-navy px-4 py-8">
+      <div className="pointer-events-none absolute right-0 top-0 size-96 rounded-full bg-teal/20 blur-3xl" />
+      <Card className="relative w-full max-w-lg border-white/10 p-7 shadow-lift sm:p-8">
+        <span className="grid size-12 place-items-center rounded-2xl bg-coral/10 text-coral">
+          <ShieldAlert className="size-6" aria-hidden />
+        </span>
+        <h1 className="mt-5 text-2xl font-extrabold tracking-[-0.025em] text-ink">{title}</h1>
+        <p className="mt-3 text-sm font-medium leading-6 text-muted">{description}</p>
       </Card>
     </main>
   );
 }
 
+function StatusNotice({ tone, message }: { tone: "success" | "error"; message: string }) {
+  const Icon = tone === "success" ? CheckCircle2 : ShieldAlert;
+  return (
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 text-sm font-semibold leading-5 shadow-sm ${
+        tone === "success" ? "border-teal/20 bg-teal/10 text-teal" : "border-coral/20 bg-coral/10 text-coral"
+      }`}
+    >
+      <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <span>{message}</span>
+    </div>
+  );
+}
+
 function LoadingState() {
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="h-32 animate-pulse rounded-lg border border-line bg-white" />
-      ))}
+    <div className="grid gap-5" aria-label="Loading admin data">
+      <div className="h-48 animate-pulse rounded-[28px] bg-navy/10" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="h-32 animate-pulse rounded-2xl border border-line bg-white" />
+        ))}
+      </div>
     </div>
   );
 }
@@ -404,47 +624,155 @@ function LoadingState() {
 function OverviewSection({ data }: { data: AdminData }) {
   const checks = buildHealthChecks(data);
   const pendingInvitations = activePendingInvitations(data);
-  const metrics = [
-    ["Active Users", data.users.filter((user) => user.isActive).length],
-    ["Pending Invites", pendingInvitations.length],
-    ["Leagues", data.leagues.length],
-    ["Hubs", data.hubs.length],
-    ["Teams", data.teams.length],
-    ["Policies", data.policies.length],
-    ["Announcements", data.announcements.length],
-    ["Chat Rooms", data.chatRooms.length]
+  const healthyChecks = checks.filter((check) => check.severity === "good").length;
+  const attentionChecks = checks.length - healthyChecks;
+  const primaryMetrics = [
+    { label: "Active members", value: data.users.filter((user) => user.isActive).length, context: "People with current access", icon: Users, accent: "bg-teal/10 text-teal" },
+    { label: "Pending invites", value: pendingInvitations.length, context: pendingInvitations.length === 1 ? "Invitation awaiting action" : "Invitations awaiting action", icon: Inbox, accent: "bg-amber/10 text-amber" },
+    { label: "Teams", value: data.teams.length, context: `Across ${data.hubs.length} ${data.hubs.length === 1 ? "hub" : "hubs"}`, icon: Trophy, accent: "bg-sky/10 text-sky" },
+    { label: "Policies", value: data.policies.length, context: "Published operating documents", icon: FileText, accent: "bg-grape/10 text-grape" }
+  ];
+  const inventoryMetrics = [
+    { label: "Leagues", value: data.leagues.length, icon: Trophy },
+    { label: "Hubs", value: data.hubs.length, icon: MapPin },
+    { label: "Announcements", value: data.announcements.length, icon: Megaphone },
+    { label: "Chat rooms", value: data.chatRooms.length, icon: MessageSquare }
   ];
 
   return (
-    <div className="grid gap-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map(([label, value]) => (
-          <Card key={label as string}>
-            <p className="text-sm font-bold text-muted">{label}</p>
-            <p className="mt-2 text-3xl font-black text-ink">{value}</p>
-          </Card>
-        ))}
+    <div className="grid gap-5 sm:gap-6">
+      <section className="relative overflow-hidden rounded-[28px] bg-hero-glow p-6 text-white shadow-lift sm:p-8">
+        <div className="pointer-events-none absolute -right-10 -top-20 size-72 rounded-full border border-white/10" />
+        <div className="pointer-events-none absolute -right-24 -top-6 size-72 rounded-full border border-white/[0.06]" />
+        <div className="relative flex flex-col gap-7 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-2xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs font-bold text-white/70">
+              <Activity className="size-3.5 text-[#5eead4]" aria-hidden /> Operations overview
+            </span>
+            <h2 className="mt-5 text-3xl font-extrabold tracking-[-0.04em] sm:text-4xl">
+              {data.selectedOrg?.name ?? "League Hub"} control center
+            </h2>
+            <p className="mt-3 max-w-xl text-sm font-medium leading-6 text-white/60 sm:text-base sm:leading-7">
+              Monitor access, team structure, communications, and policy health from one focused workspace.
+            </p>
+          </div>
+          <div className="min-w-[210px] rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-bold text-white/55">System readiness</span>
+              <span className="text-lg font-extrabold">{healthyChecks}/{checks.length}</span>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-[#2dd4bf]" style={{ width: `${checks.length ? (healthyChecks / checks.length) * 100 : 0}%` }} />
+            </div>
+            <p className="mt-3 text-xs font-semibold text-white/60">
+              {attentionChecks === 0 ? "Everything looks ready." : `${attentionChecks} ${attentionChecks === 1 ? "item needs" : "items need"} attention.`}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {primaryMetrics.map((metric) => {
+          const Icon = metric.icon;
+          return (
+            <Card key={metric.label} className="group p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-[#bdc8d5] hover:shadow-soft">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-muted">{metric.label}</p>
+                  <p className="mt-2 text-4xl font-extrabold tracking-[-0.04em] text-ink">{metric.value}</p>
+                </div>
+                <span className={`grid size-11 place-items-center rounded-2xl ${metric.accent}`}>
+                  <Icon className="size-5" aria-hidden />
+                </span>
+              </div>
+              <p className="mt-4 text-xs font-semibold text-muted">{metric.context}</p>
+            </Card>
+          );
+        })}
       </div>
-      <div className="grid gap-5 xl:grid-cols-[1fr_1.2fr]">
-        <Card>
-          <SectionTitle icon={ClipboardList} title="Health" />
+
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <SectionTitle icon={ClipboardList} title="Operations health" />
+              <p className="mt-2 text-sm font-medium text-muted">Issues that may need an administrator&apos;s attention.</p>
+            </div>
+            <Badge tone={attentionChecks === 0 ? "good" : "warning"}>{attentionChecks === 0 ? "Ready" : `${attentionChecks} flagged`}</Badge>
+          </div>
           <HealthGrid checks={checks} />
         </Card>
-        <Card>
-          <SectionTitle icon={Activity} title="Recent Admin Activity" />
-          <div className="mt-3 grid gap-2">
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <SectionTitle icon={Activity} title="Recent activity" />
+              <p className="mt-2 text-sm font-medium text-muted">Latest recorded administrator actions.</p>
+            </div>
+            <Clock3 className="size-5 text-muted" aria-hidden />
+          </div>
+          <div className="mt-5 grid gap-2">
             {data.auditLogs.slice(0, 6).map((log) => (
-              <div key={log.id} className="flex min-h-12 items-center justify-between gap-3 rounded-md border border-line px-3">
-                <span className="truncate text-sm font-semibold">{log.action}</span>
-                <span className="whitespace-nowrap text-xs font-semibold text-muted">{timeAgo(log.createdAt)}</span>
+              <div key={log.id} className="flex min-h-14 items-center gap-3 rounded-xl border border-line/80 bg-[#fbfcfd] px-3.5 py-2.5">
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-teal/10 text-teal">
+                  <Activity className="size-4" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{adminActionLabel(log.action)}</span>
+                <RelativeTime className="whitespace-nowrap text-xs font-semibold text-muted" value={log.createdAt} />
               </div>
             ))}
-            {data.auditLogs.length === 0 && <EmptyLine label="No audit entries" />}
+            {data.auditLogs.length === 0 && <EmptyLine label="No audit entries yet" />}
           </div>
         </Card>
       </div>
+
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-extrabold text-ink">Organization inventory</p>
+            <p className="mt-1 text-xs font-semibold text-muted">A quick count of the workspace&apos;s active content.</p>
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {inventoryMetrics.map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <div key={metric.label} className="flex items-center gap-3 rounded-2xl border border-line/70 bg-[#f8fafc] p-3.5 sm:p-4">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-muted shadow-sm">
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xl font-extrabold text-ink">{metric.value}</p>
+                  <p className="truncate text-xs font-semibold text-muted">{metric.label}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
     </div>
   );
+}
+
+function adminActionLabel(action: string) {
+  const words = action
+    .replace(/^admin/, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .trim()
+    .toLowerCase();
+  return words ? `${words[0].toUpperCase()}${words.slice(1)}` : "Admin action";
+}
+
+function RelativeTime({ value, className }: { value: unknown; className?: string }) {
+  const [label, setLabel] = useState("Recently");
+
+  useEffect(() => {
+    const update = () => setLabel(timeAgo(value));
+    update();
+    const interval = window.setInterval(update, 60000);
+    return () => window.clearInterval(interval);
+  }, [value]);
+
+  return <span className={className}>{label}</span>;
 }
 
 type RailItem<T extends string> = {
@@ -482,21 +810,22 @@ function DirectoryLayout<T extends string>({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h2 className="text-3xl font-black text-ink md:text-4xl">{title}</h2>
-          <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-muted">{description}</p>
+    <div className="grid gap-6">
+      <div className="flex flex-col gap-5 rounded-[24px] border border-line/80 bg-white p-5 shadow-card sm:p-6 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-teal">Management workspace</p>
+          <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.035em] text-ink sm:text-3xl">{title}</h2>
+          <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-muted sm:text-base sm:leading-7">{description}</p>
         </div>
-        <div className="shrink-0">{action}</div>
+        <div className="shrink-0 self-stretch sm:self-auto">{action}</div>
       </div>
-      <div className="grid min-h-[calc(100vh-17rem)] gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid min-h-[calc(100vh-17rem)] gap-5 2xl:grid-cols-[248px_minmax(0,1fr)]">
         <DirectoryRail items={railItems} selectedId={selectedRailId} onSelect={onSelectRail} />
         <section className="min-w-0">
-          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h3 className="text-2xl font-black text-ink">{panelTitle}</h3>
-              <p className="mt-1 text-base font-semibold text-muted">{panelDescription}</p>
+          <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="min-w-0">
+              <h3 className="text-xl font-extrabold tracking-[-0.025em] text-ink sm:text-2xl">{panelTitle}</h3>
+              <p className="mt-1 text-sm font-medium text-muted">{panelDescription}</p>
             </div>
             <SearchBox label={searchLabel} value={searchValue} onChange={onSearchChange} />
           </div>
@@ -517,8 +846,8 @@ function DirectoryRail<T extends string>({
   onSelect: (id: T) => void;
 }) {
   return (
-    <aside className="rounded-lg border border-line bg-white p-3 shadow-sm xl:sticky xl:top-32 xl:min-h-[560px] xl:self-start">
-      <div className="grid gap-2">
+    <aside className="thin-scrollbar -mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 2xl:sticky 2xl:top-24 2xl:mx-0 2xl:min-h-[520px] 2xl:self-start 2xl:overflow-visible 2xl:rounded-2xl 2xl:border 2xl:border-line/80 2xl:bg-white 2xl:p-2.5 2xl:shadow-card">
+      <div className="flex gap-2 2xl:grid">
         {items.map((item) => {
           const Icon = item.icon;
           const selected = item.id === selectedId;
@@ -527,17 +856,18 @@ function DirectoryRail<T extends string>({
               key={item.id}
               type="button"
               onClick={() => onSelect(item.id)}
-              className={`flex min-h-[88px] cursor-pointer items-center gap-4 rounded-lg px-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
-                selected ? "bg-ink text-white" : "text-ink hover:bg-shell"
+              aria-pressed={selected}
+              className={`flex min-h-[58px] min-w-[164px] cursor-pointer items-center gap-3 rounded-2xl border px-3.5 text-left shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 2xl:min-h-[68px] 2xl:min-w-0 2xl:shadow-none ${
+                selected ? "border-navy bg-navy text-white shadow-soft" : "border-line bg-white text-ink hover:border-[#b8c4d2] hover:bg-[#f8fafc] 2xl:border-transparent"
               }`}
             >
-              <span className={`grid size-12 shrink-0 place-items-center rounded-md ${selected ? "bg-white/15 text-white" : "bg-shell text-muted"}`}>
-                <Icon className="size-5" aria-hidden />
+              <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${selected ? "bg-white/10 text-[#5eead4]" : "bg-shell text-muted"}`}>
+                <Icon className="size-[18px]" aria-hidden />
               </span>
-              <span className="min-w-0">
-                <span className="block truncate text-lg font-black">{item.label}</span>
-                <span className={`mt-0.5 block text-sm font-semibold ${selected ? "text-white/75" : "text-muted"}`}>
-                  {item.count} {item.count === 1 ? "record" : "records"}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold">{item.label}</span>
+                <span className={`mt-0.5 block text-xs font-semibold ${selected ? "text-white/65" : "text-muted"}`}>
+                  {item.count} {item.count === 1 ? "item" : "items"}
                 </span>
               </span>
             </button>
@@ -558,14 +888,14 @@ function DirectoryTable({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
-      <div className="border-b border-line px-5 py-4 text-base font-black text-ink">{countLabel}</div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[920px] border-collapse">
-          <thead className="bg-white">
+    <div className="responsive-directory-table overflow-hidden rounded-2xl border border-line/80 bg-white shadow-card">
+      <div className="flex min-h-14 items-center border-b border-line/80 px-4 text-sm font-extrabold text-ink sm:px-5">{countLabel}</div>
+      <div className="thin-scrollbar overflow-x-auto">
+        <table className="w-full min-w-[860px] border-collapse">
+          <thead className="bg-[#f8fafc]">
             <tr className="border-b border-line">
               {headers.map((header) => (
-                <th key={header} className="px-5 py-3 text-left text-xs font-black uppercase text-muted">{header}</th>
+                <th key={header} className="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted">{header}</th>
               ))}
             </tr>
           </thead>
@@ -586,11 +916,11 @@ function SearchBox({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="relative block w-full md:w-[420px]">
-      <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted" aria-hidden />
+    <label className="relative block w-full md:w-[360px]">
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-muted" aria-hidden />
       <Input
         aria-label={label}
-        className="min-h-14 rounded-lg pl-12 text-base"
+        className="min-h-12 rounded-xl bg-white pl-11"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={label}
@@ -612,9 +942,9 @@ function ToolbarActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg bg-black px-5 text-base font-black text-white transition-colors hover:bg-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+      className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal px-5 text-sm font-bold text-white shadow-[0_12px_26px_-15px_rgba(15,118,110,0.9)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[#0b665f] hover:shadow-[0_16px_30px_-16px_rgba(15,118,110,0.95)] active:translate-y-px focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20 sm:w-auto"
     >
-      <Icon className="size-5" aria-hidden />
+      <Icon className="size-[18px]" aria-hidden />
       {children}
     </button>
   );
@@ -628,9 +958,9 @@ function ViewButton({ onClick }: { onClick: () => void }) {
         event.stopPropagation();
         onClick();
       }}
-      className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-line bg-white px-6 text-sm font-black text-ink shadow-sm transition-colors hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+      className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3.5 text-sm font-bold text-ink shadow-sm transition-colors hover:border-[#b8c4d2] hover:bg-[#f8fafc] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20"
     >
-      View
+      View <ChevronRight className="size-4 text-muted" aria-hidden />
     </button>
   );
 }
@@ -652,11 +982,11 @@ function EntityAvatar({
   return imageUrl ? (
     <span
       aria-hidden
-      className="size-16 shrink-0 rounded-full bg-cover bg-center"
+      className="size-12 shrink-0 rounded-2xl bg-cover bg-center ring-1 ring-line"
       style={{ backgroundImage: `url(${imageUrl})` }}
     />
   ) : (
-    <span className="grid size-16 shrink-0 place-items-center rounded-full bg-shell text-lg font-black text-muted">
+    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-shell text-sm font-extrabold text-muted ring-1 ring-line/70">
       {initials}
     </span>
   );
@@ -670,16 +1000,16 @@ function DetailLine({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-muted">
-      <Icon className="size-4 shrink-0 text-muted" aria-hidden />
+    <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-muted">
+      <Icon className="size-3.5 shrink-0 text-muted" aria-hidden />
       <span className="truncate">{children}</span>
     </div>
   );
 }
 
 function tableRowClass(selected?: boolean) {
-  return `cursor-pointer border-b border-line transition-colors last:border-b-0 hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal ${
-    selected ? "bg-shell" : "bg-white"
+  return `cursor-pointer border-b border-line/80 transition-colors last:border-b-0 hover:bg-[#f8fafc] ${
+    selected ? "bg-teal/[0.045]" : "bg-white"
   }`;
 }
 
@@ -716,17 +1046,17 @@ function InfoRow({
   value?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md bg-shell px-3 py-2">
-      <p className="text-xs font-bold uppercase text-muted">{label}</p>
-      <div className="mt-1 text-sm font-semibold text-ink">{value || "Not set"}</div>
+    <div className="rounded-xl border border-line/70 bg-[#f8fafc] px-3.5 py-3">
+      <p className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">{label}</p>
+      <div className="mt-1.5 text-sm font-semibold text-ink">{value || "Not set"}</div>
     </div>
   );
 }
 
 function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="grid gap-3">
-      <h3 className="text-sm font-black uppercase text-muted">{title}</h3>
+    <section className="grid gap-3.5">
+      <h3 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted">{title}</h3>
       {children}
     </section>
   );
@@ -743,49 +1073,105 @@ function SideDrawer({
 }: {
   open: boolean;
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   icon: React.ComponentType<{ className?: string }>;
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusableSelector = [
+      "button:not([disabled])",
+      "a[href]",
+      "input:not([disabled])",
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(",");
+    const getFocusableElements = () => Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? []
+    ).filter((element) => !element.hasAttribute("hidden"));
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialogRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+    const focusFrame = window.requestAnimationFrame(() => getFocusableElements()[0]?.focus());
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40">
+    <div className="fixed inset-0 z-50">
       <button
         type="button"
-        aria-label="Close drawer"
-        className="absolute inset-0 cursor-default bg-slate-950/30"
+        aria-hidden="true"
+        tabIndex={-1}
+        className="absolute inset-0 cursor-default bg-navy/45 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <aside
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="absolute right-0 top-0 flex h-full w-full max-w-xl flex-col border-l border-line bg-white shadow-2xl"
+        className="absolute right-0 top-0 flex h-full w-full max-w-[600px] flex-col border-l border-line bg-white shadow-2xl sm:rounded-l-[28px]"
       >
-        <div className="border-b border-line px-6 py-5">
+        <div className="border-b border-line/80 px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-md border border-line bg-shell text-teal">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-teal/10 text-teal ring-1 ring-teal/15">
                 <Icon className="size-5" aria-hidden />
               </span>
               <div className="min-w-0">
-                <h2 className="text-lg font-black text-ink">{title}</h2>
-                {description && <p className="mt-1 text-sm font-semibold leading-5 text-muted">{description}</p>}
+                <h2 className="text-lg font-extrabold tracking-[-0.02em] text-ink">{title}</h2>
+                {description && <p className="mt-1 text-sm font-medium leading-5 text-muted">{description}</p>}
               </div>
             </div>
-            <Button variant="ghost" aria-label="Close drawer" onClick={onClose}>
+            <Button variant="ghost" className="size-10 px-0" aria-label="Close drawer" onClick={onClose}>
               <X className="size-4" aria-hidden />
             </Button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="thin-scrollbar flex-1 overflow-y-auto px-5 py-6 sm:px-6">
           <div className="grid gap-6">{children}</div>
         </div>
         {footer && (
-          <div className="flex flex-col-reverse gap-3 border-t border-line px-6 py-4 sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-3 border-t border-line/80 bg-[#fbfcfd] px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
             {footer}
           </div>
         )}
@@ -854,40 +1240,30 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
               {filteredInvites.map((invite) => (
                 <tr
                   key={invite.id}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Open invite for ${invite.email}`}
                   className={tableRowClass(selectedInvite?.id === invite.id)}
                   onClick={() => {
                     setSelectedInviteId(invite.id);
                     setSelectedUserId(null);
                   }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setSelectedInviteId(invite.id);
-                      setSelectedUserId(null);
-                    }
-                  }}
                 >
-                  <td className="px-5 py-5">
+                  <td data-label="Invite" className="px-5 py-5">
                     <div className="flex min-w-0 items-center gap-4">
                       <EntityAvatar name={invite.displayName ?? invite.email} />
                       <div className="min-w-0">
-                        <div className="truncate text-lg font-black text-ink">{invite.displayName || invite.email}</div>
+                        <div className="truncate text-lg font-extrabold text-ink">{invite.displayName || invite.email}</div>
                         <DetailLine icon={Mail}>{invite.email}</DetailLine>
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-5"><Badge tone="info">{roleLabel(invite.role)}</Badge></td>
-                  <td className="px-5 py-5">
+                  <td data-label="Access" className="px-5 py-5"><Badge tone="info">{roleLabel(invite.role)}</Badge></td>
+                  <td data-label="Details" className="px-5 py-5">
                     <div className="grid gap-2">
                       <DetailLine icon={CalendarDays}>{dateLabel(invite.createdAt)}</DetailLine>
                       <DetailLine icon={Building2}>{pluralize(invite.hubIds.length, "hub")}</DetailLine>
                       <DetailLine icon={Users}>{pluralize(invite.teamIds.length, "team")}</DetailLine>
                     </div>
                   </td>
-                  <td className="px-5 py-5 text-right">
+                  <td data-label="Action" className="px-5 py-5 text-right">
                     <ViewButton
                       onClick={() => {
                         setSelectedInviteId(invite.id);
@@ -904,46 +1280,36 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
                 {filteredUsers.map((user) => (
                   <tr
                     key={user.id}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Open ${user.displayName}`}
                     className={tableRowClass(selectedUser?.id === user.id)}
                     onClick={() => {
                       setSelectedUserId(user.id);
                       setSelectedInviteId(null);
                     }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelectedUserId(user.id);
-                        setSelectedInviteId(null);
-                      }
-                    }}
                   >
-                    <td className="px-5 py-5">
+                    <td data-label="Member" className="px-5 py-5">
                       <div className="flex min-w-0 items-center gap-4">
                         <EntityAvatar name={user.displayName} imageUrl={user.avatarUrl} />
                         <div className="min-w-0">
-                          <div className="truncate text-lg font-black text-ink">{user.displayName}</div>
+                          <div className="truncate text-lg font-extrabold text-ink">{user.displayName}</div>
                           <DetailLine icon={Mail}>{user.email}</DetailLine>
                           {user.phone && <DetailLine icon={Phone}>{user.phone}</DetailLine>}
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-5">
+                    <td data-label="Access" className="px-5 py-5">
                       <div className="flex flex-wrap gap-2">
                         <Badge tone={user.role === "staff" ? "neutral" : "info"}>{roleLabel(user.role)}</Badge>
                         {!user.isActive && <Badge tone="danger">Inactive</Badge>}
                       </div>
                     </td>
-                    <td className="px-5 py-5">
+                    <td data-label="Details" className="px-5 py-5">
                       <div className="grid gap-2">
                         <DetailLine icon={Building2}>{pluralize(user.hubIds.length, "hub")}</DetailLine>
                         <DetailLine icon={Users}>{pluralize(user.teamIds.length, "team")}</DetailLine>
                         <DetailLine icon={MapPin}>{user.address || user.title || "No location set"}</DetailLine>
                       </div>
                     </td>
-                    <td className="px-5 py-5 text-right">
+                    <td data-label="Action" className="px-5 py-5 text-right">
                       <ViewButton
                         onClick={() => {
                           setSelectedUserId(user.id);
@@ -1148,35 +1514,26 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
                 return (
                   <tr
                     key={league.id}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Open ${league.name}`}
                     className={tableRowClass(selection?.type === "league" && selection.league.id === league.id)}
                     onClick={() => setSelection({ type: "league", league })}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelection({ type: "league", league });
-                      }
-                    }}
                   >
-                    <td className="px-5 py-5">
+                    <td data-label="Name" className="px-5 py-5">
                       <div className="flex min-w-0 items-center gap-4">
                         <EntityAvatar name={league.name} imageUrl={league.logoUrl} />
                         <div className="min-w-0">
-                          <div className="truncate text-lg font-black text-ink">{league.name}</div>
+                          <div className="truncate text-lg font-extrabold text-ink">{league.name}</div>
                           <Badge tone="info">{league.abbreviation}</Badge>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-5"><DetailLine icon={Shield}>Organization</DetailLine></td>
-                    <td className="px-5 py-5">
+                    <td data-label="Parent" className="px-5 py-5"><DetailLine icon={Shield}>Organization</DetailLine></td>
+                    <td data-label="Details" className="px-5 py-5">
                       <div className="grid gap-2">
                         <DetailLine icon={MapPin}>{pluralize(hubs.length, "hub")}</DetailLine>
                         <DetailLine icon={Users}>{pluralize(teams.length, "team")}</DetailLine>
                       </div>
                     </td>
-                    <td className="px-5 py-5 text-right"><ViewButton onClick={() => setSelection({ type: "league", league })} /></td>
+                    <td data-label="Action" className="px-5 py-5 text-right"><ViewButton onClick={() => setSelection({ type: "league", league })} /></td>
                   </tr>
                 );
               })}
@@ -1192,30 +1549,21 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
                 return (
                   <tr
                     key={hub.id}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Open ${hub.name}`}
                     className={tableRowClass(selection?.type === "hub" && selection.hub.id === hub.id)}
                     onClick={() => setSelection({ type: "hub", league, hub })}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelection({ type: "hub", league, hub });
-                      }
-                    }}
                   >
-                    <td className="px-5 py-5">
+                    <td data-label="Name" className="px-5 py-5">
                       <div className="flex min-w-0 items-center gap-4">
                         <EntityAvatar name={hub.name} imageUrl={hub.logoUrl} />
                         <div className="min-w-0">
-                          <div className="truncate text-lg font-black text-ink">{hub.name}</div>
+                          <div className="truncate text-lg font-extrabold text-ink">{hub.name}</div>
                           <DetailLine icon={MapPin}>{hub.location || "No location"}</DetailLine>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-5"><DetailLine icon={Trophy}>{league.name}</DetailLine></td>
-                    <td className="px-5 py-5"><DetailLine icon={Users}>{pluralize(teams.length, "team")}</DetailLine></td>
-                    <td className="px-5 py-5 text-right"><ViewButton onClick={() => setSelection({ type: "hub", league, hub })} /></td>
+                    <td data-label="Parent" className="px-5 py-5"><DetailLine icon={Trophy}>{league.name}</DetailLine></td>
+                    <td data-label="Details" className="px-5 py-5"><DetailLine icon={Users}>{pluralize(teams.length, "team")}</DetailLine></td>
+                    <td data-label="Action" className="px-5 py-5 text-right"><ViewButton onClick={() => setSelection({ type: "hub", league, hub })} /></td>
                   </tr>
                 );
               })}
@@ -1231,40 +1579,31 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
                 return (
                   <tr
                     key={team.id}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Open ${team.name}`}
                     className={tableRowClass(selection?.type === "team" && selection.team.id === team.id)}
                     onClick={() => setSelection({ type: "team", league, hub, team })}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelection({ type: "team", league, hub, team });
-                      }
-                    }}
                   >
-                    <td className="px-5 py-5">
+                    <td data-label="Name" className="px-5 py-5">
                       <div className="flex min-w-0 items-center gap-4">
                         <EntityAvatar name={team.name} imageUrl={team.logoUrl} />
                         <div className="min-w-0">
-                          <div className="truncate text-lg font-black text-ink">{team.name}</div>
+                          <div className="truncate text-lg font-extrabold text-ink">{team.name}</div>
                           <DetailLine icon={Users}>{pluralize(team.memberIds.length, "member")}</DetailLine>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-5">
+                    <td data-label="Parent" className="px-5 py-5">
                       <div className="grid gap-2">
                         <DetailLine icon={Trophy}>{league.name}</DetailLine>
                         <DetailLine icon={MapPin}>{hub.name}</DetailLine>
                       </div>
                     </td>
-                    <td className="px-5 py-5">
+                    <td data-label="Details" className="px-5 py-5">
                       <div className="grid gap-2">
                         <DetailLine icon={Tags}>{team.ageGroup || "No age group"}</DetailLine>
                         <DetailLine icon={SlidersHorizontal}>{team.division || "No division"}</DetailLine>
                       </div>
                     </td>
-                    <td className="px-5 py-5 text-right"><ViewButton onClick={() => setSelection({ type: "team", league, hub, team })} /></td>
+                    <td data-label="Action" className="px-5 py-5 text-right"><ViewButton onClick={() => setSelection({ type: "team", league, hub, team })} /></td>
                   </tr>
                 );
               })}
@@ -1561,38 +1900,29 @@ function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction:
           {filteredAnnouncements.map((announcement) => (
             <tr
               key={announcement.id}
-              tabIndex={0}
-              role="button"
-              aria-label={`Open ${announcement.title}`}
               className={tableRowClass(selectedAnnouncement?.id === announcement.id)}
               onClick={() => setSelectedId(announcement.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  setSelectedId(announcement.id);
-                }
-              }}
             >
-              <td className="px-5 py-5">
+              <td data-label="Announcement" className="px-5 py-5">
                 <div className="flex min-w-0 items-center gap-4">
                   <EntityAvatar name={announcement.title} />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-lg font-black text-ink">{announcement.title}</span>
+                      <span className="truncate text-lg font-extrabold text-ink">{announcement.title}</span>
                       {announcement.isPinned && <Badge tone="warning">Pinned</Badge>}
                     </div>
                     <p className="mt-1 max-w-xl truncate text-sm font-semibold text-muted">{announcement.body}</p>
                   </div>
                 </div>
               </td>
-              <td className="px-5 py-5"><Badge tone={announcement.scope === "orgWide" ? "info" : "neutral"}>{scopeLabel(announcement.scope)}</Badge></td>
-              <td className="px-5 py-5">
+              <td data-label="Scope" className="px-5 py-5"><Badge tone={announcement.scope === "orgWide" ? "info" : "neutral"}>{scopeLabel(announcement.scope)}</Badge></td>
+              <td data-label="Details" className="px-5 py-5">
                 <div className="grid gap-2">
-                  <DetailLine icon={CalendarDays}>{timeAgo(announcement.createdAt)}</DetailLine>
+                  <DetailLine icon={CalendarDays}><RelativeTime value={announcement.createdAt} /></DetailLine>
                   <DetailLine icon={Shield}>{announcement.authorName}</DetailLine>
                 </div>
               </td>
-              <td className="px-5 py-5 text-right"><ViewButton onClick={() => setSelectedId(announcement.id)} /></td>
+              <td data-label="Action" className="px-5 py-5 text-right"><ViewButton onClick={() => setSelectedId(announcement.id)} /></td>
             </tr>
           ))}
           {filteredAnnouncements.length === 0 && emptyTableRow("No announcements match this view", 4)}
@@ -1635,9 +1965,9 @@ function AnnouncementCreateDrawer({
         <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} required /></Field>
         <Field label="Body"><Textarea value={body} onChange={(event) => setBody(event.target.value)} required /></Field>
         <Field label="Scope"><Select value={scope} onChange={(event) => setScope(event.target.value as AnnouncementScope)}><option value="orgWide">Org Wide</option><option value="league">League</option><option value="hub">Hub</option><option value="team">Team</option></Select></Field>
-        <label className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-line bg-white px-3 text-sm font-semibold">
+        <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold hover:border-[#b8c4d2]">
           <span className="inline-flex items-center gap-2">{isPinned ? <Pin className="size-4 text-amber" aria-hidden /> : <PinOff className="size-4 text-muted" aria-hidden />}Pinned</span>
-          <input type="checkbox" checked={isPinned} onChange={(event) => setIsPinned(event.target.checked)} />
+          <input className="size-4 accent-teal" type="checkbox" checked={isPinned} onChange={(event) => setIsPinned(event.target.checked)} />
         </label>
         <Button type="submit"><Megaphone className="size-4" aria-hidden />Post Announcement</Button>
       </form>
@@ -1685,7 +2015,7 @@ function AnnouncementDrawer({
     <SideDrawer
       open={Boolean(announcement)}
       title={announcement?.title ?? "Announcement"}
-      description={announcement ? `${announcement.scope} · ${timeAgo(announcement.createdAt)}` : undefined}
+      description={announcement ? <>{announcement.scope} · <RelativeTime value={announcement.createdAt} /></> : undefined}
       icon={Megaphone}
       onClose={onClose}
       footer={
@@ -1701,9 +2031,9 @@ function AnnouncementDrawer({
             <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
             <Field label="Body"><Textarea value={body} onChange={(event) => setBody(event.target.value)} /></Field>
             <Field label="Scope"><Select value={scope} onChange={(event) => setScope(event.target.value as AnnouncementScope)}><option value="orgWide">Org Wide</option><option value="league">League</option><option value="hub">Hub</option><option value="team">Team</option></Select></Field>
-            <label className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-line bg-white px-3 text-sm font-semibold">
+            <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold hover:border-[#b8c4d2]">
               <span className="inline-flex items-center gap-2">{isPinned ? <Pin className="size-4 text-amber" aria-hidden /> : <PinOff className="size-4 text-muted" aria-hidden />}Pinned</span>
-              <input type="checkbox" checked={isPinned} onChange={(event) => setIsPinned(event.target.checked)} />
+              <input className="size-4 accent-teal" type="checkbox" checked={isPinned} onChange={(event) => setIsPinned(event.target.checked)} />
             </label>
           </DrawerSection>
           <DrawerSection title="Author">
@@ -1769,36 +2099,27 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
           {filteredPolicies.map((policy) => (
             <tr
               key={policy.id}
-              tabIndex={0}
-              role="button"
-              aria-label={`Open ${policy.name}`}
               className={tableRowClass(selectedPolicy?.id === policy.id)}
               onClick={() => setSelectedPolicyId(policy.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  setSelectedPolicyId(policy.id);
-                }
-              }}
             >
-              <td className="px-5 py-5">
+              <td data-label="Policy" className="px-5 py-5">
                 <div className="flex min-w-0 items-center gap-4">
                   <EntityAvatar name={policy.name} />
                   <div className="min-w-0">
-                    <div className="truncate text-lg font-black text-ink">{policy.name}</div>
+                    <div className="truncate text-lg font-extrabold text-ink">{policy.name}</div>
                     <DetailLine icon={FileText}>{policy.fileType || "File"}</DetailLine>
                   </div>
                 </div>
               </td>
-              <td className="px-5 py-5"><Badge tone="neutral">{policy.category}</Badge></td>
-              <td className="px-5 py-5">
+              <td data-label="Category" className="px-5 py-5"><Badge tone="neutral">{policy.category}</Badge></td>
+              <td data-label="Details" className="px-5 py-5">
                 <div className="grid gap-2">
                   <DetailLine icon={UploadCloud}>{bytesLabel(policy.fileSize)}</DetailLine>
                   <DetailLine icon={Layers}>{pluralize(policy.versions.length, "version")}</DetailLine>
-                  <DetailLine icon={CalendarDays}>Updated {timeAgo(policy.updatedAt)}</DetailLine>
+                  <DetailLine icon={CalendarDays}>Updated <RelativeTime value={policy.updatedAt} /></DetailLine>
                 </div>
               </td>
-              <td className="px-5 py-5 text-right"><ViewButton onClick={() => setSelectedPolicyId(policy.id)} /></td>
+              <td data-label="Action" className="px-5 py-5 text-right"><ViewButton onClick={() => setSelectedPolicyId(policy.id)} /></td>
             </tr>
           ))}
           {filteredPolicies.length === 0 && emptyTableRow("No policies match this view", 4)}
@@ -1966,7 +2287,7 @@ function PolicyFileField({
             document.getElementById(inputId)?.click();
           }
         }}
-        className="grid min-h-36 cursor-pointer place-items-center rounded-md border border-dashed border-line bg-white px-4 py-5 text-center transition-colors hover:border-teal hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+        className="grid min-h-36 cursor-pointer place-items-center rounded-2xl border border-dashed border-line bg-white px-4 py-5 text-center transition-colors hover:border-teal hover:bg-teal/[0.035] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15"
       >
         <input
           id={inputId}
@@ -1977,12 +2298,12 @@ function PolicyFileField({
         />
         <span className="grid justify-items-center gap-2">
           <UploadCloud className="size-7 text-teal" aria-hidden />
-          <span className="text-sm font-black text-ink">Drop a policy file here or browse</span>
+          <span className="text-sm font-extrabold text-ink">Drop a policy file here or browse</span>
           <span className="text-xs font-semibold text-muted">Up to {bytesLabel(POLICY_FILE_MAX_BYTES)}</span>
         </span>
       </label>
       {file && (
-        <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-line bg-shell px-3">
+        <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-shell px-3.5">
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-ink">{file.name}</p>
             <p className="text-xs font-semibold text-muted">{file.type || "File"} · {bytesLabel(file.size)}</p>
@@ -1990,7 +2311,7 @@ function PolicyFileField({
           <button
             type="button"
             aria-label="Remove selected policy file"
-            className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-white hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+            className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl text-muted transition-colors hover:bg-white hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15"
             onClick={onClear}
           >
             <X className="size-4" aria-hidden />
@@ -2109,7 +2430,7 @@ function PolicyDrawer({
             href={policy.fileUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink transition-colors hover:bg-shell focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-2 text-sm font-bold text-ink shadow-sm transition-colors hover:border-[#b8c4d2] hover:bg-shell focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15"
           >
             <ExternalLink className="size-4" aria-hidden />
             Open File
@@ -2146,7 +2467,7 @@ function PolicyDrawer({
           <DrawerSection title="Versions">
             <div className="grid gap-2">
               {policy.versions.map((version, index) => (
-                <div key={`${policy.id}-${index}`} className="rounded-md border border-line bg-white px-3 py-2">
+                <div key={`${policy.id}-${index}`} className="rounded-xl border border-line/80 bg-white px-3.5 py-3 shadow-sm">
                   <div className="text-sm font-bold text-ink">Version {String(version.version ?? index + 1)}</div>
                   <div className="mt-1 text-xs font-semibold text-muted">{typeof version.fileSize === "number" ? bytesLabel(version.fileSize) : "File"} · {String(version.uploadedAt ?? "Uploaded")}</div>
                 </div>
@@ -2164,29 +2485,39 @@ function SectionTitle({ icon: Icon, title }: { icon: React.ComponentType<{ class
   return (
     <div className="flex items-center gap-2">
       <Icon className="size-5 text-teal" aria-hidden />
-      <h2 className="text-base font-black text-ink">{title}</h2>
+      <h2 className="text-base font-extrabold tracking-[-0.01em] text-ink">{title}</h2>
     </div>
   );
 }
 
 function HealthGrid({ checks }: { checks: HealthCheck[] }) {
   return (
-    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-      {checks.map((check) => (
-        <div key={check.id} className="rounded-md border border-line bg-white p-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-bold">{check.label}</span>
-            <Badge tone={check.severity === "good" ? "good" : check.severity === "danger" ? "danger" : "warning"}>{check.severity}</Badge>
+    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      {checks.map((check) => {
+        const StatusIcon = check.severity === "good" ? CheckCircle2 : ShieldAlert;
+        return (
+          <div key={check.id} className="rounded-2xl border border-line/80 bg-[#fbfcfd] p-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className={`grid size-8 shrink-0 place-items-center rounded-xl ${check.severity === "good" ? "bg-mint/10 text-mint" : check.severity === "danger" ? "bg-coral/10 text-coral" : "bg-amber/10 text-amber"}`}>
+                  <StatusIcon className="size-4" aria-hidden />
+                </span>
+                <span className="truncate text-sm font-bold text-ink">{check.label}</span>
+              </div>
+              <Badge tone={check.severity === "good" ? "good" : check.severity === "danger" ? "danger" : "warning"}>
+                {check.severity[0].toUpperCase()}{check.severity.slice(1)}
+              </Badge>
+            </div>
+            <p className="mt-3 pl-[42px] text-xs font-semibold text-muted">{check.value}</p>
           </div>
-          <p className="mt-2 text-sm font-semibold text-muted">{check.value}</p>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 function EmptyLine({ label }: { label: string }) {
-  return <div className="rounded-md border border-dashed border-line px-3 py-5 text-center text-sm font-semibold text-muted">{label}</div>;
+  return <div className="rounded-xl border border-dashed border-line bg-[#fbfcfd] px-3 py-6 text-center text-sm font-semibold text-muted">{label}</div>;
 }
 
 function CheckboxGroup({
@@ -2201,15 +2532,16 @@ function CheckboxGroup({
   setValues: (values: string[]) => void;
 }) {
   return (
-    <fieldset className="rounded-md border border-line p-3">
-      <legend className="px-1 text-sm font-bold">{label}</legend>
-      <div className="grid max-h-44 gap-2 overflow-auto pt-2">
+    <fieldset className="rounded-xl border border-line p-3.5">
+      <legend className="px-1 text-sm font-bold text-ink">{label}</legend>
+      <div className="thin-scrollbar grid max-h-48 gap-1.5 overflow-auto pt-2">
         {options.map((option) => {
           const checked = values.includes(option.id);
           return (
-            <label key={option.id} className="flex min-h-9 items-center gap-2 text-sm font-semibold text-muted">
+            <label key={option.id} className="flex min-h-10 cursor-pointer items-center gap-2.5 rounded-lg px-2 text-sm font-semibold text-muted hover:bg-shell hover:text-ink">
               <input
                 type="checkbox"
+                className="size-4 accent-teal"
                 checked={checked}
                 onChange={() => setValues(checked ? values.filter((id) => id !== option.id) : [...values, option.id])}
               />
