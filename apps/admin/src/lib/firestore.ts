@@ -52,6 +52,13 @@ const emptyData: AdminData = {
   notificationEvents: []
 };
 
+function clearOrganizationScopedData(data: AdminData): AdminData {
+  return {
+    ...emptyData,
+    orgs: data.orgs
+  };
+}
+
 function clearRestrictedFeedData(data: AdminData, feed: RestrictedFeed): AdminData {
   if (feed === "auditLogs") {
     return { ...data, auditLogs: [] };
@@ -68,7 +75,13 @@ export function useAdminData(currentUser?: AppUser | null) {
   const selectedOrgId = state.selectedOrgId ?? currentUser?.orgId ?? state.data.orgs[0]?.id;
 
   const setSelectedOrgId = useCallback((orgId: string) => {
-    setState((current) => ({ ...current, selectedOrgId: orgId }));
+    setState((current) => ({
+      ...current,
+      selectedOrgId: orgId,
+      loading: !demoMode,
+      error: undefined,
+      data: clearOrganizationScopedData(current.data)
+    }));
   }, []);
 
   const reloadStructure = useCallback(async (orgId: string) => {

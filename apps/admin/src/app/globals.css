@@ -155,7 +155,6 @@ textarea {
   }
 
   .responsive-directory-table tbody td:last-child {
-    justify-content: flex-end;
     background: #f8fafc;
   }
 }
