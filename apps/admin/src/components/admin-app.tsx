@@ -177,6 +177,11 @@ export function AdminApp() {
     };
   }, []);
 
+  useEffect(() => {
+    setMessage(null);
+    setActionError(null);
+  }, [selectedOrgId]);
+
   const navigateToSection = useCallback((nextSection: SectionId) => {
     if (nextSection === "overview") {
       window.history.pushState(null, "", `${window.location.pathname}${window.location.search}`);
@@ -248,7 +253,7 @@ export function AdminApp() {
             </div>
           </div>
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/45">Current organization</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/60">Current organization</p>
             <p className="mt-2 truncate text-sm font-bold text-white">{organizationLabel}</p>
             <div className="mt-3">
               {demoMode ? (
@@ -256,7 +261,7 @@ export function AdminApp() {
                   <Sparkles className="size-3" aria-hidden /> Demo workspace
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-white/50">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-white/65">
                   <span className="size-1.5 rounded-full bg-[#34d399]" /> Production workspace
                 </span>
               )}
@@ -265,7 +270,7 @@ export function AdminApp() {
         </div>
 
         <nav className="thin-scrollbar flex-1 overflow-y-auto px-4 py-5" aria-label="Admin sections">
-          <p className="px-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/35">Workspace</p>
+          <p className="px-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/60">Workspace</p>
           <div className="mt-3 grid gap-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -276,7 +281,7 @@ export function AdminApp() {
                 type="button"
                 aria-label={item.label}
                 aria-current={selected ? "page" : undefined}
-                className={`group flex min-h-[58px] items-center gap-3 rounded-2xl px-3.5 text-left transition-[background-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15 ${
+                className={`group flex min-h-[58px] items-center gap-3 rounded-2xl px-3.5 text-left transition-[background-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5eead4] ${
                   selected ? "bg-white text-navy shadow-lift" : "text-white/65 hover:bg-white/[0.07] hover:text-white"
                 }`}
                 onClick={() => navigateToSection(item.id)}
@@ -286,7 +291,7 @@ export function AdminApp() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold">{item.label}</span>
-                  <span className={`mt-0.5 block truncate text-[11px] font-medium ${selected ? "text-muted" : "text-white/35"}`}>{item.description}</span>
+                  <span className={`mt-0.5 block truncate text-[11px] font-medium ${selected ? "text-muted" : "text-white/60"}`}>{item.description}</span>
                 </span>
                 {selected && <ChevronRight className="size-4 text-teal" aria-hidden />}
               </button>
@@ -300,13 +305,13 @@ export function AdminApp() {
             <EntityAvatar name={currentUser.displayName} imageUrl={currentUser.avatarUrl} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-white">{currentUser.displayName}</p>
-              <p className="truncate text-xs font-medium text-white/45">{roleLabel(currentUser.role)}</p>
+              <p className="truncate text-xs font-medium text-white/60">{roleLabel(currentUser.role)}</p>
             </div>
             <button
               type="button"
               aria-label="Sign out"
               onClick={() => auth ? signOut(auth) : setCurrentUser(null)}
-              className="grid size-10 shrink-0 place-items-center rounded-xl text-white/45 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15"
+              className="grid size-10 shrink-0 place-items-center rounded-xl text-white/65 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5eead4]"
             >
               <LogOut className="size-4" aria-hidden />
             </button>
@@ -374,7 +379,7 @@ export function AdminApp() {
               {actionError && <StatusNotice tone="error" message={actionError} />}
               {error && <StatusNotice tone="error" message={error} />}
             </div>
-            <div key={section} className={`${message || actionError || error ? "mt-5" : ""} page-enter`}>
+            <div key={`${selectedOrgId ?? "none"}:${section}`} className={`${message || actionError || error ? "mt-5" : ""} page-enter`}>
               {loading ? <LoadingState /> : renderSection(section, data, currentUser, runAction, selectedOrgId)}
             </div>
           </div>
@@ -394,7 +399,7 @@ export function AdminApp() {
                 aria-label={item.label}
                 aria-current={selected ? "page" : undefined}
                 onClick={() => navigateToSection(item.id)}
-                className={`flex min-h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15 ${selected ? "bg-white text-navy" : "text-white/55 hover:text-white"}`}
+                className={`flex min-h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5eead4] ${selected ? "bg-white text-navy" : "text-white/70 hover:text-white"}`}
               >
                 <Icon className={`size-[18px] ${selected ? "text-teal" : ""}`} aria-hidden />
                 <span className="max-w-full truncate">{item.mobileLabel}</span>
@@ -494,7 +499,7 @@ function LoginPanel({
               ))}
             </div>
           </div>
-          <p className="text-xs font-semibold text-white/35">Secure access for authorized League Hub administrators.</p>
+          <p className="text-xs font-semibold text-white/55">Secure access for authorized League Hub administrators.</p>
         </section>
 
         <section className="flex items-center px-5 py-8 sm:px-10 lg:px-14">
@@ -657,7 +662,7 @@ function OverviewSection({ data }: { data: AdminData }) {
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
               <div className="h-full rounded-full bg-[#2dd4bf]" style={{ width: `${checks.length ? (healthyChecks / checks.length) * 100 : 0}%` }} />
             </div>
-            <p className="mt-3 text-xs font-semibold text-white/45">
+            <p className="mt-3 text-xs font-semibold text-white/60">
               {attentionChecks === 0 ? "Everything looks ready." : `${attentionChecks} ${attentionChecks === 1 ? "item needs" : "items need"} attention.`}
             </p>
           </div>
@@ -756,7 +761,7 @@ function adminActionLabel(action: string) {
 }
 
 function RelativeTime({ value, className }: { value: unknown; className?: string }) {
-  const [label, setLabel] = useState(() => dateLabel(value));
+  const [label, setLabel] = useState("Recently");
 
   useEffect(() => {
     const update = () => setLabel(timeAgo(value));
@@ -859,7 +864,7 @@ function DirectoryRail<T extends string>({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-bold">{item.label}</span>
-                <span className={`mt-0.5 block text-xs font-semibold ${selected ? "text-white/50" : "text-muted"}`}>
+                <span className={`mt-0.5 block text-xs font-semibold ${selected ? "text-white/65" : "text-muted"}`}>
                   {item.count} {item.count === 1 ? "item" : "items"}
                 </span>
               </span>
@@ -951,7 +956,7 @@ function ViewButton({ onClick }: { onClick: () => void }) {
         event.stopPropagation();
         onClick();
       }}
-      className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3.5 text-sm font-bold text-ink shadow-sm transition-colors hover:border-[#b8c4d2] hover:bg-[#f8fafc] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15"
+      className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3.5 text-sm font-bold text-ink shadow-sm transition-colors hover:border-[#b8c4d2] hover:bg-[#f8fafc] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20"
     >
       View <ChevronRight className="size-4 text-muted" aria-hidden />
     </button>
@@ -1001,7 +1006,7 @@ function DetailLine({
 }
 
 function tableRowClass(selected?: boolean) {
-  return `cursor-pointer border-b border-line/80 transition-colors last:border-b-0 hover:bg-[#f8fafc] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-teal/15 ${
+  return `cursor-pointer border-b border-line/80 transition-colors last:border-b-0 hover:bg-[#f8fafc] ${
     selected ? "bg-teal/[0.045]" : "bg-white"
   }`;
 }
@@ -1072,19 +1077,59 @@ function SideDrawer({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return undefined;
     const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusableSelector = [
+      "button:not([disabled])",
+      "a[href]",
+      "input:not([disabled])",
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(",");
+    const getFocusableElements = () => Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? []
+    ).filter((element) => !element.hasAttribute("hidden"));
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialogRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleKeyDown);
+    const focusFrame = window.requestAnimationFrame(() => getFocusableElements()[0]?.focus());
     return () => {
+      window.cancelAnimationFrame(focusFrame);
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [onClose, open]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -1092,11 +1137,13 @@ function SideDrawer({
     <div className="fixed inset-0 z-50">
       <button
         type="button"
-        aria-label="Close drawer"
+        aria-hidden="true"
+        tabIndex={-1}
         className="absolute inset-0 cursor-default bg-navy/45 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <aside
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -1191,20 +1238,10 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
               {filteredInvites.map((invite) => (
                 <tr
                   key={invite.id}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Open invite for ${invite.email}`}
                   className={tableRowClass(selectedInvite?.id === invite.id)}
                   onClick={() => {
                     setSelectedInviteId(invite.id);
                     setSelectedUserId(null);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setSelectedInviteId(invite.id);
-                      setSelectedUserId(null);
-                    }
                   }}
                 >
                   <td data-label="Invite" className="px-5 py-5">
@@ -1241,20 +1278,10 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
                 {filteredUsers.map((user) => (
                   <tr
                     key={user.id}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Open ${user.displayName}`}
                     className={tableRowClass(selectedUser?.id === user.id)}
                     onClick={() => {
                       setSelectedUserId(user.id);
                       setSelectedInviteId(null);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelectedUserId(user.id);
-                        setSelectedInviteId(null);
-                      }
                     }}
                   >
                     <td data-label="Member" className="px-5 py-5">
@@ -1485,17 +1512,8 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
                 return (
                   <tr
                     key={league.id}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Open ${league.name}`}
                     className={tableRowClass(selection?.type === "league" && selection.league.id === league.id)}
                     onClick={() => setSelection({ type: "league", league })}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelection({ type: "league", league });
-                      }
-                    }}
                   >
                     <td data-label="Name" className="px-5 py-5">
                       <div className="flex min-w-0 items-center gap-4">
@@ -1529,17 +1547,8 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
                 return (
                   <tr
                     key={hub.id}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Open ${hub.name}`}
                     className={tableRowClass(selection?.type === "hub" && selection.hub.id === hub.id)}
                     onClick={() => setSelection({ type: "hub", league, hub })}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelection({ type: "hub", league, hub });
-                      }
-                    }}
                   >
                     <td data-label="Name" className="px-5 py-5">
                       <div className="flex min-w-0 items-center gap-4">
@@ -1568,17 +1577,8 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
                 return (
                   <tr
                     key={team.id}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Open ${team.name}`}
                     className={tableRowClass(selection?.type === "team" && selection.team.id === team.id)}
                     onClick={() => setSelection({ type: "team", league, hub, team })}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelection({ type: "team", league, hub, team });
-                      }
-                    }}
                   >
                     <td data-label="Name" className="px-5 py-5">
                       <div className="flex min-w-0 items-center gap-4">
@@ -1898,17 +1898,8 @@ function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction:
           {filteredAnnouncements.map((announcement) => (
             <tr
               key={announcement.id}
-              tabIndex={0}
-              role="button"
-              aria-label={`Open ${announcement.title}`}
               className={tableRowClass(selectedAnnouncement?.id === announcement.id)}
               onClick={() => setSelectedId(announcement.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  setSelectedId(announcement.id);
-                }
-              }}
             >
               <td data-label="Announcement" className="px-5 py-5">
                 <div className="flex min-w-0 items-center gap-4">
@@ -2106,17 +2097,8 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
           {filteredPolicies.map((policy) => (
             <tr
               key={policy.id}
-              tabIndex={0}
-              role="button"
-              aria-label={`Open ${policy.name}`}
               className={tableRowClass(selectedPolicy?.id === policy.id)}
               onClick={() => setSelectedPolicyId(policy.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  setSelectedPolicyId(policy.id);
-                }
-              }}
             >
               <td data-label="Policy" className="px-5 py-5">
                 <div className="flex min-w-0 items-center gap-4">

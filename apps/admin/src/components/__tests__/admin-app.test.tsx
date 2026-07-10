@@ -140,7 +140,7 @@ describe("AdminApp operations shell", () => {
     expect(window.location.hash).toBe("");
   });
 
-  it("provides semantic directory tables and keyboard-accessible modal drawers", async () => {
+  it("preserves table semantics and provides keyboard-modal record drawers", async () => {
     window.history.replaceState(null, "", "/admin#people");
     render(<AdminApp />);
 
@@ -153,19 +153,24 @@ describe("AdminApp operations shell", () => {
       "Action"
     ]);
 
-    const memberRow = within(table).getByRole("button", { name: "Open Avery Admin" });
+    const memberRow = within(table).getByText("Avery Admin").closest("tr");
+    if (!memberRow) throw new Error("Avery Admin row was not found");
     expect(memberRow.tagName).toBe("TR");
-    expect(memberRow.tabIndex).toBe(0);
-    fireEvent.keyDown(memberRow, { key: "Enter" });
+    expect(memberRow.getAttribute("role")).toBeNull();
+    const viewButton = within(memberRow).getByRole("button", { name: "View" });
+    viewButton.focus();
+    fireEvent.click(viewButton);
 
     const drawer = await screen.findByRole("dialog", { name: "Avery Admin" });
     expect(drawer.getAttribute("aria-modal")).toBe("true");
     expect(within(drawer).getByRole("heading", { name: "Avery Admin" })).toBeTruthy();
-    expect(within(drawer).getByRole("button", { name: "Close drawer" })).toBeTruthy();
+    const closeButton = within(drawer).getByRole("button", { name: "Close drawer" });
+    await waitFor(() => expect(document.activeElement).toBe(closeButton));
 
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Avery Admin" })).toBeNull();
     });
+    expect(document.activeElement).toBe(viewButton);
   });
 });
