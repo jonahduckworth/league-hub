@@ -98,7 +98,7 @@ function requiredString(value: unknown, field: string): string {
   return result;
 }
 
-function announcementTarget(data: RequestRecord) {
+function parseAnnouncementTarget(data: RequestRecord) {
   if (!isValidAnnouncementTarget(data)) {
     throw new HttpsError(
       "invalid-argument",
@@ -112,6 +112,26 @@ function announcementTarget(data: RequestRecord) {
     hubId: scope === "league" ? null : requiredString(data.hubId, "hubId"),
     teamId: scope === "team" ? requiredString(data.teamId, "teamId") : null,
   };
+}
+
+async function validatedAnnouncementTarget(orgId: string, data: RequestRecord) {
+  const target = parseAnnouncementTarget(data);
+  const leagueRef = orgRef(orgId).collection("leagues").doc(target.leagueId);
+  if (!(await leagueRef.get()).exists) {
+    throw new HttpsError("invalid-argument", "The selected announcement league does not exist.");
+  }
+  if (target.scope === "league") return target;
+
+  const hubRef = leagueRef.collection("hubs").doc(target.hubId!);
+  if (!(await hubRef.get()).exists) {
+    throw new HttpsError("invalid-argument", "The selected announcement hub is not in that league.");
+  }
+  if (target.scope === "hub") return target;
+
+  if (!(await hubRef.collection("teams").doc(target.teamId!).get()).exists) {
+    throw new HttpsError("invalid-argument", "The selected announcement team is not in that hub.");
+  }
+  return target;
 }
 
 function optionalBoolean(value: unknown): boolean | undefined {
@@ -664,7 +684,7 @@ export const adminDeleteTeam = onCall(adminRuntime, async (request) => {
 export const adminCreateAnnouncement = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminCreateAnnouncement", async (actor, data, orgId) => {
     const ref = orgRef(orgId).collection("announcements").doc();
-    const target = announcementTarget(data);
+    const target = await validatedAnnouncementTarget(orgId, data);
     await ref.set({
       orgId,
       ...target,
@@ -697,7 +717,7 @@ export const adminUpdateAnnouncement = onCall(adminRuntime, async (request) => {
       "attachments",
       "isPinned",
     ]);
-    const target = announcementTarget({ ...(before.data() ?? {}), ...patch });
+    const target = await validatedAnnouncementTarget(orgId, { ...(before.data() ?? {}), ...patch });
     await ref.update({
       ...patch,
       ...target,

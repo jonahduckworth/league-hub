@@ -25,6 +25,18 @@ service cloud.firestore {
       return /databases/$(database)/documents/organizations/$(orgId)/chatRooms/$(roomId);
     }
 
+    function leaguePath(orgId, leagueId) {
+      return /databases/$(database)/documents/organizations/$(orgId)/leagues/$(leagueId);
+    }
+
+    function hubPath(orgId, leagueId, hubId) {
+      return /databases/$(database)/documents/organizations/$(orgId)/leagues/$(leagueId)/hubs/$(hubId);
+    }
+
+    function teamPath(orgId, leagueId, hubId, teamId) {
+      return /databases/$(database)/documents/organizations/$(orgId)/leagues/$(leagueId)/hubs/$(hubId)/teams/$(teamId);
+    }
+
     function hasUserDoc() {
       return signedIn() && exists(userPath(request.auth.uid));
     }
@@ -69,10 +81,68 @@ service cloud.firestore {
       return data.keys().hasAll(['scope', 'leagueId', 'hubId', 'teamId'])
         && data.scope in ['league', 'hub', 'team']
         && data.leagueId is string
+        && data.leagueId.size() > 0
         && (
           (data.scope == 'league' && data.hubId == null && data.teamId == null)
-          || (data.scope == 'hub' && data.hubId is string && data.teamId == null)
-          || (data.scope == 'team' && data.hubId is string && data.teamId is string)
+          || (
+            data.scope == 'hub'
+            && data.hubId is string
+            && data.hubId.size() > 0
+            && data.teamId == null
+          )
+          || (
+            data.scope == 'team'
+            && data.hubId is string
+            && data.hubId.size() > 0
+            && data.teamId is string
+            && data.teamId.size() > 0
+          )
+        );
+    }
+
+    function announcementTargetExists(orgId, data) {
+      return exists(leaguePath(orgId, data.leagueId))
+        && (
+          data.scope == 'league'
+          || (
+            exists(hubPath(orgId, data.leagueId, data.hubId))
+            && (
+              data.scope == 'hub'
+              || exists(teamPath(orgId, data.leagueId, data.hubId, data.teamId))
+            )
+          )
+        );
+    }
+
+    function canManageAnnouncementTarget(data) {
+      return isSuperAdmin()
+        || (
+          currentUser().role == 'managerAdmin'
+          && (
+            (
+              data.scope == 'league'
+              && 'leagueIds' in currentUser()
+              && data.leagueId in currentUser().leagueIds
+            )
+            || (
+              data.scope == 'hub'
+              && 'hubIds' in currentUser()
+              && data.hubId in currentUser().hubIds
+            )
+            || (
+              data.scope == 'team'
+              && (
+                (
+                  'teamIds' in currentUser()
+                  && data.teamId in currentUser().teamIds
+                )
+                || (
+                  'hubIds' in currentUser()
+                  && data.hubId in currentUser().hubIds
+                )
+              )
+            )
+          )
         );
     }
 
@@ -356,9 +426,13 @@ service cloud.firestore {
         allow get, list: if sameOrg(orgId);
         allow create: if canManageContent(orgId)
           && request.resource.data.authorId == request.auth.uid
-          && validAnnouncementTarget(request.resource.data);
+          && validAnnouncementTarget(request.resource.data)
+          && announcementTargetExists(orgId, request.resource.data)
+          && canManageAnnouncementTarget(request.resource.data);
         allow update: if canManageContent(orgId)
           && validAnnouncementTarget(request.resource.data)
+          && announcementTargetExists(orgId, request.resource.data)
+          && canManageAnnouncementTarget(request.resource.data)
           && (
             resource.data.authorId == request.auth.uid
             || canManageOrg(orgId)

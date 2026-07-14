@@ -119,6 +119,10 @@ class _CreateAnnouncementScreenState
             'isPinned': data['isPinned'],
           },
           authorId: currentUser.id,
+          scope: _scope,
+          leagueId: _selectedLeagueId,
+          hubId: _scope == AnnouncementScope.league ? null : _selectedHubId,
+          teamId: _scope == AnnouncementScope.team ? _selectedTeamId : null,
         );
       } else {
         await authorizedService.createAnnouncement(

@@ -261,6 +261,9 @@ class PermissionService {
   }) {
     if (!canCreateAnnouncement(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    if (scope == AnnouncementScope.league) {
+      return leagueId != null && user.leagueIds.contains(leagueId);
+    }
     return canManageContentScope(
       user,
       leagueId: leagueId,

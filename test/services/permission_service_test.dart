@@ -596,11 +596,21 @@ void main() {
       test('managerAdmin can create league-scoped', () {
         expect(
             service.canCreateAnnouncementWithScope(
-              manager(),
+              manager(leagueIds: ['l1']),
               AnnouncementScope.league,
               leagueId: 'l1',
             ),
             isTrue);
+      });
+
+      test('managerAdmin cannot create league-scoped outside assignment', () {
+        expect(
+            service.canCreateAnnouncementWithScope(
+              manager(leagueIds: ['l1']),
+              AnnouncementScope.league,
+              leagueId: 'l2',
+            ),
+            isFalse);
       });
 
       test('managerAdmin can create hub-scoped for own hub', () {

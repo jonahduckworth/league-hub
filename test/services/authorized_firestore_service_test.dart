@@ -235,6 +235,7 @@ AppUser makeUser({
   UserRole role = UserRole.staff,
   String? orgId = 'org1',
   List<String> hubIds = const [],
+  List<String> leagueIds = const [],
   List<String> teamIds = const [],
   bool isActive = true,
 }) =>
@@ -245,6 +246,7 @@ AppUser makeUser({
       role: role,
       orgId: orgId,
       hubIds: hubIds,
+      leagueIds: leagueIds,
       teamIds: teamIds,
       createdAt: DateTime(2024),
       isActive: isActive,
@@ -572,7 +574,7 @@ void main() {
           'calls FirestoreService when managerAdmin with hub assignment creates hub',
           () async {
         final managerAdmin =
-            makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
+            makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
         final hub = makeHub();
 
         when(mockFs.createHub('org1', 'l1', hub)).thenAnswer((_) async {});
@@ -614,7 +616,7 @@ void main() {
           'throws PermissionDeniedException when managerAdmin tries to delete hub',
           () async {
         final managerAdmin =
-            makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
+            makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
 
         expect(
           () => afs.deleteHub(managerAdmin, 'org1', 'l1', 'h1'),
@@ -1391,10 +1393,30 @@ void main() {
       });
 
       test(
+          'throws PermissionDeniedException when managerAdmin targets an unassigned league',
+          () async {
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
+
+        expect(
+          () => afs.createAnnouncement(
+            managerAdmin,
+            'org1',
+            {},
+            scope: AnnouncementScope.league,
+            leagueId: 'l2',
+          ),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+
+        verifyZeroInteractions(mockFs);
+      });
+
+      test(
           'calls FirestoreService when managerAdmin creates league-scoped announcement',
           () async {
         final managerAdmin =
-            makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
+            makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
         final data = {'title': 'League Announcement'};
 
         when(mockFs.createAnnouncement('org1', data))
@@ -1419,8 +1441,15 @@ void main() {
         final staff = makeUser(id: 'u1', role: UserRole.staff);
 
         expect(
-          () =>
-              afs.updateAnnouncement(staff, 'org1', 'ann1', {}, authorId: 'u1'),
+          () => afs.updateAnnouncement(
+            staff,
+            'org1',
+            'ann1',
+            {},
+            authorId: 'u1',
+            scope: AnnouncementScope.league,
+            leagueId: 'l1',
+          ),
           throwsA(isA<PermissionDeniedException>()),
         );
 
@@ -1430,11 +1459,22 @@ void main() {
       test(
           'throws PermissionDeniedException when user tries to edit announcement by different author',
           () async {
-        final managerAdmin = makeUser(id: 'u1', role: UserRole.managerAdmin);
+        final managerAdmin = makeUser(
+          id: 'u1',
+          role: UserRole.managerAdmin,
+          leagueIds: ['l1'],
+        );
 
         expect(
-          () => afs.updateAnnouncement(managerAdmin, 'org1', 'ann1', {},
-              authorId: 'u2'),
+          () => afs.updateAnnouncement(
+            managerAdmin,
+            'org1',
+            'ann1',
+            {},
+            authorId: 'u2',
+            scope: AnnouncementScope.league,
+            leagueId: 'l1',
+          ),
           throwsA(isA<PermissionDeniedException>()),
         );
 
@@ -1443,14 +1483,25 @@ void main() {
 
       test('calls FirestoreService when user edits their own announcement',
           () async {
-        final managerAdmin = makeUser(id: 'u1', role: UserRole.managerAdmin);
+        final managerAdmin = makeUser(
+          id: 'u1',
+          role: UserRole.managerAdmin,
+          leagueIds: ['l1'],
+        );
         final data = {'title': 'Updated'};
 
         when(mockFs.updateAnnouncement('org1', 'ann1', data))
             .thenAnswer((_) async => {});
 
-        await afs.updateAnnouncement(managerAdmin, 'org1', 'ann1', data,
-            authorId: 'u1');
+        await afs.updateAnnouncement(
+          managerAdmin,
+          'org1',
+          'ann1',
+          data,
+          authorId: 'u1',
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
+        );
 
         verify(mockFs.updateAnnouncement('org1', 'ann1', data)).called(1);
       });
@@ -1463,10 +1514,42 @@ void main() {
         when(mockFs.updateAnnouncement('org1', 'ann1', data))
             .thenAnswer((_) async => {});
 
-        await afs.updateAnnouncement(superAdmin, 'org1', 'ann1', data,
-            authorId: 'u2');
+        await afs.updateAnnouncement(
+          superAdmin,
+          'org1',
+          'ann1',
+          data,
+          authorId: 'u2',
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
+        );
 
         verify(mockFs.updateAnnouncement('org1', 'ann1', data)).called(1);
+      });
+
+      test('rejects retargeting an own announcement to an unassigned hub',
+          () async {
+        final managerAdmin = makeUser(
+          id: 'u1',
+          role: UserRole.managerAdmin,
+          hubIds: ['h1'],
+        );
+
+        expect(
+          () => afs.updateAnnouncement(
+            managerAdmin,
+            'org1',
+            'ann1',
+            const {'scope': 'hub', 'leagueId': 'l1', 'hubId': 'h2'},
+            authorId: 'u1',
+            scope: AnnouncementScope.hub,
+            leagueId: 'l1',
+            hubId: 'h2',
+          ),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+
+        verifyZeroInteractions(mockFs);
       });
     });
 

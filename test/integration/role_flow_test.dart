@@ -260,7 +260,7 @@ void main() {
 
       await authFs.updateAnnouncement(
           admin, 'org1', id, {'title': 'Updated Title'},
-          authorId: admin.id);
+          authorId: admin.id, scope: AnnouncementScope.league, leagueId: 'l1');
 
       final doc = await fakeDb
           .collection('organizations')
