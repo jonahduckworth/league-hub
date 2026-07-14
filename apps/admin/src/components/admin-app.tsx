@@ -45,7 +45,7 @@ import {
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User as FirebaseUser } from "firebase/auth";
 import { collection, doc, getDoc } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { auth, db, demoMode, firebaseProjectId, hasFirebaseConfig, storage } from "@/lib/firebase";
 import { formatAdminActionError } from "@/lib/action-errors";
 import { callAdmin, type CallableName } from "@/lib/callables";
@@ -55,6 +55,7 @@ import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, timeAgo } from "@/lib/format";
 import { isPolicyFileAllowed, policyStoragePath, POLICY_FILE_MAX_BYTES } from "@/lib/policy-upload";
+import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
 import { demoUser } from "@/lib/demo-data";
 import type {
   AdminData,
@@ -1055,9 +1056,11 @@ function InfoRow({
 
 function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="grid gap-3.5">
-      <h3 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted">{title}</h3>
-      {children}
+    <section className="overflow-hidden rounded-2xl border border-line/80 bg-[#fcfdff] shadow-sm">
+      <div className="border-b border-line/70 bg-white px-4 py-3 sm:px-5">
+        <h3 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted">{title}</h3>
+      </div>
+      <div className="grid gap-3.5 p-4 sm:p-5">{children}</div>
     </section>
   );
 }
@@ -1136,12 +1139,12 @@ function SideDrawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-stretch">
       <button
         type="button"
         aria-hidden="true"
         tabIndex={-1}
-        className="absolute inset-0 cursor-default bg-navy/45 backdrop-blur-[2px]"
+        className="drawer-backdrop absolute inset-0 cursor-default bg-navy/45 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <aside
@@ -1149,12 +1152,13 @@ function SideDrawer({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="absolute right-0 top-0 flex h-full w-full max-w-[600px] flex-col border-l border-line bg-white shadow-2xl sm:rounded-l-[28px]"
+        className="drawer-sheet relative ml-auto flex max-h-[calc(100dvh-0.75rem)] w-full max-w-[680px] flex-col overflow-hidden rounded-t-[28px] border border-line bg-white shadow-2xl sm:h-full sm:max-h-none sm:rounded-none sm:rounded-l-[28px] sm:border-y-0 sm:border-r-0"
       >
-        <div className="border-b border-line/80 px-5 py-5 sm:px-6">
+        <div className="border-b border-line/80 bg-white/95 px-5 pb-5 pt-3 backdrop-blur-sm sm:px-6 sm:py-5">
+          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line sm:hidden" aria-hidden />
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 gap-3">
-              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-teal/10 text-teal ring-1 ring-teal/15">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-teal/10 text-teal ring-1 ring-teal/15 sm:size-12">
                 <Icon className="size-5" aria-hidden />
               </span>
               <div className="min-w-0">
@@ -1162,16 +1166,16 @@ function SideDrawer({
                 {description && <p className="mt-1 text-sm font-medium leading-5 text-muted">{description}</p>}
               </div>
             </div>
-            <Button variant="ghost" className="size-10 px-0" aria-label="Close drawer" onClick={onClose}>
+            <Button variant="ghost" className="size-11 shrink-0 px-0" aria-label="Close drawer" onClick={onClose}>
               <X className="size-4" aria-hidden />
             </Button>
           </div>
         </div>
-        <div className="thin-scrollbar flex-1 overflow-y-auto px-5 py-6 sm:px-6">
+        <div className="thin-scrollbar flex-1 overflow-y-auto bg-[#f8fafc]/60 px-5 py-5 sm:px-6 sm:py-6">
           <div className="grid gap-6">{children}</div>
         </div>
         {footer && (
-          <div className="flex flex-col-reverse gap-3 border-t border-line/80 bg-[#fbfcfd] px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <div className="flex flex-col-reverse gap-3 border-t border-line/80 bg-white px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end sm:px-6 sm:py-4">
             {footer}
           </div>
         )}
@@ -1459,13 +1463,14 @@ type StructureSelection =
   | { type: "hub"; league: League; hub: Hub }
   | { type: "team"; league: League; hub: Hub; team: Team };
 
-type StructureView = "leagues" | "hubs" | "teams";
+type StructureView = "hierarchy" | "leagues" | "hubs" | "teams";
 
 function StructureSection({ data, runAction }: { data: AdminData; runAction: ActionRunner }) {
   const [selection, setSelection] = useState<StructureSelection | null>(null);
-  const [view, setView] = useState<StructureView>("leagues");
+  const [view, setView] = useState<StructureView>("hierarchy");
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const relationships = useMemo(() => buildStructureRelationshipIndex(data), [data]);
   const filteredLeagues = data.leagues.filter((league) => matchesQuery([league.name, league.abbreviation], query));
   const filteredHubs = data.hubs.filter((hub) => {
     const league = data.leagues.find((item) => item.id === hub.leagueId);
@@ -1476,12 +1481,29 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
     const hub = data.hubs.find((item) => item.id === team.hubId);
     return matchesQuery([team.name, team.ageGroup, team.division, league?.name, hub?.name], query);
   });
+  const hierarchyLeagues = data.leagues.filter((league) => {
+    const hubs = data.hubs.filter((hub) => hub.leagueId === league.id);
+    const teams = data.teams.filter((team) => team.leagueId === league.id);
+    const people = relationships.peopleForLeague(league.id);
+    return matchesQuery(
+      [
+        league.name,
+        league.abbreviation,
+        ...hubs.flatMap((hub) => [hub.name, hub.location]),
+        ...teams.flatMap((team) => [team.name, team.ageGroup, team.division]),
+        ...people.flatMap((person) => [person.displayName, person.email])
+      ],
+      query
+    );
+  });
   const railItems: Array<RailItem<StructureView>> = [
+    { id: "hierarchy", label: "Hierarchy", count: data.leagues.length, icon: Layers },
     { id: "leagues", label: "Leagues", count: data.leagues.length, icon: Trophy },
     { id: "hubs", label: "Hubs", count: data.hubs.length, icon: MapPin },
     { id: "teams", label: "Teams", count: data.teams.length, icon: Users }
   ];
   const panelCopy: Record<StructureView, { title: string; description: string; action: string; singular: string }> = {
+    hierarchy: { title: "Connected hierarchy", description: "Follow every league through its hubs, teams, and the people connected to them.", action: "Add League", singular: "league" },
     leagues: { title: "Leagues", description: "Top-level competition groups in this organization.", action: "Add League", singular: "league" },
     hubs: { title: "Hubs", description: "Regional or operational hubs nested under leagues.", action: "Add Hub", singular: "hub" },
     teams: { title: "Teams", description: "Team records nested under hubs and leagues.", action: "Add Team", singular: "team" }
@@ -1501,11 +1523,19 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
         }}
         panelTitle={panelCopy[view].title}
         panelDescription={panelCopy[view].description}
-        searchLabel={`Search ${panelCopy[view].title.toLowerCase()}...`}
+        searchLabel={view === "hierarchy" ? "Search leagues, hubs, teams, or people..." : `Search ${panelCopy[view].title.toLowerCase()}...`}
         searchValue={query}
         onSearchChange={setQuery}
       >
-        <DirectoryTable countLabel={pluralize(view === "leagues" ? filteredLeagues.length : view === "hubs" ? filteredHubs.length : filteredTeams.length, panelCopy[view].singular)} headers={["Name", "Parent", "Details", "Action"]}>
+        {view === "hierarchy" && (
+          <StructureHierarchy
+            data={data}
+            leagues={hierarchyLeagues}
+            relationships={relationships}
+            onSelect={setSelection}
+          />
+        )}
+        {view !== "hierarchy" && <DirectoryTable countLabel={pluralize(view === "leagues" ? filteredLeagues.length : view === "hubs" ? filteredHubs.length : filteredTeams.length, panelCopy[view].singular)} headers={["Name", "Parent", "Details", "Action"]}>
           {view === "leagues" && (
             <>
               {filteredLeagues.map((league) => {
@@ -1610,20 +1640,206 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
               {filteredTeams.length === 0 && emptyTableRow("No teams match this view", 4)}
             </>
           )}
-        </DirectoryTable>
+        </DirectoryTable>}
       </DirectoryLayout>
-      <StructureEditorDrawer selection={selection} onClose={() => setSelection(null)} runAction={runAction} />
-      <StructureCreateDrawer open={createOpen} view={view} data={data} runAction={runAction} onClose={() => setCreateOpen(false)} />
+      <StructureEditorDrawer selection={selection} data={data} relationships={relationships} onClose={() => setSelection(null)} runAction={runAction} />
+      <StructureCreateDrawer open={createOpen} view={view === "hierarchy" ? "leagues" : view} data={data} runAction={runAction} onClose={() => setCreateOpen(false)} />
     </>
+  );
+}
+
+function StructureHierarchy({
+  data,
+  leagues,
+  relationships,
+  onSelect
+}: {
+  data: AdminData;
+  leagues: League[];
+  relationships: StructureRelationshipIndex;
+  onSelect: (selection: StructureSelection) => void;
+}) {
+  if (leagues.length === 0) {
+    return <EmptyLine label="No leagues, hubs, teams, or connected people match this view" />;
+  }
+
+  return (
+    <div className="grid gap-5" aria-label="Connected organization hierarchy">
+      {leagues.map((league) => {
+        const hubs = data.hubs.filter((hub) => hub.leagueId === league.id);
+        const teams = data.teams.filter((team) => team.leagueId === league.id);
+        const leaguePeople = relationships.peopleForLeague(league.id);
+
+        return (
+          <article key={league.id} className="overflow-hidden rounded-[24px] border border-navy/10 bg-white shadow-card">
+            <header className="relative overflow-hidden bg-navy px-5 py-5 text-white sm:px-6 sm:py-6">
+              <div className="pointer-events-none absolute -right-9 -top-12 size-44 rounded-full border border-white/10" />
+              <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <button
+                  type="button"
+                  onClick={() => onSelect({ type: "league", league })}
+                  className="group flex min-h-12 min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5eead4]/50"
+                  aria-label={`View ${league.name} league details`}
+                >
+                  <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-[#5eead4] ring-1 ring-white/15">
+                    <Trophy className="size-5" aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/55">League</span>
+                    <span className="mt-1 block truncate text-xl font-extrabold tracking-[-0.025em] group-hover:text-[#8ff3e7] sm:text-2xl">{league.name}</span>
+                  </span>
+                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-xs font-bold text-white/80">{league.abbreviation}</span>
+                  <span className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-xs font-bold text-white/80">{pluralize(hubs.length, "hub")}</span>
+                  <span className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-xs font-bold text-white/80">{pluralize(teams.length, "team")}</span>
+                  <span className="rounded-full border border-[#5eead4]/25 bg-[#5eead4]/10 px-3 py-1.5 text-xs font-bold text-[#8ff3e7]">{pluralize(leaguePeople.length, "person", "people")}</span>
+                </div>
+              </div>
+              <div className="relative mt-5 border-t border-white/10 pt-4">
+                <RelationshipPeoplePreview people={leaguePeople} emptyLabel="No one is connected to this league yet" />
+              </div>
+            </header>
+
+            <div className="grid gap-4 bg-[#f8fafc] p-4 sm:p-5">
+              {hubs.map((hub) => {
+                const hubTeams = data.teams.filter((team) => team.hubId === hub.id);
+                const hubPeople = relationships.peopleForHub(hub.id);
+                return (
+                  <section key={hub.id} className="overflow-hidden rounded-2xl border border-line/80 bg-white">
+                    <div className="flex flex-col gap-4 border-b border-line/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                      <button
+                        type="button"
+                        onClick={() => onSelect({ type: "hub", league, hub })}
+                        className="group flex min-h-11 min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20"
+                        aria-label={`View ${hub.name} hub details`}
+                      >
+                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sky/10 text-sky">
+                          <MapPin className="size-4" aria-hidden />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-base font-extrabold text-ink group-hover:text-teal">{hub.name}</span>
+                          <span className="mt-0.5 block truncate text-sm font-medium text-muted">{hub.location || "No location set"}</span>
+                        </span>
+                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone="neutral">{pluralize(hubTeams.length, "team")}</Badge>
+                        <Badge tone="info">{pluralize(hubPeople.length, "person", "people")}</Badge>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 p-3 sm:p-4 xl:grid-cols-2">
+                      {hubTeams.map((team) => {
+                        const teamPeople = relationships.peopleForTeam(team.id);
+                        return (
+                          <button
+                            key={team.id}
+                            type="button"
+                            onClick={() => onSelect({ type: "team", league, hub, team })}
+                            className="group min-h-[168px] rounded-xl border border-line bg-[#fcfdff] p-4 text-left transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-[#b8c4d2] hover:shadow-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20"
+                            aria-label={`View ${team.name} team and connected people`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-teal/10 text-teal">
+                                <Users className="size-4" aria-hidden />
+                              </span>
+                              <span className="flex flex-wrap justify-end gap-1.5">
+                                {team.ageGroup && <Badge tone="neutral">{team.ageGroup}</Badge>}
+                                {team.division && <Badge tone="neutral">{team.division}</Badge>}
+                              </span>
+                            </div>
+                            <p className="mt-3 truncate text-base font-extrabold text-ink group-hover:text-teal">{team.name}</p>
+                            <div className="mt-3 border-t border-line/70 pt-3">
+                              <RelationshipPeoplePreview people={teamPeople} emptyLabel="No roster members" />
+                            </div>
+                          </button>
+                        );
+                      })}
+                      {hubTeams.length === 0 && <EmptyLine label="No teams have been added to this hub" />}
+                    </div>
+                  </section>
+                );
+              })}
+              {hubs.length === 0 && <EmptyLine label="No hubs have been added to this league" />}
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function PersonInitials({ person }: { person: AppUser }) {
+  const initials = person.displayName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "?";
+
+  return person.avatarUrl ? (
+    <span
+      aria-hidden
+      className="grid size-8 shrink-0 rounded-full bg-cover bg-center ring-1 ring-line"
+      style={{ backgroundImage: `url(${person.avatarUrl})` }}
+    />
+  ) : (
+    <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-full bg-shell text-[10px] font-extrabold text-muted ring-1 ring-line/70">
+      {initials}
+    </span>
+  );
+}
+
+function RelationshipPeoplePreview({ people, emptyLabel }: { people: AppUser[]; emptyLabel: string }) {
+  if (people.length === 0) {
+    return <p className="text-sm font-medium text-muted">{emptyLabel}</p>;
+  }
+
+  const visiblePeople = people.slice(0, 3);
+  const remainingPeople = people.length - visiblePeople.length;
+  return (
+    <div className="flex flex-wrap items-center gap-2" aria-label={pluralize(people.length, "connected person", "connected people")}>
+      {visiblePeople.map((person) => (
+        <span key={person.id} className="inline-flex min-h-8 max-w-full items-center gap-2 rounded-full border border-line bg-white px-2 text-xs font-bold text-ink shadow-sm">
+          <PersonInitials person={person} />
+          <span className="max-w-[132px] truncate">{person.displayName}</span>
+        </span>
+      ))}
+      {remainingPeople > 0 && <span className="inline-flex min-h-8 items-center rounded-full border border-line bg-white px-2.5 text-xs font-extrabold text-muted">+{remainingPeople} more</span>}
+    </div>
+  );
+}
+
+function ConnectedPeopleList({ people }: { people: AppUser[] }) {
+  if (people.length === 0) {
+    return <EmptyLine label="No people are connected to this record yet" />;
+  }
+
+  return (
+    <ul className="grid gap-2.5" aria-label={pluralize(people.length, "connected person", "connected people")}>
+      {people.map((person) => (
+        <li key={person.id} className="flex min-h-14 items-center gap-3 rounded-xl border border-line bg-white px-3 py-2.5 shadow-sm">
+          <PersonInitials person={person} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-extrabold text-ink">{person.displayName}</span>
+            <span className="mt-0.5 block truncate text-xs font-medium text-muted">{roleLabel(person.role)}</span>
+          </span>
+          <Badge tone={person.isActive ? "good" : "neutral"}>{person.isActive ? "Active" : "Inactive"}</Badge>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 function StructureEditorDrawer({
   selection,
+  data,
+  relationships,
   onClose,
   runAction
 }: {
   selection: StructureSelection | null;
+  data: AdminData;
+  relationships: StructureRelationshipIndex;
   onClose: () => void;
   runAction: ActionRunner;
 }) {
@@ -1720,6 +1936,19 @@ function StructureEditorDrawer({
     selection?.type === "league" ? Trophy :
     selection?.type === "hub" ? MapPin :
     Users;
+  const connectedPeople =
+    selection?.type === "league" ? relationships.peopleForLeague(selection.league.id) :
+    selection?.type === "hub" ? relationships.peopleForHub(selection.hub.id) :
+    selection?.type === "team" ? relationships.peopleForTeam(selection.team.id) :
+    [];
+  const connectedHubs = selection?.type === "league"
+    ? data.hubs.filter((hub) => hub.leagueId === selection.league.id)
+    : [];
+  const connectedTeams = selection?.type === "league"
+    ? data.teams.filter((team) => team.leagueId === selection.league.id)
+    : selection?.type === "hub"
+      ? data.teams.filter((team) => team.hubId === selection.hub.id)
+      : [];
 
   return (
     <SideDrawer
@@ -1748,12 +1977,17 @@ function StructureEditorDrawer({
               </div>
             )}
           </DrawerSection>
-          <DrawerSection title="Context">
-            <div className="grid gap-3 sm:grid-cols-2">
+          <DrawerSection title="Connections">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {selection.type === "league" && <InfoRow label="Hubs" value={connectedHubs.length} />}
+              {selection.type !== "team" && <InfoRow label="Teams" value={connectedTeams.length} />}
               {selection.type !== "league" && <InfoRow label="League" value={selection.league.name} />}
               {selection.type === "team" && <InfoRow label="Hub" value={selection.hub.name} />}
-              {selection.type === "team" && <InfoRow label="Members" value={selection.team.memberIds.length} />}
+              <InfoRow label="People" value={connectedPeople.length} />
             </div>
+          </DrawerSection>
+          <DrawerSection title={`People (${connectedPeople.length})`}>
+            <ConnectedPeopleList people={connectedPeople} />
           </DrawerSection>
         </>
       )}
@@ -1769,7 +2003,7 @@ function StructureCreateDrawer({
   onClose
 }: {
   open: boolean;
-  view: StructureView;
+  view: Exclude<StructureView, "hierarchy">;
   data: AdminData;
   runAction: ActionRunner;
   onClose: () => void;

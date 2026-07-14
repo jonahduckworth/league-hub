@@ -173,4 +173,24 @@ describe("AdminApp operations shell", () => {
     });
     expect(document.activeElement).toBe(viewButton);
   });
+
+  it("shows the connected league-to-hub-to-team hierarchy and its people", async () => {
+    window.history.replaceState(null, "", "/admin#structure");
+    render(<AdminApp />);
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Structure" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "Connected hierarchy" })).toBeTruthy();
+    expect(screen.getByText("Winter Hockey")).toBeTruthy();
+    expect(screen.getByText("Calgary")).toBeTruthy();
+    expect(screen.getByText("Calgary U11 AA")).toBeTruthy();
+    expect(screen.getAllByText("Avery Admin").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "View Calgary U11 AA team and connected people" }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Calgary U11 AA" });
+    expect(drawer.className).toContain("drawer-sheet");
+    expect(within(drawer).getByText("People (2)")).toBeTruthy();
+    expect(within(drawer).getByText("Avery Admin")).toBeTruthy();
+    expect(within(drawer).getByText("Morgan Manager")).toBeTruthy();
+  });
 });
