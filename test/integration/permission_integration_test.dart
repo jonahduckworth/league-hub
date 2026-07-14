@@ -245,7 +245,7 @@ void main() {
         expect(roomId, 'room1');
       });
 
-      test('can create announcement (org-wide)', () async {
+      test('can create league announcement', () async {
         final actor = AppUser(
           id: 'po1',
           email: 'po@example.com',
@@ -265,7 +265,8 @@ void main() {
           actor,
           'org1',
           {'title': 'Announcement'},
-          scope: AnnouncementScope.orgWide,
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
         );
         expect(annId, 'ann1');
       });
@@ -364,7 +365,7 @@ void main() {
         expect(roomId, 'room1');
       });
 
-      test('can create announcement (any scope)', () async {
+      test('can create announcement in a league', () async {
         final actor = AppUser(
           id: 'sa1',
           email: 'sa@example.com',
@@ -384,7 +385,8 @@ void main() {
           actor,
           'org1',
           {'title': 'Announcement'},
-          scope: AnnouncementScope.orgWide,
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
         );
         expect(annId, 'ann1');
       });
@@ -470,30 +472,6 @@ void main() {
 
         expect(
           () => afs.createTeam(actor, 'org1', 'l1', 'h2', team),
-          throwsA(isA<PermissionDeniedException>()),
-        );
-      });
-
-      test('cannot create org-wide announcement', () async {
-        final actor = AppUser(
-          id: 'ma1',
-          email: 'ma@example.com',
-          displayName: 'Manager',
-          role: UserRole.managerAdmin,
-          orgId: 'org1',
-          hubIds: ['h1'],
-          teamIds: [],
-          createdAt: DateTime.now(),
-          isActive: true,
-        );
-
-        expect(
-          () => afs.createAnnouncement(
-            actor,
-            'org1',
-            {'title': 'Announcement'},
-            scope: AnnouncementScope.orgWide,
-          ),
           throwsA(isA<PermissionDeniedException>()),
         );
       });

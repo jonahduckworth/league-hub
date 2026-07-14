@@ -369,8 +369,7 @@ void main() {
     });
 
     group('announcementsProvider filtering', () {
-      test(
-          'staff user: sees org-wide and hub-scoped announcements in their hubs',
+      test('staff user sees league and hub announcements in their assignments',
           () async {
         final staffUser = AppUser(
           id: 'staff1',
@@ -379,6 +378,7 @@ void main() {
           role: UserRole.staff,
           orgId: 'org1',
           hubIds: ['h1'],
+          leagueIds: ['l1'],
           teamIds: [],
           createdAt: DateTime.now(),
           isActive: true,
@@ -394,12 +394,13 @@ void main() {
           ownerId: 'owner1',
         );
 
-        final orgWideAnn = Announcement(
+        final leagueAnn = Announcement(
           id: 'ann1',
           orgId: 'org1',
-          scope: AnnouncementScope.orgWide,
-          title: 'Org Wide',
-          body: 'This is org-wide',
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
+          title: 'League Post',
+          body: 'For L1',
           authorId: 'admin1',
           authorName: 'Admin',
           authorRole: 'superAdmin',
@@ -412,6 +413,7 @@ void main() {
           id: 'ann2',
           orgId: 'org1',
           scope: AnnouncementScope.hub,
+          leagueId: 'l1',
           hubId: 'h1',
           title: 'Hub Announcement',
           body: 'For H1',
@@ -427,6 +429,7 @@ void main() {
           id: 'ann3',
           orgId: 'org1',
           scope: AnnouncementScope.hub,
+          leagueId: 'l1',
           hubId: 'h2',
           title: 'Other Hub',
           body: 'For H2',
@@ -439,7 +442,7 @@ void main() {
         );
 
         when(mockFs.getAnnouncements('org1')).thenAnswer((_) =>
-            Stream.value([orgWideAnn, hubAnnInTheirHub, hubAnnInOtherHub]));
+            Stream.value([leagueAnn, hubAnnInTheirHub, hubAnnInOtherHub]));
 
         container = ProviderContainer(
           overrides: [
@@ -451,7 +454,7 @@ void main() {
 
         final result = await container.read(announcementsProvider.future);
 
-        // Staff should see org-wide + hub announcement in h1
+        // Staff should see their league + hub announcement in h1.
         expect(result, hasLength(2));
         expect(result.map((a) => a.id), containsAll(['ann1', 'ann2']));
       });
@@ -482,9 +485,10 @@ void main() {
         final ann1 = Announcement(
           id: 'ann1',
           orgId: 'org1',
-          scope: AnnouncementScope.orgWide,
-          title: 'Org Wide',
-          body: 'This is org-wide',
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
+          title: 'League Post',
+          body: 'For L1',
           authorId: 'admin1',
           authorName: 'Admin',
           authorRole: 'superAdmin',
@@ -497,6 +501,7 @@ void main() {
           id: 'ann2',
           orgId: 'org1',
           scope: AnnouncementScope.hub,
+          leagueId: 'l1',
           hubId: 'h1',
           title: 'Hub Ann',
           body: 'For hub',

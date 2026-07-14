@@ -1,3 +1,10 @@
+const policyCategories = [
+  'Policy',
+  'Protocol',
+  'Code of Conduct',
+  'Other',
+];
+
 class PolicyVersion {
   final String fileUrl;
   final int version;

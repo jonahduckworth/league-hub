@@ -1318,25 +1318,8 @@ void main() {
             staff,
             'org1',
             {},
-            scope: AnnouncementScope.orgWide,
-          ),
-          throwsA(isA<PermissionDeniedException>()),
-        );
-
-        verifyZeroInteractions(mockFs);
-      });
-
-      test(
-          'throws PermissionDeniedException when managerAdmin tries to create org-wide announcement',
-          () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin);
-
-        expect(
-          () => afs.createAnnouncement(
-            managerAdmin,
-            'org1',
-            {},
-            scope: AnnouncementScope.orgWide,
+            scope: AnnouncementScope.league,
+            leagueId: 'l1',
           ),
           throwsA(isA<PermissionDeniedException>()),
         );
@@ -1388,11 +1371,10 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test(
-          'calls FirestoreService when superAdmin creates org-wide announcement',
+      test('calls FirestoreService when superAdmin creates league announcement',
           () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
-        final data = {'title': 'Global Announcement'};
+        final data = {'title': 'League Announcement'};
 
         when(mockFs.createAnnouncement('org1', data))
             .thenAnswer((_) async => 'announceId');
@@ -1401,7 +1383,8 @@ void main() {
           superAdmin,
           'org1',
           data,
-          scope: AnnouncementScope.orgWide,
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
         );
 
         expect(result, equals('announceId'));

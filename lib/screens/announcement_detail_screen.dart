@@ -299,8 +299,6 @@ class _ScopeTag extends StatelessWidget {
 
   Color get _color {
     switch (scope) {
-      case AnnouncementScope.orgWide:
-        return AppGlassColors.aqua;
       case AnnouncementScope.league:
         return AppGlassColors.gold;
       case AnnouncementScope.hub:
@@ -312,8 +310,6 @@ class _ScopeTag extends StatelessWidget {
 
   String get _label {
     switch (scope) {
-      case AnnouncementScope.orgWide:
-        return 'Org-Wide';
       case AnnouncementScope.league:
         final league = leagues.where((l) => l.id == leagueId).firstOrNull;
         return league?.name ?? 'League';

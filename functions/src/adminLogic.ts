@@ -38,6 +38,23 @@ export function canCreateLeague(actor: ActorLike): boolean {
   return actor.isActive === true && actor.role === "platformOwner";
 }
 
+export function isValidAnnouncementTarget(value: Record<string, unknown>): boolean {
+  const scope = value.scope;
+  const leagueId = value.leagueId;
+  const hubId = value.hubId;
+  const teamId = value.teamId;
+  if (scope !== "league" && scope !== "hub" && scope !== "team") return false;
+  if (typeof leagueId !== "string" || leagueId.trim().length === 0) return false;
+  if (scope === "league") return hubId == null && teamId == null;
+  if (typeof hubId !== "string" || hubId.trim().length === 0) return false;
+  if (scope === "hub") return teamId == null;
+  return typeof teamId === "string" && teamId.trim().length > 0;
+}
+
+export function isValidPolicyCategory(value: unknown): boolean {
+  return value === "Policy" || value === "Protocol" || value === "Code of Conduct" || value === "Other";
+}
+
 export function outranks(actorRole: unknown, targetRole: unknown): boolean {
   if (!isUserRole(actorRole) || !isUserRole(targetRole)) return false;
   return roleOrder.indexOf(actorRole) < roleOrder.indexOf(targetRole);

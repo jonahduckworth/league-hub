@@ -64,7 +64,7 @@ void main() {
         }
       });
 
-      test('defaults scope to orgWide for unknown scope string', () {
+      test('defaults unknown scope strings to league', () {
         final json = {
           'id': 'ann1',
           'orgId': 'org1',
@@ -79,14 +79,14 @@ void main() {
           'createdAt': testDateStr,
         };
 
-        expect(Announcement.fromJson(json).scope, AnnouncementScope.orgWide);
+        expect(Announcement.fromJson(json).scope, AnnouncementScope.league);
       });
 
       test('defaults attachments to empty list when not provided', () {
         final json = {
           'id': 'ann1',
           'orgId': 'org1',
-          'scope': 'orgWide',
+          'scope': 'league',
           'title': 'T',
           'body': 'B',
           'authorId': 'u1',
@@ -103,7 +103,7 @@ void main() {
         final json = {
           'id': 'ann1',
           'orgId': 'org1',
-          'scope': 'orgWide',
+          'scope': 'league',
           'title': 'T',
           'body': 'B',
           'authorId': 'u1',
@@ -121,7 +121,7 @@ void main() {
         final json = {
           'id': 'ann1',
           'orgId': 'org1',
-          'scope': 'orgWide',
+          'scope': 'league',
           'title': 'T',
           'body': 'B',
           'authorId': 'u1',
@@ -183,7 +183,6 @@ void main() {
     group('scopeLabel', () {
       test('returns correct label for each scope', () {
         final labels = {
-          AnnouncementScope.orgWide: 'Org-Wide',
           AnnouncementScope.league: 'League',
           AnnouncementScope.hub: 'Hub',
           AnnouncementScope.team: 'Team',

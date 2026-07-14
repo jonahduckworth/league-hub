@@ -139,7 +139,8 @@ export const demoData: AdminData = {
     {
       id: "announcement-1",
       orgId: "org-demo",
-      scope: "orgWide",
+      scope: "league",
+      leagueId: "league-winter",
       title: "Schedule window posted",
       body: "The next scheduling window is ready.",
       authorId: "admin-1",

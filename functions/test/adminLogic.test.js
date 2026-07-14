@@ -5,6 +5,8 @@ const {
   canAccessOrg,
   canCreateLeague,
   canManageTarget,
+  isValidAnnouncementTarget,
+  isValidPolicyCategory,
   normalizeStringArray,
   outranks,
 } = require("../lib/adminLogic");
@@ -22,6 +24,24 @@ test("only active platform owners can create leagues", () => {
   assert.equal(canCreateLeague({ id: "admin", role: "superAdmin", isActive: true }), false);
   assert.equal(canCreateLeague({ id: "manager", role: "managerAdmin", isActive: true }), false);
   assert.equal(canCreateLeague({ id: "staff", role: "staff", isActive: true }), false);
+});
+
+test("announcement targets require a league and the correct nested IDs", () => {
+  assert.equal(isValidAnnouncementTarget({ scope: "league", leagueId: "l1", hubId: null, teamId: null }), true);
+  assert.equal(isValidAnnouncementTarget({ scope: "hub", leagueId: "l1", hubId: "h1", teamId: null }), true);
+  assert.equal(isValidAnnouncementTarget({ scope: "team", leagueId: "l1", hubId: "h1", teamId: "t1" }), true);
+  assert.equal(isValidAnnouncementTarget({ scope: "league", leagueId: "" }), false);
+  assert.equal(isValidAnnouncementTarget({ scope: "hub", leagueId: "l1" }), false);
+  assert.equal(isValidAnnouncementTarget({ scope: "team", leagueId: "l1", hubId: "h1" }), false);
+  assert.equal(isValidAnnouncementTarget({ scope: "all", leagueId: "l1" }), false);
+});
+
+test("policy categories match the mobile policy taxonomy", () => {
+  for (const category of ["Policy", "Protocol", "Code of Conduct", "Other"]) {
+    assert.equal(isValidPolicyCategory(category), true);
+  }
+  assert.equal(isValidPolicyCategory("General"), false);
+  assert.equal(isValidPolicyCategory("Safety"), false);
 });
 
 test("role hierarchy matches mobile permission behavior", () => {

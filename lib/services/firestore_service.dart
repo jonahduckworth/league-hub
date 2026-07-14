@@ -695,6 +695,13 @@ class FirestoreService {
         .snapshots()
         .map((snap) {
       final list = snap.docs
+          .where((d) {
+            final data = d.data() as Map<String, dynamic>;
+            final scope = data['scope'];
+            return scope == AnnouncementScope.league.name ||
+                scope == AnnouncementScope.hub.name ||
+                scope == AnnouncementScope.team.name;
+          })
           .map((d) => Announcement.fromJson({
                 'id': d.id,
                 ..._convertTimestamps(d.data() as Map<String, dynamic>)
@@ -710,13 +717,11 @@ class FirestoreService {
     });
   }
 
-  /// Stream of announcements filtered to orgWide OR a specific league.
+  /// Stream of announcements filtered to a specific league.
   Stream<List<Announcement>> getAnnouncementsByLeague(
       String orgId, String leagueId) {
-    return getAnnouncements(orgId).map((list) => list
-        .where((a) =>
-            a.scope == AnnouncementScope.orgWide || a.leagueId == leagueId)
-        .toList());
+    return getAnnouncements(orgId)
+        .map((list) => list.where((a) => a.leagueId == leagueId).toList());
   }
 
   /// Creates a new announcement using serverTimestamp. Returns the new doc ID.

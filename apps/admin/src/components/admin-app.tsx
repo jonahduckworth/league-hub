@@ -2,7 +2,6 @@
 
 import {
   Activity,
-  Bell,
   Building2,
   CheckCircle2,
   ChevronDown,
@@ -57,7 +56,7 @@ import { assignableRoles, canAccessAdmin, canManageUser, roleLabel } from "@/lib
 import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, timeAgo } from "@/lib/format";
-import { isPolicyFileAllowed, policyStoragePath, POLICY_FILE_MAX_BYTES } from "@/lib/policy-upload";
+import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES } from "@/lib/policy-upload";
 import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
 import { demoUser } from "@/lib/demo-data";
 import type {
@@ -1000,7 +999,6 @@ function matchesQuery(values: Array<string | null | undefined>, query: string) {
 }
 
 function scopeLabel(scope: AnnouncementScope) {
-  if (scope === "orgWide") return "Org wide";
   return `${scope[0].toUpperCase()}${scope.slice(1)}`;
 }
 
@@ -2273,7 +2271,7 @@ function StructureCreateDrawer({
   );
 }
 
-type AnnouncementView = "all" | "pinned" | "orgWide" | "targeted";
+type AnnouncementView = "all" | "pinned" | AnnouncementScope;
 
 function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction: ActionRunner }) {
   const [query, setQuery] = useState("");
@@ -2284,22 +2282,23 @@ function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction:
   const filteredAnnouncements = data.announcements
     .filter((announcement) => {
       if (view === "pinned") return announcement.isPinned;
-      if (view === "orgWide") return announcement.scope === "orgWide";
-      if (view === "targeted") return announcement.scope !== "orgWide";
+      if (view === "league" || view === "hub" || view === "team") return announcement.scope === view;
       return true;
     })
     .filter((announcement) => matchesQuery([announcement.title, announcement.body, scopeLabel(announcement.scope), announcement.authorName], query));
   const filters: Array<WorkspaceFilterItem<AnnouncementView>> = [
     { id: "all", label: "All Posts", count: data.announcements.length, icon: Megaphone },
     { id: "pinned", label: "Pinned", count: data.announcements.filter((item) => item.isPinned).length, icon: Pin },
-    { id: "orgWide", label: "Org Wide", count: data.announcements.filter((item) => item.scope === "orgWide").length, icon: Bell },
-    { id: "targeted", label: "Targeted", count: data.announcements.filter((item) => item.scope !== "orgWide").length, icon: SlidersHorizontal }
+    { id: "league", label: "League", count: data.announcements.filter((item) => item.scope === "league").length, icon: Trophy },
+    { id: "hub", label: "Hub", count: data.announcements.filter((item) => item.scope === "hub").length, icon: MapPin },
+    { id: "team", label: "Team", count: data.announcements.filter((item) => item.scope === "team").length, icon: Users }
   ];
   const panelCopy: Record<AnnouncementView, { title: string; description: string }> = {
     all: { title: "All Posts", description: "Every announcement visible in the selected organization." },
     pinned: { title: "Pinned Posts", description: "High-priority announcements that stay surfaced." },
-    orgWide: { title: "Org Wide", description: "Announcements sent to the full organization." },
-    targeted: { title: "Targeted", description: "Announcements scoped to a league, hub, or team." }
+    league: { title: "League Posts", description: "Announcements shared with an entire league." },
+    hub: { title: "Hub Posts", description: "Announcements shared with a specific hub." },
+    team: { title: "Team Posts", description: "Announcements shared with a specific team." }
   };
 
   return (
@@ -2312,8 +2311,8 @@ function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction:
         metrics={[
           { label: "Published", value: data.announcements.length },
           { label: "Pinned", value: data.announcements.filter((item) => item.isPinned).length },
-          { label: "Org wide", value: data.announcements.filter((item) => item.scope === "orgWide").length },
-          { label: "Targeted", value: data.announcements.filter((item) => item.scope !== "orgWide").length }
+          { label: "League", value: data.announcements.filter((item) => item.scope === "league").length },
+          { label: "Hub & team", value: data.announcements.filter((item) => item.scope !== "league").length }
         ]}
         action={<ToolbarActionButton icon={Megaphone} onClick={() => setCreateOpen(true)}>New Announcement</ToolbarActionButton>}
         filters={filters}
@@ -2345,7 +2344,7 @@ function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction:
                 <span className="flex items-start justify-between gap-3">
                   <span className="flex flex-wrap gap-2">
                     {announcement.isPinned && <Badge tone="warning"><Pin className="size-3" aria-hidden />Pinned</Badge>}
-                    <Badge tone={announcement.scope === "orgWide" ? "info" : "neutral"}>{scopeLabel(announcement.scope)}</Badge>
+                    <Badge tone={announcement.scope === "league" ? "info" : "neutral"}>{scopeLabel(announcement.scope)}</Badge>
                   </span>
                   <ChevronRight className="mt-1 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
                 </span>
@@ -2362,43 +2361,83 @@ function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction:
           <WorkspaceEmptyState icon={Megaphone} title="No announcements found" description="No announcements match the current filter and search." />
         )}
       </ManagementWorkspace>
-      <AnnouncementCreateDrawer open={createOpen} runAction={runAction} onClose={() => setCreateOpen(false)} />
-      <AnnouncementDrawer announcement={selectedAnnouncement} onClose={() => setSelectedId(null)} runAction={runAction} />
+      <AnnouncementCreateDrawer open={createOpen} data={data} runAction={runAction} onClose={() => setCreateOpen(false)} />
+      <AnnouncementDrawer announcement={selectedAnnouncement} data={data} onClose={() => setSelectedId(null)} runAction={runAction} />
     </>
   );
 }
 
 function AnnouncementCreateDrawer({
   open,
+  data,
   runAction,
   onClose
 }: {
   open: boolean;
+  data: AdminData;
   runAction: ActionRunner;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [scope, setScope] = useState<AnnouncementScope>("orgWide");
+  const [scope, setScope] = useState<AnnouncementScope>("league");
+  const [leagueId, setLeagueId] = useState("");
+  const [hubId, setHubId] = useState("");
+  const [teamId, setTeamId] = useState("");
   const [isPinned, setIsPinned] = useState(false);
+
+  useEffect(() => {
+    if (open && !leagueId && data.leagues.length === 1) setLeagueId(data.leagues[0].id);
+  }, [data.leagues, leagueId, open]);
+
+  function changeScope(nextScope: AnnouncementScope) {
+    setScope(nextScope);
+    if (nextScope === "league") {
+      setHubId("");
+      setTeamId("");
+    } else if (nextScope === "hub") {
+      setTeamId("");
+    }
+  }
 
   async function createAnnouncement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = await runAction("adminCreateAnnouncement", { title, body, scope, isPinned });
+    const result = await runAction("adminCreateAnnouncement", {
+      title,
+      body,
+      scope,
+      leagueId,
+      hubId: scope === "league" ? null : hubId,
+      teamId: scope === "team" ? teamId : null,
+      isPinned
+    });
     if (!result.ok) return;
     setTitle("");
     setBody("");
-    setScope("orgWide");
+    setScope("league");
+    setLeagueId(data.leagues.length === 1 ? data.leagues[0].id : "");
+    setHubId("");
+    setTeamId("");
     setIsPinned(false);
     onClose();
   }
 
   return (
-    <SideDrawer open={open} title="New Announcement" description="Post an announcement to the selected organization." icon={Megaphone} onClose={onClose}>
+    <SideDrawer open={open} title="New Announcement" description="Post an announcement to a league, hub, or team." icon={Megaphone} onClose={onClose}>
       <form className="grid gap-4" onSubmit={createAnnouncement}>
         <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} required /></Field>
         <Field label="Body"><Textarea value={body} onChange={(event) => setBody(event.target.value)} required /></Field>
-        <Field label="Scope"><Select value={scope} onChange={(event) => setScope(event.target.value as AnnouncementScope)}><option value="orgWide">Org Wide</option><option value="league">League</option><option value="hub">Hub</option><option value="team">Team</option></Select></Field>
+        <AnnouncementTargetFields
+          data={data}
+          scope={scope}
+          leagueId={leagueId}
+          hubId={hubId}
+          teamId={teamId}
+          onScopeChange={changeScope}
+          onLeagueChange={(nextLeagueId) => { setLeagueId(nextLeagueId); setHubId(""); setTeamId(""); }}
+          onHubChange={(nextHubId) => { setHubId(nextHubId); setTeamId(""); }}
+          onTeamChange={setTeamId}
+        />
         <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold hover:border-[#b8c4d2]">
           <span className="inline-flex items-center gap-2">{isPinned ? <Pin className="size-4 text-amber" aria-hidden /> : <PinOff className="size-4 text-muted" aria-hidden />}Pinned</span>
           <input className="size-4 accent-teal" type="checkbox" checked={isPinned} onChange={(event) => setIsPinned(event.target.checked)} />
@@ -2411,16 +2450,21 @@ function AnnouncementCreateDrawer({
 
 function AnnouncementDrawer({
   announcement,
+  data,
   onClose,
   runAction
 }: {
   announcement: Announcement | null;
+  data: AdminData;
   onClose: () => void;
   runAction: ActionRunner;
 }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [scope, setScope] = useState<AnnouncementScope>("orgWide");
+  const [scope, setScope] = useState<AnnouncementScope>("league");
+  const [leagueId, setLeagueId] = useState("");
+  const [hubId, setHubId] = useState("");
+  const [teamId, setTeamId] = useState("");
   const [isPinned, setIsPinned] = useState(false);
 
   useEffect(() => {
@@ -2428,14 +2472,35 @@ function AnnouncementDrawer({
     setTitle(announcement.title);
     setBody(announcement.body);
     setScope(announcement.scope);
+    setLeagueId(announcement.leagueId ?? "");
+    setHubId(announcement.hubId ?? "");
+    setTeamId(announcement.teamId ?? "");
     setIsPinned(announcement.isPinned);
   }, [announcement]);
+
+  function changeScope(nextScope: AnnouncementScope) {
+    setScope(nextScope);
+    if (nextScope === "league") {
+      setHubId("");
+      setTeamId("");
+    } else if (nextScope === "hub") {
+      setTeamId("");
+    }
+  }
 
   async function save() {
     if (!announcement) return;
     await runAction("adminUpdateAnnouncement", {
       announcementId: announcement.id,
-      patch: { title, body, scope, isPinned }
+      patch: {
+        title,
+        body,
+        scope,
+        leagueId,
+        hubId: scope === "league" ? null : hubId,
+        teamId: scope === "team" ? teamId : null,
+        isPinned
+      }
     });
   }
 
@@ -2466,7 +2531,17 @@ function AnnouncementDrawer({
           <DrawerSection title="Content">
             <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
             <Field label="Body"><Textarea value={body} onChange={(event) => setBody(event.target.value)} /></Field>
-            <Field label="Scope"><Select value={scope} onChange={(event) => setScope(event.target.value as AnnouncementScope)}><option value="orgWide">Org Wide</option><option value="league">League</option><option value="hub">Hub</option><option value="team">Team</option></Select></Field>
+            <AnnouncementTargetFields
+              data={data}
+              scope={scope}
+              leagueId={leagueId}
+              hubId={hubId}
+              teamId={teamId}
+              onScopeChange={changeScope}
+              onLeagueChange={(nextLeagueId) => { setLeagueId(nextLeagueId); setHubId(""); setTeamId(""); }}
+              onHubChange={(nextHubId) => { setHubId(nextHubId); setTeamId(""); }}
+              onTeamChange={setTeamId}
+            />
             <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-white px-3.5 text-sm font-semibold hover:border-[#b8c4d2]">
               <span className="inline-flex items-center gap-2">{isPinned ? <Pin className="size-4 text-amber" aria-hidden /> : <PinOff className="size-4 text-muted" aria-hidden />}Pinned</span>
               <input className="size-4 accent-teal" type="checkbox" checked={isPinned} onChange={(event) => setIsPinned(event.target.checked)} />
@@ -2481,6 +2556,65 @@ function AnnouncementDrawer({
         </>
       )}
     </SideDrawer>
+  );
+}
+
+function AnnouncementTargetFields({
+  data,
+  scope,
+  leagueId,
+  hubId,
+  teamId,
+  onScopeChange,
+  onLeagueChange,
+  onHubChange,
+  onTeamChange
+}: {
+  data: AdminData;
+  scope: AnnouncementScope;
+  leagueId: string;
+  hubId: string;
+  teamId: string;
+  onScopeChange: (scope: AnnouncementScope) => void;
+  onLeagueChange: (leagueId: string) => void;
+  onHubChange: (hubId: string) => void;
+  onTeamChange: (teamId: string) => void;
+}) {
+  const availableHubs = data.hubs.filter((hub) => hub.leagueId === leagueId);
+  const availableTeams = data.teams.filter((team) => team.hubId === hubId);
+
+  return (
+    <>
+      <Field label="Scope">
+        <Select value={scope} onChange={(event) => onScopeChange(event.target.value as AnnouncementScope)} required>
+          <option value="league">League</option>
+          <option value="hub">Hub</option>
+          <option value="team">Team</option>
+        </Select>
+      </Field>
+      <Field label="League">
+        <Select value={leagueId} onChange={(event) => onLeagueChange(event.target.value)} required>
+          <option value="">Select a league</option>
+          {data.leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}
+        </Select>
+      </Field>
+      {(scope === "hub" || scope === "team") && (
+        <Field label="Hub">
+          <Select value={hubId} onChange={(event) => onHubChange(event.target.value)} required>
+            <option value="">Select a hub</option>
+            {availableHubs.map((hub) => <option key={hub.id} value={hub.id}>{hub.name}</option>)}
+          </Select>
+        </Field>
+      )}
+      {scope === "team" && (
+        <Field label="Team">
+          <Select value={teamId} onChange={(event) => onTeamChange(event.target.value)} required>
+            <option value="">Select a team</option>
+            {availableTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+          </Select>
+        </Field>
+      )}
+    </>
   );
 }
 
@@ -2600,7 +2734,7 @@ function PolicyCreateDrawer({
   onClose: () => void;
 }) {
   const [policyName, setPolicyName] = useState("");
-  const [policyCategory, setPolicyCategory] = useState("General");
+  const [policyCategory, setPolicyCategory] = useState<string>(POLICY_CATEGORIES[0]);
   const [policyFile, setPolicyFile] = useState<File | null>(null);
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [policySubmitting, setPolicySubmitting] = useState(false);
@@ -2652,7 +2786,7 @@ function PolicyCreateDrawer({
       }
 
       setPolicyName("");
-      setPolicyCategory("General");
+      setPolicyCategory(POLICY_CATEGORIES[0]);
       clearPolicyFile();
       onClose();
     } catch (caught) {
@@ -2705,7 +2839,11 @@ function PolicyCreateDrawer({
             setPolicyError(null);
           }}
         />
-        <Field label="Category"><Input value={policyCategory} onChange={(event) => setPolicyCategory(event.target.value)} required /></Field>
+        <Field label="Category">
+          <Select value={policyCategory} onChange={(event) => setPolicyCategory(event.target.value)} required>
+            {POLICY_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+          </Select>
+        </Field>
         <Button type="submit" disabled={policySubmitting}>{policySubmitting ? "Uploading..." : "Create Policy"}</Button>
       </form>
     </SideDrawer>

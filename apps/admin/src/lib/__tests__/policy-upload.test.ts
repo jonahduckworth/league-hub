@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   POLICY_FILE_MAX_BYTES,
   isPolicyFileAllowed,
+  POLICY_CATEGORIES,
   policyStoragePath,
   sanitizeStorageFileName
 } from "../policy-upload";
 
 describe("policy upload helpers", () => {
+  it("uses the mobile policy category taxonomy", () => {
+    expect(POLICY_CATEGORIES).toEqual(["Policy", "Protocol", "Code of Conduct", "Other"]);
+  });
   it("sanitizes storage file names", () => {
     expect(sanitizeStorageFileName("  Safety Policy (Final).pdf ")).toBe("Safety-Policy-Final.pdf");
   });

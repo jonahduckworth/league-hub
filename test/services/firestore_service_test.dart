@@ -651,14 +651,16 @@ void main() {
     Map<String, dynamic> announcementData({
       String title = 'Test Announcement',
       bool isPinned = false,
-      String scope = 'orgWide',
-      String? leagueId,
+      String scope = 'league',
+      String? leagueId = 'lg-1',
     }) =>
         {
           'title': title,
           'body': 'Body text',
           'scope': scope,
           'leagueId': leagueId,
+          'hubId': null,
+          'teamId': null,
           'authorId': 'author-1',
           'authorName': 'Coach',
           'authorRole': 'managerAdmin',
@@ -678,14 +680,21 @@ void main() {
       expect(announcements[1].isPinned, isFalse);
     });
 
-    test('getAnnouncementsByLeague includes orgWide + matching league',
-        () async {
+    test('getAnnouncements omits obsolete organization-wide records', () async {
       await svc.createAnnouncement(
-          orgId,
-          announcementData(
-            scope: AnnouncementScope.orgWide.name,
-            title: 'Org Wide',
-          ));
+        orgId,
+        announcementData(scope: 'orgWide', leagueId: null),
+      );
+      await svc.createAnnouncement(orgId, announcementData());
+
+      final announcements = await svc.getAnnouncements(orgId).first;
+
+      expect(announcements, hasLength(1));
+      expect(announcements.single.scope, AnnouncementScope.league);
+    });
+
+    test('getAnnouncementsByLeague includes only the matching league',
+        () async {
       await svc.createAnnouncement(
           orgId,
           announcementData(
@@ -703,8 +712,7 @@ void main() {
 
       final annuncements =
           await svc.getAnnouncementsByLeague(orgId, 'lg-1').first;
-      expect(annuncements.length, 2);
-      expect(annuncements.any((a) => a.title == 'Org Wide'), true);
+      expect(annuncements.length, 1);
       expect(annuncements.any((a) => a.title == 'League 1'), true);
     });
 

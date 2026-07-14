@@ -1,7 +1,6 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/models/hub.dart';
@@ -346,9 +345,7 @@ void main() {
     });
 
     group('Flow 5: Create announcement → verify scope filtering', () {
-      test(
-          'Create org-wide, league, hub announcements → verify getAnnouncementsByLeague filtering',
-          () async {
+      test('Create scoped announcements and verify league filtering', () async {
         final orgId = 'org5';
         final userId = 'user5';
         final leagueId = 'league5';
@@ -366,11 +363,14 @@ void main() {
         );
         await fs.createOrganization(org);
 
-        // Create org-wide announcement
+        // Create an announcement for another league.
         await fs.createAnnouncement(orgId, {
-          'scope': 'orgWide',
-          'title': 'Global Announcement',
-          'body': 'This is org-wide',
+          'scope': 'league',
+          'leagueId': 'other-league',
+          'hubId': null,
+          'teamId': null,
+          'title': 'Other League Announcement',
+          'body': 'This is for another league',
           'authorId': userId,
           'authorName': 'Admin',
           'authorRole': 'superAdmin',
@@ -382,6 +382,8 @@ void main() {
         await fs.createAnnouncement(orgId, {
           'scope': 'league',
           'leagueId': leagueId,
+          'hubId': null,
+          'teamId': null,
           'title': 'League Announcement',
           'body': 'This is league-scoped',
           'authorId': userId,
@@ -394,7 +396,9 @@ void main() {
         // Create hub-scoped announcement
         await fs.createAnnouncement(orgId, {
           'scope': 'hub',
+          'leagueId': leagueId,
           'hubId': hubId,
+          'teamId': null,
           'title': 'Hub Announcement',
           'body': 'This is hub-scoped',
           'authorId': userId,
@@ -408,18 +412,13 @@ void main() {
         final allAnnouncements = await fs.getAnnouncements(orgId).first;
         expect(allAnnouncements, hasLength(3));
 
-        // Get announcements by league (should include org-wide + league-scoped)
+        // Get announcements by league (league and nested hub scopes match).
         final leagueAnnouncements =
             await fs.getAnnouncementsByLeague(orgId, leagueId).first;
         expect(leagueAnnouncements, hasLength(2));
         expect(
-          leagueAnnouncements
-              .where((a) => a.scope == AnnouncementScope.orgWide),
-          hasLength(1),
-        );
-        expect(
           leagueAnnouncements.where((a) => a.leagueId == leagueId),
-          hasLength(1),
+          hasLength(2),
         );
       });
     });

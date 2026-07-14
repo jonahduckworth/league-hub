@@ -202,7 +202,8 @@ final mockAnnouncements = [
   Announcement(
       id: 'a1',
       orgId: 'demo-org-1',
-      scope: AnnouncementScope.orgWide,
+      scope: AnnouncementScope.league,
+      leagueId: 'l1',
       title: 'Welcome to League Hub!',
       body:
           'We are excited to launch League Hub for all our leagues and teams. This platform will be your central hub for communication, policies, and league management.',
@@ -230,6 +231,7 @@ final mockAnnouncements = [
       id: 'a3',
       orgId: 'demo-org-1',
       scope: AnnouncementScope.hub,
+      leagueId: 'l1',
       hubId: 'h1',
       title: 'Field Maintenance - Field 3 Closed',
       body:

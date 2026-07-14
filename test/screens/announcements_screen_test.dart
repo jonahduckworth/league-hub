@@ -64,15 +64,16 @@ class _GenericDeleteError implements Exception {
 void main() {
   group('announcement helpers', () {
     final baseTime = DateTime(2026, 1, 1);
-    final orgWidePinned = Announcement(
+    final leaguePinned = Announcement(
       id: 'ann-1',
       orgId: 'org-1',
-      title: 'Org Wide',
+      title: 'Pinned League Post',
       body: 'Body',
       authorId: 'user-1',
       authorName: 'User One',
       authorRole: 'Admin',
-      scope: AnnouncementScope.orgWide,
+      scope: AnnouncementScope.league,
+      leagueId: 'league-1',
       attachments: [],
       isPinned: true,
       createdAt: baseTime,
@@ -93,7 +94,7 @@ void main() {
     );
 
     test('builds announcement summary chips from post counts', () {
-      final summaries = buildAnnouncementSummaries([orgWidePinned, leaguePost]);
+      final summaries = buildAnnouncementSummaries([leaguePinned, leaguePost]);
 
       expect(summaries.map((summary) => summary.label).toList(), [
         '1 pinned',
@@ -107,7 +108,7 @@ void main() {
       var deleted = false;
 
       final actions = buildAnnouncementActions(
-        announcement: orgWidePinned,
+        announcement: leaguePinned,
         onTogglePin: () => toggled = true,
         onEdit: () => edited = true,
         onDelete: () => deleted = true,
@@ -260,7 +261,8 @@ void main() {
         authorId: 'admin-1',
         authorName: 'Admin User',
         authorRole: 'Admin',
-        scope: AnnouncementScope.orgWide,
+        scope: AnnouncementScope.league,
+        leagueId: 'league-1',
         attachments: [],
         isPinned: true,
         createdAt: DateTime.now().subtract(Duration(days: 5)),
@@ -577,13 +579,12 @@ void main() {
     });
 
     group('Scope Tags', () {
-      testWidgets('displays organization-wide scope tag',
-          (WidgetTester tester) async {
+      testWidgets('displays league scope tags', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Org-Wide'), findsOneWidget);
+        expect(find.text('SL'), findsWidgets);
       });
 
       testWidgets('displays league scope tag with abbreviation',
@@ -633,16 +634,6 @@ void main() {
           find.text('Schedule Update'),
         );
         expect(find.text('Schedule Update'), findsOneWidget);
-      });
-
-      testWidgets('org-wide announcements always visible',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-        await tester.pump();
-        await tester.pumpAndSettle();
-
-        // Even when filtering by league, org-wide announcements appear
-        expect(find.text('Welcome to League Hub'), findsOneWidget);
       });
 
       testWidgets('handles empty leagues list', (WidgetTester tester) async {
@@ -1029,7 +1020,8 @@ void main() {
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Admin',
-            scope: AnnouncementScope.orgWide,
+            scope: AnnouncementScope.league,
+            leagueId: 'league-1',
             attachments: [],
             isPinned: true,
             createdAt: DateTime.now().subtract(Duration(days: 5)),
@@ -1042,7 +1034,8 @@ void main() {
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Admin',
-            scope: AnnouncementScope.orgWide,
+            scope: AnnouncementScope.league,
+            leagueId: 'league-1',
             attachments: [],
             isPinned: false,
             createdAt: DateTime.now().subtract(Duration(hours: 1)),
@@ -1055,7 +1048,8 @@ void main() {
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Admin',
-            scope: AnnouncementScope.orgWide,
+            scope: AnnouncementScope.league,
+            leagueId: 'league-1',
             attachments: [],
             isPinned: false,
             createdAt: DateTime.now().subtract(Duration(days: 10)),
@@ -1074,9 +1068,9 @@ void main() {
     });
 
     group('Multiple Announcements of Same Scope', () {
-      testWidgets('displays multiple org-wide announcements',
+      testWidgets('displays multiple announcements in one league',
           (WidgetTester tester) async {
-        final multipleOrgWide = [
+        final multipleLeaguePosts = [
           Announcement(
             id: 'ann-1',
             orgId: 'org-1',
@@ -1085,7 +1079,8 @@ void main() {
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Admin',
-            scope: AnnouncementScope.orgWide,
+            scope: AnnouncementScope.league,
+            leagueId: 'league-1',
             attachments: [],
             isPinned: false,
             createdAt: DateTime.now(),
@@ -1098,7 +1093,8 @@ void main() {
             authorId: 'admin-1',
             authorName: 'Admin User',
             authorRole: 'Admin',
-            scope: AnnouncementScope.orgWide,
+            scope: AnnouncementScope.league,
+            leagueId: 'league-1',
             attachments: [],
             isPinned: false,
             createdAt: DateTime.now().subtract(Duration(hours: 1)),
@@ -1106,7 +1102,7 @@ void main() {
         ];
 
         await tester.pumpWidget(
-          createTestWidget(announcements: multipleOrgWide),
+          createTestWidget(announcements: multipleLeaguePosts),
         );
         await tester.pump();
         await tester.pumpAndSettle();

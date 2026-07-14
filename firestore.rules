@@ -65,6 +65,21 @@ service cloud.firestore {
       return sameOrg(orgId) && isManagerAdmin();
     }
 
+    function validAnnouncementTarget(data) {
+      return data.keys().hasAll(['scope', 'leagueId', 'hubId', 'teamId'])
+        && data.scope in ['league', 'hub', 'team']
+        && data.leagueId is string
+        && (
+          (data.scope == 'league' && data.hubId == null && data.teamId == null)
+          || (data.scope == 'hub' && data.hubId is string && data.teamId == null)
+          || (data.scope == 'team' && data.hubId is string && data.teamId is string)
+        );
+    }
+
+    function validPolicyCategory(data) {
+      return data.category in ['Policy', 'Protocol', 'Code of Conduct', 'Other'];
+    }
+
     function canBootstrapOrg(orgId) {
       return signedIn()
         && exists(orgPath(orgId))
@@ -327,16 +342,23 @@ service cloud.firestore {
       match /policies/{policyId} {
         allow get, list: if sameOrg(orgId);
         allow create: if canManageContent(orgId)
-          && request.resource.data.uploadedBy == request.auth.uid;
-        allow update: if canManageContent(orgId);
+          && request.resource.data.uploadedBy == request.auth.uid
+          && validPolicyCategory(request.resource.data);
+        allow update: if canManageContent(orgId)
+          && (
+            request.resource.data.category == resource.data.category
+            || validPolicyCategory(request.resource.data)
+          );
         allow delete: if canManageOrg(orgId);
       }
 
       match /announcements/{announcementId} {
         allow get, list: if sameOrg(orgId);
         allow create: if canManageContent(orgId)
-          && request.resource.data.authorId == request.auth.uid;
+          && request.resource.data.authorId == request.auth.uid
+          && validAnnouncementTarget(request.resource.data);
         allow update: if canManageContent(orgId)
+          && validAnnouncementTarget(request.resource.data)
           && (
             resource.data.authorId == request.auth.uid
             || canManageOrg(orgId)

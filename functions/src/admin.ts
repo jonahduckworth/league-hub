@@ -11,6 +11,8 @@ import {
   canCreateLeague,
   canManageTarget,
   isAdminRole,
+  isValidAnnouncementTarget,
+  isValidPolicyCategory,
   isUserRole,
   normalizeStringArray,
 } from "./adminLogic";
@@ -94,6 +96,22 @@ function requiredString(value: unknown, field: string): string {
     throw new HttpsError("invalid-argument", `${field} is required.`);
   }
   return result;
+}
+
+function announcementTarget(data: RequestRecord) {
+  if (!isValidAnnouncementTarget(data)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Announcements must target a league, hub, or team with the required parent IDs.",
+    );
+  }
+  const scope = requiredString(data.scope, "scope");
+  return {
+    scope,
+    leagueId: requiredString(data.leagueId, "leagueId"),
+    hubId: scope === "league" ? null : requiredString(data.hubId, "hubId"),
+    teamId: scope === "team" ? requiredString(data.teamId, "teamId") : null,
+  };
 }
 
 function optionalBoolean(value: unknown): boolean | undefined {
@@ -646,12 +664,10 @@ export const adminDeleteTeam = onCall(adminRuntime, async (request) => {
 export const adminCreateAnnouncement = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminCreateAnnouncement", async (actor, data, orgId) => {
     const ref = orgRef(orgId).collection("announcements").doc();
+    const target = announcementTarget(data);
     await ref.set({
       orgId,
-      scope: requiredString(data.scope, "scope"),
-      leagueId: optionalString(data.leagueId) ?? null,
-      hubId: optionalString(data.hubId) ?? null,
-      teamId: optionalString(data.teamId) ?? null,
+      ...target,
       title: requiredString(data.title, "title"),
       body: requiredString(data.body, "body"),
       authorId: actor.id,
@@ -668,6 +684,9 @@ export const adminCreateAnnouncement = onCall(adminRuntime, async (request) => {
 export const adminUpdateAnnouncement = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminUpdateAnnouncement", async (_actor, data, orgId) => {
     const announcementId = requiredString(data.announcementId, "announcementId");
+    const ref = orgRef(orgId).collection("announcements").doc(announcementId);
+    const before = await ref.get();
+    if (!before.exists) throw new HttpsError("not-found", "Announcement was not found.");
     const patch = allowedPatch(data.patch, "patch", [
       "scope",
       "leagueId",
@@ -678,8 +697,10 @@ export const adminUpdateAnnouncement = onCall(adminRuntime, async (request) => {
       "attachments",
       "isPinned",
     ]);
-    await orgRef(orgId).collection("announcements").doc(announcementId).update({
+    const target = announcementTarget({ ...(before.data() ?? {}), ...patch });
+    await ref.update({
       ...patch,
+      ...target,
       updatedAt: now(),
     });
     return { announcementId, updatedFields: Object.keys(patch) };
@@ -700,6 +721,10 @@ export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
     const ref = requestedPolicyId ?
       orgRef(orgId).collection("policies").doc(requestedPolicyId) :
       orgRef(orgId).collection("policies").doc();
+    const category = requiredString(data.category, "category");
+    if (!isValidPolicyCategory(category)) {
+      throw new HttpsError("invalid-argument", "Select a supported policy category.");
+    }
     await ref.set({
       orgId,
       leagueId: optionalString(data.leagueId) ?? null,
@@ -709,7 +734,7 @@ export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
       fileUrl: requiredString(data.fileUrl, "fileUrl"),
       fileType: requiredString(data.fileType, "fileType"),
       fileSize: typeof data.fileSize === "number" ? data.fileSize : 0,
-      category: requiredString(data.category, "category"),
+      category,
       uploadedBy: actor.id,
       uploadedByName: actor.displayName ?? actor.email ?? "Admin",
       versions: [],

@@ -158,9 +158,6 @@ class _CreateAnnouncementScreenState
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final leagues =
         manageableLeaguesForUser(currentUser, leaguesAsync.valueOrNull ?? []);
-    if (_scope == AnnouncementScope.orgWide && !_isEditing) {
-      _scope = AnnouncementScope.league;
-    }
     final defaultLeagueId = singleManageableLeagueId(currentUser, leagues);
     if (_selectedLeagueId == null && defaultLeagueId != null) {
       _selectedLeagueId = defaultLeagueId;
@@ -230,12 +227,6 @@ class _CreateAnnouncementScreenState
             GlassScopeSelector<AnnouncementScope>(
               selected: _scope,
               options: [
-                if (_scope == AnnouncementScope.orgWide)
-                  const GlassChoiceOption(
-                    value: AnnouncementScope.orgWide,
-                    label: 'Org-Wide',
-                    icon: Icons.public,
-                  ),
                 const GlassChoiceOption(
                   value: AnnouncementScope.league,
                   label: 'League',
@@ -264,8 +255,7 @@ class _CreateAnnouncementScreenState
             ),
             if (_scope == AnnouncementScope.league ||
                 _scope == AnnouncementScope.hub ||
-                _scope == AnnouncementScope.team ||
-                _scope == AnnouncementScope.orgWide) ...[
+                _scope == AnnouncementScope.team) ...[
               const SizedBox(height: 16),
               const GlassFormSectionLabel('League'),
               const SizedBox(height: 8),

@@ -27,16 +27,9 @@ List<String> buildVisiblePolicyCategories(List<Policy> policies) {
   final existingCategories = policies.map((policy) => policy.category).toSet();
   return [
     'All',
-    ..._policyCategories.where(existingCategories.contains),
+    ...policyCategories.where(existingCategories.contains),
   ];
 }
-
-const _policyCategories = [
-  'Policy',
-  'Protocol',
-  'Code of Conduct',
-  'Other',
-];
 
 class _PolicyScreenState extends ConsumerState<PolicyScreen> {
   bool _canUpload(AppUser? user) {

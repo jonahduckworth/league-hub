@@ -1,6 +1,6 @@
 export type UserRole = "platformOwner" | "superAdmin" | "managerAdmin" | "staff";
 export type InvitationStatus = "pending" | "accepted" | "expired";
-export type AnnouncementScope = "orgWide" | "league" | "hub" | "team";
+export type AnnouncementScope = "league" | "hub" | "team";
 export type ChatRoomType = "league" | "event" | "direct";
 
 export type AppUser = {

@@ -282,7 +282,15 @@ export function useAdminData(currentUser?: AppUser | null) {
         if (!active) return;
         setState((current) => ({
           ...current,
-          data: { ...current.data, announcements: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Announcement[] }
+          data: {
+            ...current.data,
+            announcements: snap.docs.flatMap((item) => {
+              const announcement = { id: item.id, ...item.data() } as Announcement;
+              return announcement.scope === "league" || announcement.scope === "hub" || announcement.scope === "team"
+                ? [announcement]
+                : [];
+            })
+          }
         }));
       }, requiredSnapshotError("Announcements")),
       onSnapshot(query(collection(db, "organizations", selectedOrgId, "policies"), orderBy("updatedAt", "desc"), limit(100)), (snap) => {
