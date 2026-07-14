@@ -140,26 +140,15 @@ describe("AdminApp operations shell", () => {
     expect(window.location.hash).toBe("");
   });
 
-  it("preserves table semantics and provides keyboard-modal record drawers", async () => {
+  it("provides accessible member cards and keyboard-modal record drawers", async () => {
     window.history.replaceState(null, "", "/admin#people");
     render(<AdminApp />);
 
     await screen.findByRole("heading", { level: 1, name: "People" });
-    const table = screen.getByRole("table");
-    expect(within(table).getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
-      "Member",
-      "Access",
-      "Details",
-      "Action"
-    ]);
-
-    const memberRow = within(table).getByText("Avery Admin").closest("tr");
-    if (!memberRow) throw new Error("Avery Admin row was not found");
-    expect(memberRow.tagName).toBe("TR");
-    expect(memberRow.getAttribute("role")).toBeNull();
-    const viewButton = within(memberRow).getByRole("button", { name: "View" });
-    viewButton.focus();
-    fireEvent.click(viewButton);
+    expect(screen.getByRole("heading", { level: 2, name: "People at Prairie Hockey League" })).toBeTruthy();
+    const memberButton = screen.getByRole("button", { name: "Open Avery Admin member details" });
+    memberButton.focus();
+    fireEvent.click(memberButton);
 
     const drawer = await screen.findByRole("dialog", { name: "Avery Admin" });
     expect(drawer.getAttribute("aria-modal")).toBe("true");
@@ -171,7 +160,27 @@ describe("AdminApp operations shell", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Avery Admin" })).toBeNull();
     });
-    expect(document.activeElement).toBe(viewButton);
+    expect(document.activeElement).toBe(memberButton);
+  });
+
+  it("renders announcement and policy workspaces as filterable, actionable card libraries", async () => {
+    window.history.replaceState(null, "", "/admin#announcements");
+    render(<AdminApp />);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Announcements for Prairie Hockey League" })).toBeTruthy();
+    const announcementFilters = screen.getByRole("tablist", { name: "Announcements for Prairie Hockey League filters" });
+    expect(within(announcementFilters).getByRole("tab", { name: /All Posts/ }).getAttribute("aria-selected")).toBe("true");
+    const announcementButton = screen.getByRole("button", { name: "Open Schedule window posted announcement" });
+    fireEvent.click(announcementButton);
+    expect(await screen.findByRole("dialog", { name: "Schedule window posted" })).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Policies" })[0]);
+    expect(await screen.findByRole("heading", { level: 2, name: "Policies for Prairie Hockey League" })).toBeTruthy();
+    const policyFilters = screen.getByRole("tablist", { name: "Policies for Prairie Hockey League filters" });
+    expect(within(policyFilters).getByRole("tab", { name: /All Policies/ }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Open Concussion Protocol policy" }));
+    expect(await screen.findByRole("dialog", { name: "Concussion Protocol" })).toBeTruthy();
   });
 
   it("shows, searches, and expands the connected league-to-hub-to-team structure with its people", async () => {

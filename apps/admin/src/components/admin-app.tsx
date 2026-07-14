@@ -4,7 +4,6 @@ import {
   Activity,
   Bell,
   Building2,
-  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -22,7 +21,6 @@ import {
   Megaphone,
   MessageSquare,
   Network,
-  Phone,
   Pin,
   PinOff,
   Plus,
@@ -779,20 +777,28 @@ function RelativeTime({ value, className }: { value: unknown; className?: string
   return <span className={className}>{label}</span>;
 }
 
-type RailItem<T extends string> = {
+type WorkspaceFilterItem<T extends string> = {
   id: T;
   label: string;
   count: number;
   icon: React.ComponentType<{ className?: string }>;
 };
 
-function DirectoryLayout<T extends string>({
+type WorkspaceMetric = {
+  label: string;
+  value: number | string;
+};
+
+function ManagementWorkspace<T extends string>({
+  eyebrow,
   title,
   description,
+  icon: HeroIcon,
+  metrics,
   action,
-  railItems,
-  selectedRailId,
-  onSelectRail,
+  filters,
+  selectedFilterId,
+  onSelectFilter,
   panelTitle,
   panelDescription,
   searchLabel,
@@ -800,12 +806,15 @@ function DirectoryLayout<T extends string>({
   onSearchChange,
   children
 }: {
+  eyebrow: string;
   title: string;
   description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  metrics: WorkspaceMetric[];
   action: React.ReactNode;
-  railItems: Array<RailItem<T>>;
-  selectedRailId: T;
-  onSelectRail: (id: T) => void;
+  filters: Array<WorkspaceFilterItem<T>>;
+  selectedFilterId: T;
+  onSelectFilter: (id: T) => void;
   panelTitle: string;
   panelDescription: string;
   searchLabel: string;
@@ -814,97 +823,84 @@ function DirectoryLayout<T extends string>({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-6">
-      <div className="flex flex-col gap-5 rounded-[24px] border border-line/80 bg-white p-5 shadow-card sm:p-6 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-teal">Management workspace</p>
-          <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.035em] text-ink sm:text-3xl">{title}</h2>
-          <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-muted sm:text-base sm:leading-7">{description}</p>
+    <div className="grid gap-5">
+      <section className="relative overflow-hidden rounded-[24px] bg-navy p-5 text-white shadow-[0_24px_60px_-36px_rgba(16,24,40,0.75)] sm:p-6 lg:p-7">
+        <div className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-teal/20 blur-3xl" aria-hidden />
+        <div className="pointer-events-none absolute -bottom-32 left-1/3 size-72 rounded-full bg-sky/15 blur-3xl" aria-hidden />
+        <div className="relative grid gap-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
+              <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-[#5eead4] ring-1 ring-white/15 sm:size-14">
+                <HeroIcon className="size-5 sm:size-6" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#8ff3e7]">{eyebrow}</p>
+                <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.035em] sm:text-3xl">{title}</h2>
+                <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-white/65 sm:text-base sm:leading-7">{description}</p>
+              </div>
+            </div>
+            <div className="shrink-0 self-stretch sm:self-auto">{action}</div>
+          </div>
+          <dl className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3 backdrop-blur-sm">
+                <dt className="text-[10px] font-extrabold uppercase tracking-[0.13em] text-white/50">{metric.label}</dt>
+                <dd className="mt-1 text-xl font-extrabold tracking-[-0.025em] text-white sm:text-2xl">{metric.value}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
-        <div className="shrink-0 self-stretch sm:self-auto">{action}</div>
-      </div>
-      <div className="grid min-h-[calc(100vh-17rem)] gap-5 2xl:grid-cols-[248px_minmax(0,1fr)]">
-        <DirectoryRail items={railItems} selectedId={selectedRailId} onSelect={onSelectRail} />
-        <section className="min-w-0">
-          <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      </section>
+
+      <section className="min-w-0 rounded-[24px] border border-line/80 bg-white p-4 shadow-card sm:p-5 lg:p-6">
+        <div className="grid gap-4 border-b border-line/80 pb-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
               <h3 className="text-xl font-extrabold tracking-[-0.025em] text-ink sm:text-2xl">{panelTitle}</h3>
               <p className="mt-1 text-sm font-medium text-muted">{panelDescription}</p>
             </div>
             <SearchBox label={searchLabel} value={searchValue} onChange={onSearchChange} />
           </div>
-          {children}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function DirectoryRail<T extends string>({
-  items,
-  selectedId,
-  onSelect
-}: {
-  items: Array<RailItem<T>>;
-  selectedId: T;
-  onSelect: (id: T) => void;
-}) {
-  return (
-    <aside className="thin-scrollbar -mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 2xl:sticky 2xl:top-24 2xl:mx-0 2xl:min-h-[520px] 2xl:self-start 2xl:overflow-visible 2xl:rounded-2xl 2xl:border 2xl:border-line/80 2xl:bg-white 2xl:p-2.5 2xl:shadow-card">
-      <div className="flex gap-2 2xl:grid">
-        {items.map((item) => {
+          <div className="thin-scrollbar -mx-4 overflow-x-auto px-4 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6" role="tablist" aria-label={`${title} filters`}>
+            <div className="flex min-w-max gap-2">
+              {filters.map((item) => {
           const Icon = item.icon;
-          const selected = item.id === selectedId;
+                const selected = item.id === selectedFilterId;
           return (
             <button
               key={item.id}
               type="button"
-              onClick={() => onSelect(item.id)}
-              aria-pressed={selected}
-              className={`flex min-h-[58px] min-w-[164px] cursor-pointer items-center gap-3 rounded-2xl border px-3.5 text-left shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 2xl:min-h-[68px] 2xl:min-w-0 2xl:shadow-none ${
-                selected ? "border-navy bg-navy text-white shadow-soft" : "border-line bg-white text-ink hover:border-[#b8c4d2] hover:bg-[#f8fafc] 2xl:border-transparent"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => onSelectFilter(item.id)}
+                    className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3.5 text-sm font-bold transition-[background-color,border-color,color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 ${
+                      selected ? "border-navy bg-navy text-white shadow-soft" : "border-line bg-[#f8fafc] text-ink hover:border-[#b8c4d2] hover:bg-white"
               }`}
             >
-              <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${selected ? "bg-white/10 text-[#5eead4]" : "bg-shell text-muted"}`}>
-                <Icon className="size-[18px]" aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold">{item.label}</span>
-                <span className={`mt-0.5 block text-xs font-semibold ${selected ? "text-white/65" : "text-muted"}`}>
-                  {item.count} {item.count === 1 ? "item" : "items"}
-                </span>
-              </span>
+                    <Icon className={`size-4 ${selected ? "text-[#5eead4]" : "text-muted"}`} aria-hidden />
+                    {item.label}
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${selected ? "bg-white/10 text-white/75" : "bg-white text-muted ring-1 ring-line"}`}>{item.count}</span>
             </button>
           );
-        })}
-      </div>
-    </aside>
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="pt-5">{children}</div>
+      </section>
+    </div>
   );
 }
 
-function DirectoryTable({
-  countLabel,
-  headers,
-  children
-}: {
-  countLabel: string;
-  headers: string[];
-  children: React.ReactNode;
-}) {
+function WorkspaceEmptyState({ icon: Icon, title, description }: { icon: React.ComponentType<{ className?: string }>; title: string; description: string }) {
   return (
-    <div className="responsive-directory-table overflow-hidden rounded-2xl border border-line/80 bg-white shadow-card">
-      <div className="flex min-h-14 items-center border-b border-line/80 px-4 text-sm font-extrabold text-ink sm:px-5">{countLabel}</div>
-      <div className="thin-scrollbar overflow-x-auto">
-        <table className="w-full min-w-[860px] border-collapse">
-          <thead className="bg-[#f8fafc]">
-            <tr className="border-b border-line">
-              {headers.map((header) => (
-                <th key={header} className="px-5 py-3 text-left text-[11px] font-extrabold uppercase tracking-[0.08em] text-muted">{header}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>{children}</tbody>
-        </table>
+    <div className="grid min-h-56 place-items-center rounded-2xl border border-dashed border-line bg-[#f8fafc] px-6 py-10 text-center">
+      <div>
+        <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-muted shadow-sm ring-1 ring-line">
+          <Icon className="size-5" aria-hidden />
+        </span>
+        <p className="mt-4 text-base font-extrabold text-ink">{title}</p>
+        <p className="mx-auto mt-1 max-w-md text-sm font-medium leading-6 text-muted">{description}</p>
       </div>
     </div>
   );
@@ -954,21 +950,6 @@ function ToolbarActionButton({
   );
 }
 
-function ViewButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-      className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3.5 text-sm font-bold text-ink shadow-sm transition-colors hover:border-[#b8c4d2] hover:bg-[#f8fafc] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20"
-    >
-      View <ChevronRight className="size-4 text-muted" aria-hidden />
-    </button>
-  );
-}
-
 function EntityAvatar({
   name,
   imageUrl
@@ -1008,22 +989,6 @@ function DetailLine({
       <Icon className="size-3.5 shrink-0 text-muted" aria-hidden />
       <span className="truncate">{children}</span>
     </div>
-  );
-}
-
-function tableRowClass(selected?: boolean) {
-  return `cursor-pointer border-b border-line/80 transition-colors last:border-b-0 hover:bg-[#f8fafc] ${
-    selected ? "bg-teal/[0.045]" : "bg-white"
-  }`;
-}
-
-function emptyTableRow(label: string, colSpan: number) {
-  return (
-    <tr>
-      <td className="px-5 py-6" colSpan={colSpan}>
-        <EmptyLine label={label} />
-      </td>
-    </tr>
   );
 }
 
@@ -1207,7 +1172,7 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
   const selectedUser = selectedUserId ? data.users.find((user) => user.id === selectedUserId) ?? null : null;
   const selectedInvite = selectedInviteId ? pendingInvitations.find((invite) => invite.id === selectedInviteId) ?? null : null;
   const manageable = selectedUser ? canManageUser(currentUser, selectedUser) : false;
-  const railItems: Array<RailItem<PeopleView>> = [
+  const filters: Array<WorkspaceFilterItem<PeopleView>> = [
     { id: "all", label: "All Members", count: data.users.length, icon: Users },
     { id: "managers", label: "Managers", count: managers.length, icon: UserCog },
     { id: "staff", label: "Staff", count: staff.length, icon: UserCheck },
@@ -1222,13 +1187,21 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
 
   return (
     <>
-      <DirectoryLayout
-        title={`People for ${data.selectedOrg?.name ?? "League Hub"}`}
-        description="Manage member roles, pending invites, and the access each person has across hubs and teams."
+      <ManagementWorkspace
+        eyebrow="Member directory"
+        title={`People at ${data.selectedOrg?.name ?? "League Hub"}`}
+        description="See who belongs to the organization, understand their hub and team access at a glance, and manage invitations without losing context."
+        icon={Users}
+        metrics={[
+          { label: "Active members", value: data.users.filter((user) => user.isActive).length },
+          { label: "Managers", value: managers.length },
+          { label: "Staff", value: staff.length },
+          { label: "Pending invites", value: pendingInvitations.length }
+        ]}
         action={<ToolbarActionButton icon={UserPlus} onClick={() => setCreateInviteOpen(true)}>Add Member</ToolbarActionButton>}
-        railItems={railItems}
-        selectedRailId={view}
-        onSelectRail={(nextView) => {
+        filters={filters}
+        selectedFilterId={view}
+        onSelectFilter={(nextView) => {
           setView(nextView);
           setQuery("");
         }}
@@ -1238,99 +1211,92 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
         searchValue={query}
         onSearchChange={setQuery}
       >
-        <DirectoryTable
-          countLabel={view === "invites" ? pluralize(filteredInvites.length, "invite") : pluralize(filteredUsers.length, "member")}
-          headers={view === "invites" ? ["Invite", "Access", "Details", "Action"] : ["Member", "Access", "Details", "Action"]}
-        >
-          {view === "invites" ? (
-            <>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-extrabold text-ink">
+            {view === "invites" ? pluralize(filteredInvites.length, "invite") : pluralize(filteredUsers.length, "member")}
+          </p>
+          <p className="hidden text-xs font-semibold text-muted sm:block">Select a card to review access and details</p>
+        </div>
+
+        {view === "invites" ? (
+          filteredInvites.length > 0 ? (
+            <div className="grid gap-3 xl:grid-cols-2">
               {filteredInvites.map((invite) => (
-                <tr
+                <button
                   key={invite.id}
-                  className={tableRowClass(selectedInvite?.id === invite.id)}
+                  type="button"
+                  aria-label={`Open invitation for ${invite.displayName || invite.email}`}
                   onClick={() => {
                     setSelectedInviteId(invite.id);
                     setSelectedUserId(null);
                   }}
+                  className={`group min-w-0 rounded-2xl border p-4 text-left transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-[#b8c4d2] hover:shadow-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 sm:p-5 ${selectedInvite?.id === invite.id ? "border-teal/40 bg-teal/[0.035]" : "border-line bg-[#fcfdff]"}`}
                 >
-                  <td data-label="Invite" className="px-5 py-5">
-                    <div className="flex min-w-0 items-center gap-4">
-                      <EntityAvatar name={invite.displayName ?? invite.email} />
-                      <div className="min-w-0">
-                        <div className="truncate text-lg font-extrabold text-ink">{invite.displayName || invite.email}</div>
-                        <DetailLine icon={Mail}>{invite.email}</DetailLine>
-                      </div>
-                    </div>
-                  </td>
-                  <td data-label="Access" className="px-5 py-5"><Badge tone="info">{roleLabel(invite.role)}</Badge></td>
-                  <td data-label="Details" className="px-5 py-5">
-                    <div className="grid gap-2">
-                      <DetailLine icon={CalendarDays}>{dateLabel(invite.createdAt)}</DetailLine>
-                      <DetailLine icon={Building2}>{pluralize(invite.hubIds.length, "hub")}</DetailLine>
-                      <DetailLine icon={Users}>{pluralize(invite.teamIds.length, "team")}</DetailLine>
-                    </div>
-                  </td>
-                  <td data-label="Action" className="px-5 py-5 text-right">
-                    <ViewButton
-                      onClick={() => {
-                        setSelectedInviteId(invite.id);
-                        setSelectedUserId(null);
-                      }}
-                    />
-                  </td>
-                </tr>
+                  <span className="flex min-w-0 items-start gap-3.5">
+                    <EntityAvatar name={invite.displayName ?? invite.email} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex min-w-0 items-start justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block truncate text-base font-extrabold text-ink group-hover:text-teal sm:text-lg">{invite.displayName || invite.email}</span>
+                          <span className="mt-1 flex min-w-0 items-center gap-2 text-sm font-medium text-muted"><Mail className="size-3.5 shrink-0" aria-hidden /><span className="truncate">{invite.email}</span></span>
+                        </span>
+                        <ChevronRight className="mt-1 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
+                      </span>
+                      <span className="mt-3 flex flex-wrap gap-2"><Badge tone="warning">Pending</Badge><Badge tone="info">{roleLabel(invite.role)}</Badge></span>
+                    </span>
+                  </span>
+                  <span className="mt-4 grid grid-cols-3 gap-2 border-t border-line/70 pt-4">
+                    <span><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Created</span><span className="mt-1 block truncate text-xs font-bold text-ink">{dateLabel(invite.createdAt)}</span></span>
+                    <span><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Hubs</span><span className="mt-1 block text-xs font-bold text-ink">{invite.hubIds.length}</span></span>
+                    <span><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Teams</span><span className="mt-1 block text-xs font-bold text-ink">{invite.teamIds.length}</span></span>
+                  </span>
+                </button>
               ))}
-              {filteredInvites.length === 0 && emptyTableRow("No pending invites match this view", 4)}
-            </>
+            </div>
           ) : (
-            <>
-                {filteredUsers.map((user) => (
-                  <tr
-                    key={user.id}
-                    className={tableRowClass(selectedUser?.id === user.id)}
-                    onClick={() => {
-                      setSelectedUserId(user.id);
-                      setSelectedInviteId(null);
-                    }}
-                  >
-                    <td data-label="Member" className="px-5 py-5">
-                      <div className="flex min-w-0 items-center gap-4">
-                        <EntityAvatar name={user.displayName} imageUrl={user.avatarUrl} />
-                        <div className="min-w-0">
-                          <div className="truncate text-lg font-extrabold text-ink">{user.displayName}</div>
-                          <DetailLine icon={Mail}>{user.email}</DetailLine>
-                          {user.phone && <DetailLine icon={Phone}>{user.phone}</DetailLine>}
-                        </div>
-                      </div>
-                    </td>
-                    <td data-label="Access" className="px-5 py-5">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge tone={user.role === "staff" ? "neutral" : "info"}>{roleLabel(user.role)}</Badge>
-                        {!user.isActive && <Badge tone="danger">Inactive</Badge>}
-                      </div>
-                    </td>
-                    <td data-label="Details" className="px-5 py-5">
-                      <div className="grid gap-2">
-                        <DetailLine icon={Building2}>{pluralize(user.hubIds.length, "hub")}</DetailLine>
-                        <DetailLine icon={Users}>{pluralize(user.teamIds.length, "team")}</DetailLine>
-                        <DetailLine icon={MapPin}>{user.address || user.title || "No location set"}</DetailLine>
-                      </div>
-                    </td>
-                    <td data-label="Action" className="px-5 py-5 text-right">
-                      <ViewButton
-                        onClick={() => {
-                          setSelectedUserId(user.id);
-                          setSelectedInviteId(null);
-                        }}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              {filteredUsers.length === 0 && emptyTableRow("No members match this view", 4)}
-            </>
-          )}
-        </DirectoryTable>
-      </DirectoryLayout>
+            <WorkspaceEmptyState icon={Inbox} title="No pending invitations" description="No invitations match the current filter and search." />
+          )
+        ) : filteredUsers.length > 0 ? (
+          <div className="grid gap-3 xl:grid-cols-2">
+            {filteredUsers.map((user) => (
+              <button
+                key={user.id}
+                type="button"
+                aria-label={`Open ${user.displayName} member details`}
+                onClick={() => {
+                  setSelectedUserId(user.id);
+                  setSelectedInviteId(null);
+                }}
+                className={`group min-w-0 rounded-2xl border p-4 text-left transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-[#b8c4d2] hover:shadow-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 sm:p-5 ${selectedUser?.id === user.id ? "border-teal/40 bg-teal/[0.035]" : "border-line bg-[#fcfdff]"}`}
+              >
+                <span className="flex min-w-0 items-start gap-3.5">
+                  <EntityAvatar name={user.displayName} imageUrl={user.avatarUrl} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex min-w-0 items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block truncate text-base font-extrabold text-ink group-hover:text-teal sm:text-lg">{user.displayName}</span>
+                        <span className="mt-1 flex min-w-0 items-center gap-2 text-sm font-medium text-muted"><Mail className="size-3.5 shrink-0" aria-hidden /><span className="truncate">{user.email}</span></span>
+                      </span>
+                      <ChevronRight className="mt-1 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
+                    </span>
+                    <span className="mt-3 flex flex-wrap gap-2">
+                      <Badge tone={user.role === "staff" ? "neutral" : "info"}>{roleLabel(user.role)}</Badge>
+                      <Badge tone={user.isActive ? "good" : "danger"}>{user.isActive ? "Active" : "Inactive"}</Badge>
+                    </span>
+                  </span>
+                </span>
+                <span className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 border-t border-line/70 pt-4">
+                  <span className="min-w-0"><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Role / location</span><span className="mt-1 block truncate text-xs font-bold text-ink">{user.title || user.address || "No profile detail"}</span></span>
+                  <span className="min-w-12"><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Hubs</span><span className="mt-1 block text-xs font-bold text-ink">{user.hubIds.length}</span></span>
+                  <span className="min-w-12"><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Teams</span><span className="mt-1 block text-xs font-bold text-ink">{user.teamIds.length}</span></span>
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <WorkspaceEmptyState icon={Users} title="No members found" description="No members match the current filter and search." />
+        )}
+      </ManagementWorkspace>
 
       <SideDrawer
         open={Boolean(selectedUser || selectedInvite)}
@@ -1822,8 +1788,8 @@ function StructureMap({
                             aria-label={`Open ${team.name} team details`}
                           >
                             <span className="flex min-w-0 items-center gap-3">
-                              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-teal/10 text-teal">
-                                <Users className="size-4" aria-hidden />
+                              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-teal/10 text-teal">
+                                <Users className="size-3.5" aria-hidden />
                               </span>
                               <span className="min-w-0">
                                 <span className="block truncate text-sm font-extrabold text-ink group-hover:text-teal sm:text-base">{team.name}</span>
@@ -1867,7 +1833,7 @@ function StructureAccessRow({
   compact?: boolean;
 }) {
   return (
-    <div className={`grid gap-3 border-line/80 bg-white ${compact ? "rounded-xl border p-3" : "border-b px-4 py-4 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center sm:px-6"}`}>
+    <div className={`grid gap-3 border-line/80 bg-white ${compact ? "structure-access-branch rounded-xl border p-3" : "border-b px-4 py-4 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center sm:px-6"}`}>
       <div className="min-w-0">
         <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">{label}</p>
         <p className="mt-1 text-xs font-semibold text-muted">{description}</p>
@@ -1877,7 +1843,7 @@ function StructureAccessRow({
   );
 }
 
-function PersonInitials({ person }: { person: AppUser }) {
+function PersonInitials({ person, compact = false }: { person: AppUser; compact?: boolean }) {
   const initials = person.displayName
     .split(" ")
     .filter(Boolean)
@@ -1888,11 +1854,11 @@ function PersonInitials({ person }: { person: AppUser }) {
   return person.avatarUrl ? (
     <span
       aria-hidden
-      className="grid size-8 shrink-0 rounded-full bg-cover bg-center ring-1 ring-line"
+      className={`grid shrink-0 rounded-full bg-cover bg-center ring-1 ring-line ${compact ? "size-7" : "size-8"}`}
       style={{ backgroundImage: `url(${person.avatarUrl})` }}
     />
   ) : (
-    <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-full bg-shell text-[10px] font-extrabold text-muted ring-1 ring-line/70">
+    <span aria-hidden className={`grid shrink-0 place-items-center rounded-full bg-shell font-extrabold text-muted ring-1 ring-line/70 ${compact ? "size-7 text-[9px]" : "size-8 text-[10px]"}`}>
       {initials}
     </span>
   );
@@ -1908,8 +1874,8 @@ function RelationshipPeoplePreview({ people, emptyLabel }: { people: AppUser[]; 
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={pluralize(people.length, "connected person", "connected people")}>
       {visiblePeople.map((person) => (
-        <span key={person.id} className="inline-flex min-h-8 max-w-full items-center gap-2 rounded-full border border-line bg-white px-2 text-xs font-bold text-ink shadow-sm">
-          <PersonInitials person={person} />
+        <span key={person.id} className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-full border border-line bg-white py-0.5 pl-0.5 pr-2.5 text-xs font-bold text-ink shadow-sm">
+          <PersonInitials person={person} compact />
           <span className="max-w-[132px] truncate">{person.displayName}</span>
         </span>
       ))}
@@ -2218,7 +2184,7 @@ function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction:
       return true;
     })
     .filter((announcement) => matchesQuery([announcement.title, announcement.body, scopeLabel(announcement.scope), announcement.authorName], query));
-  const railItems: Array<RailItem<AnnouncementView>> = [
+  const filters: Array<WorkspaceFilterItem<AnnouncementView>> = [
     { id: "all", label: "All Posts", count: data.announcements.length, icon: Megaphone },
     { id: "pinned", label: "Pinned", count: data.announcements.filter((item) => item.isPinned).length, icon: Pin },
     { id: "orgWide", label: "Org Wide", count: data.announcements.filter((item) => item.scope === "orgWide").length, icon: Bell },
@@ -2233,13 +2199,21 @@ function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction:
 
   return (
     <>
-      <DirectoryLayout
+      <ManagementWorkspace
+        eyebrow="Communications"
         title={`Announcements for ${data.selectedOrg?.name ?? "League Hub"}`}
-        description="Create, pin, and maintain the posts admins use to communicate updates."
+        description="Plan and maintain league communications in a readable feed, with priority and audience visible before you open a post."
+        icon={Megaphone}
+        metrics={[
+          { label: "Published", value: data.announcements.length },
+          { label: "Pinned", value: data.announcements.filter((item) => item.isPinned).length },
+          { label: "Org wide", value: data.announcements.filter((item) => item.scope === "orgWide").length },
+          { label: "Targeted", value: data.announcements.filter((item) => item.scope !== "orgWide").length }
+        ]}
         action={<ToolbarActionButton icon={Megaphone} onClick={() => setCreateOpen(true)}>New Announcement</ToolbarActionButton>}
-        railItems={railItems}
-        selectedRailId={view}
-        onSelectRail={(nextView) => {
+        filters={filters}
+        selectedFilterId={view}
+        onSelectFilter={(nextView) => {
           setView(nextView);
           setQuery("");
         }}
@@ -2249,38 +2223,40 @@ function AnnouncementsSection({ data, runAction }: { data: AdminData; runAction:
         searchValue={query}
         onSearchChange={setQuery}
       >
-        <DirectoryTable countLabel={pluralize(filteredAnnouncements.length, "announcement")} headers={["Announcement", "Scope", "Details", "Action"]}>
-          {filteredAnnouncements.map((announcement) => (
-            <tr
-              key={announcement.id}
-              className={tableRowClass(selectedAnnouncement?.id === announcement.id)}
-              onClick={() => setSelectedId(announcement.id)}
-            >
-              <td data-label="Announcement" className="px-5 py-5">
-                <div className="flex min-w-0 items-center gap-4">
-                  <EntityAvatar name={announcement.title} />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-lg font-extrabold text-ink">{announcement.title}</span>
-                      {announcement.isPinned && <Badge tone="warning">Pinned</Badge>}
-                    </div>
-                    <p className="mt-1 max-w-xl truncate text-sm font-semibold text-muted">{announcement.body}</p>
-                  </div>
-                </div>
-              </td>
-              <td data-label="Scope" className="px-5 py-5"><Badge tone={announcement.scope === "orgWide" ? "info" : "neutral"}>{scopeLabel(announcement.scope)}</Badge></td>
-              <td data-label="Details" className="px-5 py-5">
-                <div className="grid gap-2">
-                  <DetailLine icon={CalendarDays}><RelativeTime value={announcement.createdAt} /></DetailLine>
-                  <DetailLine icon={Shield}>{announcement.authorName}</DetailLine>
-                </div>
-              </td>
-              <td data-label="Action" className="px-5 py-5 text-right"><ViewButton onClick={() => setSelectedId(announcement.id)} /></td>
-            </tr>
-          ))}
-          {filteredAnnouncements.length === 0 && emptyTableRow("No announcements match this view", 4)}
-        </DirectoryTable>
-      </DirectoryLayout>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-extrabold text-ink">{pluralize(filteredAnnouncements.length, "announcement")}</p>
+          <p className="hidden text-xs font-semibold text-muted sm:block">Newest communications remain easy to scan</p>
+        </div>
+        {filteredAnnouncements.length > 0 ? (
+          <div className="grid gap-3 xl:grid-cols-2">
+            {filteredAnnouncements.map((announcement) => (
+              <button
+                key={announcement.id}
+                type="button"
+                aria-label={`Open ${announcement.title} announcement`}
+                onClick={() => setSelectedId(announcement.id)}
+                className={`group flex min-h-[220px] min-w-0 flex-col rounded-2xl border p-4 text-left transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-[#b8c4d2] hover:shadow-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 sm:p-5 ${selectedAnnouncement?.id === announcement.id ? "border-teal/40 bg-teal/[0.035]" : "border-line bg-[#fcfdff]"}`}
+              >
+                <span className="flex items-start justify-between gap-3">
+                  <span className="flex flex-wrap gap-2">
+                    {announcement.isPinned && <Badge tone="warning"><Pin className="size-3" aria-hidden />Pinned</Badge>}
+                    <Badge tone={announcement.scope === "orgWide" ? "info" : "neutral"}>{scopeLabel(announcement.scope)}</Badge>
+                  </span>
+                  <ChevronRight className="mt-1 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
+                </span>
+                <span className="mt-4 block text-lg font-extrabold leading-snug tracking-[-0.02em] text-ink group-hover:text-teal sm:text-xl">{announcement.title}</span>
+                <span className="workspace-card-copy mt-2 block text-sm font-medium leading-6 text-muted">{announcement.body}</span>
+                <span className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line/70 pt-4 text-xs font-semibold text-muted">
+                  <span className="inline-flex min-w-0 items-center gap-2"><Shield className="size-3.5 shrink-0" aria-hidden /><span className="truncate">{announcement.authorName}</span></span>
+                  <span className="inline-flex items-center gap-2"><Clock3 className="size-3.5" aria-hidden /><RelativeTime value={announcement.createdAt} /></span>
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <WorkspaceEmptyState icon={Megaphone} title="No announcements found" description="No announcements match the current filter and search." />
+        )}
+      </ManagementWorkspace>
       <AnnouncementCreateDrawer open={createOpen} runAction={runAction} onClose={() => setCreateOpen(false)} />
       <AnnouncementDrawer announcement={selectedAnnouncement} onClose={() => setSelectedId(null)} runAction={runAction} />
     </>
@@ -2417,7 +2393,7 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
       return true;
     })
     .filter((policy) => matchesQuery([policy.name, policy.category, policy.uploadedByName, policy.fileType], query));
-  const railItems: Array<RailItem<PolicyView>> = [
+  const filters: Array<WorkspaceFilterItem<PolicyView>> = [
     { id: "all", label: "All Policies", count: data.policies.length, icon: FileText },
     { id: "general", label: "General", count: data.policies.filter((policy) => policy.category.toLowerCase() === "general").length, icon: FolderOpen },
     { id: "versioned", label: "Versioned", count: data.policies.filter((policy) => policy.versions.length > 0).length, icon: Layers },
@@ -2432,13 +2408,21 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
 
   return (
     <>
-      <DirectoryLayout
+      <ManagementWorkspace
+        eyebrow="Document library"
         title={`Policies for ${data.selectedOrg?.name ?? "League Hub"}`}
-        description="Upload policies, review file details, and maintain versions from a focused document list."
+        description="Browse policies as a document library with category, scope, file details, and version history visible before opening a record."
+        icon={FileText}
+        metrics={[
+          { label: "Documents", value: data.policies.length },
+          { label: "Categories", value: new Set(data.policies.map((policy) => policy.category.toLowerCase())).size },
+          { label: "Previous versions", value: data.policies.reduce((total, policy) => total + policy.versions.length, 0) },
+          { label: "Scoped", value: data.policies.filter((policy) => Boolean(policy.leagueId || policy.hubId || policy.teamId)).length }
+        ]}
         action={<ToolbarActionButton icon={UploadCloud} onClick={() => setCreateOpen(true)}>New Policy</ToolbarActionButton>}
-        railItems={railItems}
-        selectedRailId={view}
-        onSelectRail={(nextView) => {
+        filters={filters}
+        selectedFilterId={view}
+        onSelectFilter={(nextView) => {
           setView(nextView);
           setQuery("");
         }}
@@ -2448,36 +2432,49 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
         searchValue={query}
         onSearchChange={setQuery}
       >
-        <DirectoryTable countLabel={pluralize(filteredPolicies.length, "policy", "policies")} headers={["Policy", "Category", "Details", "Action"]}>
-          {filteredPolicies.map((policy) => (
-            <tr
-              key={policy.id}
-              className={tableRowClass(selectedPolicy?.id === policy.id)}
-              onClick={() => setSelectedPolicyId(policy.id)}
-            >
-              <td data-label="Policy" className="px-5 py-5">
-                <div className="flex min-w-0 items-center gap-4">
-                  <EntityAvatar name={policy.name} />
-                  <div className="min-w-0">
-                    <div className="truncate text-lg font-extrabold text-ink">{policy.name}</div>
-                    <DetailLine icon={FileText}>{policy.fileType || "File"}</DetailLine>
-                  </div>
-                </div>
-              </td>
-              <td data-label="Category" className="px-5 py-5"><Badge tone="neutral">{policy.category}</Badge></td>
-              <td data-label="Details" className="px-5 py-5">
-                <div className="grid gap-2">
-                  <DetailLine icon={UploadCloud}>{bytesLabel(policy.fileSize)}</DetailLine>
-                  <DetailLine icon={Layers}>{pluralize(policy.versions.length, "version")}</DetailLine>
-                  <DetailLine icon={CalendarDays}>Updated <RelativeTime value={policy.updatedAt} /></DetailLine>
-                </div>
-              </td>
-              <td data-label="Action" className="px-5 py-5 text-right"><ViewButton onClick={() => setSelectedPolicyId(policy.id)} /></td>
-            </tr>
-          ))}
-          {filteredPolicies.length === 0 && emptyTableRow("No policies match this view", 4)}
-        </DirectoryTable>
-      </DirectoryLayout>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-extrabold text-ink">{pluralize(filteredPolicies.length, "policy", "policies")}</p>
+          <p className="hidden text-xs font-semibold text-muted sm:block">Select a document to manage its file or version history</p>
+        </div>
+        {filteredPolicies.length > 0 ? (
+          <div className="grid gap-3 xl:grid-cols-2">
+            {filteredPolicies.map((policy) => {
+              const scope = policy.teamId ? "Team scoped" : policy.hubId ? "Hub scoped" : policy.leagueId ? "League scoped" : "Organization wide";
+              const fileType = policy.fileType.split("/").pop()?.toUpperCase() || "FILE";
+              return (
+                <button
+                  key={policy.id}
+                  type="button"
+                  aria-label={`Open ${policy.name} policy`}
+                  onClick={() => setSelectedPolicyId(policy.id)}
+                  className={`group min-w-0 rounded-2xl border p-4 text-left transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-[#b8c4d2] hover:shadow-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 sm:p-5 ${selectedPolicy?.id === policy.id ? "border-teal/40 bg-teal/[0.035]" : "border-line bg-[#fcfdff]"}`}
+                >
+                  <span className="flex min-w-0 items-start gap-3.5">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-teal/10 text-teal ring-1 ring-teal/10"><FileText className="size-5" aria-hidden /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block truncate text-base font-extrabold text-ink group-hover:text-teal sm:text-lg">{policy.name}</span>
+                          <span className="mt-1 block truncate text-sm font-medium text-muted">Uploaded by {policy.uploadedByName}</span>
+                        </span>
+                        <ChevronRight className="mt-1 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
+                      </span>
+                      <span className="mt-3 flex flex-wrap gap-2"><Badge tone="neutral">{policy.category}</Badge><Badge tone={scope === "Organization wide" ? "info" : "neutral"}>{scope}</Badge></span>
+                    </span>
+                  </span>
+                  <span className="mt-4 grid grid-cols-3 gap-2 border-t border-line/70 pt-4">
+                    <span><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">File</span><span className="mt-1 block truncate text-xs font-bold text-ink">{fileType} · {bytesLabel(policy.fileSize)}</span></span>
+                    <span><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">History</span><span className="mt-1 block text-xs font-bold text-ink">{pluralize(policy.versions.length, "version")}</span></span>
+                    <span><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Updated</span><span className="mt-1 block text-xs font-bold text-ink"><RelativeTime value={policy.updatedAt} /></span></span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <WorkspaceEmptyState icon={FolderOpen} title="No policies found" description="No policies match the current filter and search." />
+        )}
+      </ManagementWorkspace>
       <PolicyCreateDrawer open={createOpen} selectedOrgId={selectedOrgId} runAction={runAction} onClose={() => setCreateOpen(false)} />
       <PolicyDrawer policy={selectedPolicy} selectedOrgId={selectedOrgId} onClose={() => setSelectedPolicyId(null)} runAction={runAction} />
     </>
