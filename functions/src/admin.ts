@@ -8,6 +8,7 @@ import {
   UserRole,
   assignableRoles,
   canAccessOrg,
+  canCreateLeague,
   canManageTarget,
   isAdminRole,
   isUserRole,
@@ -525,11 +526,14 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
 });
 
 export const adminUpsertLeague = onCall(adminRuntime, async (request) => {
-  return withAdmin(request, "adminUpsertLeague", async (_actor, data, orgId) => {
+  return withAdmin(request, "adminUpsertLeague", async (actor, data, orgId) => {
     const league = objectValue(data.league, "league");
     const leagueId = optionalString(league.id) ?? orgRef(orgId).collection("leagues").doc().id;
     const leagueRef = orgRef(orgId).collection("leagues").doc(leagueId);
     const exists = (await leagueRef.get()).exists;
+    if (!exists && !canCreateLeague(actor)) {
+      throw new HttpsError("permission-denied", "Only platform owners can create leagues.");
+    }
     const payload = {
       orgId,
       name: requiredString(league.name, "league.name"),

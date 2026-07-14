@@ -48,6 +48,7 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User as F
 import { collection, doc, getDoc } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { auth, db, demoMode, firebaseProjectId, hasFirebaseConfig, storage } from "@/lib/firebase";
 import { formatAdminActionError } from "@/lib/action-errors";
 import { callAdmin, type CallableName } from "@/lib/callables";
@@ -325,7 +326,7 @@ export function AdminApp() {
       </aside>
 
       <div className="min-w-0 lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 backdrop-blur-xl">
+        <header data-admin-shell-header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 backdrop-blur-xl">
           <div className="flex min-h-[72px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-navy text-white lg:hidden">
@@ -422,7 +423,7 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
     case "people":
       return <PeopleSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "structure":
-      return <StructureSection data={data} runAction={runAction} />;
+      return <StructureSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "announcements":
       return <AnnouncementsSection data={data} runAction={runAction} />;
     case "policies":
@@ -1052,10 +1053,25 @@ function SideDrawer({
 }) {
   const dialogRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
+  const [headerOffset, setHeaderOffset] = useState(() => {
+    if (typeof document === "undefined") return 0;
+    return Math.max(0, Math.ceil(document.querySelector<HTMLElement>("[data-admin-shell-header]")?.getBoundingClientRect().bottom ?? 0));
+  });
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const syncHeaderOffset = () => {
+      const header = document.querySelector<HTMLElement>("[data-admin-shell-header]");
+      setHeaderOffset(Math.max(0, Math.ceil(header?.getBoundingClientRect().bottom ?? 0)));
+    };
+    syncHeaderOffset();
+    window.addEventListener("resize", syncHeaderOffset);
+    return () => window.removeEventListener("resize", syncHeaderOffset);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -1095,19 +1111,19 @@ function SideDrawer({
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleKeyDown);
-    const focusFrame = window.requestAnimationFrame(() => getFocusableElements()[0]?.focus());
+    const focusFrame = window.requestAnimationFrame(() => getFocusableElements()[0]?.focus({ preventScroll: true }));
     return () => {
       window.cancelAnimationFrame(focusFrame);
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
-      if (previousFocus?.isConnected) previousFocus.focus();
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-stretch">
+  return createPortal(
+    <div className="fixed inset-x-0 bottom-0 z-50 flex items-end sm:items-stretch" style={{ top: headerOffset }}>
       <button
         type="button"
         aria-hidden="true"
@@ -1120,9 +1136,9 @@ function SideDrawer({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="drawer-sheet relative ml-auto flex max-h-[calc(100dvh-0.75rem)] w-full max-w-[680px] flex-col overflow-hidden rounded-t-[28px] border border-line bg-white shadow-2xl sm:h-full sm:max-h-none sm:rounded-none sm:rounded-l-[28px] sm:border-y-0 sm:border-r-0"
+        className="drawer-sheet relative ml-auto flex h-full max-h-full w-full max-w-[680px] flex-col overflow-hidden rounded-t-[28px] border border-line bg-white shadow-2xl sm:rounded-none sm:rounded-l-[28px] sm:border-y-0 sm:border-r-0"
       >
-        <div className="border-b border-line/80 bg-white/95 px-5 pb-5 pt-3 backdrop-blur-sm sm:px-6 sm:py-5">
+        <div className="shrink-0 border-b border-line/80 bg-white/95 px-5 pb-5 pt-3 backdrop-blur-sm sm:px-6 sm:py-5">
           <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line sm:hidden" aria-hidden />
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 gap-3">
@@ -1139,15 +1155,89 @@ function SideDrawer({
             </Button>
           </div>
         </div>
-        <div className="thin-scrollbar flex-1 overflow-y-auto bg-[#f8fafc]/60 px-5 py-5 sm:px-6 sm:py-6">
+        <div data-testid="drawer-scroll-region" className="thin-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f8fafc]/60 px-5 py-5 sm:px-6 sm:py-6">
           <div className="grid gap-6">{children}</div>
         </div>
         {footer && (
-          <div className="flex flex-col-reverse gap-3 border-t border-line/80 bg-white px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end sm:px-6 sm:py-4">
+          <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-line/80 bg-white px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end sm:px-6 sm:py-4">
             {footer}
           </div>
         )}
       </aside>
+    </div>,
+    document.body
+  );
+}
+
+function DrawerEditActions({
+  entityKey,
+  entityLabel,
+  onSave,
+  onDelete
+}: {
+  entityKey: string;
+  entityLabel: string;
+  onSave: () => Promise<void>;
+  onDelete: () => Promise<void>;
+}) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    setConfirmingDelete(false);
+    setSaving(false);
+    setDeleting(false);
+  }, [entityKey]);
+
+  async function saveChanges() {
+    setSaving(true);
+    try {
+      await onSave();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  if (confirmingDelete) {
+    return (
+      <div className="w-full rounded-2xl border border-coral/25 bg-coral/[0.06] p-3.5 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div>
+          <p className="text-sm font-extrabold text-[#912f2a]">Delete this {entityLabel}?</p>
+          <p className="mt-0.5 text-xs font-semibold text-[#a14a45]">This action can’t be undone.</p>
+        </div>
+        <div className="mt-3 flex gap-2 sm:mt-0 sm:shrink-0">
+          <Button variant="secondary" className="flex-1 sm:flex-none" disabled={deleting} onClick={() => setConfirmingDelete(false)}>Cancel</Button>
+          <Button variant="danger" className="flex-1 sm:flex-none" disabled={deleting} onClick={confirmDelete}>
+            <Trash2 className="size-4" aria-hidden />{deleting ? "Deleting…" : "Confirm delete"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <Button
+        variant="secondary"
+        className="border-coral/25 text-[#a93630] hover:border-coral/40 hover:bg-coral/[0.05]"
+        disabled={saving}
+        onClick={() => setConfirmingDelete(true)}
+      >
+        <Trash2 className="size-4" aria-hidden />Delete {entityLabel}
+      </Button>
+      <Button disabled={saving} onClick={saveChanges}>
+        <Save className="size-4" aria-hidden />{saving ? "Saving…" : "Save changes"}
+      </Button>
     </div>
   );
 }
@@ -1472,7 +1562,7 @@ function matchesPersonQuery(person: AppUser, query: string) {
   return matchesQuery([person.displayName, person.email, roleLabel(person.role)], query);
 }
 
-function StructureSection({ data, runAction }: { data: AdminData; runAction: ActionRunner }) {
+function StructureSection({ data, currentUser, runAction }: { data: AdminData; currentUser: AppUser; runAction: ActionRunner }) {
   const [selection, setSelection] = useState<StructureSelection | null>(null);
   const [query, setQuery] = useState("");
   const [createRequest, setCreateRequest] = useState<StructureCreateRequest | null>(null);
@@ -1528,6 +1618,7 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
     data.leagues.flatMap((league) => relationships.peopleForLeague(league.id).map((person) => person.id))
   ).size, [data.leagues, relationships]);
   const allHubsCollapsed = data.hubs.length > 0 && data.hubs.every((hub) => collapsedHubIds.has(hub.id));
+  const canCreateLeague = currentUser.role === "platformOwner";
 
   function toggleHub(hubId: string) {
     setCollapsedHubIds((current) => {
@@ -1556,8 +1647,8 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
                 See how every league, hub, team, and person fits together—then manage each record without losing its context.
               </p>
             </div>
-            <div className="grid w-full gap-2 sm:grid-cols-3 xl:w-auto">
-              <StructureAddButton label="Add league" onClick={() => setCreateRequest({ type: "league" })} primary />
+            <div className={`grid w-full gap-2 ${canCreateLeague ? "sm:grid-cols-3" : "sm:grid-cols-2"} xl:w-auto`}>
+              {canCreateLeague && <StructureAddButton label="Add league" onClick={() => setCreateRequest({ type: "league" })} primary />}
               <StructureAddButton
                 label="Add hub"
                 onClick={() => setCreateRequest({ type: "hub", leagueId: data.leagues.length === 1 ? data.leagues[0].id : undefined })}
@@ -1617,7 +1708,7 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
         </section>
       </div>
       <StructureEditorDrawer selection={selection} data={data} relationships={relationships} onClose={() => setSelection(null)} runAction={runAction} />
-      <StructureCreateDrawer request={createRequest} data={data} runAction={runAction} onClose={() => setCreateRequest(null)} />
+      <StructureCreateDrawer request={createRequest} data={data} canCreateLeague={canCreateLeague} runAction={runAction} onClose={() => setCreateRequest(null)} />
     </>
   );
 }
@@ -1998,16 +2089,17 @@ function StructureEditorDrawer({
 
   async function deleteSelection() {
     if (!selection) return;
+    let result: ActionResult | undefined;
     if (selection.type === "league") {
-      await runAction("adminDeleteLeague", { leagueId: selection.league.id });
+      result = await runAction("adminDeleteLeague", { leagueId: selection.league.id });
     }
     if (selection.type === "hub") {
-      await runAction("adminDeleteHub", { leagueId: selection.league.id, hubId: selection.hub.id });
+      result = await runAction("adminDeleteHub", { leagueId: selection.league.id, hubId: selection.hub.id });
     }
     if (selection.type === "team") {
-      await runAction("adminDeleteTeam", { leagueId: selection.league.id, hubId: selection.hub.id, teamId: selection.team.id });
+      result = await runAction("adminDeleteTeam", { leagueId: selection.league.id, hubId: selection.hub.id, teamId: selection.team.id });
     }
-    onClose();
+    if (result?.ok) onClose();
   }
 
   const title =
@@ -2041,10 +2133,12 @@ function StructureEditorDrawer({
       icon={Icon}
       onClose={onClose}
       footer={
-        <>
-          <Button variant="secondary" onClick={save}><Save className="size-4" aria-hidden />Save</Button>
-          <Button variant="danger" onClick={deleteSelection}><Trash2 className="size-4" aria-hidden />Delete</Button>
-        </>
+        <DrawerEditActions
+          entityKey={selection ? `${selection.type}:${selection.type === "league" ? selection.league.id : selection.type === "hub" ? selection.hub.id : selection.team.id}` : "structure"}
+          entityLabel={selection?.type ?? "record"}
+          onSave={save}
+          onDelete={deleteSelection}
+        />
       }
     >
       {selection && (
@@ -2081,11 +2175,13 @@ function StructureEditorDrawer({
 function StructureCreateDrawer({
   request,
   data,
+  canCreateLeague,
   runAction,
   onClose
 }: {
   request: StructureCreateRequest | null;
   data: AdminData;
+  canCreateLeague: boolean;
   runAction: ActionRunner;
   onClose: () => void;
 }) {
@@ -2109,6 +2205,7 @@ function StructureCreateDrawer({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (type === "league") {
+      if (!canCreateLeague) return;
       const result = await runAction("adminUpsertLeague", { league: { name: leagueName, abbreviation: leagueAbbrev, iconName: "league" } });
       if (!result.ok) return;
       setLeagueName("");
@@ -2142,7 +2239,7 @@ function StructureCreateDrawer({
       : "Connect a new team to its parent hub and league.";
 
   return (
-    <SideDrawer open={Boolean(request)} title={title} description={description} icon={Building2} onClose={onClose}>
+    <SideDrawer open={Boolean(request && (request.type !== "league" || canCreateLeague))} title={title} description={description} icon={Building2} onClose={onClose}>
       <form className="grid gap-4" onSubmit={submit}>
         {type === "league" && (
           <>
@@ -2344,8 +2441,8 @@ function AnnouncementDrawer({
 
   async function remove() {
     if (!announcement) return;
-    await runAction("adminDeleteAnnouncement", { announcementId: announcement.id });
-    onClose();
+    const result = await runAction("adminDeleteAnnouncement", { announcementId: announcement.id });
+    if (result.ok) onClose();
   }
 
   return (
@@ -2356,10 +2453,12 @@ function AnnouncementDrawer({
       icon={Megaphone}
       onClose={onClose}
       footer={
-        <>
-          <Button variant="secondary" onClick={save}><Save className="size-4" aria-hidden />Save</Button>
-          <Button variant="danger" onClick={remove}><Trash2 className="size-4" aria-hidden />Delete</Button>
-        </>
+        <DrawerEditActions
+          entityKey={announcement?.id ?? "announcement"}
+          entityLabel="announcement"
+          onSave={save}
+          onDelete={remove}
+        />
       }
     >
       {announcement && (

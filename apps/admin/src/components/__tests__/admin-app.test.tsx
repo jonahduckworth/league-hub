@@ -44,7 +44,7 @@ vi.mock("firebase/storage", () => ({
 }));
 
 import { AdminApp } from "../admin-app";
-import { demoData } from "@/lib/demo-data";
+import { demoData, demoUser } from "@/lib/demo-data";
 
 const secondOrganization = {
   ...demoData.orgs[0],
@@ -173,6 +173,9 @@ describe("AdminApp operations shell", () => {
 
     const drawer = await screen.findByRole("dialog", { name: "Avery Admin" });
     expect(drawer.getAttribute("aria-modal")).toBe("true");
+    expect(drawer.parentElement?.parentElement).toBe(document.body);
+    expect(screen.getByTestId("drawer-scroll-region").className).toContain("min-h-0");
+    expect(screen.getByTestId("drawer-scroll-region").className).toContain("overflow-y-auto");
     expect(within(drawer).getByRole("heading", { name: "Avery Admin" })).toBeTruthy();
     expect(within(drawer).getByText("403-555-0142")).toBeTruthy();
     expect(within(drawer).getByText("League administrator")).toBeTruthy();
@@ -196,7 +199,12 @@ describe("AdminApp operations shell", () => {
     expect(within(announcementFilters).getByRole("button", { name: /All Posts/ }).getAttribute("aria-pressed")).toBe("true");
     const announcementButton = screen.getByRole("button", { name: "Open Schedule window posted announcement" });
     fireEvent.click(announcementButton);
-    expect(await screen.findByRole("dialog", { name: "Schedule window posted" })).toBeTruthy();
+    const announcementDrawer = await screen.findByRole("dialog", { name: "Schedule window posted" });
+    expect(within(announcementDrawer).getByRole("button", { name: "Save changes" })).toBeTruthy();
+    fireEvent.click(within(announcementDrawer).getByRole("button", { name: "Delete announcement" }));
+    expect(within(announcementDrawer).getByText("Delete this announcement?")).toBeTruthy();
+    expect(within(announcementDrawer).getByText("This action can’t be undone.")).toBeTruthy();
+    fireEvent.click(within(announcementDrawer).getByRole("button", { name: "Cancel" }));
     fireEvent.keyDown(window, { key: "Escape" });
 
     fireEvent.click(screen.getAllByRole("button", { name: "Policies" })[0]);
@@ -204,7 +212,8 @@ describe("AdminApp operations shell", () => {
     const policyFilters = screen.getByRole("group", { name: "Policies for Prairie Hockey League filters" });
     expect(within(policyFilters).getByRole("button", { name: /All Policies/ }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Open Concussion Protocol policy" }));
-    expect(await screen.findByRole("dialog", { name: "Concussion Protocol" })).toBeTruthy();
+    const policyDrawer = await screen.findByRole("dialog", { name: "Concussion Protocol" });
+    expect(within(policyDrawer).getByTestId("drawer-scroll-region").className).toContain("overscroll-contain");
   });
 
   it("shows, searches, and expands the connected league-to-hub-to-team structure with its people", async () => {
@@ -214,6 +223,7 @@ describe("AdminApp operations shell", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Structure" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Organization structure" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 3, name: "Connected structure map" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add league" })).toBeTruthy();
     expect(screen.getByText("Winter Hockey")).toBeTruthy();
     expect(screen.getByText("Calgary")).toBeTruthy();
     expect(screen.getByText("Calgary U11 AA")).toBeTruthy();
@@ -242,5 +252,25 @@ describe("AdminApp operations shell", () => {
     expect(within(drawer).getByText("People (2)")).toBeTruthy();
     expect(within(drawer).getByText("Avery Admin")).toBeTruthy();
     expect(within(drawer).getByText("Morgan Manager")).toBeTruthy();
+    expect(within(drawer).getByRole("button", { name: "Save changes" })).toBeTruthy();
+    fireEvent.click(within(drawer).getByRole("button", { name: "Delete team" }));
+    expect(within(drawer).getByText("Delete this team?")).toBeTruthy();
+  });
+
+  it("only exposes league creation to platform owners", async () => {
+    const originalRole = demoUser.role;
+    demoUser.role = "superAdmin";
+    window.history.replaceState(null, "", "/admin#structure");
+
+    try {
+      render(<AdminApp />);
+      expect(await screen.findByRole("heading", { level: 1, name: "Structure" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Add league" })).toBeNull();
+      expect(screen.getAllByRole("button", { name: "Add hub" }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("button", { name: "Add team" }).length).toBeGreaterThan(0);
+    } finally {
+      cleanup();
+      demoUser.role = originalRole;
+    }
   });
 });

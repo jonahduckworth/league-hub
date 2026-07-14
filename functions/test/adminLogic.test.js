@@ -3,6 +3,7 @@ const test = require("node:test");
 const {
   assignableRoles,
   canAccessOrg,
+  canCreateLeague,
   canManageTarget,
   normalizeStringArray,
   outranks,
@@ -13,6 +14,14 @@ test("platform owners and super admins can access the admin org scope correctly"
   assert.equal(canAccessOrg({ id: "admin", role: "superAdmin", orgId: "org-1", isActive: true }, "org-1"), true);
   assert.equal(canAccessOrg({ id: "admin", role: "superAdmin", orgId: "org-1", isActive: true }, "org-2"), false);
   assert.equal(canAccessOrg({ id: "manager", role: "managerAdmin", orgId: "org-1", isActive: true }, "org-1"), false);
+});
+
+test("only active platform owners can create leagues", () => {
+  assert.equal(canCreateLeague({ id: "owner", role: "platformOwner", isActive: true }), true);
+  assert.equal(canCreateLeague({ id: "owner", role: "platformOwner", isActive: false }), false);
+  assert.equal(canCreateLeague({ id: "admin", role: "superAdmin", isActive: true }), false);
+  assert.equal(canCreateLeague({ id: "manager", role: "managerAdmin", isActive: true }), false);
+  assert.equal(canCreateLeague({ id: "staff", role: "staff", isActive: true }), false);
 });
 
 test("role hierarchy matches mobile permission behavior", () => {

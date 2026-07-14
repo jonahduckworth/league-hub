@@ -34,6 +34,10 @@ export function canAccessOrg(actor: ActorLike, orgId: string): boolean {
   return actor.orgId === orgId;
 }
 
+export function canCreateLeague(actor: ActorLike): boolean {
+  return actor.isActive === true && actor.role === "platformOwner";
+}
+
 export function outranks(actorRole: unknown, targetRole: unknown): boolean {
   if (!isUserRole(actorRole) || !isUserRole(targetRole)) return false;
   return roleOrder.indexOf(actorRole) < roleOrder.indexOf(targetRole);
@@ -64,4 +68,3 @@ export function normalizeStringArray(value: unknown): string[] {
     return typeof item === "string" && item.trim().length > 0;
   }).map((item) => item.trim()))];
 }
-
