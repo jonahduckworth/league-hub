@@ -174,18 +174,33 @@ describe("AdminApp operations shell", () => {
     expect(document.activeElement).toBe(viewButton);
   });
 
-  it("shows the connected league-to-hub-to-team hierarchy and its people", async () => {
+  it("shows, searches, and expands the connected league-to-hub-to-team structure with its people", async () => {
     window.history.replaceState(null, "", "/admin#structure");
     render(<AdminApp />);
 
     expect(await screen.findByRole("heading", { level: 1, name: "Structure" })).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 3, name: "Connected hierarchy" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Organization structure" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "Connected structure map" })).toBeTruthy();
     expect(screen.getByText("Winter Hockey")).toBeTruthy();
     expect(screen.getByText("Calgary")).toBeTruthy();
     expect(screen.getByText("Calgary U11 AA")).toBeTruthy();
     expect(screen.getAllByText("Avery Admin").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("League access").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Hub access").length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "View Calgary U11 AA team and connected people" }));
+    const calgaryCollapse = screen.getByRole("button", { name: "Collapse Calgary hub" });
+    fireEvent.click(calgaryCollapse);
+    expect(screen.queryByRole("button", { name: "Open Calgary U11 AA team details" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Expand Calgary hub" }).getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search structure or people..." }), { target: { value: "Morgan Manager" } });
+    expect(screen.getByRole("button", { name: "Open Calgary U11 AA team details" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open Red Deer U13 A team details" })).toBeNull();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search structure or people..." }), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Expand Calgary hub" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Calgary U11 AA team details" }));
 
     const drawer = await screen.findByRole("dialog", { name: "Calgary U11 AA" });
     expect(drawer.className).toContain("drawer-sheet");

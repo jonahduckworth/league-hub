@@ -121,6 +121,66 @@ textarea {
   animation: page-enter 240ms ease-out both;
 }
 
+.structure-league-branches {
+  position: relative;
+  padding-left: 2rem !important;
+}
+
+.structure-league-branches::before {
+  position: absolute;
+  top: 0;
+  bottom: 2rem;
+  left: 0.85rem;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #5eead4 0%, #cbd5e1 22%, #d8e0ea 100%);
+  content: "";
+}
+
+.structure-hub-branch {
+  position: relative;
+}
+
+.structure-hub-branch::before {
+  position: absolute;
+  top: 2rem;
+  left: -1.15rem;
+  width: 1.15rem;
+  border-top: 2px solid #cbd5e1;
+  content: "";
+}
+
+.structure-hub-content {
+  position: relative;
+}
+
+.structure-hub-content::before {
+  position: absolute;
+  top: 0;
+  bottom: 2.25rem;
+  left: 0.85rem;
+  width: 2px;
+  border-radius: 999px;
+  background: #d8e0ea;
+  content: "";
+}
+
+.structure-team-branch {
+  position: relative;
+  z-index: 1;
+  margin-left: 1.3rem;
+  width: calc(100% - 1.3rem);
+}
+
+.structure-team-branch::before {
+  position: absolute;
+  top: 50%;
+  left: -0.85rem;
+  width: 0.85rem;
+  border-top: 2px solid #d8e0ea;
+  content: "";
+}
+
 .thin-scrollbar {
   scrollbar-color: rgba(102, 112, 133, 0.35) transparent;
   scrollbar-width: thin;
@@ -205,6 +265,35 @@ textarea {
 
   .responsive-directory-table tbody td:last-child {
     background: #f8fafc;
+  }
+}
+
+@media (min-width: 640px) {
+  .structure-league-branches {
+    padding-left: 2.75rem !important;
+  }
+
+  .structure-league-branches::before {
+    left: 1.25rem;
+  }
+
+  .structure-hub-branch::before {
+    left: -1.5rem;
+    width: 1.5rem;
+  }
+
+  .structure-hub-content::before {
+    left: 1.25rem;
+  }
+
+  .structure-team-branch {
+    margin-left: 1.8rem;
+    width: calc(100% - 1.8rem);
+  }
+
+  .structure-team-branch::before {
+    left: -1.15rem;
+    width: 1.15rem;
   }
 }
 
