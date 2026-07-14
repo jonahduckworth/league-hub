@@ -21,6 +21,7 @@ import {
   Megaphone,
   MessageSquare,
   Network,
+  Phone,
   Pin,
   PinOff,
   Plus,
@@ -861,7 +862,7 @@ function ManagementWorkspace<T extends string>({
             </div>
             <SearchBox label={searchLabel} value={searchValue} onChange={onSearchChange} />
           </div>
-          <div className="thin-scrollbar -mx-4 overflow-x-auto px-4 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6" role="tablist" aria-label={`${title} filters`}>
+          <div className="thin-scrollbar -mx-4 overflow-x-auto px-4 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6" role="group" aria-label={`${title} filters`}>
             <div className="flex min-w-max gap-2">
               {filters.map((item) => {
           const Icon = item.icon;
@@ -870,8 +871,7 @@ function ManagementWorkspace<T extends string>({
             <button
               key={item.id}
               type="button"
-                    role="tab"
-                    aria-selected={selected}
+                    aria-pressed={selected}
                     onClick={() => onSelectFilter(item.id)}
                     className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3.5 text-sm font-bold transition-[background-color,border-color,color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 ${
                       selected ? "border-navy bg-navy text-white shadow-soft" : "border-line bg-[#f8fafc] text-ink hover:border-[#b8c4d2] hover:bg-white"
@@ -1276,6 +1276,7 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
                       <span className="min-w-0">
                         <span className="block truncate text-base font-extrabold text-ink group-hover:text-teal sm:text-lg">{user.displayName}</span>
                         <span className="mt-1 flex min-w-0 items-center gap-2 text-sm font-medium text-muted"><Mail className="size-3.5 shrink-0" aria-hidden /><span className="truncate">{user.email}</span></span>
+                        {user.phone && <span className="mt-1 flex min-w-0 items-center gap-2 text-sm font-medium text-muted"><Phone className="size-3.5 shrink-0" aria-hidden /><span className="truncate">{user.phone}</span></span>}
                       </span>
                       <ChevronRight className="mt-1 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
                     </span>
@@ -1286,7 +1287,11 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
                   </span>
                 </span>
                 <span className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 border-t border-line/70 pt-4">
-                  <span className="min-w-0"><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Role / location</span><span className="mt-1 block truncate text-xs font-bold text-ink">{user.title || user.address || "No profile detail"}</span></span>
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Profile</span>
+                    <span className="mt-1 block truncate text-xs font-bold text-ink">{user.title || "No title set"}</span>
+                    {user.address && <span className="mt-0.5 block truncate text-[11px] font-semibold text-muted">{user.address}</span>}
+                  </span>
                   <span className="min-w-12"><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Hubs</span><span className="mt-1 block text-xs font-bold text-ink">{user.hubIds.length}</span></span>
                   <span className="min-w-12"><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Teams</span><span className="mt-1 block text-xs font-bold text-ink">{user.teamIds.length}</span></span>
                 </span>
@@ -1313,6 +1318,9 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
             <DrawerSection title="Profile">
               <div className="grid gap-3 sm:grid-cols-2">
                 <InfoRow label="Email" value={selectedUser.email} />
+                <InfoRow label="Phone" value={selectedUser.phone} />
+                <InfoRow label="Title" value={selectedUser.title} />
+                <InfoRow label="Address" value={selectedUser.address} />
                 <InfoRow label="Status" value={<Badge tone={selectedUser.isActive ? "good" : "danger"}>{selectedUser.isActive ? "Active" : "Inactive"}</Badge>} />
                 <InfoRow label="Role" value={roleLabel(selectedUser.role)} />
                 <InfoRow label="Scope" value={`${selectedUser.hubIds.length} hubs · ${selectedUser.teamIds.length} teams`} />

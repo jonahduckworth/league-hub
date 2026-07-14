@@ -142,17 +142,41 @@ describe("AdminApp operations shell", () => {
 
   it("provides accessible member cards and keyboard-modal record drawers", async () => {
     window.history.replaceState(null, "", "/admin#people");
+    adminDataMocks.useAdminData.mockReturnValue({
+      data: {
+        ...demoData,
+        orgs: [...demoData.orgs, secondOrganization],
+        users: demoData.users.map((user) => user.id === "admin-1" ? {
+          ...user,
+          title: "League administrator",
+          phone: "403-555-0142",
+          address: "Calgary, AB"
+        } : user)
+      },
+      error: undefined,
+      loading: false,
+      reloadStructure: adminDataMocks.reloadStructure,
+      selectedOrgId: "org-demo",
+      setSelectedOrgId: adminDataMocks.setSelectedOrgId
+    });
     render(<AdminApp />);
 
     await screen.findByRole("heading", { level: 1, name: "People" });
     expect(screen.getByRole("heading", { level: 2, name: "People at Prairie Hockey League" })).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search members..." }), { target: { value: "403-555-0142" } });
     const memberButton = screen.getByRole("button", { name: "Open Avery Admin member details" });
+    expect(within(memberButton).getByText("403-555-0142")).toBeTruthy();
+    expect(within(memberButton).getByText("League administrator")).toBeTruthy();
+    expect(within(memberButton).getByText("Calgary, AB")).toBeTruthy();
     memberButton.focus();
     fireEvent.click(memberButton);
 
     const drawer = await screen.findByRole("dialog", { name: "Avery Admin" });
     expect(drawer.getAttribute("aria-modal")).toBe("true");
     expect(within(drawer).getByRole("heading", { name: "Avery Admin" })).toBeTruthy();
+    expect(within(drawer).getByText("403-555-0142")).toBeTruthy();
+    expect(within(drawer).getByText("League administrator")).toBeTruthy();
+    expect(within(drawer).getByText("Calgary, AB")).toBeTruthy();
     const closeButton = within(drawer).getByRole("button", { name: "Close drawer" });
     await waitFor(() => expect(document.activeElement).toBe(closeButton));
 
@@ -168,8 +192,8 @@ describe("AdminApp operations shell", () => {
     render(<AdminApp />);
 
     expect(await screen.findByRole("heading", { level: 2, name: "Announcements for Prairie Hockey League" })).toBeTruthy();
-    const announcementFilters = screen.getByRole("tablist", { name: "Announcements for Prairie Hockey League filters" });
-    expect(within(announcementFilters).getByRole("tab", { name: /All Posts/ }).getAttribute("aria-selected")).toBe("true");
+    const announcementFilters = screen.getByRole("group", { name: "Announcements for Prairie Hockey League filters" });
+    expect(within(announcementFilters).getByRole("button", { name: /All Posts/ }).getAttribute("aria-pressed")).toBe("true");
     const announcementButton = screen.getByRole("button", { name: "Open Schedule window posted announcement" });
     fireEvent.click(announcementButton);
     expect(await screen.findByRole("dialog", { name: "Schedule window posted" })).toBeTruthy();
@@ -177,8 +201,8 @@ describe("AdminApp operations shell", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Policies" })[0]);
     expect(await screen.findByRole("heading", { level: 2, name: "Policies for Prairie Hockey League" })).toBeTruthy();
-    const policyFilters = screen.getByRole("tablist", { name: "Policies for Prairie Hockey League filters" });
-    expect(within(policyFilters).getByRole("tab", { name: /All Policies/ }).getAttribute("aria-selected")).toBe("true");
+    const policyFilters = screen.getByRole("group", { name: "Policies for Prairie Hockey League filters" });
+    expect(within(policyFilters).getByRole("button", { name: /All Policies/ }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Open Concussion Protocol policy" }));
     expect(await screen.findByRole("dialog", { name: "Concussion Protocol" })).toBeTruthy();
   });
