@@ -1616,10 +1616,11 @@ function StructureSection({ data, runAction }: { data: AdminData; runAction: Act
                 <button
                   type="button"
                   onClick={() => setCollapsedHubIds(allHubsCollapsed ? new Set() : new Set(data.hubs.map((hub) => hub.id)))}
-                  className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-bold text-ink transition-colors hover:border-[#b8c4d2] hover:bg-[#f8fafc] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15"
+                  disabled={hasQuery}
+                  className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-bold text-ink transition-colors hover:border-[#b8c4d2] hover:bg-[#f8fafc] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-muted disabled:opacity-75"
                 >
-                  {allHubsCollapsed ? <ChevronDown className="size-4" aria-hidden /> : <ChevronDown className="size-4 rotate-180" aria-hidden />}
-                  {allHubsCollapsed ? "Expand all" : "Collapse all"}
+                  {hasQuery ? <Search className="size-4" aria-hidden /> : allHubsCollapsed ? <ChevronDown className="size-4" aria-hidden /> : <ChevronDown className="size-4 rotate-180" aria-hidden />}
+                  {hasQuery ? "Matches expanded" : allHubsCollapsed ? "Expand all" : "Collapse all"}
                 </button>
               </div>
             </div>
@@ -1770,10 +1771,11 @@ function StructureMap({
                       <button
                         type="button"
                         onClick={() => onToggleHub(hub.id)}
+                        disabled={hasQuery}
                         aria-expanded={expanded}
                         aria-controls={contentId}
-                        aria-label={`${expanded ? "Collapse" : "Expand"} ${hub.name} hub`}
-                        className="grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-[#f8fafc] text-muted transition-colors hover:border-[#b8c4d2] hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15"
+                        aria-label={hasQuery ? `${hub.name} hub expanded for search` : `${expanded ? "Collapse" : "Expand"} ${hub.name} hub`}
+                        className="grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-[#f8fafc] text-muted transition-colors hover:border-[#b8c4d2] hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <ChevronDown className={`size-4 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} aria-hidden />
                       </button>

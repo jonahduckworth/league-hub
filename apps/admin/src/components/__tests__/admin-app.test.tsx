@@ -196,6 +196,8 @@ describe("AdminApp operations shell", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Search structure or people..." }), { target: { value: "Morgan Manager" } });
     expect(screen.getByRole("button", { name: "Open Calgary U11 AA team details" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open Red Deer U13 A team details" })).toBeNull();
+    expect((screen.getByRole("button", { name: "Matches expanded" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Calgary hub expanded for search" }) as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.change(screen.getByRole("textbox", { name: "Search structure or people..." }), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Expand Calgary hub" }));
