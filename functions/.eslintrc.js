@@ -10,7 +10,7 @@ module.exports = {
   ],
   parser: "@typescript-eslint/parser",
   parserOptions: {
-    project: ["tsconfig.json"],
+    project: ["tsconfig.eslint.json"],
     sourceType: "module",
   },
   ignorePatterns: [
@@ -22,4 +22,12 @@ module.exports = {
   rules: {
     "@typescript-eslint/no-explicit-any": "off",
   },
+  overrides: [
+    {
+      files: ["scripts/**/*.js"],
+      rules: {
+        "@typescript-eslint/no-var-requires": "off",
+      },
+    },
+  ],
 };
