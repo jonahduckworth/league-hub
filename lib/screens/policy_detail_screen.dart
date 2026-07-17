@@ -14,6 +14,7 @@ import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../services/permission_service.dart';
 import '../models/policy.dart';
+import '../navigation/route_motion.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
@@ -39,10 +40,18 @@ Route<void> policyViewerRoute(Widget child) {
     transitionDuration: AppMotion.standard,
     reverseTransitionDuration: AppMotion.routeReverse,
     pageBuilder: (_, __, ___) => child,
-    transitionsBuilder: (context, animation, _, page) {
+    transitionsBuilder: (context, animation, secondaryAnimation, page) {
       if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
         return page;
       }
+
+      final popTransition = buildAppPopTransition(
+        context: context,
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: page,
+      );
+      if (popTransition != null) return popTransition;
 
       final curvedAnimation = CurvedAnimation(
         parent: animation,

@@ -4,8 +4,8 @@ import 'package:league_hub/core/design_system.dart';
 import 'package:league_hub/widgets/app_motion.dart';
 
 void main() {
-  test('back navigation uses the standard page speed', () {
-    expect(AppMotion.routeReverse, AppMotion.standard);
+  test('back navigation uses the fast interaction speed', () {
+    expect(AppMotion.routeReverse, AppMotion.fast);
   });
 
   group('AppMotionReveal', () {

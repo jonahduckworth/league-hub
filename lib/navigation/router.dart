@@ -11,6 +11,7 @@ import '../models/league.dart';
 import 'announcement_navigation_source.dart';
 import 'chat_navigation_source.dart';
 import 'route_guard.dart';
+import 'route_motion.dart';
 import 'shell_navigation.dart';
 import '../core/constants.dart';
 import '../screens/login_screen.dart';
@@ -757,6 +758,20 @@ Page<void> _shellTransitionPage(
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final reduceMotion =
           MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+
+      final popTransition = buildAppPopTransition(
+        context: context,
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: child,
+      );
+      if (popTransition != null) {
+        return AppShellRouteVisualScope(
+          contentOpacity: 1,
+          showHeader: true,
+          child: popTransition,
+        );
+      }
 
       if (!_shellUsesSharedAxis) {
         return _ShellRouteFadeTransition(
