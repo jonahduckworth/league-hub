@@ -41,32 +41,38 @@ Route<void> policyViewerRoute(Widget child) {
     reverseTransitionDuration: AppMotion.routeReverse,
     pageBuilder: (_, __, ___) => child,
     transitionsBuilder: (context, animation, secondaryAnimation, page) {
-      final popTransition = buildAppPopTransition(
-        context: context,
-        animation: animation,
-        secondaryAnimation: secondaryAnimation,
+      return AnimatedBuilder(
+        animation: Listenable.merge([animation, secondaryAnimation]),
         child: page,
-      );
-      if (popTransition != null) return popTransition;
+        builder: (context, animatedPage) {
+          final disableAnimations =
+              MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+          final popLayer = appPopTransitionLayer(
+            primaryStatus: animation.status,
+            secondaryStatus: secondaryAnimation.status,
+          );
+          final isPopping = popLayer != AppPopTransitionLayer.none;
+          final forwardProgress = disableAnimations
+              ? 1.0
+              : AppMotion.enter.transform(animation.value);
+          final opacity = isPopping
+              ? appPopPageOpacity(
+                  layer: popLayer,
+                  primaryValue: animation.value,
+                  disableAnimations: disableAnimations,
+                )
+              : forwardProgress;
 
-      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-        return page;
-      }
-
-      final curvedAnimation = CurvedAnimation(
-        parent: animation,
-        curve: AppMotion.enter,
-        reverseCurve: AppMotion.exit,
-      );
-      return FadeTransition(
-        opacity: curvedAnimation,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.025, 0),
-            end: Offset.zero,
-          ).animate(curvedAnimation),
-          child: page,
-        ),
+          return Opacity(
+            opacity: opacity,
+            child: FractionalTranslation(
+              translation: isPopping
+                  ? Offset.zero
+                  : Offset(0.025 * (1 - forwardProgress), 0),
+              child: animatedPage,
+            ),
+          );
+        },
       );
     },
   );

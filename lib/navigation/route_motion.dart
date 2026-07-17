@@ -19,34 +19,17 @@ AppPopTransitionLayer appPopTransitionLayer({
   return AppPopTransitionLayer.none;
 }
 
-/// Returns a lightweight pop transition when the route stack is reversing.
-///
-/// The outgoing page is faded as one composited layer while the revealed page
-/// is shown immediately. This avoids rebuilding glass-heavy descendants or
-/// restarting their entrance animations during back navigation.
-Widget? buildAppPopTransition({
-  required BuildContext context,
-  required Animation<double> animation,
-  required Animation<double> secondaryAnimation,
-  required Widget child,
+double appPopPageOpacity({
+  required AppPopTransitionLayer layer,
+  required double primaryValue,
+  required bool disableAnimations,
 }) {
-  final layer = appPopTransitionLayer(
-    primaryStatus: animation.status,
-    secondaryStatus: secondaryAnimation.status,
-  );
-
   switch (layer) {
     case AppPopTransitionLayer.none:
-      return null;
     case AppPopTransitionLayer.revealed:
-      return child;
+      return 1;
     case AppPopTransitionLayer.outgoing:
-      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-        return Opacity(opacity: 0, child: child);
-      }
-      return FadeTransition(
-        opacity: animation,
-        child: child,
-      );
+      if (disableAnimations) return 0;
+      return primaryValue.clamp(0.0, 1.0).toDouble();
   }
 }

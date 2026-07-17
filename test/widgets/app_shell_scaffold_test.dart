@@ -205,6 +205,31 @@ void main() {
       expect(find.byKey(const Key('outgoing-content')), findsOneWidget);
     });
 
+    testWidgets('route transition frame preserves page state during pop',
+        (WidgetTester tester) async {
+      var mountCount = 0;
+
+      Widget buildFrame({required double pageOpacity}) {
+        return MaterialApp(
+          home: AppShellRouteTransitionFrame(
+            pageOpacity: pageOpacity,
+            contentOpacity: 1,
+            showHeader: true,
+            transitionKey: 'policy-detail',
+            translation: Offset.zero,
+            scale: 1,
+            child: _MountProbe(onMount: () => mountCount += 1),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(buildFrame(pageOpacity: 1));
+      expect(mountCount, 1);
+
+      await tester.pumpWidget(buildFrame(pageOpacity: 0.6));
+      expect(mountCount, 1);
+    });
+
     testWidgets('applies clamping scroll behavior to page content',
         (WidgetTester tester) async {
       const scrollContentKey = Key('shell-scroll-content');
@@ -238,4 +263,24 @@ Widget _scrollBehaviorProbeBuilder(BuildContext context) {
       SizedBox(height: 1200),
     ],
   );
+}
+
+class _MountProbe extends StatefulWidget {
+  final VoidCallback onMount;
+
+  const _MountProbe({required this.onMount});
+
+  @override
+  State<_MountProbe> createState() => _MountProbeState();
+}
+
+class _MountProbeState extends State<_MountProbe> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onMount();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
 }

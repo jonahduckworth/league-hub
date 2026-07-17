@@ -759,20 +759,6 @@ Page<void> _shellTransitionPage(
       final reduceMotion =
           MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
-      final popTransition = buildAppPopTransition(
-        context: context,
-        animation: animation,
-        secondaryAnimation: secondaryAnimation,
-        child: child,
-      );
-      if (popTransition != null) {
-        return AppShellRouteVisualScope(
-          contentOpacity: 1,
-          showHeader: true,
-          child: popTransition,
-        );
-      }
-
       if (!_shellUsesSharedAxis) {
         return _ShellRouteFadeTransition(
           transitionKey: state.pageKey,
@@ -820,6 +806,11 @@ Page<void> _shellTransitionPage(
       return AnimatedBuilder(
         animation: Listenable.merge([animation, secondaryAnimation]),
         builder: (context, animatedChild) {
+          final popLayer = appPopTransitionLayer(
+            primaryStatus: animation.status,
+            secondaryStatus: secondaryAnimation.status,
+          );
+          final isPopping = popLayer != AppPopTransitionLayer.none;
           final primaryProgress =
               animatePrimary ? _shellTransitionProgress(animation.value) : 1.0;
           final secondaryProgress =
@@ -839,22 +830,25 @@ Page<void> _shellTransitionPage(
             primaryProgress,
           )!;
           final outgoingScale = ui.lerpDouble(1, 0.994, outgoingProgress)!;
+          final pageOpacity = appPopPageOpacity(
+            layer: popLayer,
+            primaryValue: animation.value,
+            disableAnimations: false,
+          );
 
-          return AppShellRouteVisualScope(
-            contentOpacity:
-                (incomingOpacity * outgoingOpacity).clamp(0, 1).toDouble(),
-            showHeader: secondaryAnimation.status != AnimationStatus.forward &&
-                secondaryAnimation.status != AnimationStatus.completed,
-            child: AppShellContentFadeScope(
-              transitionKey: state.pageKey,
-              child: FractionalTranslation(
-                translation: Offset(incomingDx + outgoingDx, 0),
-                child: Transform.scale(
-                  scale: incomingScale * outgoingScale,
-                  child: animatedChild,
-                ),
-              ),
-            ),
+          return AppShellRouteTransitionFrame(
+            pageOpacity: pageOpacity,
+            contentOpacity: isPopping
+                ? 1
+                : (incomingOpacity * outgoingOpacity).clamp(0, 1).toDouble(),
+            showHeader: isPopping ||
+                (secondaryAnimation.status != AnimationStatus.forward &&
+                    secondaryAnimation.status != AnimationStatus.completed),
+            transitionKey: state.pageKey,
+            translation:
+                isPopping ? Offset.zero : Offset(incomingDx + outgoingDx, 0),
+            scale: isPopping ? 1 : incomingScale * outgoingScale,
+            child: animatedChild!,
           );
         },
         child: child,

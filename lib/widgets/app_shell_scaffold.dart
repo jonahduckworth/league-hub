@@ -211,6 +211,53 @@ class AppShellRouteVisualScope extends InheritedWidget {
   }
 }
 
+/// Stable frame used for both forward and reverse shell route transitions.
+///
+/// Only the visual values change while navigating. Keeping this widget tree
+/// intact prevents nested pages from remounting or restarting their reveal
+/// animation when a pop begins.
+class AppShellRouteTransitionFrame extends StatelessWidget {
+  final double pageOpacity;
+  final double contentOpacity;
+  final bool showHeader;
+  final Object transitionKey;
+  final Offset translation;
+  final double scale;
+  final Widget child;
+
+  const AppShellRouteTransitionFrame({
+    super.key,
+    required this.pageOpacity,
+    required this.contentOpacity,
+    required this.showHeader,
+    required this.transitionKey,
+    required this.translation,
+    required this.scale,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: pageOpacity.clamp(0.0, 1.0).toDouble(),
+      child: AppShellRouteVisualScope(
+        contentOpacity: contentOpacity.clamp(0.0, 1.0).toDouble(),
+        showHeader: showHeader,
+        child: AppShellContentFadeScope(
+          transitionKey: transitionKey,
+          child: FractionalTranslation(
+            translation: translation,
+            child: Transform.scale(
+              scale: scale,
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AppShellContentFadeScope extends InheritedWidget {
   final Object transitionKey;
 

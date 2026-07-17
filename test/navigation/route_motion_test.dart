@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/animation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/navigation/route_motion.dart';
 
@@ -35,36 +35,25 @@ void main() {
     });
   });
 
-  testWidgets('hides the outgoing route immediately with reduced motion', (
-    tester,
-  ) async {
-    final animation = AnimationController(
-      vsync: tester,
-      duration: const Duration(milliseconds: 140),
-      value: 1,
-    );
-    animation.reverse();
-
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: MediaQuery(
-          data: const MediaQueryData(disableAnimations: true),
-          child: Builder(
-            builder: (context) {
-              return buildAppPopTransition(
-                context: context,
-                animation: animation,
-                secondaryAnimation: const AlwaysStoppedAnimation(0),
-                child: const Text('Outgoing'),
-              )!;
-            },
-          ),
-        ),
+  test('hides the outgoing route immediately with reduced motion', () {
+    expect(
+      appPopPageOpacity(
+        layer: AppPopTransitionLayer.outgoing,
+        primaryValue: 0.75,
+        disableAnimations: true,
       ),
+      0,
     );
+  });
 
-    expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 0);
-    animation.dispose();
+  test('fades the outgoing route directly with its primary value', () {
+    expect(
+      appPopPageOpacity(
+        layer: AppPopTransitionLayer.outgoing,
+        primaryValue: 0.75,
+        disableAnimations: false,
+      ),
+      0.75,
+    );
   });
 }
