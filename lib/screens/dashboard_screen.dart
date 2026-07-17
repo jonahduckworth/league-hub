@@ -576,7 +576,10 @@ class _WeatherDataContent extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _HomeTileIcon(
-              icon: _weatherIconForCode(weather.weatherCode),
+              icon: _weatherIconForCode(
+                weather.weatherCode,
+                isDay: weather.isDay,
+              ),
               accentColor: accentColor,
             ),
             const SizedBox(width: 8),
@@ -712,8 +715,10 @@ class _HomeTileIcon extends StatelessWidget {
   }
 }
 
-IconData _weatherIconForCode(int code) {
-  if (code == 0) return Icons.wb_sunny_outlined;
+IconData _weatherIconForCode(int code, {required bool isDay}) {
+  if (code == 0) {
+    return isDay ? Icons.wb_sunny_outlined : Icons.nightlight_outlined;
+  }
   if (code >= 1 && code <= 3) return Icons.cloud;
   if (code == 45 || code == 48) return Icons.blur_on;
   if ((code >= 51 && code <= 57) ||
@@ -721,14 +726,18 @@ IconData _weatherIconForCode(int code) {
       (code >= 80 && code <= 82)) {
     return Icons.water_drop_outlined;
   }
-  if (code >= 71 && code <= 77) return Icons.ac_unit;
+  if ((code >= 71 && code <= 77) || code == 85 || code == 86) {
+    return Icons.ac_unit;
+  }
   if (code >= 95) return Icons.thunderstorm;
   return Icons.cloud_outlined;
 }
 
 Color _weatherAccentForCode(int code) {
   if (code == 0) return AppGlassColors.gold;
-  if (code >= 71 && code <= 77) return AppGlassColors.inkSecondary;
+  if ((code >= 71 && code <= 77) || code == 85 || code == 86) {
+    return AppGlassColors.inkSecondary;
+  }
   if (code >= 95) return AppGlassColors.rose;
   return AppGlassColors.aqua;
 }
