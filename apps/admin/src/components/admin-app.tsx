@@ -1753,6 +1753,59 @@ function StructureMetric({ label, value, icon: Icon }: { label: string; value: n
   );
 }
 
+function StructureEntityLogo({
+  name,
+  imageUrl,
+  icon: Icon,
+  level
+}: {
+  name: string;
+  imageUrl?: string | null;
+  icon: React.ComponentType<{ className?: string }>;
+  level: "league" | "hub" | "team";
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
+
+  const styles = {
+    league: {
+      frame: "size-12 rounded-2xl border-white/30 bg-white p-1.5 text-teal shadow-sm",
+      icon: "size-5"
+    },
+    hub: {
+      frame: "size-10 rounded-xl border-line bg-white p-1.5 text-sky shadow-sm",
+      icon: "size-4"
+    },
+    team: {
+      frame: "size-10 rounded-xl border-line bg-white p-1.5 text-teal shadow-sm",
+      icon: "size-4"
+    }
+  }[level];
+
+  return (
+    <span className={`grid shrink-0 place-items-center overflow-hidden border ${styles.frame}`}>
+      {imageUrl && !imageFailed ? (
+        // Firebase Storage URLs are dynamic and the admin app is a static export, so use an unoptimized native image.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl}
+          alt={`${name} logo`}
+          className="size-full object-contain"
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <Icon className={styles.icon} aria-hidden />
+      )}
+    </span>
+  );
+}
+
 function StructureMap({
   leagues,
   hasQuery,
@@ -1793,9 +1846,7 @@ function StructureMap({
                 className="group flex min-h-12 min-w-0 items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5eead4]/45"
                 aria-label={`Open ${league.name} league details`}
               >
-                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-[#5eead4] ring-1 ring-white/15">
-                  <Trophy className="size-5" aria-hidden />
-                </span>
+                <StructureEntityLogo name={league.name} imageUrl={league.logoUrl} icon={Trophy} level="league" />
                 <span className="min-w-0">
                   <span className="block text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/55">League</span>
                   <span className="mt-1 block truncate text-xl font-extrabold tracking-[-0.025em] group-hover:text-[#8ff3e7] sm:text-2xl">{league.name}</span>
@@ -1848,9 +1899,7 @@ function StructureMap({
                         className="group flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15"
                         aria-label={`Open ${hub.name} hub details`}
                       >
-                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sky/10 text-sky">
-                          <MapPin className="size-4" aria-hidden />
-                        </span>
+                        <StructureEntityLogo name={hub.name} imageUrl={hub.logoUrl} icon={MapPin} level="hub" />
                         <span className="min-w-0">
                           <span className="block truncate text-base font-extrabold text-ink group-hover:text-teal">{hub.name}</span>
                           <span className="mt-0.5 block truncate text-xs font-semibold text-muted">{hub.location || "No location set"}</span>
@@ -1885,9 +1934,7 @@ function StructureMap({
                             aria-label={`Open ${team.name} team details`}
                           >
                             <span className="flex min-w-0 items-center gap-3">
-                              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-teal/10 text-teal">
-                                <Users className="size-3.5" aria-hidden />
-                              </span>
+                              <StructureEntityLogo name={team.name} imageUrl={team.logoUrl} icon={Users} level="team" />
                               <span className="min-w-0">
                                 <span className="block truncate text-sm font-extrabold text-ink group-hover:text-teal sm:text-base">{team.name}</span>
                                 <span className="mt-1 flex flex-wrap gap-1.5">

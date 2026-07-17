@@ -243,6 +243,9 @@ describe("AdminApp operations shell", () => {
     expect(screen.getByText("Winter Hockey")).toBeTruthy();
     expect(screen.getByText("Calgary")).toBeTruthy();
     expect(screen.getByText("Calgary U11 AA")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Winter Hockey logo" }).getAttribute("src")).toBe("https://cdn.example.com/winter-hockey.png");
+    expect(screen.getByRole("img", { name: "Calgary logo" }).getAttribute("src")).toBe("https://cdn.example.com/calgary.png");
+    expect(screen.getByRole("img", { name: "Calgary U11 AA logo" }).getAttribute("src")).toBe("https://cdn.example.com/calgary.png");
     expect(screen.getAllByText("Avery Admin").length).toBeGreaterThan(0);
     expect(screen.getAllByText("League access").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Hub access").length).toBeGreaterThan(0);
@@ -251,6 +254,9 @@ describe("AdminApp operations shell", () => {
     fireEvent.click(calgaryCollapse);
     expect(screen.queryByRole("button", { name: "Open Calgary U11 AA team details" })).toBeNull();
     expect(screen.getByRole("button", { name: "Expand Calgary hub" }).getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.error(screen.getByRole("img", { name: "Calgary logo" }));
+    expect(screen.queryByRole("img", { name: "Calgary logo" })).toBeNull();
 
     fireEvent.change(screen.getByRole("textbox", { name: "Search structure or people..." }), { target: { value: "Morgan Manager" } });
     expect(screen.getByRole("button", { name: "Open Calgary U11 AA team details" })).toBeTruthy();
