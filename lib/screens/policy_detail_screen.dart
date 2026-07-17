@@ -34,10 +34,11 @@ enum PolicyViewerType {
 
 const _imageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
 const _pdfExts = {'pdf'};
+const _policyViewerSlideFactor = 0.012;
 
 Route<void> policyViewerRoute(Widget child) {
   return PageRouteBuilder<void>(
-    transitionDuration: AppMotion.standard,
+    transitionDuration: AppMotion.route,
     reverseTransitionDuration: AppMotion.routeReverse,
     pageBuilder: (_, __, ___) => child,
     transitionsBuilder: (context, animation, secondaryAnimation, page) {
@@ -54,7 +55,7 @@ Route<void> policyViewerRoute(Widget child) {
           final isPopping = popLayer != AppPopTransitionLayer.none;
           final forwardProgress = disableAnimations
               ? 1.0
-              : AppMotion.enter.transform(animation.value);
+              : AppMotion.emphasizedCurve.transform(animation.value);
           final opacity = isPopping
               ? appPopPageOpacity(
                   layer: popLayer,
@@ -68,7 +69,7 @@ Route<void> policyViewerRoute(Widget child) {
             child: FractionalTranslation(
               translation: isPopping
                   ? Offset.zero
-                  : Offset(0.025 * (1 - forwardProgress), 0),
+                  : Offset(_policyViewerSlideFactor * (1 - forwardProgress), 0),
               child: animatedPage,
             ),
           );

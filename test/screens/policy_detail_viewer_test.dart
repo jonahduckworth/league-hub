@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/core/design_system.dart';
 import 'package:league_hub/screens/policy_detail_screen.dart';
 
 /// Tests for file-type based viewer routing logic in PolicyDetailScreen.
 void main() {
+  test('viewer uses the full-screen motion cadence', () {
+    final route = policyViewerRoute(const SizedBox()) as PageRouteBuilder<void>;
+
+    expect(route.transitionDuration, AppMotion.route);
+    expect(route.reverseTransitionDuration, AppMotion.routeReverse);
+  });
+
   testWidgets('viewer keeps its page mounted while popping', (tester) async {
     var mountCount = 0;
 
