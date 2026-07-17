@@ -13,6 +13,12 @@ typedef PdfDownloadCallback = Future<void> Function({
 
 typedef PdfOpenCallback = Future<OpenResult> Function(String path);
 
+String policyPdfFileName(String title) {
+  final sanitized = title.replaceAll(RegExp(r'[^\w\-. ]'), '_').trim();
+  final baseName = sanitized.isEmpty ? 'League Hub Policy' : sanitized;
+  return baseName.toLowerCase().endsWith('.pdf') ? baseName : '$baseName.pdf';
+}
+
 Future<void> _downloadPdfWithDio({
   required String url,
   required String savePath,
@@ -71,8 +77,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       if (!dir.existsSync()) {
         dir.createSync(recursive: true);
       }
-      final fileName =
-          'league_hub_pdf_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final fileName = policyPdfFileName(widget.title);
       final filePath = '${dir.path}/$fileName';
 
       await (widget.downloadPdf ?? _downloadPdfWithDio)(

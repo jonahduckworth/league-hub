@@ -16,6 +16,12 @@ Future<void> _pendingDownload({
 
 void main() {
   group('PdfViewerScreen', () {
+    test('uses a readable policy title for the native preview', () {
+      expect(policyPdfFileName('Lily v2'), 'Lily v2.pdf');
+      expect(policyPdfFileName('Rules.pdf'), 'Rules.pdf');
+      expect(policyPdfFileName('Policy / Final'), 'Policy _ Final.pdf');
+    });
+
     testWidgets('renders with title', (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: const PdfViewerScreen(
