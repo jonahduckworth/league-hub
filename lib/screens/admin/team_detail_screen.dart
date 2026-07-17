@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/design_system.dart';
 import '../../core/utils.dart';
 import '../../models/app_user.dart';
 import '../../models/team.dart';
@@ -299,6 +300,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
 
     final selected = await showModalBottomSheet<AppUser>(
       context: context,
+      sheetAnimationStyle: AppMotion.overlayStyle(context),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.56),

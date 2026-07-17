@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/design_system.dart';
 import '../../core/league_branding.dart';
 import '../../core/picked_file.dart';
 import '../../core/utils.dart';
@@ -180,6 +181,7 @@ class ChatRoomInfoScreen extends ConsumerWidget {
   ) async {
     await showDialog<void>(
       context: context,
+      animationStyle: AppMotion.overlayStyle(context),
       builder: (_) => _EditRoomDialog(room: room),
     );
   }

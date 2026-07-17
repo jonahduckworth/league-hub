@@ -79,7 +79,6 @@ class _ContactsList extends StatelessWidget {
           final isLast = entry.key == contacts.length - 1;
           return AppMotionReveal(
             index: entry.key,
-            verticalOffset: 8,
             child: Column(
               children: [
                 _ContactRow(

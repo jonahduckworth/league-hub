@@ -76,7 +76,7 @@ void main() {
       expect(computedBottomPadding, 34 + 84 + appShellScrollEndClearance + 8);
     });
 
-    testWidgets('fades in content below the header',
+    testWidgets('does not stack a second fade under the route transition',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -104,8 +104,8 @@ void main() {
           )
           .first;
 
-      expect(tester.widget<Opacity>(stickyOpacityFinder).opacity, 0);
-      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 0);
+      expect(tester.widget<Opacity>(stickyOpacityFinder).opacity, 1);
+      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
 
       await tester.pumpAndSettle();
 
@@ -113,7 +113,7 @@ void main() {
       expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
     });
 
-    testWidgets('restarts content fade when transition scope changes',
+    testWidgets('transition scope changes do not restart scaffold content',
         (WidgetTester tester) async {
       Widget buildScopedShell(Object transitionKey) {
         return MaterialApp(
@@ -134,7 +134,7 @@ void main() {
             matching: find.byType(Opacity),
           )
           .first;
-      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 0);
+      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
 
       await tester.pumpAndSettle();
       expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
@@ -146,7 +146,7 @@ void main() {
             matching: find.byType(Opacity),
           )
           .first;
-      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 0);
+      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
 
       await tester.pumpAndSettle();
       expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);

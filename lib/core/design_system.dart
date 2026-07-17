@@ -6,15 +6,15 @@ import 'package:flutter/material.dart';
 /// drifting into subtly different spacing, radius, and motion languages.
 abstract final class AppMotion {
   static const Duration instant = Duration(milliseconds: 1);
-  static const Duration fast = Duration(milliseconds: 140);
-  static const Duration standard = Duration(milliseconds: 220);
-  static const Duration emphasized = Duration(milliseconds: 340);
-  static const Duration route = Duration(milliseconds: 380);
-  static const Duration routeReverse = fast;
+  static const Duration fast = Duration(milliseconds: 160);
+  static const Duration standard = Duration(milliseconds: 200);
+  static const Duration emphasized = Duration(milliseconds: 240);
+  static const Duration route = Duration(milliseconds: 280);
+  static const Duration routeReverse = Duration(milliseconds: 240);
 
-  static const Curve enter = Curves.easeOutCubic;
-  static const Curve exit = Curves.easeInCubic;
-  static const Curve emphasizedCurve = Cubic(0.2, 0, 0, 1);
+  static const Curve enter = Cubic(0.2, 0, 0, 1);
+  static const Curve exit = Cubic(0.4, 0, 1, 1);
+  static const Curve emphasizedCurve = Cubic(0.16, 1, 0.3, 1);
 
   static Duration accessible(
     BuildContext context,
@@ -23,6 +23,13 @@ abstract final class AppMotion {
     return MediaQuery.maybeOf(context)?.disableAnimations ?? false
         ? instant
         : duration;
+  }
+
+  static AnimationStyle overlayStyle(BuildContext context) {
+    return AnimationStyle(
+      duration: accessible(context, emphasized),
+      reverseDuration: accessible(context, standard),
+    );
   }
 }
 

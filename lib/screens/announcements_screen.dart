@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
@@ -256,6 +257,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
     showModalBottomSheet(
       context: context,
+      sheetAnimationStyle: AppMotion.overlayStyle(context),
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (ctx) => SafeArea(

@@ -90,12 +90,12 @@ AppUser? _cachedAppUser;
 
 const _shellTransitionDuration = AppMotion.route;
 const _shellTransitionCurve = AppMotion.emphasizedCurve;
-const _shellTransitionSlideFactor = 0.055;
-const _shellRouteIncomingSlideFactor = 0.05;
-const _shellRouteOutgoingSlideFactor = 0.018;
-const _shellIncomingFadeStart = 0.58;
-const _shellOutgoingFadeEnd = 0.7;
-const _shellOutgoingPresenceEnd = 0.3;
+const _shellTransitionSlideFactor = 0.012;
+const _shellRouteIncomingSlideFactor = 0.012;
+const _shellRouteOutgoingSlideFactor = 0.004;
+const _shellIncomingFadeStart = 0.0;
+const _shellOutgoingFadeEnd = 1.0;
+const _shellOutgoingPresenceEnd = 1.0;
 
 const _shellUsesSharedAxis = true;
 
@@ -217,13 +217,10 @@ bool _shellRouteContentIsVisible({
   final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
   final outgoingProgress = _shellFastOutgoingProgress(clampedProgress);
   return (
-    opacity: isCurrent
-        ? ui.lerpDouble(0.88, 1, clampedProgress)!
-        : ui.lerpDouble(1, 0, outgoingProgress)!,
+    opacity:
+        isCurrent ? clampedProgress : ui.lerpDouble(1, 0, outgoingProgress)!,
     offsetFactor: isCurrent ? 1 - clampedProgress : -outgoingProgress,
-    scale: isCurrent
-        ? ui.lerpDouble(0.984, 1, clampedProgress)!
-        : ui.lerpDouble(1, 0.994, outgoingProgress)!,
+    scale: 1,
   );
 }
 
@@ -779,7 +776,6 @@ Page<void> _shellTransitionPage(
         );
       }
 
-      final isBackward = motion == _ShellPageMotion.sharedAxisBackward;
       final incomingOffset = switch (motion) {
         _ShellPageMotion.sharedAxisForward => const Offset(
             _shellRouteIncomingSlideFactor,
@@ -821,33 +817,24 @@ Page<void> _shellTransitionPage(
               ui.lerpDouble(incomingOffset.dx, 0, primaryProgress)!;
           final outgoingDx =
               ui.lerpDouble(0, outgoingOffset.dx, outgoingProgress)!;
-          final incomingOpacity =
-              ui.lerpDouble(isBackward ? 0.92 : 0.88, 1, primaryProgress)!;
+          final incomingOpacity = primaryProgress;
           final outgoingOpacity = ui.lerpDouble(1, 0, outgoingProgress)!;
-          final incomingScale = ui.lerpDouble(
-            motion == _ShellPageMotion.scaleFade ? 0.988 : 0.984,
-            1,
-            primaryProgress,
-          )!;
-          final outgoingScale = ui.lerpDouble(1, 0.994, outgoingProgress)!;
-          final pageOpacity = appPopPageOpacity(
-            layer: popLayer,
-            primaryValue: animation.value,
-            disableAnimations: false,
-          );
+          final transitionOpacity = isPopping
+              ? appPopPageOpacity(
+                  layer: popLayer,
+                  primaryValue: animation.value,
+                  disableAnimations: false,
+                )
+              : (incomingOpacity * outgoingOpacity).clamp(0, 1).toDouble();
 
           return AppShellRouteTransitionFrame(
-            pageOpacity: pageOpacity,
-            contentOpacity: isPopping
-                ? 1
-                : (incomingOpacity * outgoingOpacity).clamp(0, 1).toDouble(),
-            showHeader: isPopping ||
-                (secondaryAnimation.status != AnimationStatus.forward &&
-                    secondaryAnimation.status != AnimationStatus.completed),
+            pageOpacity: transitionOpacity,
+            contentOpacity: 1,
+            showHeader: true,
             transitionKey: state.pageKey,
             translation:
                 isPopping ? Offset.zero : Offset(incomingDx + outgoingDx, 0),
-            scale: isPopping ? 1 : incomingScale * outgoingScale,
+            scale: 1,
             child: animatedChild!,
           );
         },

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import '../../core/design_system.dart';
 import '../../core/league_branding.dart';
 import '../../core/theme.dart';
 import '../../models/app_user.dart';
@@ -612,6 +613,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
   void _showSuccessDialog(BuildContext context, String token) {
     showDialog(
       context: context,
+      animationStyle: AppMotion.overlayStyle(context),
       barrierColor: Colors.black.withValues(alpha: 0.56),
       builder: (_) => Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24),

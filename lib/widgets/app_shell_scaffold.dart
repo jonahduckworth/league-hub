@@ -1,7 +1,6 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import '../core/design_system.dart';
 import '../core/scroll_behavior.dart';
 import 'app_glass.dart';
 import 'glass_bottom_nav.dart';
@@ -10,8 +9,6 @@ import 'app_shell_header.dart';
 const double appShellHeaderContentSpacing = 12;
 const double appShellBottomNavSpacing = 20;
 const double appShellScrollEndClearance = 40;
-const _appShellRevealLift = 7.0;
-const _defaultAppShellContentFadeKey = Object();
 
 double appShellBottomPadding(BuildContext context, {double extra = 8}) {
   return MediaQuery.viewPaddingOf(context).bottom +
@@ -155,35 +152,9 @@ class _AppShellContentFade extends StatelessWidget {
         child: child,
       );
     }
-    final transitionKey =
-        AppShellContentFadeScope.maybeTransitionKeyOf(context) ??
-            _defaultAppShellContentFadeKey;
-
-    return TweenAnimationBuilder<double>(
-      key: ValueKey(transitionKey),
-      tween: Tween(begin: 0, end: 1),
-      duration: AppMotion.accessible(context, AppMotion.emphasized),
-      curve: AppMotion.emphasizedCurve,
+    return Opacity(
+      opacity: routeOpacity.clamp(0.0, 1.0).toDouble(),
       child: child,
-      builder: (context, progress, child) {
-        final revealOpacity = (progress * 1.35).clamp(0.0, 1.0).toDouble();
-        final opacity =
-            (routeOpacity * revealOpacity).clamp(0.0, 1.0).toDouble();
-        final revealProgress = AppMotion.enter.transform(progress);
-        final lift = ui.lerpDouble(_appShellRevealLift, 0, revealProgress)!;
-
-        return Opacity(
-          opacity: opacity,
-          child: Transform.translate(
-            offset: Offset(0, lift),
-            child: Transform.scale(
-              alignment: Alignment.topCenter,
-              scale: ui.lerpDouble(0.996, 1, revealProgress)!,
-              child: child!,
-            ),
-          ),
-        );
-      },
     );
   }
 }

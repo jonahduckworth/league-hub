@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/design_system.dart';
 import '../core/utils.dart';
 import '../models/message.dart';
 import 'app_glass.dart';
@@ -23,6 +24,7 @@ class ChatBubble extends StatelessWidget {
     if (!isSelf || message.deleted) return;
     showModalBottomSheet(
       context: context,
+      sheetAnimationStyle: AppMotion.overlayStyle(context),
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.58),
       builder: (ctx) => SafeArea(

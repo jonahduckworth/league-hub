@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import '../core/design_system.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
@@ -121,10 +122,15 @@ class _ChatConversationScreenState
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
+      final target = _scrollController.position.maxScrollExtent;
+      if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+        _scrollController.jumpTo(target);
+        return;
+      }
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+        target,
+        duration: AppMotion.standard,
+        curve: AppMotion.enter,
       );
     }
   }

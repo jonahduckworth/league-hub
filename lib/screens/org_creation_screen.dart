@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../core/design_system.dart';
 import '../core/picked_file.dart';
 import '../core/utils.dart';
 import '../services/storage_service.dart';
@@ -1136,7 +1137,9 @@ class _StepIndicator extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
+                        duration:
+                            AppMotion.accessible(context, AppMotion.standard),
+                        curve: AppMotion.enter,
                         height: 3,
                         decoration: BoxDecoration(
                           color: color,

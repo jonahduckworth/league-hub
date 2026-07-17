@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/design_system.dart';
 import 'app_glass.dart';
 
 Future<bool?> showConfirmationDialog(
@@ -11,6 +12,7 @@ Future<bool?> showConfirmationDialog(
 }) {
   return showDialog<bool>(
     context: context,
+    animationStyle: AppMotion.overlayStyle(context),
     barrierColor: Colors.black.withValues(alpha: 0.58),
     builder: (ctx) => Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 34),

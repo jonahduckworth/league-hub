@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
@@ -497,8 +498,8 @@ class _ChatTypePill extends StatelessWidget {
           alignment: Alignment.center,
           margin: const EdgeInsets.only(right: 8),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
+            duration: AppMotion.accessible(context, AppMotion.fast),
+            curve: AppMotion.enter,
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
             decoration: BoxDecoration(
               color: isSelected
