@@ -6,6 +6,10 @@ import 'package:league_hub/widgets/app_shell_scaffold.dart';
 
 void main() {
   group('AppShellScaffold', () {
+    test('matches the Home header-to-content spacing', () {
+      expect(appShellHeaderContentSpacing, 8);
+    });
+
     testWidgets('uses the shared header content spacing by default',
         (WidgetTester tester) async {
       const topInset = 47.0;

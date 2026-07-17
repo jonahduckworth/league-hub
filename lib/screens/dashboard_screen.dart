@@ -28,7 +28,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  static const double _homeHeaderExtraSpacing = 8;
   static const double _bottomNavBottomInset = 12;
   static const double _quickLinksHeight = 52;
   static const double _quickLinksContentGap = 12;
@@ -54,7 +53,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final headerLabel = headerLeague?.name ?? org?.name ?? 'League Hub';
     final topContentPadding = appShellTopPadding(
       context,
-      extra: _homeHeaderExtraSpacing,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
 
@@ -73,7 +71,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onSelected: (id) => setState(() => _selectedLeagueId = id),
             )
           : null,
-      topSpacing: _homeHeaderExtraSpacing,
       child: Stack(
         children: [
           Positioned.fill(

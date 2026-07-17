@@ -331,7 +331,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         (showLeagueFilter ? _stickyFilterGap + _leagueFilterHeight : 0);
     final topContentPadding = appShellTopPadding(
       context,
-      extra: 8,
       stickyHeight: stickyHeight,
       stickySpacing: 8,
     );
@@ -360,7 +359,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         selectedLeagueId: _selectedLeagueId,
         onLeagueSelected: (id) => setState(() => _selectedLeagueId = id),
       ),
-      topSpacing: 8,
       stickySpacing: 8,
       child: chatRoomsAsync.when(
         loading: () => const AppLoadingState(label: 'Loading conversations…'),

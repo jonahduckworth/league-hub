@@ -1,12 +1,13 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import '../core/design_system.dart';
 import '../core/scroll_behavior.dart';
 import 'app_glass.dart';
 import 'glass_bottom_nav.dart';
 import 'app_shell_header.dart';
 
-const double appShellHeaderContentSpacing = 12;
+const double appShellHeaderContentSpacing = AppSpacing.xs;
 const double appShellBottomNavSpacing = 20;
 const double appShellScrollEndClearance = 40;
 
