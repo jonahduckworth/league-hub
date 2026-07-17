@@ -15,6 +15,7 @@ import '../services/weather_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
 import '../widgets/glass_bottom_nav.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/profile_summary_card.dart';
@@ -86,17 +87,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _HomeProfileCard(
-                    user: currentUser,
-                    onProfileTap: () => context.go('/profile'),
+                  AppMotionReveal(
+                    child: _HomeProfileCard(
+                      user: currentUser,
+                      onProfileTap: () => context.go('/profile'),
+                    ),
                   ),
                   const SizedBox(height: 18),
-                  const _SectionHeading(
-                    icon: Icons.grid_view_rounded,
-                    label: 'Quick Access',
+                  const AppMotionReveal(
+                    index: 1,
+                    child: _SectionHeading(
+                      icon: Icons.grid_view_rounded,
+                      label: 'Quick Access',
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  _buildHomeGrid(context),
+                  AppMotionReveal(
+                    index: 2,
+                    child: _buildHomeGrid(context),
+                  ),
                 ],
               ),
             ),
@@ -105,9 +114,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             left: 16,
             right: 16,
             bottom: quickLinksBottomOffset,
-            child: _QuickLinksRow(
-              league: headerLeague,
-              fallbackLabel: headerLabel,
+            child: AppMotionReveal(
+              index: 3,
+              child: _QuickLinksRow(
+                league: headerLeague,
+                fallbackLabel: headerLabel,
+              ),
             ),
           ),
         ],

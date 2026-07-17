@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'app_glass.dart';
 import 'glass_form_widgets.dart';
+import 'app_motion.dart';
 
 class AuthFlowScaffold extends StatelessWidget {
   final Widget child;
@@ -29,7 +30,7 @@ class AuthFlowScaffold extends StatelessWidget {
                     24,
                     28 + MediaQuery.paddingOf(context).bottom,
                   ),
-                  child: child,
+                  child: AppMotionReveal(child: child),
                 ),
               )
             : child,

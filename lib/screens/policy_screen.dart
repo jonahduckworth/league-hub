@@ -13,6 +13,8 @@ import '../services/permission_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
+import '../widgets/app_states.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 
@@ -102,10 +104,11 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
         ],
       ),
       child: policiesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text('Error: $e',
-              style: const TextStyle(color: AppColors.danger)),
+        loading: () => const AppLoadingState(label: 'Loading policies…'),
+        error: (e, _) => AppErrorState(
+          title: 'Unable to load policies',
+          message: 'Check your connection and try again.',
+          onRetry: () => ref.invalidate(policiesProvider),
         ),
         data: (policies) {
           final filtered = policies;
@@ -130,10 +133,13 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
               padding: EdgeInsets.fromLTRB(
                   16, topContentPadding, 16, bottomContentPadding),
               itemCount: filtered.length,
-              itemBuilder: (context, index) => _PolicyTile(
-                policy: filtered[index],
-                leagues: leagues,
-                onTap: () => context.push('/policy/${filtered[index].id}'),
+              itemBuilder: (context, index) => AppMotionReveal(
+                index: index,
+                child: _PolicyTile(
+                  policy: filtered[index],
+                  leagues: leagues,
+                  onTap: () => context.push('/policy/${filtered[index].id}'),
+                ),
               ),
             ),
           );

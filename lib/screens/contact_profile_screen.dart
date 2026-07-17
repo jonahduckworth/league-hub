@@ -10,6 +10,8 @@ import '../providers/data_providers.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
+import '../widgets/app_states.dart';
 import '../widgets/avatar_widget.dart';
 
 class ContactProfileScreen extends ConsumerWidget {
@@ -38,19 +40,11 @@ class ContactProfileScreen extends ConsumerWidget {
         backFallbackLocation: '/contacts',
       ),
       child: usersAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppGlassColors.aqua),
-        ),
-        error: (_, __) => ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            topContentPadding,
-            16,
-            bottomContentPadding,
-          ),
-          children: const [
-            _ContactMessageCard(message: 'Unable to load profile.'),
-          ],
+        loading: () => const AppLoadingState(label: 'Loading profile…'),
+        error: (_, __) => AppErrorState(
+          title: 'Unable to load profile',
+          message: 'Check your connection and try again.',
+          onRetry: () => ref.invalidate(orgUsersProvider),
         ),
         data: (users) {
           final contact = _findContact(users);
@@ -72,13 +66,21 @@ class ContactProfileScreen extends ConsumerWidget {
               if (contact == null)
                 const _ContactMessageCard(message: 'Profile not found.')
               else ...[
-                _ContactProfileHero(user: contact),
+                AppMotionReveal(
+                  child: _ContactProfileHero(user: contact),
+                ),
                 const SizedBox(height: 16),
                 if (assignments != null) ...[
-                  _ContactLeagueDetails(assignments: assignments),
+                  AppMotionReveal(
+                    index: 1,
+                    child: _ContactLeagueDetails(assignments: assignments),
+                  ),
                   const SizedBox(height: 16),
                 ],
-                _ContactDetailsCard(user: contact),
+                AppMotionReveal(
+                  index: 2,
+                  child: _ContactDetailsCard(user: contact),
+                ),
               ],
             ],
           );

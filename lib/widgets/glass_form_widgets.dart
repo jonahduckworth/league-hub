@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/design_system.dart';
 import 'app_glass.dart';
 
 class GlassFormSectionLabel extends StatelessWidget {
@@ -298,7 +299,9 @@ class GlassChoiceChip extends StatelessWidget {
       padding: EdgeInsets.zero,
       radius: 18,
       onTap: onTap,
-      child: DecoratedBox(
+      child: AnimatedContainer(
+        duration: AppMotion.accessible(context, AppMotion.standard),
+        curve: AppMotion.enter,
         decoration: BoxDecoration(
           color: selected ? selectedColor : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
@@ -376,7 +379,9 @@ class GlassIconChoice extends StatelessWidget {
       padding: EdgeInsets.zero,
       radius: 18,
       onTap: onTap,
-      child: DecoratedBox(
+      child: AnimatedContainer(
+        duration: AppMotion.accessible(context, AppMotion.standard),
+        curve: AppMotion.enter,
         decoration: BoxDecoration(
           color: selected
               ? AppGlassColors.aqua.withValues(alpha: 0.13)
@@ -427,23 +432,30 @@ class GlassSubmitButton extends StatelessWidget {
         radius: 22,
         onTap: enabled ? onTap : null,
         child: Center(
-          child: isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppGlassColors.aqua,
+          child: AnimatedSwitcher(
+            duration: AppMotion.accessible(context, AppMotion.standard),
+            switchInCurve: AppMotion.enter,
+            switchOutCurve: AppMotion.exit,
+            child: isLoading
+                ? const SizedBox(
+                    key: ValueKey('loading'),
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppGlassColors.aqua,
+                    ),
+                  )
+                : Text(
+                    label,
+                    key: const ValueKey('label'),
+                    style: const TextStyle(
+                      color: AppGlassColors.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                )
-              : Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppGlassColors.ink,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+          ),
         ),
       ),
     );

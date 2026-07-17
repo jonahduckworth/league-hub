@@ -17,6 +17,8 @@ import '../../services/storage_service.dart';
 import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
 import '../../widgets/app_shell_scaffold.dart';
+import '../../widgets/app_motion.dart';
+import '../../widgets/app_states.dart';
 import '../../widgets/confirmation_dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entity_avatar.dart';
@@ -57,24 +59,11 @@ class ManageLeaguesScreen extends ConsumerWidget {
         ],
       ),
       child: leaguesAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppGlassColors.aqua),
-        ),
-        error: (e, _) => ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            topContentPadding,
-            16,
-            appShellBottomPadding(context, extra: 24),
-          ),
-          children: [
-            _GlassMessageCard(
-              icon: Icons.error_outline,
-              title: 'Could not load leagues',
-              message: '$e',
-              color: AppGlassColors.rose,
-            ),
-          ],
+        loading: () => const AppLoadingState(label: 'Loading leagues…'),
+        error: (e, _) => AppErrorState(
+          title: 'Unable to load leagues',
+          message: 'Check your connection and try again.',
+          onRetry: () => ref.invalidate(leaguesProvider),
         ),
         data: (leagues) {
           if (leagues.isEmpty) {
@@ -103,7 +92,10 @@ class ManageLeaguesScreen extends ConsumerWidget {
               bottomContentPadding,
             ),
             itemCount: leagues.length,
-            itemBuilder: (_, i) => _LeagueListTile(league: leagues[i]),
+            itemBuilder: (_, i) => AppMotionReveal(
+              index: i,
+              child: _LeagueListTile(league: leagues[i]),
+            ),
           );
         },
       ),

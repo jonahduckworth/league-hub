@@ -79,8 +79,8 @@ void main() {
         expect(find.text('Info message'), findsOneWidget);
         final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
         expect(snackBar.behavior, SnackBarBehavior.fixed);
-        // backgroundColor should be null (default)
-        expect(snackBar.backgroundColor, isNull);
+        expect(snackBar.backgroundColor, AppColors.primary);
+        expect(find.byIcon(Icons.info_outline_rounded), findsOneWidget);
       });
     });
 

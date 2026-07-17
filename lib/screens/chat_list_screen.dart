@@ -13,6 +13,8 @@ import '../services/authorized_firestore_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
+import '../widgets/app_states.dart';
 import '../widgets/chat_room_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
@@ -360,8 +362,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       topSpacing: 8,
       stickySpacing: 8,
       child: chatRoomsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error loading chats: $e')),
+        loading: () => const AppLoadingState(label: 'Loading conversations…'),
+        error: (e, _) => AppErrorState(
+          title: 'Unable to load conversations',
+          message: 'Check your connection and try again.',
+          onRetry: () => ref.invalidate(chatRoomsProvider),
+        ),
         data: (rooms) {
           final filtered = filterChatRooms(
             rooms: rooms,
@@ -383,7 +389,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             padding: EdgeInsets.fromLTRB(
                 16, topContentPadding, 16, bottomContentPadding),
             children: [
-              for (final room in visibleRooms) _ChatRoomTile(room: room),
+              for (final entry in visibleRooms.asMap().entries)
+                AppMotionReveal(
+                  index: entry.key,
+                  child: _ChatRoomTile(room: entry.value),
+                ),
             ],
           );
         },

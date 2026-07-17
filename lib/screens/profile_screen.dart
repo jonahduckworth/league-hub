@@ -12,6 +12,7 @@ import '../providers/data_providers.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
 import '../widgets/profile_summary_card.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -50,21 +51,29 @@ class ProfileScreen extends ConsumerWidget {
               error: userAsync.error,
             )
           else ...[
-            ProfileSummaryCard(
-              user: user,
-              showEmail: false,
-              compact: true,
-              actionIcon: Icons.edit_outlined,
-              actionTooltip: 'Edit profile',
-              onTap: () => context.push('/profile/edit'),
-              onActionTap: () => context.push('/profile/edit'),
+            AppMotionReveal(
+              child: ProfileSummaryCard(
+                user: user,
+                showEmail: false,
+                compact: true,
+                actionIcon: Icons.edit_outlined,
+                actionTooltip: 'Edit profile',
+                onTap: () => context.push('/profile/edit'),
+                onActionTap: () => context.push('/profile/edit'),
+              ),
             ),
             const SizedBox(height: 18),
             if (assignments != null) ...[
-              _ProfileLeagueDetails(assignments: assignments),
+              AppMotionReveal(
+                index: 1,
+                child: _ProfileLeagueDetails(assignments: assignments),
+              ),
               const SizedBox(height: 18),
             ],
-            _ProfileContactDetails(user: user),
+            AppMotionReveal(
+              index: 2,
+              child: _ProfileContactDetails(user: user),
+            ),
           ],
         ],
       ),

@@ -17,6 +17,8 @@ import '../../core/utils.dart';
 import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
 import '../../widgets/app_shell_scaffold.dart';
+import '../../widgets/app_motion.dart';
+import '../../widgets/app_states.dart';
 import '../../widgets/avatar_widget.dart';
 import '../../widgets/confirmation_dialog.dart';
 import '../../widgets/empty_state.dart';
@@ -120,24 +122,11 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         onTap: () => context.push('/settings/users/invite'),
       ),
       child: usersAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppGlassColors.aqua),
-        ),
-        error: (e, _) => ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            topContentPadding,
-            16,
-            appShellBottomPadding(context, extra: 24),
-          ),
-          children: [
-            _GlassMessageCard(
-              icon: Icons.error_outline,
-              title: 'Could not load users',
-              message: '$e',
-              color: AppGlassColors.rose,
-            ),
-          ],
+        loading: () => const AppLoadingState(label: 'Loading users…'),
+        error: (e, _) => AppErrorState(
+          title: 'Unable to load users',
+          message: 'Check your connection and try again.',
+          onRetry: () => ref.invalidate(orgUsersProvider),
         ),
         data: (users) {
           final filtered = _filtered(users);
@@ -162,7 +151,11 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   ),
                 )
               else
-                for (final user in filtered) _UserCard(user: user),
+                for (final entry in filtered.asMap().entries)
+                  AppMotionReveal(
+                    index: entry.key,
+                    child: _UserCard(user: entry.value),
+                  ),
             ],
           );
         },
@@ -1090,58 +1083,6 @@ class _GlassDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Divider(height: 1, color: Colors.white.withValues(alpha: 0.1));
-  }
-}
-
-class _GlassMessageCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String message;
-  final Color color;
-
-  const _GlassMessageCard({
-    required this.icon,
-    required this.title,
-    required this.message,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      radius: 22,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppGlassColors.ink,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  message,
-                  style: const TextStyle(
-                    color: AppGlassColors.inkSecondary,
-                    fontSize: 12,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

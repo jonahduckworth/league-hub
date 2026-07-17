@@ -8,6 +8,8 @@ import '../providers/data_providers.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
+import '../widgets/app_states.dart';
 import '../widgets/avatar_widget.dart';
 
 class ContactsScreen extends ConsumerWidget {
@@ -30,17 +32,11 @@ class ContactsScreen extends ConsumerWidget {
         showBackButton: true,
       ),
       child: usersAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            topContentPadding,
-            16,
-            bottomContentPadding,
-          ),
-          children: const [
-            _ContactsMessageCard(message: 'Unable to load contacts.'),
-          ],
+        loading: () => const AppLoadingState(label: 'Loading contacts…'),
+        error: (_, __) => AppErrorState(
+          title: 'Unable to load contacts',
+          message: 'Check your connection and try again.',
+          onRetry: () => ref.invalidate(orgUsersProvider),
         ),
         data: (users) {
           final contacts = users.where((user) => user.isActive).toList()
@@ -81,19 +77,23 @@ class _ContactsList extends StatelessWidget {
       child: Column(
         children: contacts.asMap().entries.map((entry) {
           final isLast = entry.key == contacts.length - 1;
-          return Column(
-            children: [
-              _ContactRow(
-                user: entry.value,
-                onTap: () => context.push('/contacts/${entry.value.id}'),
-              ),
-              if (!isLast)
-                Divider(
-                  height: 1,
-                  indent: 76,
-                  color: Colors.white.withValues(alpha: 0.1),
+          return AppMotionReveal(
+            index: entry.key,
+            verticalOffset: 8,
+            child: Column(
+              children: [
+                _ContactRow(
+                  user: entry.value,
+                  onTap: () => context.push('/contacts/${entry.value.id}'),
                 ),
-            ],
+                if (!isLast)
+                  Divider(
+                    height: 1,
+                    indent: 76,
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+              ],
+            ),
           );
         }).toList(),
       ),
