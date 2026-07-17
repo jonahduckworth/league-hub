@@ -753,7 +753,7 @@ Page<void> _shellTransitionPage(
     key: state.pageKey,
     child: child,
     transitionDuration: _shellTransitionDuration,
-    reverseTransitionDuration: _shellTransitionDuration,
+    reverseTransitionDuration: AppMotion.routeReverse,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final reduceMotion =
           MediaQuery.maybeOf(context)?.disableAnimations ?? false;

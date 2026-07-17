@@ -10,6 +10,7 @@ abstract final class AppMotion {
   static const Duration standard = Duration(milliseconds: 220);
   static const Duration emphasized = Duration(milliseconds: 340);
   static const Duration route = Duration(milliseconds: 380);
+  static const Duration routeReverse = standard;
 
   static const Curve enter = Curves.easeOutCubic;
   static const Curve exit = Curves.easeInCubic;

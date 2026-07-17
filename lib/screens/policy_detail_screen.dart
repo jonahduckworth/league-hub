@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 
+import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
@@ -33,6 +33,35 @@ enum PolicyViewerType {
 
 const _imageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
 const _pdfExts = {'pdf'};
+
+Route<void> policyViewerRoute(Widget child) {
+  return PageRouteBuilder<void>(
+    transitionDuration: AppMotion.standard,
+    reverseTransitionDuration: AppMotion.routeReverse,
+    pageBuilder: (_, __, ___) => child,
+    transitionsBuilder: (context, animation, _, page) {
+      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+        return page;
+      }
+
+      final curvedAnimation = CurvedAnimation(
+        parent: animation,
+        curve: AppMotion.enter,
+        reverseCurve: AppMotion.exit,
+      );
+      return FadeTransition(
+        opacity: curvedAnimation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.025, 0),
+            end: Offset.zero,
+          ).animate(curvedAnimation),
+          child: page,
+        ),
+      );
+    },
+  );
+}
 
 PolicyViewerType policyViewerTypeForExt(String ext) {
   final normalized = ext.toLowerCase();
@@ -75,8 +104,8 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
     if (viewerType == PolicyViewerType.image) {
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => ImageViewerScreen(
+        policyViewerRoute(
+          ImageViewerScreen(
             imageUrl: url,
             title: title ?? 'Image',
           ),
@@ -88,8 +117,8 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
     if (viewerType == PolicyViewerType.pdf) {
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => PdfViewerScreen(
+        policyViewerRoute(
+          PdfViewerScreen(
             pdfUrl: url,
             title: title ?? 'PDF',
           ),
@@ -115,7 +144,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
     setState(() => _isOpeningPolicy = true);
 
     try {
-      final tempDir = await getTemporaryDirectory();
+      final tempDir = Directory.systemTemp;
       final extension = fileType.isEmpty ? 'bin' : fileType;
       final baseName = title.replaceAll(RegExp(r'[^\w\-. ]'), '_');
       final fileName = baseName.toLowerCase().endsWith('.$extension')
