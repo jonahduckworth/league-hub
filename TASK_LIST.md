@@ -43,7 +43,7 @@
 | 13 | Add league chat room auto-creation on league create | Partial | `createLeagueChatRooms` exists but isn't always called from ManageLeaguesScreen |
 | 14 | Add cascade delete for leagues (delete hubs → teams → chat rooms → policies scoped to league) | Not started | `deleteLeague` only deletes the league doc, orphaning children |
 | 15 | Add cascade delete for hubs (delete teams under hub) | Not started | Same orphan problem |
-| 16 | Build org-wide announcement push notification trigger | Not started | TODO in `firestore_service.dart` line 508 — no FCM send on announcement create |
+| 16 | Build scoped announcement push notification trigger | Not started | TODO in `firestore_service.dart` line 508 — no FCM send on announcement create |
 | 17 | Build policy upload notification to relevant users | Not started | No notification on new policy |
 
 ### 1.3 Manager Admin Flows
@@ -52,7 +52,7 @@
 |---|------|--------|-------|
 | 18 | Scope Manager Admin's view to only their assigned hubs/teams | Not started | Manager Admins currently see ALL hubs, teams, chat rooms, and policies in the org |
 | 19 | Restrict Manager Admin from editing leagues they aren't assigned to | Not started | No hub/league ownership check on ManageLeaguesScreen |
-| 20 | Restrict Manager Admin announcement scope to their hubs only | Partial | CreateAnnouncementScreen blocks org-wide scope for Manager Admin, but doesn't verify hub ownership for hub-scoped announcements |
+| 20 | Restrict Manager Admin announcement scope to their hubs only | Partial | CreateAnnouncementScreen does not verify hub ownership for hub-scoped announcements |
 | 21 | Restrict Manager Admin policy uploads to their assigned hubs/leagues | Not started | UploadPolicyScreen has no scoping logic |
 | 22 | Add Manager Admin ability to manage staff within their hubs | Not started | UserManagementScreen shows all org users with no hub-level filtering |
 | 23 | Restrict Manager Admin chat room creation to their league/hub scope | Not started | ChatListScreen allows creating event rooms for any league |

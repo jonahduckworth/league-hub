@@ -170,24 +170,26 @@ void main() {
         expect(find.text('SCOPE'), findsOneWidget);
       });
 
-      testWidgets('does not show org-wide scope for superAdmin',
+      testWidgets('shows only scoped audience options for superAdmin',
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(user: superAdminUser),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Org-Wide'), findsNothing);
+        expect(find.text('League'), findsAtLeastNWidgets(1));
+        expect(find.text('Hub'), findsOneWidget);
+        expect(find.text('Team'), findsOneWidget);
       });
 
-      testWidgets('does not show org-wide scope for managerAdmin',
+      testWidgets('shows only scoped audience options for managerAdmin',
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(user: managerAdminUser),
         );
         await tester.pumpAndSettle();
-        // Org-wide should not be present for non-super admin
-        final orgWideWidgets = find.text('Org-Wide');
-        expect(orgWideWidgets, findsNothing);
+        expect(find.text('League'), findsAtLeastNWidgets(1));
+        expect(find.text('Hub'), findsOneWidget);
+        expect(find.text('Team'), findsOneWidget);
       });
 
       testWidgets('shows league scope option', (WidgetTester tester) async {
@@ -345,13 +347,12 @@ void main() {
     });
 
     group('Default Values', () {
-      testWidgets('defaults scope to orgWide for superAdmin',
+      testWidgets('defaults scope to league for superAdmin',
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(user: superAdminUser),
         );
         await tester.pumpAndSettle();
-        // Org-wide should be available and default
         expect(find.text('SCOPE'), findsOneWidget);
       });
 

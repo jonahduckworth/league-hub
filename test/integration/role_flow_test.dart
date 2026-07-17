@@ -181,7 +181,10 @@ void main() {
         {
           'title': 'Important Update',
           'body': 'Please read this.',
-          'scope': 'orgWide',
+          'scope': 'league',
+          'leagueId': 'l1',
+          'hubId': null,
+          'teamId': null,
           'authorId': admin.id,
           'authorName': admin.displayName,
           'authorRole': admin.role.name,
@@ -189,7 +192,8 @@ void main() {
           'attachments': [],
           'createdAt': DateTime.now().toIso8601String(),
         },
-        scope: AnnouncementScope.orgWide,
+        scope: AnnouncementScope.league,
+        leagueId: 'l1',
       );
       expect(announcementId, isNotEmpty);
 
@@ -209,7 +213,10 @@ void main() {
       final id = await fs.createAnnouncement('org1', {
         'title': 'Pin Me',
         'body': 'Test',
-        'scope': 'orgWide',
+        'scope': 'league',
+        'leagueId': 'l1',
+        'hubId': null,
+        'teamId': null,
         'authorId': admin.id,
         'authorName': admin.displayName,
         'authorRole': admin.role.name,
@@ -236,7 +243,10 @@ void main() {
         {
           'title': 'Original Title',
           'body': 'Content',
-          'scope': 'orgWide',
+          'scope': 'league',
+          'leagueId': 'l1',
+          'hubId': null,
+          'teamId': null,
           'authorId': admin.id,
           'authorName': admin.displayName,
           'authorRole': admin.role.name,
@@ -244,12 +254,13 @@ void main() {
           'attachments': [],
           'createdAt': DateTime.now().toIso8601String(),
         },
-        scope: AnnouncementScope.orgWide,
+        scope: AnnouncementScope.league,
+        leagueId: 'l1',
       );
 
       await authFs.updateAnnouncement(
           admin, 'org1', id, {'title': 'Updated Title'},
-          authorId: admin.id);
+          authorId: admin.id, scope: AnnouncementScope.league, leagueId: 'l1');
 
       final doc = await fakeDb
           .collection('organizations')
@@ -339,7 +350,8 @@ void main() {
           staffUser,
           'org1',
           {'title': 'test', 'body': 'test'},
-          scope: AnnouncementScope.orgWide,
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
         ),
         throwsA(isA<PermissionDeniedException>()),
       );
@@ -429,10 +441,10 @@ void main() {
       );
     });
 
-    test('staff can view org-wide announcements', () {
+    test('staff cannot view incomplete announcement targets', () {
       expect(
-        ps.canViewAnnouncement(staffUser, scope: AnnouncementScope.orgWide),
-        isTrue,
+        ps.canViewAnnouncement(staffUser, scope: AnnouncementScope.league),
+        isFalse,
       );
     });
 
@@ -450,7 +462,7 @@ void main() {
   // =========================================================================
 
   group('Permission boundaries', () {
-    test('managerAdmin cannot create org-wide announcements', () {
+    test('managerAdmin cannot create announcements for another hub', () {
       final manager =
           makeUser(id: 'mgr', role: UserRole.managerAdmin, hubIds: ['h1']);
       expect(
@@ -458,7 +470,9 @@ void main() {
           manager,
           'org1',
           {'title': 't', 'body': 'b'},
-          scope: AnnouncementScope.orgWide,
+          scope: AnnouncementScope.hub,
+          leagueId: 'l1',
+          hubId: 'h2',
         ),
         throwsA(isA<PermissionDeniedException>()),
       );
@@ -475,7 +489,9 @@ void main() {
           'title': 'Hub Update',
           'body': 'Info',
           'scope': 'hub',
+          'leagueId': 'l1',
           'hubId': 'h1',
+          'teamId': null,
           'authorId': manager.id,
           'authorName': manager.displayName,
           'authorRole': manager.role.name,
@@ -484,6 +500,7 @@ void main() {
           'createdAt': DateTime.now().toIso8601String(),
         },
         scope: AnnouncementScope.hub,
+        leagueId: 'l1',
         hubId: 'h1',
       );
       expect(id, isNotEmpty);

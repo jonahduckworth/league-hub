@@ -165,7 +165,8 @@ void main() {
       final ann = Announcement(
         id: 'ann1',
         orgId: 'org1',
-        scope: AnnouncementScope.orgWide,
+        scope: AnnouncementScope.league,
+        leagueId: 'league1',
         title: 'Test Announcement',
         body: 'Body text',
         authorId: 'u1',

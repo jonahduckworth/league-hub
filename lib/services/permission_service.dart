@@ -261,8 +261,9 @@ class PermissionService {
   }) {
     if (!canCreateAnnouncement(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
-    // managerAdmin cannot create org-wide announcements.
-    if (scope == AnnouncementScope.orgWide) return false;
+    if (scope == AnnouncementScope.league) {
+      return leagueId != null && user.leagueIds.contains(leagueId);
+    }
     return canManageContentScope(
       user,
       leagueId: leagueId,
@@ -297,8 +298,6 @@ class PermissionService {
     if (!isActiveUser(user)) return false;
     // platformOwner and superAdmin see everything.
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
-    // org-wide announcements are visible to everyone.
-    if (scope == AnnouncementScope.orgWide) return true;
     // Team-scoped: team members and managers of that hub can see it.
     if (scope == AnnouncementScope.team && teamId != null) {
       return user.teamIds.contains(teamId) ||
@@ -312,8 +311,8 @@ class PermissionService {
     if (scope == AnnouncementScope.league && leagueId != null) {
       return user.leagueIds.contains(leagueId);
     }
-    // Fallback: visible to all.
-    return true;
+    // Invalid or incomplete scoped records are not broadly visible.
+    return false;
   }
 
   // ---------------------------------------------------------------------------

@@ -376,8 +376,19 @@ class AuthorizedFirestoreService {
 
   Future<void> updateAnnouncement(AppUser actor, String orgId,
       String announcementId, Map<String, dynamic> data,
-      {required String authorId}) {
-    if (!_ps.canEditAnnouncement(actor, authorId: authorId)) {
+      {required String authorId,
+      required AnnouncementScope scope,
+      String? leagueId,
+      String? hubId,
+      String? teamId}) {
+    if (!_ps.canEditAnnouncement(actor, authorId: authorId) ||
+        !_ps.canCreateAnnouncementWithScope(
+          actor,
+          scope,
+          leagueId: leagueId,
+          hubId: hubId,
+          teamId: teamId,
+        )) {
       _deny('updateAnnouncement', actor);
     }
     return _fs.updateAnnouncement(orgId, announcementId, data);

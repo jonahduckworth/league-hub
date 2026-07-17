@@ -1,4 +1,4 @@
-enum AnnouncementScope { orgWide, league, hub, team }
+enum AnnouncementScope { league, hub, team }
 
 class Announcement {
   final String id;
@@ -38,7 +38,7 @@ class Announcement {
         orgId: json['orgId'] as String,
         scope: AnnouncementScope.values.firstWhere(
           (e) => e.name == json['scope'],
-          orElse: () => AnnouncementScope.orgWide,
+          orElse: () => AnnouncementScope.league,
         ),
         leagueId: json['leagueId'] as String?,
         hubId: json['hubId'] as String?,
@@ -77,8 +77,6 @@ class Announcement {
 
   String get scopeLabel {
     switch (scope) {
-      case AnnouncementScope.orgWide:
-        return 'Org-Wide';
       case AnnouncementScope.league:
         return 'League';
       case AnnouncementScope.hub:

@@ -585,28 +585,32 @@ void main() {
     });
 
     group('canCreateAnnouncementWithScope', () {
-      test('superAdmin+ can create org-wide', () {
+      test('superAdmin+ can create league-scoped', () {
         expect(
             service.canCreateAnnouncementWithScope(
-                superAdmin(), AnnouncementScope.orgWide),
+                superAdmin(), AnnouncementScope.league,
+                leagueId: 'l1'),
             isTrue);
-      });
-
-      test('managerAdmin cannot create org-wide', () {
-        expect(
-            service.canCreateAnnouncementWithScope(
-                manager(), AnnouncementScope.orgWide),
-            isFalse);
       });
 
       test('managerAdmin can create league-scoped', () {
         expect(
             service.canCreateAnnouncementWithScope(
-              manager(),
+              manager(leagueIds: ['l1']),
               AnnouncementScope.league,
               leagueId: 'l1',
             ),
             isTrue);
+      });
+
+      test('managerAdmin cannot create league-scoped outside assignment', () {
+        expect(
+            service.canCreateAnnouncementWithScope(
+              manager(leagueIds: ['l1']),
+              AnnouncementScope.league,
+              leagueId: 'l2',
+            ),
+            isFalse);
       });
 
       test('managerAdmin can create hub-scoped for own hub', () {
@@ -694,11 +698,11 @@ void main() {
             isTrue);
       });
 
-      test('org-wide visible to everyone', () {
+      test('incomplete scoped records are not broadly visible', () {
         expect(
             service.canViewAnnouncement(staff(),
-                scope: AnnouncementScope.orgWide),
-            isTrue);
+                scope: AnnouncementScope.league),
+            isFalse);
       });
 
       test('hub-scoped visible only if user is in that hub', () {
@@ -748,7 +752,7 @@ void main() {
       test('inactive user cannot view', () {
         expect(
             service.canViewAnnouncement(staff(isActive: false),
-                scope: AnnouncementScope.orgWide),
+                scope: AnnouncementScope.league, leagueId: 'l1'),
             isFalse);
       });
     });

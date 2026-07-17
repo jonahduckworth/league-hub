@@ -486,14 +486,16 @@ void main() {
     Map<String, dynamic> announcementData({
       String title = 'Test Announcement',
       bool isPinned = false,
-      String scope = 'orgWide',
-      String? leagueId,
+      String scope = 'league',
+      String? leagueId = 'lg-1',
     }) =>
         {
           'title': title,
           'body': 'Body text',
           'scope': scope,
           'leagueId': leagueId,
+          'hubId': null,
+          'teamId': null,
           'authorId': 'author-1',
           'authorName': 'Coach',
           'authorRole': 'managerAdmin',

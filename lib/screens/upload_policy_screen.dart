@@ -11,6 +11,7 @@ import '../core/league_branding.dart';
 import '../core/scope_defaults.dart';
 import '../core/utils.dart';
 import '../models/hub.dart';
+import '../models/policy.dart';
 import '../models/team.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
@@ -42,13 +43,6 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
   Uint8List? _fileBytes;
   bool _isUploading = false;
   double _progress = 0;
-
-  static const _categories = [
-    'Policy',
-    'Protocol',
-    'Code of Conduct',
-    'Other',
-  ];
 
   @override
   void dispose() {
@@ -331,7 +325,7 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
           const SizedBox(height: 8),
           GlassDropdownField<String>(
             value: _category,
-            items: _categories
+            items: policyCategories
                 .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                 .toList(),
             onChanged: _isUploading

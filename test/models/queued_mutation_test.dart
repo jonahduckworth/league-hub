@@ -142,7 +142,8 @@ void main() {
           'data': {
             'title': 'Test',
             'body': 'Content',
-            'scope': 'orgWide',
+            'scope': 'league',
+            'leagueId': 'league1',
           },
         },
         createdAt: DateTime(2024),
@@ -152,7 +153,7 @@ void main() {
       final restored = QueuedMutation.fromJson(json);
       final data = restored.params['data'] as Map;
       expect(data['title'], 'Test');
-      expect(data['scope'], 'orgWide');
+      expect(data['scope'], 'league');
     });
 
     test('params can contain lists', () {

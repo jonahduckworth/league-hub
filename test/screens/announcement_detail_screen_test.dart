@@ -57,7 +57,7 @@ void main() {
       ),
     ];
 
-    final pinnedOrgWideAnnouncement = Announcement(
+    final pinnedLeagueAnnouncement = Announcement(
       id: 'ann-1',
       orgId: 'org-1',
       title: 'Welcome Announcement',
@@ -65,7 +65,8 @@ void main() {
       authorId: 'author-1',
       authorName: 'Manager',
       authorRole: 'Manager',
-      scope: AnnouncementScope.orgWide,
+      scope: AnnouncementScope.league,
+      leagueId: 'league-1',
       attachments: [],
       isPinned: true,
       createdAt: DateTime.now().subtract(Duration(days: 5)),
@@ -95,6 +96,7 @@ void main() {
       authorName: 'Manager',
       authorRole: 'Manager',
       scope: AnnouncementScope.hub,
+      leagueId: 'league-1',
       hubId: 'hub-1',
       attachments: [],
       isPinned: false,
@@ -113,7 +115,7 @@ void main() {
             (ref) => user ?? staffUser,
           ),
           announcementsProvider.overrideWith(
-            (ref) => Stream.value(announcements ?? [pinnedOrgWideAnnouncement]),
+            (ref) => Stream.value(announcements ?? [pinnedLeagueAnnouncement]),
           ),
           leaguesProvider.overrideWith(
             (ref) => Stream.value(leagues ?? testLeagues),
@@ -173,7 +175,7 @@ void main() {
         await tester.pumpWidget(
           createTestWidget(
             announcementId: 'non-existent',
-            announcements: [pinnedOrgWideAnnouncement],
+            announcements: [pinnedLeagueAnnouncement],
           ),
         );
         await tester.pumpAndSettle();
@@ -182,15 +184,15 @@ void main() {
     });
 
     group('Scope Tag Display', () {
-      testWidgets('displays org-wide scope tag', (WidgetTester tester) async {
+      testWidgets('displays league scope tag', (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
             announcementId: 'ann-1',
-            announcements: [pinnedOrgWideAnnouncement],
+            announcements: [pinnedLeagueAnnouncement],
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Org-Wide'), findsOneWidget);
+        expect(find.text('Spring League'), findsOneWidget);
       });
 
       testWidgets('displays league scope tag with league name',
@@ -224,7 +226,7 @@ void main() {
         await tester.pumpWidget(
           createTestWidget(
             announcementId: 'ann-1',
-            announcements: [pinnedOrgWideAnnouncement],
+            announcements: [pinnedLeagueAnnouncement],
           ),
         );
         await tester.pumpAndSettle();
@@ -252,7 +254,7 @@ void main() {
           createTestWidget(
             announcementId: 'ann-1',
             user: superAdminUser,
-            announcements: [pinnedOrgWideAnnouncement],
+            announcements: [pinnedLeagueAnnouncement],
           ),
         );
         await tester.pumpAndSettle();
@@ -268,7 +270,7 @@ void main() {
           createTestWidget(
             announcementId: 'ann-1',
             user: authorUser,
-            announcements: [pinnedOrgWideAnnouncement],
+            announcements: [pinnedLeagueAnnouncement],
           ),
         );
         await tester.pumpAndSettle();
@@ -284,7 +286,7 @@ void main() {
           createTestWidget(
             announcementId: 'ann-1',
             user: staffUser,
-            announcements: [pinnedOrgWideAnnouncement],
+            announcements: [pinnedLeagueAnnouncement],
           ),
         );
         await tester.pumpAndSettle();
@@ -299,7 +301,7 @@ void main() {
           createTestWidget(
             announcementId: 'ann-1',
             user: superAdminUser,
-            announcements: [pinnedOrgWideAnnouncement],
+            announcements: [pinnedLeagueAnnouncement],
           ),
         );
         await tester.pumpAndSettle();
@@ -311,7 +313,7 @@ void main() {
           createTestWidget(
             announcementId: 'ann-1',
             user: authorUser,
-            announcements: [pinnedOrgWideAnnouncement],
+            announcements: [pinnedLeagueAnnouncement],
           ),
         );
         await tester.pumpAndSettle();
@@ -324,7 +326,7 @@ void main() {
           createTestWidget(
             announcementId: 'ann-1',
             user: staffUser,
-            announcements: [pinnedOrgWideAnnouncement],
+            announcements: [pinnedLeagueAnnouncement],
           ),
         );
         await tester.pumpAndSettle();
@@ -343,7 +345,8 @@ void main() {
           authorId: 'author-1',
           authorName: 'Manager',
           authorRole: 'Manager',
-          scope: AnnouncementScope.orgWide,
+          scope: AnnouncementScope.league,
+          leagueId: 'league-1',
           attachments: [],
           isPinned: false,
           createdAt: DateTime.now(),

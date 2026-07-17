@@ -90,6 +90,7 @@ export const demoData: AdminData = {
       orgId: "org-demo",
       name: "Winter Hockey",
       abbreviation: "WHL",
+      logoUrl: "https://cdn.example.com/winter-hockey.png",
       iconName: "league",
       createdAt: new Date().toISOString()
     }
@@ -101,6 +102,7 @@ export const demoData: AdminData = {
       leagueId: "league-winter",
       name: "Calgary",
       location: "Calgary, AB",
+      logoUrl: "https://cdn.example.com/calgary.png",
       iconName: "hub"
     },
     {
@@ -121,6 +123,7 @@ export const demoData: AdminData = {
       name: "Calgary U11 AA",
       ageGroup: "U11",
       division: "AA",
+      logoUrl: "https://cdn.example.com/calgary.png",
       iconName: "team",
       memberIds: ["manager-1"]
     },
@@ -139,7 +142,8 @@ export const demoData: AdminData = {
     {
       id: "announcement-1",
       orgId: "org-demo",
-      scope: "orgWide",
+      scope: "league",
+      leagueId: "league-winter",
       title: "Schedule window posted",
       body: "The next scheduling window is ready.",
       authorId: "admin-1",

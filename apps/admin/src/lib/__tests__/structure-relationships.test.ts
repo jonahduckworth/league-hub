@@ -19,6 +19,15 @@ describe("buildStructureRelationshipIndex", () => {
       "Morgan Manager",
       "Sam Staff"
     ]);
+    expect(relationships.directPeopleForHub("hub-calgary").map((person) => person.displayName)).toEqual([
+      "Avery Admin",
+      "Morgan Manager"
+    ]);
+    expect(relationships.directPeopleForLeague("league-winter").map((person) => person.displayName)).toEqual([
+      "Avery Admin",
+      "Morgan Manager",
+      "Sam Staff"
+    ]);
   });
 
   it("includes direct hub assignments even when a person is not on a team roster", () => {
@@ -41,6 +50,8 @@ describe("buildStructureRelationshipIndex", () => {
     });
 
     expect(relationships.peopleForHub("hub-calgary").map((person) => person.displayName)).toContain("Harper Hub");
+    expect(relationships.directPeopleForHub("hub-calgary").map((person) => person.displayName)).toContain("Harper Hub");
     expect(relationships.peopleForLeague("league-winter").map((person) => person.displayName)).toContain("Harper Hub");
+    expect(relationships.directPeopleForLeague("league-winter").map((person) => person.displayName)).not.toContain("Harper Hub");
   });
 });

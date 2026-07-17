@@ -1,6 +1,8 @@
 import type { AppUser, Hub, League, Team } from "./types";
 
 export type StructureRelationshipIndex = {
+  directPeopleForLeague: (leagueId: string) => AppUser[];
+  directPeopleForHub: (hubId: string) => AppUser[];
   peopleForLeague: (leagueId: string) => AppUser[];
   peopleForHub: (hubId: string) => AppUser[];
   peopleForTeam: (teamId: string) => AppUser[];
@@ -27,6 +29,8 @@ export function buildStructureRelationshipIndex({ users, hubs, teams }: Structur
   const peopleById = new Map(users.map((person) => [person.id, person]));
   const teamsByHub = new Map<string, Team[]>();
   const hubsByLeague = new Map<string, Hub[]>();
+  const directPeopleByHub = new Map<string, AppUser[]>();
+  const directPeopleByLeague = new Map<string, AppUser[]>();
   const peopleByTeam = new Map<string, AppUser[]>();
   const peopleByHub = new Map<string, AppUser[]>();
   const peopleByLeague = new Map<string, AppUser[]>();
@@ -50,8 +54,9 @@ export function buildStructureRelationshipIndex({ users, hubs, teams }: Structur
   }
 
   for (const hub of hubs) {
-    const peopleAssignedToHub = users.filter((person) => person.hubIds.includes(hub.id));
+    const peopleAssignedToHub = uniquePeople(users.filter((person) => person.hubIds.includes(hub.id)));
     const peopleOnHubTeams = (teamsByHub.get(hub.id) ?? []).flatMap((team) => peopleByTeam.get(team.id) ?? []);
+    directPeopleByHub.set(hub.id, peopleAssignedToHub);
     peopleByHub.set(hub.id, uniquePeople([...peopleAssignedToHub, ...peopleOnHubTeams]));
   }
 
@@ -61,12 +66,15 @@ export function buildStructureRelationshipIndex({ users, hubs, teams }: Structur
     ...users.flatMap((person) => person.leagueIds)
   ]);
   for (const leagueId of leagueIds) {
-    const peopleAssignedToLeague = users.filter((person) => person.leagueIds.includes(leagueId));
+    const peopleAssignedToLeague = uniquePeople(users.filter((person) => person.leagueIds.includes(leagueId)));
     const peopleInLeagueHubs = (hubsByLeague.get(leagueId) ?? []).flatMap((hub) => peopleByHub.get(hub.id) ?? []);
+    directPeopleByLeague.set(leagueId, peopleAssignedToLeague);
     peopleByLeague.set(leagueId, uniquePeople([...peopleAssignedToLeague, ...peopleInLeagueHubs]));
   }
 
   return {
+    directPeopleForLeague: (leagueId) => directPeopleByLeague.get(leagueId) ?? [],
+    directPeopleForHub: (hubId) => directPeopleByHub.get(hubId) ?? [],
     peopleForLeague: (leagueId) => peopleByLeague.get(leagueId) ?? [],
     peopleForHub: (hubId) => peopleByHub.get(hubId) ?? [],
     peopleForTeam: (teamId) => peopleByTeam.get(teamId) ?? []

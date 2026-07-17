@@ -8,8 +8,11 @@ import {
   UserRole,
   assignableRoles,
   canAccessOrg,
+  canCreateLeague,
   canManageTarget,
   isAdminRole,
+  isValidAnnouncementTarget,
+  isValidPolicyCategory,
   isUserRole,
   normalizeStringArray,
 } from "./adminLogic";
@@ -93,6 +96,42 @@ function requiredString(value: unknown, field: string): string {
     throw new HttpsError("invalid-argument", `${field} is required.`);
   }
   return result;
+}
+
+function parseAnnouncementTarget(data: RequestRecord) {
+  if (!isValidAnnouncementTarget(data)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Announcements must target a league, hub, or team with the required parent IDs.",
+    );
+  }
+  const scope = requiredString(data.scope, "scope");
+  return {
+    scope,
+    leagueId: requiredString(data.leagueId, "leagueId"),
+    hubId: scope === "league" ? null : requiredString(data.hubId, "hubId"),
+    teamId: scope === "team" ? requiredString(data.teamId, "teamId") : null,
+  };
+}
+
+async function validatedAnnouncementTarget(orgId: string, data: RequestRecord) {
+  const target = parseAnnouncementTarget(data);
+  const leagueRef = orgRef(orgId).collection("leagues").doc(target.leagueId);
+  if (!(await leagueRef.get()).exists) {
+    throw new HttpsError("invalid-argument", "The selected announcement league does not exist.");
+  }
+  if (target.scope === "league") return target;
+
+  const hubRef = leagueRef.collection("hubs").doc(target.hubId!);
+  if (!(await hubRef.get()).exists) {
+    throw new HttpsError("invalid-argument", "The selected announcement hub is not in that league.");
+  }
+  if (target.scope === "hub") return target;
+
+  if (!(await hubRef.collection("teams").doc(target.teamId!).get()).exists) {
+    throw new HttpsError("invalid-argument", "The selected announcement team is not in that hub.");
+  }
+  return target;
 }
 
 function optionalBoolean(value: unknown): boolean | undefined {
@@ -525,11 +564,14 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
 });
 
 export const adminUpsertLeague = onCall(adminRuntime, async (request) => {
-  return withAdmin(request, "adminUpsertLeague", async (_actor, data, orgId) => {
+  return withAdmin(request, "adminUpsertLeague", async (actor, data, orgId) => {
     const league = objectValue(data.league, "league");
     const leagueId = optionalString(league.id) ?? orgRef(orgId).collection("leagues").doc().id;
     const leagueRef = orgRef(orgId).collection("leagues").doc(leagueId);
     const exists = (await leagueRef.get()).exists;
+    if (!exists && !canCreateLeague(actor)) {
+      throw new HttpsError("permission-denied", "Only platform owners can create leagues.");
+    }
     const payload = {
       orgId,
       name: requiredString(league.name, "league.name"),
@@ -642,12 +684,10 @@ export const adminDeleteTeam = onCall(adminRuntime, async (request) => {
 export const adminCreateAnnouncement = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminCreateAnnouncement", async (actor, data, orgId) => {
     const ref = orgRef(orgId).collection("announcements").doc();
+    const target = await validatedAnnouncementTarget(orgId, data);
     await ref.set({
       orgId,
-      scope: requiredString(data.scope, "scope"),
-      leagueId: optionalString(data.leagueId) ?? null,
-      hubId: optionalString(data.hubId) ?? null,
-      teamId: optionalString(data.teamId) ?? null,
+      ...target,
       title: requiredString(data.title, "title"),
       body: requiredString(data.body, "body"),
       authorId: actor.id,
@@ -664,6 +704,9 @@ export const adminCreateAnnouncement = onCall(adminRuntime, async (request) => {
 export const adminUpdateAnnouncement = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminUpdateAnnouncement", async (_actor, data, orgId) => {
     const announcementId = requiredString(data.announcementId, "announcementId");
+    const ref = orgRef(orgId).collection("announcements").doc(announcementId);
+    const before = await ref.get();
+    if (!before.exists) throw new HttpsError("not-found", "Announcement was not found.");
     const patch = allowedPatch(data.patch, "patch", [
       "scope",
       "leagueId",
@@ -674,8 +717,10 @@ export const adminUpdateAnnouncement = onCall(adminRuntime, async (request) => {
       "attachments",
       "isPinned",
     ]);
-    await orgRef(orgId).collection("announcements").doc(announcementId).update({
+    const target = await validatedAnnouncementTarget(orgId, { ...(before.data() ?? {}), ...patch });
+    await ref.update({
       ...patch,
+      ...target,
       updatedAt: now(),
     });
     return { announcementId, updatedFields: Object.keys(patch) };
@@ -696,6 +741,10 @@ export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
     const ref = requestedPolicyId ?
       orgRef(orgId).collection("policies").doc(requestedPolicyId) :
       orgRef(orgId).collection("policies").doc();
+    const category = requiredString(data.category, "category");
+    if (!isValidPolicyCategory(category)) {
+      throw new HttpsError("invalid-argument", "Select a supported policy category.");
+    }
     await ref.set({
       orgId,
       leagueId: optionalString(data.leagueId) ?? null,
@@ -705,7 +754,7 @@ export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
       fileUrl: requiredString(data.fileUrl, "fileUrl"),
       fileType: requiredString(data.fileType, "fileType"),
       fileSize: typeof data.fileSize === "number" ? data.fileSize : 0,
-      category: requiredString(data.category, "category"),
+      category,
       uploadedBy: actor.id,
       uploadedByName: actor.displayName ?? actor.email ?? "Admin",
       versions: [],
