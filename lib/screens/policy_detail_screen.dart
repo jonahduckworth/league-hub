@@ -41,10 +41,6 @@ Route<void> policyViewerRoute(Widget child) {
     reverseTransitionDuration: AppMotion.routeReverse,
     pageBuilder: (_, __, ___) => child,
     transitionsBuilder: (context, animation, secondaryAnimation, page) {
-      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-        return page;
-      }
-
       final popTransition = buildAppPopTransition(
         context: context,
         animation: animation,
@@ -52,6 +48,10 @@ Route<void> policyViewerRoute(Widget child) {
         child: page,
       );
       if (popTransition != null) return popTransition;
+
+      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+        return page;
+      }
 
       final curvedAnimation = CurvedAnimation(
         parent: animation,
