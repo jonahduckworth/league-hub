@@ -14,7 +14,8 @@ abstract final class AppMotion {
 
   static const Curve enter = Cubic(0.2, 0, 0, 1);
   static const Curve exit = Cubic(0.4, 0, 1, 1);
-  static const Curve emphasizedCurve = Cubic(0.16, 1, 0.3, 1);
+  static const Curve emphasizedCurve = enter;
+  static const Curve screenFadeCurve = Cubic(0.33, 0, 0.67, 1);
 
   static Duration accessible(
     BuildContext context,

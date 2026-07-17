@@ -12,6 +12,16 @@ void main() {
     expect(AppMotion.routeReverse, const Duration(milliseconds: 240));
   });
 
+  test('screen fades remain visible throughout the forward transition', () {
+    final quarter = AppMotion.screenFadeCurve.transform(0.25);
+    final midpoint = AppMotion.screenFadeCurve.transform(0.5);
+    final threeQuarters = AppMotion.screenFadeCurve.transform(0.75);
+
+    expect(quarter, lessThan(0.25));
+    expect(midpoint, closeTo(0.5, 0.01));
+    expect(threeQuarters, greaterThan(0.75));
+  });
+
   testWidgets('overlay motion has a polished enter and quicker exit',
       (tester) async {
     late AnimationStyle style;
@@ -67,6 +77,12 @@ void main() {
           )
           .first;
       expect(tester.widget<Opacity>(opacityFinder).opacity, 0);
+
+      await tester.pump(AppMotion.standard * 0.25);
+      expect(
+        tester.widget<Opacity>(opacityFinder).opacity,
+        allOf(greaterThan(0), lessThan(0.5)),
+      );
 
       await tester.pumpAndSettle();
 

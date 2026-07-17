@@ -64,7 +64,7 @@ class _AppMotionRevealState extends State<AppMotionReveal>
       animation: _controller,
       child: widget.child,
       builder: (context, child) {
-        final progress = AppMotion.emphasizedCurve.transform(_controller.value);
+        final progress = AppMotion.screenFadeCurve.transform(_controller.value);
         return Opacity(
           opacity: progress,
           child: child,

@@ -53,23 +53,29 @@ Route<void> policyViewerRoute(Widget child) {
             secondaryStatus: secondaryAnimation.status,
           );
           final isPopping = popLayer != AppPopTransitionLayer.none;
-          final forwardProgress = disableAnimations
+          final forwardFadeProgress = disableAnimations
               ? 1.0
-              : AppMotion.emphasizedCurve.transform(animation.value);
+              : AppMotion.screenFadeCurve.transform(animation.value);
+          final forwardMoveProgress = disableAnimations
+              ? 1.0
+              : AppMotion.enter.transform(animation.value);
           final opacity = isPopping
               ? appPopPageOpacity(
                   layer: popLayer,
                   primaryValue: animation.value,
                   disableAnimations: disableAnimations,
                 )
-              : forwardProgress;
+              : forwardFadeProgress;
 
           return Opacity(
             opacity: opacity,
             child: FractionalTranslation(
               translation: isPopping
                   ? Offset.zero
-                  : Offset(_policyViewerSlideFactor * (1 - forwardProgress), 0),
+                  : Offset(
+                      _policyViewerSlideFactor * (1 - forwardMoveProgress),
+                      0,
+                    ),
               child: animatedPage,
             ),
           );

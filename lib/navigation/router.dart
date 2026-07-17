@@ -89,7 +89,8 @@ final _authNotifier = _AuthNotifier();
 AppUser? _cachedAppUser;
 
 const _shellTransitionDuration = AppMotion.route;
-const _shellTransitionCurve = AppMotion.emphasizedCurve;
+const _shellMoveCurve = AppMotion.enter;
+const _shellFadeCurve = AppMotion.screenFadeCurve;
 const _shellTransitionSlideFactor = 0.012;
 const _shellRouteIncomingSlideFactor = 0.012;
 const _shellRouteOutgoingSlideFactor = 0.004;
@@ -105,11 +106,15 @@ enum _ShellPageMotion {
   scaleFade,
 }
 
-double _shellTransitionProgress(double value) {
-  return _shellTransitionCurve.transform(value);
+double _shellMoveProgress(double value) {
+  return _shellMoveCurve.transform(value);
 }
 
-double _shellFastOutgoingProgress(double progress) {
+double _shellFadeProgress(double value) {
+  return _shellFadeCurve.transform(value);
+}
+
+double _shellOutgoingFadeProgress(double progress) {
   return (progress / _shellOutgoingFadeEnd).clamp(0.0, 1.0).toDouble();
 }
 
@@ -128,7 +133,7 @@ double _shellFadeOpacity({
     return _shellIncomingFadeProgress(clampedProgress);
   }
 
-  return ui.lerpDouble(1, 0, _shellFastOutgoingProgress(clampedProgress))!;
+  return ui.lerpDouble(1, 0, _shellOutgoingFadeProgress(clampedProgress))!;
 }
 
 double _shellRouteFadeOpacity({
@@ -137,7 +142,7 @@ double _shellRouteFadeOpacity({
   required bool animatePrimary,
 }) {
   if (secondaryAnimation.status == AnimationStatus.reverse) {
-    return _shellIncomingFadeProgress(_shellTransitionProgress(
+    return _shellIncomingFadeProgress(_shellFadeProgress(
       1 - secondaryAnimation.value,
     ));
   }
@@ -147,7 +152,7 @@ double _shellRouteFadeOpacity({
     return ui.lerpDouble(
       1,
       0,
-      _shellFastOutgoingProgress(_shellTransitionProgress(
+      _shellOutgoingFadeProgress(_shellFadeProgress(
         secondaryAnimation.value,
       )),
     )!;
@@ -157,7 +162,7 @@ double _shellRouteFadeOpacity({
       (animation.status == AnimationStatus.forward ||
           animation.status == AnimationStatus.dismissed)) {
     if (animation.status == AnimationStatus.dismissed) return 0;
-    return _shellIncomingFadeProgress(_shellTransitionProgress(
+    return _shellIncomingFadeProgress(_shellFadeProgress(
       animation.value,
     ));
   }
@@ -166,7 +171,7 @@ double _shellRouteFadeOpacity({
     return ui.lerpDouble(
       1,
       0,
-      _shellFastOutgoingProgress(_shellTransitionProgress(
+      _shellOutgoingFadeProgress(_shellFadeProgress(
         1 - animation.value,
       )),
     )!;
@@ -211,15 +216,16 @@ bool _shellRouteContentIsVisible({
 }
 
 ({double opacity, double offsetFactor, double scale}) _shellTransitionFrame({
-  required double progress,
+  required double fadeProgress,
+  required double moveProgress,
   required bool isCurrent,
 }) {
-  final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
-  final outgoingProgress = _shellFastOutgoingProgress(clampedProgress);
+  final clampedFade = fadeProgress.clamp(0.0, 1.0).toDouble();
+  final clampedMove = moveProgress.clamp(0.0, 1.0).toDouble();
+  final outgoingFade = _shellOutgoingFadeProgress(clampedFade);
   return (
-    opacity:
-        isCurrent ? clampedProgress : ui.lerpDouble(1, 0, outgoingProgress)!,
-    offsetFactor: isCurrent ? 1 - clampedProgress : -outgoingProgress,
+    opacity: isCurrent ? clampedFade : ui.lerpDouble(1, 0, outgoingFade)!,
+    offsetFactor: isCurrent ? 1 - clampedMove : -clampedMove,
     scale: 1,
   );
 }
@@ -227,7 +233,8 @@ bool _shellRouteContentIsVisible({
 Widget _shellTransitionMotion({
   required BuildContext context,
   required Widget child,
-  required double progress,
+  required double fadeProgress,
+  required double moveProgress,
   required double direction,
   required bool isCurrent,
 }) {
@@ -242,7 +249,7 @@ Widget _shellTransitionMotion({
   if (!_shellUsesSharedAxis) {
     return Opacity(
       opacity: _shellFadeOpacity(
-        progress: progress,
+        progress: fadeProgress,
         isCurrent: isCurrent,
       ),
       child: child,
@@ -250,7 +257,8 @@ Widget _shellTransitionMotion({
   }
 
   final frame = _shellTransitionFrame(
-    progress: progress,
+    fadeProgress: fadeProgress,
+    moveProgress: moveProgress,
     isCurrent: isCurrent,
   );
 
@@ -807,18 +815,22 @@ Page<void> _shellTransitionPage(
             secondaryStatus: secondaryAnimation.status,
           );
           final isPopping = popLayer != AppPopTransitionLayer.none;
-          final primaryProgress =
-              animatePrimary ? _shellTransitionProgress(animation.value) : 1.0;
-          final secondaryProgress =
-              _shellTransitionProgress(secondaryAnimation.value);
-          final outgoingProgress =
-              _shellFastOutgoingProgress(secondaryProgress);
+          final primaryFadeProgress =
+              animatePrimary ? _shellFadeProgress(animation.value) : 1.0;
+          final primaryMoveProgress =
+              animatePrimary ? _shellMoveProgress(animation.value) : 1.0;
+          final secondaryFadeProgress =
+              _shellFadeProgress(secondaryAnimation.value);
+          final secondaryMoveProgress =
+              _shellMoveProgress(secondaryAnimation.value);
+          final outgoingFadeProgress =
+              _shellOutgoingFadeProgress(secondaryFadeProgress);
           final incomingDx =
-              ui.lerpDouble(incomingOffset.dx, 0, primaryProgress)!;
+              ui.lerpDouble(incomingOffset.dx, 0, primaryMoveProgress)!;
           final outgoingDx =
-              ui.lerpDouble(0, outgoingOffset.dx, outgoingProgress)!;
-          final incomingOpacity = primaryProgress;
-          final outgoingOpacity = ui.lerpDouble(1, 0, outgoingProgress)!;
+              ui.lerpDouble(0, outgoingOffset.dx, secondaryMoveProgress)!;
+          final incomingOpacity = primaryFadeProgress;
+          final outgoingOpacity = ui.lerpDouble(1, 0, outgoingFadeProgress)!;
           final transitionOpacity = isPopping
               ? appPopPageOpacity(
                   layer: popLayer,
@@ -1114,13 +1126,14 @@ class _AnimatedBranchContainerState extends State<_AnimatedBranchContainer>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final progress = _shellTransitionProgress(_controller.value);
+        final fadeProgress = _shellFadeProgress(_controller.value);
+        final moveProgress = _shellMoveProgress(_controller.value);
         final direction = _branchDirection;
         final isAnimating = _controller.value < 1 && _previousIndex != null;
         final outgoingPresenceEnd = _shellUsesSharedAxis
             ? _shellOutgoingPresenceEnd
             : _shellOutgoingFadeEnd;
-        final showPrevious = isAnimating && progress < outgoingPresenceEnd;
+        final showPrevious = isAnimating && fadeProgress < outgoingPresenceEnd;
 
         Widget buildStage(int index) {
           final isCurrent = index == widget.currentIndex;
@@ -1134,13 +1147,14 @@ class _AnimatedBranchContainerState extends State<_AnimatedBranchContainer>
               ? _shellTransitionMotion(
                   context: context,
                   child: child,
-                  progress: progress,
+                  fadeProgress: fadeProgress,
+                  moveProgress: moveProgress,
                   direction: direction,
                   isCurrent: isCurrent,
                 )
               : AppShellRouteVisualScope(
                   contentOpacity: _shellFadeOpacity(
-                    progress: progress,
+                    progress: fadeProgress,
                     isCurrent: isCurrent,
                   ),
                   showHeader: isCurrent,

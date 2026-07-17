@@ -12,6 +12,38 @@ void main() {
     expect(route.reverseTransitionDuration, AppMotion.routeReverse);
   });
 
+  testWidgets('viewer remains visibly in motion during forward navigation',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              policyViewerRoute(_MountProbe(onMount: () {})),
+            ),
+            child: const Text('Open viewer'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open viewer'));
+    await tester.pump();
+    await tester.pump(AppMotion.route * 0.25);
+
+    final opacityFinder = find
+        .ancestor(
+          of: find.byType(_MountProbe),
+          matching: find.byType(Opacity),
+        )
+        .first;
+    final opacity = tester.widget<Opacity>(opacityFinder).opacity;
+    expect(opacity, greaterThan(0));
+    expect(opacity, lessThan(0.5));
+
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('viewer keeps its page mounted while popping', (tester) async {
     var mountCount = 0;
 
