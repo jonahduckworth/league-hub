@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/design_system.dart';
 import 'app_glass.dart';
 
 const double leagueHubGlassBottomNavBarHeight = 64;
@@ -100,12 +101,12 @@ class _LiquidGlassBottomBarState extends State<_LiquidGlassBottomBar>
     super.initState();
     _previousIndex = widget.currentIndex;
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 350),
+      duration: AppMotion.emphasized,
       vsync: this,
     );
     _pillAnimation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
+      curve: AppMotion.emphasizedCurve,
     );
   }
 
@@ -273,13 +274,18 @@ class _LiquidGlassBottomBarState extends State<_LiquidGlassBottomBar>
                 widget.onTap(index);
               },
               behavior: HitTestBehavior.opaque,
-              child: _NavItem(
-                icon: isSelected ? (item.activeIcon ?? item.icon) : item.icon,
-                label: item.label,
-                isSelected: isSelected,
-                activeColor: widget.activeColor,
-                badge: item.badge,
-                iconSize: item.iconSize,
+              child: AnimatedScale(
+                scale: isSelected ? 1 : 0.985,
+                duration: AppMotion.accessible(context, AppMotion.fast),
+                curve: AppMotion.enter,
+                child: _NavItem(
+                  icon: isSelected ? (item.activeIcon ?? item.icon) : item.icon,
+                  label: item.label,
+                  isSelected: isSelected,
+                  activeColor: widget.activeColor,
+                  badge: item.badge,
+                  iconSize: item.iconSize,
+                ),
               ),
             ),
           ),
@@ -355,12 +361,18 @@ class _NavItem extends StatelessWidget {
                     bottom: 0,
                     child: AnimatedScale(
                       scale: isSelected ? 1.08 : 1.0,
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
+                      duration: AppMotion.accessible(
+                        context,
+                        AppMotion.standard,
+                      ),
+                      curve: AppMotion.enter,
                       child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
+                        duration: AppMotion.accessible(
+                          context,
+                          AppMotion.standard,
+                        ),
+                        switchInCurve: AppMotion.enter,
+                        switchOutCurve: AppMotion.exit,
                         transitionBuilder: (child, animation) {
                           return FadeTransition(
                             opacity: animation,
@@ -395,7 +407,10 @@ class _NavItem extends StatelessWidget {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
+                  duration: AppMotion.accessible(
+                    context,
+                    AppMotion.standard,
+                  ),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
@@ -403,9 +418,12 @@ class _NavItem extends StatelessWidget {
                     letterSpacing: 0,
                   ),
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
+                    duration: AppMotion.accessible(
+                      context,
+                      AppMotion.standard,
+                    ),
+                    switchInCurve: AppMotion.enter,
+                    switchOutCurve: AppMotion.exit,
                     child: Text(
                       label,
                       key: ValueKey<String>(label),

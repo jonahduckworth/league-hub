@@ -43,6 +43,7 @@ import '../screens/admin/team_detail_screen.dart';
 import '../screens/unauthorized_screen.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/glass_bottom_nav.dart';
+import '../core/design_system.dart';
 
 class _AuthNotifier extends ChangeNotifier {
   StreamSubscription<User?>? _authSubscription;
@@ -86,25 +87,16 @@ final _authNotifier = _AuthNotifier();
 /// Kept in sync by [_AuthNotifier] because GoRouter redirects are synchronous.
 AppUser? _cachedAppUser;
 
-const _shellTransitionDuration = Duration(milliseconds: 540);
-const _shellTransitionCurve = Cubic(0.2, 0, 0, 1);
-const _shellTransitionSlideFactor = 0.075;
-const _shellRouteIncomingSlideFactor = 0.065;
-const _shellRouteOutgoingSlideFactor = 0.026;
+const _shellTransitionDuration = AppMotion.route;
+const _shellTransitionCurve = AppMotion.emphasizedCurve;
+const _shellTransitionSlideFactor = 0.055;
+const _shellRouteIncomingSlideFactor = 0.05;
+const _shellRouteOutgoingSlideFactor = 0.018;
 const _shellIncomingFadeStart = 0.58;
 const _shellOutgoingFadeEnd = 0.7;
 const _shellOutgoingPresenceEnd = 0.3;
 
-enum _ShellTransitionStyle {
-  fade,
-  sharedAxis,
-}
-
-/// Set this to sharedAxis to bring back the directional slide/scale motion.
-final _shellTransitionStyle = _ShellTransitionStyle.fade;
-
-bool get _shellUsesSharedAxis =>
-    _shellTransitionStyle == _ShellTransitionStyle.sharedAxis;
+const _shellUsesSharedAxis = true;
 
 enum _ShellPageMotion {
   sharedAxisForward,
@@ -319,11 +311,19 @@ final router = GoRouter(
   routes: [
     GoRoute(
       path: '/login',
-      builder: (context, state) => const LoginScreen(),
+      pageBuilder: (context, state) => _shellTransitionPage(
+        state,
+        const LoginScreen(),
+        motion: _ShellPageMotion.scaleFade,
+      ),
     ),
     GoRoute(
       path: '/create-league',
-      builder: (context, state) => const OrgCreationScreen(),
+      pageBuilder: (context, state) => _shellTransitionPage(
+        state,
+        const OrgCreationScreen(),
+        motion: _ShellPageMotion.sharedAxisForward,
+      ),
     ),
     GoRoute(
       path: '/create-org',
@@ -331,11 +331,19 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/accept-invite',
-      builder: (context, state) => const AcceptInvitationScreen(),
+      pageBuilder: (context, state) => _shellTransitionPage(
+        state,
+        const AcceptInvitationScreen(),
+        motion: _ShellPageMotion.sharedAxisForward,
+      ),
     ),
     GoRoute(
       path: '/unauthorized',
-      builder: (context, state) => const UnauthorizedScreen(),
+      pageBuilder: (context, state) => _shellTransitionPage(
+        state,
+        const UnauthorizedScreen(),
+        motion: _ShellPageMotion.scaleFade,
+      ),
     ),
     StatefulShellRoute(
       builder: (context, state, navigationShell) => _MainScaffold(

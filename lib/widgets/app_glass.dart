@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+
+import '../core/design_system.dart';
 
 class AppGlassColors {
   static const Color pageTop = Color(0xFF02050B);
@@ -114,6 +117,9 @@ class AppGlassSurface extends StatelessWidget {
   final GlassQuality quality;
   final LiquidGlassSettings? settings;
   final Clip clipBehavior;
+  final String? semanticLabel;
+  final bool enableHaptics;
+  final double pressedScale;
 
   const AppGlassSurface({
     super.key,
@@ -127,6 +133,9 @@ class AppGlassSurface extends StatelessWidget {
     this.quality = GlassQuality.standard,
     this.settings,
     this.clipBehavior = Clip.antiAlias,
+    this.semanticLabel,
+    this.enableHaptics = true,
+    this.pressedScale = 0.985,
   });
 
   @override
@@ -145,12 +154,69 @@ class AppGlassSurface extends StatelessWidget {
 
     if (onTap == null) return surface;
 
+    return _InteractiveGlassSurface(
+      onTap: onTap!,
+      semanticLabel: semanticLabel,
+      enableHaptics: enableHaptics,
+      pressedScale: pressedScale,
+      child: surface,
+    );
+  }
+}
+
+class _InteractiveGlassSurface extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final String? semanticLabel;
+  final bool enableHaptics;
+  final double pressedScale;
+
+  const _InteractiveGlassSurface({
+    required this.child,
+    required this.onTap,
+    required this.semanticLabel,
+    required this.enableHaptics,
+    required this.pressedScale,
+  });
+
+  @override
+  State<_InteractiveGlassSurface> createState() =>
+      _InteractiveGlassSurfaceState();
+}
+
+class _InteractiveGlassSurfaceState extends State<_InteractiveGlassSurface> {
+  bool _isPressed = false;
+
+  void _setPressed(bool value) {
+    if (_isPressed == value) return;
+    setState(() => _isPressed = value);
+  }
+
+  void _handleTap() {
+    if (widget.enableHaptics) HapticFeedback.selectionClick();
+    widget.onTap();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Semantics(
       button: true,
+      label: widget.semanticLabel,
+      excludeSemantics: widget.semanticLabel != null,
+      onTap: _handleTap,
       child: GestureDetector(
+        excludeFromSemantics: true,
         behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: surface,
+        onTapDown: (_) => _setPressed(true),
+        onTapCancel: () => _setPressed(false),
+        onTapUp: (_) => _setPressed(false),
+        onTap: _handleTap,
+        child: AnimatedScale(
+          scale: _isPressed ? widget.pressedScale : 1,
+          duration: AppMotion.accessible(context, AppMotion.fast),
+          curve: AppMotion.enter,
+          child: widget.child,
+        ),
       ),
     );
   }
@@ -176,6 +242,7 @@ class AppGlassIconTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppGlassSurface(
       onTap: onTap,
+      semanticLabel: label,
       height: 136,
       padding: const EdgeInsets.all(18),
       radius: 22,
@@ -246,6 +313,7 @@ class AppGlassFloatingActionButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         radius: 28,
         onTap: onTap,
+        semanticLabel: tooltip,
         child: Icon(icon, color: color, size: 30),
       ),
     );
