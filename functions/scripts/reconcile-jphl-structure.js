@@ -18,6 +18,12 @@ const STORAGE_BUCKET = "jdb-league-hub.firebasestorage.app";
 const ORG_ID = "JMl7VkKm9tAADBaxxdiI";
 const LEAGUE_ID = "KHuoFdO37RD0i2ARocIl";
 const STANDINGS_URL = "https://juniorprospectshockeyleague.com/division/0/16623/standings";
+const RAMP_DIVISION_IDS = {
+  "14U": "16624",
+  "15U": "16623",
+  "17U": "23859",
+  "18U": "16622",
+};
 const APPLY = process.argv.includes("--apply");
 const UNKNOWN_ARGS = process.argv.slice(2).filter((arg) => arg !== "--apply");
 
@@ -393,6 +399,20 @@ async function writeCanonicalStructure(db, state, logoUrls) {
     if (pending >= 400) await commit();
   };
 
+  await set(state.orgRef, {
+    scheduleIntegration: {
+      provider: "ramp",
+      enabled: true,
+      baseUrl: "https://juniorprospectshockeyleague.com",
+      associationId: "2888",
+      seasonId: "12322",
+      timezone: "America/Edmonton",
+      divisionIds: RAMP_DIVISION_IDS,
+      updatedAt: now,
+      updatedBy: "reconcile-jphl-structure",
+    },
+  }, { merge: true });
+
   for (const hub of hubs) {
     const hubRef = state.leagueRef.collection("hubs").doc(hub.id);
     const logoUrl = logoUrls.get(hub.id);
@@ -420,6 +440,7 @@ async function writeCanonicalStructure(db, state, logoUrls) {
         iconName: null,
         memberIds: existing.exists && Array.isArray(existing.data().memberIds) ? existing.data().memberIds : [],
         sourceTeamId: team.sourceId,
+        sourceDivisionId: RAMP_DIVISION_IDS[team.ageGroup],
         sourceUrl: STANDINGS_URL,
         ...(existing.exists ? {} : { createdAt: now }),
       }, { merge: true });

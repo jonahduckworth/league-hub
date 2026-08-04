@@ -440,6 +440,16 @@ service cloud.firestore {
         allow delete: if canManageOrg(orgId);
       }
 
+      match /scheduleEvents/{eventId} {
+        allow get, list: if sameOrg(orgId);
+        allow create, update, delete: if false;
+      }
+
+      match /scheduleSync/{documentId} {
+        allow get, list: if sameOrg(orgId);
+        allow create, update, delete: if false;
+      }
+
       match /invitations/{invitationId} {
         allow get: if canManageContent(orgId)
           || (resource.data.status == 'pending' && resource.data.token is string);

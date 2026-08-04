@@ -16,6 +16,7 @@ import {
   isUserRole,
   normalizeStringArray,
 } from "./adminLogic";
+import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
 
 type DocumentData = FirebaseFirestore.DocumentData;
 type FieldValue = FirebaseFirestore.FieldValue;
@@ -165,6 +166,15 @@ function requestedOrgId(data: RequestRecord): string {
 function assertOrgAccess(actor: Actor, orgId: string): void {
   if (!canAccessOrg(actor, orgId)) {
     throw new HttpsError("permission-denied", "You cannot manage this organization.");
+  }
+}
+
+function assertScheduleAdmin(actor: Actor): void {
+  if (actor.role !== "platformOwner" && actor.role !== "superAdmin") {
+    throw new HttpsError(
+      "permission-denied",
+      "Only platform owners and super admins can configure or refresh the schedule integration.",
+    );
   }
 }
 
@@ -452,6 +462,66 @@ export const adminGetOverview = onCall(adminRuntime, async (request) => {
       },
       structure,
     };
+  });
+});
+
+export const adminUpdateScheduleIntegration = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminUpdateScheduleIntegration", async (actor, data, orgId) => {
+    assertScheduleAdmin(actor);
+    const integration = objectValue(data.integration, "integration");
+    const baseUrl = optionalString(integration.baseUrl) ??
+      "https://juniorprospectshockeyleague.com";
+    let parsedBaseUrl: URL;
+    try {
+      parsedBaseUrl = new URL(baseUrl);
+    } catch {
+      throw new HttpsError("invalid-argument", "integration.baseUrl must be a valid URL.");
+    }
+    if (parsedBaseUrl.protocol !== "https:" ||
+        parsedBaseUrl.hostname !== "juniorprospectshockeyleague.com") {
+      throw new HttpsError(
+        "invalid-argument",
+        "The schedule source must use the official JPHL HTTPS website.",
+      );
+    }
+    const timezone = requiredString(integration.timezone, "integration.timezone");
+    try {
+      new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format();
+    } catch {
+      throw new HttpsError("invalid-argument", "integration.timezone is not valid.");
+    }
+    const rawDivisionIds = objectValue(integration.divisionIds, "integration.divisionIds");
+    const divisionIds: Record<string, string> = {};
+    for (const [ageGroup, value] of Object.entries(rawDivisionIds)) {
+      divisionIds[ageGroup.trim()] = requiredString(value, `integration.divisionIds.${ageGroup}`);
+    }
+    if (Object.keys(divisionIds).length === 0) {
+      throw new HttpsError("invalid-argument", "At least one RAMP division ID is required.");
+    }
+
+    const scheduleIntegration = {
+      provider: "ramp",
+      enabled: optionalBoolean(integration.enabled) ?? true,
+      baseUrl: parsedBaseUrl.origin,
+      associationId: requiredString(integration.associationId, "integration.associationId"),
+      seasonId: requiredString(integration.seasonId, "integration.seasonId"),
+      timezone,
+      divisionIds,
+      updatedAt: now(),
+      updatedBy: actor.id,
+    };
+    await orgRef(orgId).set({ scheduleIntegration }, { merge: true });
+    return { scheduleIntegration };
+  });
+});
+
+export const adminSyncSchedule = onCall({
+  timeoutSeconds: 540,
+  memory: "512MiB",
+}, async (request) => {
+  return withAdmin(request, "adminSyncSchedule", async (actor, _data, orgId) => {
+    assertScheduleAdmin(actor);
+    return synchronizeOrganizationSchedule(orgId);
   });
 });
 
