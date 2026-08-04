@@ -1262,10 +1262,10 @@ function ScheduleSection({ data, currentUser, runAction }: { data: AdminData; cu
   const [loadedAt] = useState(() => Date.now());
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState<ScheduleIntegration>(() => integration ?? defaultScheduleIntegration());
+  const [settings, setSettings] = useState<ScheduleIntegration>(() => scheduleIntegrationSettings(integration));
 
   useEffect(() => {
-    setSettings(integration ?? defaultScheduleIntegration());
+    setSettings(scheduleIntegrationSettings(integration));
   }, [data.selectedOrg?.id, integration]);
 
   const upcoming = data.scheduleEvents
@@ -1398,6 +1398,7 @@ function ScheduleSection({ data, currentUser, runAction }: { data: AdminData; cu
             <dl className="mt-5 grid gap-3 border-t border-line/80 pt-5">
               <InfoRow label="Last success" value={dateTimeLabel(sync?.lastSuccessAt)} />
               <InfoRow label="Season synced" value={sync?.sourceSeasonId ?? integration?.seasonId ?? "—"} />
+              <InfoRow label="Season discovery" value={sync?.seasonDiscoveryStatus ?? (integration?.autoDiscoverSeason ? "Waiting" : "Manual")} />
               <InfoRow label="Feeds succeeded" value={`${sync?.teamFeedsSucceeded ?? 0} / ${sync?.teamFeedsTotal ?? 0}`} />
               <InfoRow label="Games received" value={String(sync?.eventCount ?? 0)} />
               <InfoRow label="Missing preserved" value={sync?.removalsSkipped ? "Yes — safety guard active" : "No"} />
@@ -1415,7 +1416,7 @@ function ScheduleSection({ data, currentUser, runAction }: { data: AdminData; cu
                   <Input required value={settings.seasonId} onChange={(event) => setSettings((current) => ({ ...current, seasonId: event.target.value }))} />
                 </Field>
                 <p className="-mt-2 text-xs font-medium leading-5 text-muted">
-                  Changing the active season preserves previously imported results. Save, sync the historical season, then switch back to the current season.
+                  This is the fallback season and the value used for historical imports. Changing it preserves previously imported results.
                 </p>
                 <Field label="Association ID">
                   <Input required value={settings.associationId} onChange={(event) => setSettings((current) => ({ ...current, associationId: event.target.value }))} />
@@ -1447,6 +1448,18 @@ function ScheduleSection({ data, currentUser, runAction }: { data: AdminData; cu
                   />
                   Automatic schedule sync enabled
                 </label>
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold text-ink">
+                  <input
+                    type="checkbox"
+                    checked={settings.autoDiscoverSeason}
+                    onChange={(event) => setSettings((current) => ({ ...current, autoDiscoverSeason: event.target.checked }))}
+                    className="size-4 accent-teal"
+                  />
+                  Automatically discover new JPHL seasons
+                </label>
+                <p className="-mt-2 text-xs font-medium leading-5 text-muted">
+                  League Hub switches only when the public JPHL directory matches every configured team. Otherwise it keeps the last known routes and shows a warning.
+                </p>
                 <Button type="submit" disabled={saving}>
                   <Save className="size-4" aria-hidden />
                   {saving ? "Saving…" : "Save source settings"}
@@ -1464,11 +1477,22 @@ function defaultScheduleIntegration(): ScheduleIntegration {
   return {
     provider: "ramp",
     enabled: true,
+    autoDiscoverSeason: true,
     baseUrl: "https://juniorprospectshockeyleague.com",
     associationId: "2888",
     seasonId: "12322",
     timezone: "America/Edmonton",
     divisionIds: { "14U": "16624", "15U": "16623", "17U": "23859", "18U": "16622" }
+  };
+}
+
+function scheduleIntegrationSettings(integration?: ScheduleIntegration | null): ScheduleIntegration {
+  if (!integration) return defaultScheduleIntegration();
+  return {
+    ...integration,
+    // Existing organization documents predate this setting. Treat a missing
+    // value as enabled so the admin UI agrees with the sync function default.
+    autoDiscoverSeason: integration.autoDiscoverSeason !== false
   };
 }
 

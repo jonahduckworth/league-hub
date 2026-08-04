@@ -403,6 +403,7 @@ async function writeCanonicalStructure(db, state, logoUrls) {
     scheduleIntegration: {
       provider: "ramp",
       enabled: true,
+      autoDiscoverSeason: true,
       baseUrl: "https://juniorprospectshockeyleague.com",
       associationId: "2888",
       seasonId: "12322",

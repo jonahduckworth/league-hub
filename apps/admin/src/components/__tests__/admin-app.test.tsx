@@ -107,6 +107,7 @@ describe("AdminApp operations shell", () => {
     expect(screen.getByText("Calgary Rockies")).toBeTruthy();
     expect(screen.getByText("RAMP game schedules are up to date.")).toBeTruthy();
     expect(screen.getByText("Season synced")).toBeTruthy();
+    expect(screen.getByText("Season discovery")).toBeTruthy();
     expect(screen.getAllByText("12322").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Sync now" })).toBeTruthy();
 
@@ -118,6 +119,9 @@ describe("AdminApp operations shell", () => {
     expect(screen.getByLabelText(/Season ID/)).toBeTruthy();
     expect(screen.getByText(/preserves previously imported results/i)).toBeTruthy();
     expect(screen.getByLabelText("17U division ID")).toBeTruthy();
+    const autoDiscovery = screen.getByRole("checkbox", { name: "Automatically discover new JPHL seasons" });
+    expect((autoDiscovery as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByText(/matches every configured team/i)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save source settings" })).toBeTruthy();
   });
 

@@ -502,6 +502,7 @@ export const adminUpdateScheduleIntegration = onCall(adminRuntime, async (reques
     const scheduleIntegration = {
       provider: "ramp",
       enabled: optionalBoolean(integration.enabled) ?? true,
+      autoDiscoverSeason: optionalBoolean(integration.autoDiscoverSeason) ?? true,
       baseUrl: parsedBaseUrl.origin,
       associationId: requiredString(integration.associationId, "integration.associationId"),
       seasonId: requiredString(integration.seasonId, "integration.seasonId"),

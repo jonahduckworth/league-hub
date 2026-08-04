@@ -35,6 +35,7 @@ export type Organization = {
 export type ScheduleIntegration = {
   provider: "ramp";
   enabled: boolean;
+  autoDiscoverSeason: boolean;
   baseUrl: string;
   associationId: string;
   seasonId: string;
@@ -201,6 +202,10 @@ export type ScheduleSyncState = {
   status: "ok" | "warning" | "error" | "running";
   message: string;
   sourceSeasonId?: string;
+  seasonDiscoveryStatus?: "disabled" | "matched" | "warning";
+  seasonDiscoveryMessage?: string;
+  discoveredSeasonId?: string;
+  seasonAutoUpdated?: boolean;
   lastAttemptAt?: unknown;
   lastSuccessAt?: unknown;
   teamFeedsTotal?: number;

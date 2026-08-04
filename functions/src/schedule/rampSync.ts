@@ -9,10 +9,16 @@ import {
   parseRampCalendar,
   reconcileSchedule,
 } from "./rampLogic";
+import {
+  matchRampDirectory,
+  parseRampDirectory,
+  RampDiscoveryResult,
+} from "./rampDiscovery";
 
 type ScheduleIntegration = {
   provider: "ramp";
   enabled: boolean;
+  autoDiscoverSeason: boolean;
   baseUrl: string;
   associationId: string;
   seasonId: string;
@@ -25,12 +31,18 @@ type SourceTeam = {
   hubId: string;
   leagueId: string;
   name: string;
+  ageGroup?: string;
+  sourceTeamId?: string;
+  sourceDivisionId?: string;
+};
+
+type RoutableSourceTeam = SourceTeam & {
   sourceTeamId: string;
   sourceDivisionId: string;
 };
 
 type FeedResult = {
-  team: SourceTeam;
+  team: RoutableSourceTeam;
   events: IncomingScheduleEvent[];
   error?: string;
 };
@@ -39,6 +51,10 @@ export type ScheduleSyncResult = {
   status: "ok" | "warning" | "error";
   message: string;
   sourceSeasonId: string;
+  seasonDiscoveryStatus: "disabled" | "matched" | "warning";
+  seasonDiscoveryMessage: string;
+  discoveredSeasonId?: string;
+  seasonAutoUpdated: boolean;
   teamFeedsTotal: number;
   teamFeedsSucceeded: number;
   teamFeedsFailed: number;
@@ -54,6 +70,15 @@ const DEFAULT_BASE_URL = "https://juniorprospectshockeyleague.com";
 const syncRuntime = {
   timeoutSeconds: 540,
   memory: "512MiB" as const,
+};
+
+type PreparedScheduleSource = {
+  integration: ScheduleIntegration;
+  teams: RoutableSourceTeam[];
+  discovery: RampDiscoveryResult | undefined;
+  discoveryStatus: ScheduleSyncResult["seasonDiscoveryStatus"];
+  discoveryMessage: string;
+  changed: boolean;
 };
 
 function optionalString(value: unknown): string | undefined {
@@ -78,6 +103,7 @@ function integrationFromOrg(data: FirebaseFirestore.DocumentData): ScheduleInteg
   return {
     provider: "ramp",
     enabled: true,
+    autoDiscoverSeason: raw.autoDiscoverSeason !== false,
     baseUrl: optionalString(raw.baseUrl)?.replace(/\/$/, "") ?? DEFAULT_BASE_URL,
     associationId,
     seasonId,
@@ -98,12 +124,12 @@ async function loadSourceTeams(orgId: string, integration: ScheduleIntegration):
         const sourceTeamId = optionalString(data.sourceTeamId);
         const sourceDivisionId = optionalString(data.sourceDivisionId) ??
           integration.divisionIds[optionalString(data.ageGroup) ?? ""];
-        if (!sourceTeamId || !sourceDivisionId) continue;
         teams.push({
           id: team.id,
           hubId: hub.id,
           leagueId: league.id,
           name: optionalString(data.name) ?? team.id,
+          ageGroup: optionalString(data.ageGroup),
           sourceTeamId,
           sourceDivisionId,
         });
@@ -113,7 +139,108 @@ async function loadSourceTeams(orgId: string, integration: ScheduleIntegration):
   return teams;
 }
 
-function calendarUrl(integration: ScheduleIntegration, team: SourceTeam): string {
+function routableTeams(teams: SourceTeam[]): RoutableSourceTeam[] {
+  return teams.filter((team): team is RoutableSourceTeam =>
+    Boolean(team.sourceTeamId && team.sourceDivisionId),
+  );
+}
+
+async function fetchRampDirectory(baseUrl: string): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  try {
+    const response = await fetch(new URL("/", baseUrl), {
+      signal: controller.signal,
+      headers: {
+        Accept: "text/html",
+        "User-Agent": "LeagueHub-ScheduleDiscovery/1.0",
+      },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const html = await response.text();
+    if (!html.toLowerCase().includes("/masterschedule")) {
+      throw new Error("The JPHL directory did not contain schedule routes.");
+    }
+    return html;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function prepareScheduleSource(
+  integration: ScheduleIntegration,
+  teams: SourceTeam[],
+): Promise<PreparedScheduleSource> {
+  const fallback = routableTeams(teams);
+  if (!integration.autoDiscoverSeason) {
+    return {
+      integration,
+      teams: fallback,
+      discovery: undefined,
+      discoveryStatus: "disabled",
+      discoveryMessage: "Automatic season discovery is disabled; using the configured RAMP routes.",
+      changed: false,
+    };
+  }
+
+  try {
+    const html = await fetchRampDirectory(integration.baseUrl);
+    const discovery = matchRampDirectory(parseRampDirectory(html), teams);
+    if (discovery.status !== "matched" || !discovery.discoveredSeasonId) {
+      return {
+        integration,
+        teams: fallback,
+        discovery,
+        discoveryStatus: "warning",
+        discoveryMessage: `${discovery.message} The last known RAMP routes were used.`,
+        changed: false,
+      };
+    }
+
+    const assignments = new Map(discovery.assignments.map((assignment) => [
+      assignment.configuredTeamId,
+      assignment,
+    ]));
+    const discoveredTeams = teams.map((team): RoutableSourceTeam => {
+      const assignment = assignments.get(team.id);
+      if (!assignment) throw new Error(`Discovery did not assign ${team.name}.`);
+      return {
+        ...team,
+        sourceTeamId: assignment.sourceTeamId,
+        sourceDivisionId: assignment.sourceDivisionId,
+      };
+    });
+    const changed = discovery.discoveredSeasonId !== integration.seasonId ||
+      discoveredTeams.some((team, index) =>
+        team.sourceTeamId !== teams[index].sourceTeamId ||
+        team.sourceDivisionId !== teams[index].sourceDivisionId,
+      );
+    return {
+      integration: {
+        ...integration,
+        seasonId: discovery.discoveredSeasonId,
+        divisionIds: discovery.divisionIds,
+      },
+      teams: discoveredTeams,
+      discovery,
+      discoveryStatus: "matched",
+      discoveryMessage: discovery.message,
+      changed,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      integration,
+      teams: fallback,
+      discovery: undefined,
+      discoveryStatus: "warning",
+      discoveryMessage: `Automatic season discovery failed (${message}); the last known RAMP routes were used.`,
+      changed: false,
+    };
+  }
+}
+
+function calendarUrl(integration: ScheduleIntegration, team: RoutableSourceTeam): string {
   const url = new URL(`/calendar/master-schedule/${integration.associationId}.ics`, integration.baseUrl);
   url.searchParams.set("SID", integration.seasonId);
   url.searchParams.set("CATID", "0");
@@ -123,7 +250,10 @@ function calendarUrl(integration: ScheduleIntegration, team: SourceTeam): string
   return url.toString();
 }
 
-async function fetchTeamFeed(integration: ScheduleIntegration, team: SourceTeam): Promise<FeedResult> {
+async function fetchTeamFeed(
+  integration: ScheduleIntegration,
+  team: RoutableSourceTeam,
+): Promise<FeedResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
   try {
@@ -155,7 +285,10 @@ async function fetchTeamFeed(integration: ScheduleIntegration, team: SourceTeam)
   }
 }
 
-async function fetchFeeds(integration: ScheduleIntegration, teams: SourceTeam[]): Promise<FeedResult[]> {
+async function fetchFeeds(
+  integration: ScheduleIntegration,
+  teams: RoutableSourceTeam[],
+): Promise<FeedResult[]> {
   const results: FeedResult[] = new Array(teams.length);
   let nextIndex = 0;
   const workers = Array.from({ length: Math.min(8, teams.length) }, async () => {
@@ -329,6 +462,33 @@ async function writeSyncState(orgId: string, data: FirebaseFirestore.DocumentDat
     .set({ ...data, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
 }
 
+async function persistDiscoveredRouting(
+  orgId: string,
+  prepared: PreparedScheduleSource,
+): Promise<void> {
+  const batch = db.batch();
+  const organization = db.collection("organizations").doc(orgId);
+  batch.update(organization, {
+    "scheduleIntegration.seasonId": prepared.integration.seasonId,
+    "scheduleIntegration.divisionIds": prepared.integration.divisionIds,
+    "scheduleIntegration.autoDiscoverSeason": true,
+    "scheduleIntegration.lastDiscoveredAt": admin.firestore.FieldValue.serverTimestamp(),
+    "scheduleIntegration.updatedAt": admin.firestore.FieldValue.serverTimestamp(),
+    "scheduleIntegration.updatedBy": "automatic-season-discovery",
+  });
+  for (const team of prepared.teams) {
+    const reference = organization.collection("leagues").doc(team.leagueId)
+      .collection("hubs").doc(team.hubId).collection("teams").doc(team.id);
+    batch.update(reference, {
+      sourceTeamId: team.sourceTeamId,
+      sourceDivisionId: team.sourceDivisionId,
+      sourceRoutingUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      sourceRoutingUpdatedBy: "automatic-season-discovery",
+    });
+  }
+  await batch.commit();
+}
+
 export async function synchronizeOrganizationSchedule(orgId: string): Promise<ScheduleSyncResult> {
   const organization = await db.collection("organizations").doc(orgId).get();
   if (!organization.exists) throw new Error("Organization was not found.");
@@ -342,34 +502,55 @@ export async function synchronizeOrganizationSchedule(orgId: string): Promise<Sc
   });
 
   try {
-    const teams = await loadSourceTeams(orgId, integration);
-    if (teams.length === 0) throw new Error("No teams have RAMP team and division IDs configured.");
-    const feedResults = await fetchFeeds(integration, teams);
+    const configuredTeams = await loadSourceTeams(orgId, integration);
+    if (configuredTeams.length === 0) throw new Error("No League Hub teams are configured for RAMP.");
+    const prepared = await prepareScheduleSource(integration, configuredTeams);
+    const effectiveIntegration = prepared.integration;
+    const teams = prepared.teams;
+    if (teams.length === 0) throw new Error("No teams have usable RAMP team and division IDs configured.");
+    const feedResults = await fetchFeeds(effectiveIntegration, teams);
     const failures = feedResults.filter((result) => result.error);
     const incoming = aggregateEvents(feedResults);
-    const existing = await loadExistingEvents(orgId, integration.seasonId);
+    const existing = await loadExistingEvents(orgId, effectiveIntegration.seasonId);
     const activeExisting = existing.filter((event) =>
-      event.isActive && event.sourceSeasonId === integration.seasonId,
+      event.isActive && event.sourceSeasonId === effectiveIntegration.seasonId,
     );
     const suspiciousDrop = isSuspiciousScheduleDrop(activeExisting.length, incoming.length);
     const removalsSkipped = failures.length > 0 || suspiciousDrop;
     const reconciliation = reconcileSchedule(existing, incoming, {
-      sourceSeasonId: integration.seasonId,
+      sourceSeasonId: effectiveIntegration.seasonId,
       allowRemovals: !removalsSkipped,
       preserveExistingScope: removalsSkipped,
     });
     await writeReconciliation(orgId, reconciliation);
 
-    const status = removalsSkipped ? "warning" : "ok";
+    const routingAutoUpdated = prepared.discoveryStatus === "matched" &&
+      prepared.changed && failures.length === 0;
+    if (routingAutoUpdated) await persistDiscoveredRouting(orgId, prepared);
+    const seasonAutoUpdated = routingAutoUpdated &&
+      effectiveIntegration.seasonId !== integration.seasonId;
+
+    const discoveryWarning = prepared.discoveryStatus === "warning";
+    const status = removalsSkipped || discoveryWarning ? "warning" : "ok";
     const message = failures.length > 0
       ? `${failures.length} team feed${failures.length === 1 ? "" : "s"} failed; missing games were preserved.`
       : suspiciousDrop
         ? "The feed returned an unusually small schedule; missing games were preserved."
-        : "RAMP game schedules are up to date.";
+        : discoveryWarning
+          ? prepared.discoveryMessage
+          : seasonAutoUpdated
+            ? `Detected and synchronized JPHL season ${effectiveIntegration.seasonId} automatically.`
+            : "RAMP game schedules are up to date.";
     const result: ScheduleSyncResult = {
       status,
       message,
-      sourceSeasonId: integration.seasonId,
+      sourceSeasonId: effectiveIntegration.seasonId,
+      seasonDiscoveryStatus: prepared.discoveryStatus,
+      seasonDiscoveryMessage: prepared.discoveryMessage,
+      ...(prepared.discovery?.discoveredSeasonId
+        ? { discoveredSeasonId: prepared.discovery.discoveredSeasonId }
+        : {}),
+      seasonAutoUpdated,
       teamFeedsTotal: teams.length,
       teamFeedsSucceeded: teams.length - failures.length,
       teamFeedsFailed: failures.length,

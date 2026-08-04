@@ -25,6 +25,7 @@ export const demoData: AdminData = {
       scheduleIntegration: {
         provider: "ramp",
         enabled: true,
+        autoDiscoverSeason: true,
         baseUrl: "https://juniorprospectshockeyleague.com",
         associationId: "2888",
         seasonId: "12322",
@@ -43,6 +44,7 @@ export const demoData: AdminData = {
     scheduleIntegration: {
       provider: "ramp",
       enabled: true,
+      autoDiscoverSeason: true,
       baseUrl: "https://juniorprospectshockeyleague.com",
       associationId: "2888",
       seasonId: "12322",
@@ -251,6 +253,10 @@ export const demoData: AdminData = {
     status: "ok",
     message: "RAMP game schedules are up to date.",
     sourceSeasonId: "12322",
+    seasonDiscoveryStatus: "matched",
+    seasonDiscoveryMessage: "Matched all 48 League Hub teams to JPHL season 12322.",
+    discoveredSeasonId: "12322",
+    seasonAutoUpdated: false,
     lastAttemptAt: new Date().toISOString(),
     lastSuccessAt: new Date().toISOString(),
     teamFeedsTotal: 48,
