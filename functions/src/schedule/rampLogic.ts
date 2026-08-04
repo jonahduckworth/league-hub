@@ -267,6 +267,13 @@ function shareValue(first: string[], second: string[]): boolean {
 const replacementTimeWindowMs = 72 * 60 * 60 * 1000;
 const recentlyMissingWindowMs = 14 * 24 * 60 * 60 * 1000;
 
+export function isSuspiciousScheduleDrop(
+  activeExistingCount: number,
+  incomingCount: number,
+): boolean {
+  return activeExistingCount > 0 && incomingCount < activeExistingCount * 0.65;
+}
+
 function replacementScore(existing: ExistingScheduleEvent, incoming: IncomingScheduleEvent): number {
   const timeDifference = Math.abs(existing.startsAt.getTime() - incoming.startsAt.getTime());
   if (timeDifference > replacementTimeWindowMs) return 0;

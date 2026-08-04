@@ -5,6 +5,7 @@ import { db } from "../helpers";
 import {
   ExistingScheduleEvent,
   IncomingScheduleEvent,
+  isSuspiciousScheduleDrop,
   parseRampCalendar,
   reconcileSchedule,
 } from "./rampLogic";
@@ -350,7 +351,7 @@ export async function synchronizeOrganizationSchedule(orgId: string): Promise<Sc
     const activeExisting = existing.filter((event) =>
       event.isActive && event.sourceSeasonId === integration.seasonId,
     );
-    const suspiciousDrop = activeExisting.length > 0 && incoming.length < Math.floor(activeExisting.length * 0.65);
+    const suspiciousDrop = isSuspiciousScheduleDrop(activeExisting.length, incoming.length);
     const removalsSkipped = failures.length > 0 || suspiciousDrop;
     const reconciliation = reconcileSchedule(existing, incoming, {
       sourceSeasonId: integration.seasonId,

@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  isSuspiciousScheduleDrop,
   parseRampCalendar,
   reconcileSchedule,
 } = require("../lib/schedule/rampLogic");
@@ -285,4 +286,12 @@ test("rejects incoming events from a different season", () => {
     ),
     /multiple seasons/,
   );
+});
+
+test("guards suspicious schedule drops without rounding small seasons down", () => {
+  assert.equal(isSuspiciousScheduleDrop(1, 0), true);
+  assert.equal(isSuspiciousScheduleDrop(3, 1), true);
+  assert.equal(isSuspiciousScheduleDrop(20, 12), true);
+  assert.equal(isSuspiciousScheduleDrop(20, 13), false);
+  assert.equal(isSuspiciousScheduleDrop(0, 0), false);
 });
