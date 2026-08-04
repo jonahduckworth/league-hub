@@ -86,13 +86,16 @@ describe("AdminApp operations shell", () => {
     const sectionNavigations = screen.getAllByRole("navigation", { name: "Admin sections" });
     expect(sectionNavigations).toHaveLength(2);
 
-    for (const navigation of sectionNavigations) {
-      for (const section of ["Overview", "People", "Structure", "Schedule", "Announcements", "Policies"]) {
-        expect(within(navigation).getByRole("button", { name: section })).toBeTruthy();
-      }
-      expect(within(navigation).getByRole("button", { name: "Overview" }).getAttribute("aria-current")).toBe("page");
-      expect(within(navigation).getByRole("button", { name: "People" }).getAttribute("aria-current")).toBeNull();
+    for (const section of ["Overview", "People", "Structure", "Schedule", "Announcements", "Policies"]) {
+      expect(within(sectionNavigations[0]).getByRole("button", { name: section })).toBeTruthy();
     }
+    for (const section of ["People", "Structure", "Schedule", "Announcements", "Policies"]) {
+      expect(within(sectionNavigations[1]).getByRole("button", { name: section })).toBeTruthy();
+    }
+    expect(within(sectionNavigations[1]).queryByRole("button", { name: "Overview" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Overview" })).toHaveLength(2);
+    expect(within(sectionNavigations[0]).getByRole("button", { name: "Overview" }).getAttribute("aria-current")).toBe("page");
+    expect(within(sectionNavigations[0]).getByRole("button", { name: "People" }).getAttribute("aria-current")).toBeNull();
   });
 
   it("shows native game data, sync health, and source controls in the schedule workspace", async () => {

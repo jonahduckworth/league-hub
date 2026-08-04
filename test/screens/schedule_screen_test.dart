@@ -67,11 +67,19 @@ void main() {
     ];
   });
 
-  Widget subject() => ProviderScope(
+  Widget subject({double textScale = 1, bool disableAnimations = false}) =>
+      ProviderScope(
         overrides: [
           scheduleEventsProvider.overrideWith((ref) => Stream.value(games)),
         ],
         child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(textScale),
+              disableAnimations: disableAnimations,
+            ),
+            child: child!,
+          ),
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
@@ -142,5 +150,29 @@ void main() {
       find.textContaining('automatically when the league publishes'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('remains usable on a small phone with large text',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(375, 667));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(subject(textScale: 1.6));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wolves HC'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('supports landscape and reduced motion without overflow',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(667, 375));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(subject(disableAnimations: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wolves HC'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

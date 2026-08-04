@@ -93,6 +93,8 @@ const navItems: Array<{
   { id: "policies", label: "Policies", mobileLabel: "Policies", description: "Documents and versions", icon: FileText }
 ];
 
+const mobileNavItems = navItems.filter((item) => item.id !== "overview");
+
 type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -332,9 +334,14 @@ export function AdminApp() {
         <header data-admin-shell-header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 backdrop-blur-xl">
           <div className="flex min-h-[72px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-navy text-white lg:hidden">
+              <button
+                type="button"
+                aria-label="Overview"
+                onClick={() => navigateToSection("overview")}
+                className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-navy text-white transition-colors hover:bg-[#243449] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20 lg:hidden"
+              >
                 <ShieldCheck className="size-5" aria-hidden />
-              </span>
+              </button>
               <div className="min-w-0">
                 <h1 className="truncate text-lg font-extrabold tracking-[-0.02em] text-ink sm:text-xl">{activeNavItem.label}</h1>
                 <p className="truncate text-xs font-semibold text-muted">{organizationLabel}</p>
@@ -395,10 +402,10 @@ export function AdminApp() {
         </main>
 
         <nav
-          className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-6 rounded-[22px] border border-white/10 bg-navy/95 p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-lift backdrop-blur-xl lg:hidden"
+          className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-[22px] border border-white/10 bg-navy/95 p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-lift backdrop-blur-xl lg:hidden"
           aria-label="Admin sections"
         >
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const selected = section === item.id;
             return (
