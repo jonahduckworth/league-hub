@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDocs,
+  limit,
   limitToLast,
   onSnapshot,
   orderBy,

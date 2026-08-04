@@ -8,6 +8,7 @@ const firestoreMocks = vi.hoisted(() => ({
   doc: vi.fn(),
   getDocs: vi.fn(),
   limit: vi.fn(),
+  limitToLast: vi.fn(),
   onSnapshot: vi.fn(),
   orderBy: vi.fn(),
   query: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("firebase/firestore", () => ({
   doc: firestoreMocks.doc,
   getDocs: firestoreMocks.getDocs,
   limit: firestoreMocks.limit,
+  limitToLast: firestoreMocks.limitToLast,
   onSnapshot: firestoreMocks.onSnapshot,
   orderBy: firestoreMocks.orderBy,
   query: firestoreMocks.query,
@@ -137,6 +139,7 @@ describe("useAdminData scope isolation", () => {
       path: segments.join("/")
     }));
     firestoreMocks.limit.mockImplementation((value: number): TestConstraint => ({ kind: "limit", value }));
+    firestoreMocks.limitToLast.mockImplementation((value: number): TestConstraint => ({ kind: "limit", value }));
     firestoreMocks.orderBy.mockImplementation((field: string): TestConstraint => ({ field, kind: "orderBy" }));
     firestoreMocks.where.mockImplementation((field: string, _operator: string, value: unknown): TestConstraint => ({
       field,
