@@ -1397,6 +1397,7 @@ function ScheduleSection({ data, currentUser, runAction }: { data: AdminData; cu
             </p>
             <dl className="mt-5 grid gap-3 border-t border-line/80 pt-5">
               <InfoRow label="Last success" value={dateTimeLabel(sync?.lastSuccessAt)} />
+              <InfoRow label="Season synced" value={sync?.sourceSeasonId ?? integration?.seasonId ?? "—"} />
               <InfoRow label="Feeds succeeded" value={`${sync?.teamFeedsSucceeded ?? 0} / ${sync?.teamFeedsTotal ?? 0}`} />
               <InfoRow label="Games received" value={String(sync?.eventCount ?? 0)} />
               <InfoRow label="Missing preserved" value={sync?.removalsSkipped ? "Yes — safety guard active" : "No"} />
@@ -1413,6 +1414,9 @@ function ScheduleSection({ data, currentUser, runAction }: { data: AdminData; cu
                 <Field label="Season ID" hint="RAMP SID">
                   <Input required value={settings.seasonId} onChange={(event) => setSettings((current) => ({ ...current, seasonId: event.target.value }))} />
                 </Field>
+                <p className="-mt-2 text-xs font-medium leading-5 text-muted">
+                  Changing the active season preserves previously imported results. Save, sync the historical season, then switch back to the current season.
+                </p>
                 <Field label="Association ID">
                   <Input required value={settings.associationId} onChange={(event) => setSettings((current) => ({ ...current, associationId: event.target.value }))} />
                 </Field>

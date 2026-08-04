@@ -37,6 +37,7 @@ type FeedResult = {
 export type ScheduleSyncResult = {
   status: "ok" | "warning" | "error";
   message: string;
+  sourceSeasonId: string;
   teamFeedsTotal: number;
   teamFeedsSucceeded: number;
   teamFeedsFailed: number;
@@ -136,6 +137,7 @@ async function fetchTeamFeed(integration: ScheduleIntegration, team: SourceTeam)
     const calendar = await response.text();
     const events = parseRampCalendar(calendar, integration.timezone).map((event) => ({
       ...event,
+      sourceSeasonId: integration.seasonId,
       teamIds: [team.id],
       hubIds: [team.hubId],
       leagueIds: [team.leagueId],
@@ -217,13 +219,20 @@ function localScheduleFields(event: IncomingScheduleEvent): {
   };
 }
 
-async function loadExistingEvents(orgId: string): Promise<ExistingScheduleEvent[]> {
+async function loadExistingEvents(
+  orgId: string,
+  currentSourceSeasonId: string,
+): Promise<ExistingScheduleEvent[]> {
   const snapshot = await db.collection("organizations").doc(orgId)
     .collection("scheduleEvents").where("source", "==", "ramp").get();
   return snapshot.docs.map((document) => {
     const data = document.data();
     return {
       id: document.id,
+      // Before season-aware syncing, all RAMP records belonged to the one
+      // configured season. Adopt those legacy records into that current season
+      // on their next successful upsert instead of duplicating them.
+      sourceSeasonId: optionalString(data.sourceSeasonId) ?? currentSourceSeasonId,
       sourceUid: optionalString(data.sourceUid) ?? document.id,
       previousSourceUids: Array.isArray(data.previousSourceUids)
         ? data.previousSourceUids.filter((value): value is string => typeof value === "string")
@@ -272,6 +281,7 @@ async function writeReconciliation(
     const localFields = localScheduleFields(event);
     await addWrite(events.doc(upsert.id), {
       source: "ramp",
+      sourceSeasonId: event.sourceSeasonId,
       sourceUid: event.sourceUid,
       previousSourceUids: upsert.previousSourceUids,
       sourceGameId: event.sourceGameId ?? null,
@@ -303,6 +313,7 @@ async function writeReconciliation(
   }
   for (const removal of reconciliation.removals) {
     await addWrite(events.doc(removal.id), {
+      sourceSeasonId: removal.sourceSeasonId,
       isActive: false,
       status: "removed",
       sourceMissingSince: admin.firestore.FieldValue.serverTimestamp(),
@@ -335,16 +346,17 @@ export async function synchronizeOrganizationSchedule(orgId: string): Promise<Sc
     const feedResults = await fetchFeeds(integration, teams);
     const failures = feedResults.filter((result) => result.error);
     const incoming = aggregateEvents(feedResults);
-    const existing = await loadExistingEvents(orgId);
-    const activeExisting = existing.filter((event) => event.isActive);
+    const existing = await loadExistingEvents(orgId, integration.seasonId);
+    const activeExisting = existing.filter((event) =>
+      event.isActive && event.sourceSeasonId === integration.seasonId,
+    );
     const suspiciousDrop = activeExisting.length > 0 && incoming.length < Math.floor(activeExisting.length * 0.65);
     const removalsSkipped = failures.length > 0 || suspiciousDrop;
-    const reconciliation = reconcileSchedule(
-      existing,
-      incoming,
-      !removalsSkipped,
-      removalsSkipped,
-    );
+    const reconciliation = reconcileSchedule(existing, incoming, {
+      sourceSeasonId: integration.seasonId,
+      allowRemovals: !removalsSkipped,
+      preserveExistingScope: removalsSkipped,
+    });
     await writeReconciliation(orgId, reconciliation);
 
     const status = removalsSkipped ? "warning" : "ok";
@@ -356,6 +368,7 @@ export async function synchronizeOrganizationSchedule(orgId: string): Promise<Sc
     const result: ScheduleSyncResult = {
       status,
       message,
+      sourceSeasonId: integration.seasonId,
       teamFeedsTotal: teams.length,
       teamFeedsSucceeded: teams.length - failures.length,
       teamFeedsFailed: failures.length,

@@ -1177,6 +1177,7 @@ void main() {
       Future<void> addGame(String id, DateTime start, bool active) =>
           games.doc(id).set({
             'sourceUid': '$id@rampinteractive.com',
+            'sourceSeasonId': '12322',
             'teamIds': ['team-1'],
             'hubIds': ['hub-1'],
             'leagueIds': ['league-1'],
@@ -1198,6 +1199,7 @@ void main() {
 
       expect(result.map((event) => event.id), ['earlier', 'later']);
       expect(result.first.status, ScheduleEventStatus.scheduled);
+      expect(result.first.sourceSeasonId, '12322');
     });
   });
 }

@@ -4,6 +4,7 @@ class ScheduleEvent {
   final String id;
   final String orgId;
   final String sourceUid;
+  final String? sourceSeasonId;
   final List<String> teamIds;
   final List<String> hubIds;
   final List<String> leagueIds;
@@ -28,6 +29,7 @@ class ScheduleEvent {
     required this.id,
     required this.orgId,
     required this.sourceUid,
+    this.sourceSeasonId,
     required this.teamIds,
     required this.hubIds,
     required this.leagueIds,
@@ -53,6 +55,7 @@ class ScheduleEvent {
         id: json['id'] as String,
         orgId: json['orgId'] as String,
         sourceUid: json['sourceUid'] as String,
+        sourceSeasonId: json['sourceSeasonId'] as String?,
         teamIds: List<String>.from(json['teamIds'] as List? ?? []),
         hubIds: List<String>.from(json['hubIds'] as List? ?? []),
         leagueIds: List<String>.from(json['leagueIds'] as List? ?? []),
@@ -82,6 +85,7 @@ class ScheduleEvent {
         'id': id,
         'orgId': orgId,
         'sourceUid': sourceUid,
+        'sourceSeasonId': sourceSeasonId,
         'teamIds': teamIds,
         'hubIds': hubIds,
         'leagueIds': leagueIds,

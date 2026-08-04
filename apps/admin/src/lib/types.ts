@@ -176,6 +176,7 @@ export type NotificationEvent = {
 export type ScheduleEvent = {
   id: string;
   sourceUid: string;
+  sourceSeasonId?: string;
   teamIds: string[];
   hubIds: string[];
   leagueIds: string[];
@@ -199,6 +200,7 @@ export type ScheduleEvent = {
 export type ScheduleSyncState = {
   status: "ok" | "warning" | "error" | "running";
   message: string;
+  sourceSeasonId?: string;
   lastAttemptAt?: unknown;
   lastSuccessAt?: unknown;
   teamFeedsTotal?: number;

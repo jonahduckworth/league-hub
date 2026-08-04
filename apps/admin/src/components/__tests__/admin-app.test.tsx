@@ -106,6 +106,8 @@ describe("AdminApp operations shell", () => {
     expect(screen.getByText("Wolves HC")).toBeTruthy();
     expect(screen.getByText("Calgary Rockies")).toBeTruthy();
     expect(screen.getByText("RAMP game schedules are up to date.")).toBeTruthy();
+    expect(screen.getByText("Season synced")).toBeTruthy();
+    expect(screen.getAllByText("12322").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Sync now" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /results/i }));
@@ -114,6 +116,7 @@ describe("AdminApp operations shell", () => {
 
     fireEvent.click(screen.getByText("RAMP source settings"));
     expect(screen.getByLabelText(/Season ID/)).toBeTruthy();
+    expect(screen.getByText(/preserves previously imported results/i)).toBeTruthy();
     expect(screen.getByLabelText("17U division ID")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save source settings" })).toBeTruthy();
   });

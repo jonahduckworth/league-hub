@@ -4,7 +4,7 @@ import {
   collection,
   doc,
   getDocs,
-  limit,
+  limitToLast,
   onSnapshot,
   orderBy,
   query,
@@ -310,7 +310,9 @@ export function useAdminData(currentUser?: AppUser | null) {
           data: { ...current.data, chatRooms: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as ChatRoom[] }
         }));
       }, requiredSnapshotError("Chat rooms")),
-      onSnapshot(query(collection(db, "organizations", selectedOrgId, "scheduleEvents"), orderBy("startsAt"), limit(500)), (snap) => {
+      // Keep enough history for prior-season results without dropping the
+      // newest schedule after multiple seasons accumulate.
+      onSnapshot(query(collection(db, "organizations", selectedOrgId, "scheduleEvents"), orderBy("startsAt"), limitToLast(2000)), (snap) => {
         if (!active) return;
         setState((current) => ({
           ...current,

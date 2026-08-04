@@ -205,6 +205,7 @@ export const demoData: AdminData = {
     {
       id: "game-upcoming",
       sourceUid: "leaguegame-demo-1@rampinteractive.com",
+      sourceSeasonId: "12322",
       teamIds: ["team-u11-aa"],
       hubIds: ["hub-calgary"],
       leagueIds: ["league-winter"],
@@ -225,6 +226,7 @@ export const demoData: AdminData = {
     {
       id: "game-final",
       sourceUid: "leaguegame-demo-2@rampinteractive.com",
+      sourceSeasonId: "previous-season",
       teamIds: ["team-u13-a"],
       hubIds: ["hub-reddeer"],
       leagueIds: ["league-winter"],
@@ -248,6 +250,7 @@ export const demoData: AdminData = {
   scheduleSync: {
     status: "ok",
     message: "RAMP game schedules are up to date.",
+    sourceSeasonId: "12322",
     lastAttemptAt: new Date().toISOString(),
     lastSuccessAt: new Date().toISOString(),
     teamFeedsTotal: 48,

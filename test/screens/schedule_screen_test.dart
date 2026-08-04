@@ -14,6 +14,7 @@ void main() {
     required String firstTeam,
     required String secondTeam,
     required DateTime startsAt,
+    String? sourceSeasonId,
     ScheduleEventStatus status = ScheduleEventStatus.scheduled,
     int? firstScore,
     int? secondScore,
@@ -24,6 +25,7 @@ void main() {
       id: id,
       orgId: 'org-1',
       sourceUid: '$id@rampinteractive.com',
+      sourceSeasonId: sourceSeasonId,
       teamIds: const ['team-1'],
       hubIds: const ['hub-1'],
       leagueIds: const ['league-1'],
@@ -137,6 +139,42 @@ void main() {
     expect(find.text('4'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
     expect(find.text('Wolves HC'), findsNothing);
+  });
+
+  testWidgets('shows final results retained from multiple seasons',
+      (tester) async {
+    games = [
+      event(
+        id: 'older-final',
+        sourceSeasonId: 'previous-season',
+        firstTeam: 'Wolves HC',
+        secondTeam: 'Rockies',
+        startsAt: now.subtract(const Duration(days: 300)),
+        status: ScheduleEventStatus.finalGame,
+        firstScore: 3,
+        secondScore: 1,
+      ),
+      event(
+        id: 'current-final',
+        sourceSeasonId: 'current-season',
+        firstTeam: 'Island HC',
+        secondTeam: 'Okanagan HC',
+        startsAt: now.subtract(const Duration(days: 2)),
+        status: ScheduleEventStatus.finalGame,
+        firstScore: 4,
+        secondScore: 2,
+      ),
+    ];
+    await tester.pumpWidget(subject());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Results'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wolves HC'), findsOneWidget);
+    expect(find.text('Rockies'), findsOneWidget);
+    expect(find.text('Island HC'), findsOneWidget);
+    expect(find.text('Okanagan HC'), findsOneWidget);
   });
 
   testWidgets('shows a helpful empty state when nothing is published',

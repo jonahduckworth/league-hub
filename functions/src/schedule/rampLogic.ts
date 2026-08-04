@@ -21,6 +21,7 @@ export type ParsedRampEvent = {
 };
 
 export type IncomingScheduleEvent = ParsedRampEvent & {
+  sourceSeasonId: string;
   teamIds: string[];
   hubIds: string[];
   leagueIds: string[];
@@ -28,6 +29,7 @@ export type IncomingScheduleEvent = ParsedRampEvent & {
 
 export type ExistingScheduleEvent = {
   id: string;
+  sourceSeasonId: string;
   sourceUid: string;
   previousSourceUids: string[];
   startsAt: Date;
@@ -58,6 +60,13 @@ export type ReconciliationResult = {
     replaced: number;
     removed: number;
   };
+};
+
+export type ReconciliationOptions = {
+  sourceSeasonId: string;
+  allowRemovals: boolean;
+  preserveExistingScope?: boolean;
+  now?: Date;
 };
 
 type ContentLine = {
@@ -289,19 +298,32 @@ function withPreservedScope(
   };
 }
 
-function newDocumentId(sourceUid: string): string {
-  return `ramp_${createHash("sha256").update(sourceUid).digest("hex").slice(0, 24)}`;
+function newDocumentId(sourceSeasonId: string, sourceUid: string): string {
+  return `ramp_${createHash("sha256")
+    .update(`${sourceSeasonId}:${sourceUid}`)
+    .digest("hex")
+    .slice(0, 24)}`;
 }
 
 export function reconcileSchedule(
   existing: ExistingScheduleEvent[],
   incoming: IncomingScheduleEvent[],
-  allowRemovals: boolean,
-  preserveExistingScope = false,
-  now = new Date(),
+  options: ReconciliationOptions,
 ): ReconciliationResult {
+  const {
+    sourceSeasonId,
+    allowRemovals,
+    preserveExistingScope = false,
+    now = new Date(),
+  } = options;
+  if (incoming.some((event) => event.sourceSeasonId !== sourceSeasonId)) {
+    throw new Error("Schedule reconciliation received events from multiple seasons.");
+  }
+  // Historical seasons remain active and visible. A sync may only update or
+  // remove records belonging to the season explicitly selected by the admin.
+  const seasonExisting = existing.filter((event) => event.sourceSeasonId === sourceSeasonId);
   const existingByUid = new Map<string, ExistingScheduleEvent>();
-  for (const event of existing) {
+  for (const event of seasonExisting) {
     existingByUid.set(event.sourceUid, event);
     for (const uid of event.previousSourceUids) existingByUid.set(uid, event);
   }
@@ -325,7 +347,7 @@ export function reconcileSchedule(
     });
   }
 
-  const missing = existing.filter((event) => {
+  const missing = seasonExisting.filter((event) => {
     if (matchedExisting.has(event.id)) return false;
     if (event.isActive) return true;
     if (!event.sourceMissingSince) return false;
@@ -353,7 +375,7 @@ export function reconcileSchedule(
       });
     } else {
       upserts.push({
-        id: newDocumentId(event.sourceUid),
+        id: newDocumentId(event.sourceSeasonId, event.sourceUid),
         event,
         previousSourceUids: [],
         kind: "added",
@@ -362,7 +384,7 @@ export function reconcileSchedule(
   }
 
   const removals = allowRemovals
-    ? existing.filter((event) => event.isActive && !matchedExisting.has(event.id))
+    ? seasonExisting.filter((event) => event.isActive && !matchedExisting.has(event.id))
     : [];
   return {
     upserts,

@@ -6,6 +6,16 @@ const {
   reconcileSchedule,
 } = require("../lib/schedule/rampLogic");
 
+const sourceSeasonId = "12322";
+
+function reconciliationOptions(overrides = {}) {
+  return {
+    sourceSeasonId,
+    allowRemovals: true,
+    ...overrides,
+  };
+}
+
 const rampCalendar = `BEGIN:VCALENDAR\r
 VERSION:2.0\r
 BEGIN:VEVENT\r
@@ -28,6 +38,7 @@ END:VCALENDAR`;
 
 function incoming(overrides = {}) {
   return {
+    sourceSeasonId,
     sourceUid: "leaguegame-200@rampinteractive.com",
     sourceGameId: "200",
     startsAt: new Date("2026-09-10T01:00:00.000Z"),
@@ -49,6 +60,7 @@ function incoming(overrides = {}) {
 function existing(overrides = {}) {
   return {
     id: "league-hub-event-1",
+    sourceSeasonId,
     sourceUid: "leaguegame-100@rampinteractive.com",
     previousSourceUids: [],
     startsAt: new Date("2026-09-10T01:00:00.000Z"),
@@ -81,7 +93,11 @@ test("parses RAMP game feeds, folded locations, local times, and final scores", 
 
 test("updates an existing event when RAMP keeps its UID", () => {
   const current = existing({ sourceUid: "leaguegame-200@rampinteractive.com" });
-  const result = reconcileSchedule([current], [incoming({ location: "Updated Arena" })], true);
+  const result = reconcileSchedule(
+    [current],
+    [incoming({ location: "Updated Arena" })],
+    reconciliationOptions(),
+  );
 
   assert.deepEqual(result.counts, { added: 0, updated: 1, replaced: 0, removed: 0 });
   assert.equal(result.upserts[0].id, current.id);
@@ -96,7 +112,7 @@ test("rebinds a deleted and recreated RAMP game to the stable League Hub event I
     startsAt: new Date("2026-09-10T02:00:00.000Z"),
     location: "Updated Great Plains Arena",
   });
-  const result = reconcileSchedule([current], [replacement], true);
+  const result = reconcileSchedule([current], [replacement], reconciliationOptions());
 
   assert.deepEqual(result.counts, { added: 0, updated: 0, replaced: 1, removed: 0 });
   assert.equal(result.upserts[0].id, current.id);
@@ -105,8 +121,12 @@ test("rebinds a deleted and recreated RAMP game to the stable League Hub event I
 
 test("soft-removes genuinely missing games only when removals are allowed", () => {
   const current = existing();
-  const guarded = reconcileSchedule([current], [], false);
-  const complete = reconcileSchedule([current], [], true);
+  const guarded = reconcileSchedule(
+    [current],
+    [],
+    reconciliationOptions({ allowRemovals: false }),
+  );
+  const complete = reconcileSchedule([current], [], reconciliationOptions());
 
   assert.equal(guarded.removals.length, 0);
   assert.equal(complete.removals[0].id, current.id);
@@ -120,7 +140,7 @@ test("does not rebind an unrelated game", () => {
     title: "Island HC vs Okanagan HC",
     teamIds: ["island", "okanagan"],
     startsAt: new Date("2026-10-20T01:00:00.000Z"),
-  })], true);
+  })], reconciliationOptions());
 
   assert.equal(result.counts.added, 1);
   assert.equal(result.counts.removed, 1);
@@ -133,7 +153,7 @@ test("does not rebind repeat opponents outside the replacement time window", () 
     sourceGameId: "999",
     startsAt: new Date("2027-02-10T01:00:00.000Z"),
     endsAt: new Date("2027-02-10T03:00:00.000Z"),
-  })], true);
+  })], reconciliationOptions());
 
   assert.equal(result.counts.added, 1);
   assert.equal(result.counts.replaced, 0);
@@ -144,7 +164,11 @@ test("does not rebind repeat opponents outside the replacement time window", () 
 test("rebinds a recreated game after an intervening missing sync", () => {
   const now = new Date("2026-09-01T12:00:00.000Z");
   const current = existing();
-  const missingSync = reconcileSchedule([current], [], true, false, now);
+  const missingSync = reconcileSchedule(
+    [current],
+    [],
+    reconciliationOptions({ now }),
+  );
   assert.equal(missingSync.removals[0].id, current.id);
 
   const tombstone = existing({
@@ -158,9 +182,7 @@ test("rebinds a recreated game after an intervening missing sync", () => {
   const result = reconcileSchedule(
     [tombstone],
     [replacement],
-    true,
-    false,
-    new Date("2026-09-01T18:00:00.000Z"),
+    reconciliationOptions({ now: new Date("2026-09-01T18:00:00.000Z") }),
   );
 
   assert.deepEqual(result.counts, { added: 0, updated: 0, replaced: 1, removed: 0 });
@@ -176,9 +198,7 @@ test("does not reuse a stale inactive game as a replacement candidate", () => {
   const result = reconcileSchedule(
     [current],
     [incoming({ sourceUid: "leaguegame-999@rampinteractive.com" })],
-    true,
-    false,
-    new Date("2026-09-01T00:00:00.000Z"),
+    reconciliationOptions({ now: new Date("2026-09-01T00:00:00.000Z") }),
   );
 
   assert.equal(result.counts.added, 1);
@@ -192,9 +212,77 @@ test("preserves both team scopes when one of two team feeds fails", () => {
     teamIds: ["wolves"],
     hubIds: ["hub-wolves"],
   });
-  const result = reconcileSchedule([current], [onlySuccessfulFeed], false, true);
+  const result = reconcileSchedule(
+    [current],
+    [onlySuccessfulFeed],
+    reconciliationOptions({
+      allowRemovals: false,
+      preserveExistingScope: true,
+    }),
+  );
 
   assert.deepEqual(result.upserts[0].event.teamIds, ["wolves", "rockies"]);
   assert.deepEqual(result.upserts[0].event.hubIds, ["hub-wolves", "hub-rockies"]);
   assert.deepEqual(result.upserts[0].event.leagueIds, ["jphl"]);
+});
+
+test("keeps historical games active when a different season is synchronized", () => {
+  const historical = existing({
+    id: "historical-game",
+    sourceSeasonId: "previous-season",
+    sourceUid: "leaguegame-50@rampinteractive.com",
+  });
+  const current = existing({ sourceUid: "leaguegame-200@rampinteractive.com" });
+  const result = reconcileSchedule(
+    [historical, current],
+    [incoming()],
+    reconciliationOptions(),
+  );
+
+  assert.deepEqual(result.counts, { added: 0, updated: 1, replaced: 0, removed: 0 });
+  assert.equal(result.upserts[0].id, current.id);
+  assert.equal(result.removals.some((event) => event.id === historical.id), false);
+});
+
+test("only removes missing games from the season being synchronized", () => {
+  const historical = existing({
+    id: "historical-game",
+    sourceSeasonId: "previous-season",
+  });
+  const current = existing({ id: "current-game" });
+  const result = reconcileSchedule(
+    [historical, current],
+    [],
+    reconciliationOptions(),
+  );
+
+  assert.deepEqual(result.removals.map((event) => event.id), [current.id]);
+});
+
+test("does not match identical RAMP UIDs across seasons", () => {
+  const historical = existing({
+    id: "historical-game",
+    sourceSeasonId: "previous-season",
+    sourceUid: "leaguegame-200@rampinteractive.com",
+  });
+  const result = reconcileSchedule(
+    [historical],
+    [incoming()],
+    reconciliationOptions(),
+  );
+
+  assert.equal(result.counts.added, 1);
+  assert.notEqual(result.upserts[0].id, historical.id);
+  assert.equal(result.removals.length, 0);
+});
+
+test("rejects incoming events from a different season", () => {
+  assert.throws(
+    () => reconcileSchedule(
+      [],
+      [incoming({ sourceSeasonId: "other-season" })],
+      reconciliationOptions(),
+    ),
+    /multiple seasons/,
+  );
 });
