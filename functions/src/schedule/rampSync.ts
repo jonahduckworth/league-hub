@@ -5,6 +5,7 @@ import { db } from "../helpers";
 import {
   ExistingScheduleEvent,
   IncomingScheduleEvent,
+  existingSourceSeasonId,
   isSuspiciousScheduleDrop,
   parseRampCalendar,
   reconcileSchedule,
@@ -14,6 +15,7 @@ import {
   parseRampDirectory,
   RampDiscoveryResult,
 } from "./rampDiscovery";
+import { scopeAssociationEvents } from "./rampScope";
 
 type ScheduleIntegration = {
   provider: "ramp";
@@ -22,6 +24,7 @@ type ScheduleIntegration = {
   baseUrl: string;
   associationId: string;
   seasonId: string;
+  legacySourceSeasonId: string;
   timezone: string;
   divisionIds: Record<string, string>;
 };
@@ -42,7 +45,7 @@ type RoutableSourceTeam = SourceTeam & {
 };
 
 type FeedResult = {
-  team: RoutableSourceTeam;
+  team: { id: string; name: string };
   events: IncomingScheduleEvent[];
   error?: string;
 };
@@ -75,6 +78,8 @@ const syncRuntime = {
 type PreparedScheduleSource = {
   integration: ScheduleIntegration;
   teams: RoutableSourceTeam[];
+  feedMode: "team" | "association";
+  unroutableTeams: SourceTeam[];
   discovery: RampDiscoveryResult | undefined;
   discoveryStatus: ScheduleSyncResult["seasonDiscoveryStatus"];
   discoveryMessage: string;
@@ -107,6 +112,7 @@ function integrationFromOrg(data: FirebaseFirestore.DocumentData): ScheduleInteg
     baseUrl: optionalString(raw.baseUrl)?.replace(/\/$/, "") ?? DEFAULT_BASE_URL,
     associationId,
     seasonId,
+    legacySourceSeasonId: optionalString(raw.legacySourceSeasonId) ?? seasonId,
     timezone: optionalString(raw.timezone) ?? "America/Edmonton",
     divisionIds,
   };
@@ -176,9 +182,11 @@ async function prepareScheduleSource(
     return {
       integration,
       teams: fallback,
+      feedMode: "association",
+      unroutableTeams: [],
       discovery: undefined,
       discoveryStatus: "disabled",
-      discoveryMessage: "Automatic season discovery is disabled; using the configured RAMP routes.",
+      discoveryMessage: "Automatic season discovery is disabled; using the association archive feed for the configured season.",
       changed: false,
     };
   }
@@ -190,6 +198,8 @@ async function prepareScheduleSource(
       return {
         integration,
         teams: fallback,
+        feedMode: "team",
+        unroutableTeams: teams.filter((team) => !team.sourceTeamId || !team.sourceDivisionId),
         discovery,
         discoveryStatus: "warning",
         discoveryMessage: `${discovery.message} The last known RAMP routes were used.`,
@@ -222,6 +232,8 @@ async function prepareScheduleSource(
         divisionIds: discovery.divisionIds,
       },
       teams: discoveredTeams,
+      feedMode: "team",
+      unroutableTeams: [],
       discovery,
       discoveryStatus: "matched",
       discoveryMessage: discovery.message,
@@ -232,6 +244,8 @@ async function prepareScheduleSource(
     return {
       integration,
       teams: fallback,
+      feedMode: "team",
+      unroutableTeams: teams.filter((team) => !team.sourceTeamId || !team.sourceDivisionId),
       discovery: undefined,
       discoveryStatus: "warning",
       discoveryMessage: `Automatic season discovery failed (${message}); the last known RAMP routes were used.`,
@@ -246,6 +260,14 @@ function calendarUrl(integration: ScheduleIntegration, team: RoutableSourceTeam)
   url.searchParams.set("CATID", "0");
   url.searchParams.set("DID", team.sourceDivisionId);
   url.searchParams.set("TID", team.sourceTeamId);
+  url.searchParams.set("TZ", integration.timezone);
+  return url.toString();
+}
+
+function associationCalendarUrl(integration: ScheduleIntegration): string {
+  const url = new URL(`/calendar/master-schedule/${integration.associationId}.ics`, integration.baseUrl);
+  url.searchParams.set("SID", integration.seasonId);
+  url.searchParams.set("CATID", "0");
   url.searchParams.set("TZ", integration.timezone);
   return url.toString();
 }
@@ -299,6 +321,42 @@ async function fetchFeeds(
   });
   await Promise.all(workers);
   return results;
+}
+
+async function fetchAssociationFeed(
+  integration: ScheduleIntegration,
+  teams: SourceTeam[],
+): Promise<FeedResult> {
+  const source = { id: "association", name: "JPHL association archive" };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  try {
+    const response = await fetch(associationCalendarUrl(integration), {
+      signal: controller.signal,
+      headers: {
+        Accept: "text/calendar, text/plain;q=0.9",
+        "User-Agent": "LeagueHub-ScheduleSync/1.0",
+      },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const calendar = await response.text();
+    const parsed = parseRampCalendar(calendar, integration.timezone);
+    if (parsed.length === 0) {
+      throw new Error(`RAMP returned no games for season ${integration.seasonId}; verify the historical season ID.`);
+    }
+    return {
+      team: source,
+      events: scopeAssociationEvents(parsed, integration.seasonId, teams),
+    };
+  } catch (error) {
+    return {
+      team: source,
+      events: [],
+      error: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function aggregateEvents(results: FeedResult[]): IncomingScheduleEvent[] {
@@ -366,7 +424,7 @@ async function loadExistingEvents(
       // Before season-aware syncing, all RAMP records belonged to the one
       // configured season. Adopt those legacy records into that current season
       // on their next successful upsert instead of duplicating them.
-      sourceSeasonId: optionalString(data.sourceSeasonId) ?? currentSourceSeasonId,
+      sourceSeasonId: existingSourceSeasonId(data.sourceSeasonId, currentSourceSeasonId),
       sourceUid: optionalString(data.sourceUid) ?? document.id,
       previousSourceUids: Array.isArray(data.previousSourceUids)
         ? data.previousSourceUids.filter((value): value is string => typeof value === "string")
@@ -507,16 +565,20 @@ export async function synchronizeOrganizationSchedule(orgId: string): Promise<Sc
     const prepared = await prepareScheduleSource(integration, configuredTeams);
     const effectiveIntegration = prepared.integration;
     const teams = prepared.teams;
-    if (teams.length === 0) throw new Error("No teams have usable RAMP team and division IDs configured.");
-    const feedResults = await fetchFeeds(effectiveIntegration, teams);
+    const feedResults = prepared.feedMode === "association"
+      ? [await fetchAssociationFeed(effectiveIntegration, configuredTeams)]
+      : await fetchFeeds(effectiveIntegration, teams);
     const failures = feedResults.filter((result) => result.error);
+    const unroutableTeams = prepared.unroutableTeams;
     const incoming = aggregateEvents(feedResults);
-    const existing = await loadExistingEvents(orgId, effectiveIntegration.seasonId);
+    // Legacy records predate sourceSeasonId and belong to the season that was
+    // persisted before discovery began, never a newly discovered season.
+    const existing = await loadExistingEvents(orgId, integration.legacySourceSeasonId);
     const activeExisting = existing.filter((event) =>
       event.isActive && event.sourceSeasonId === effectiveIntegration.seasonId,
     );
     const suspiciousDrop = isSuspiciousScheduleDrop(activeExisting.length, incoming.length);
-    const removalsSkipped = failures.length > 0 || suspiciousDrop;
+    const removalsSkipped = failures.length > 0 || unroutableTeams.length > 0 || suspiciousDrop;
     const reconciliation = reconcileSchedule(existing, incoming, {
       sourceSeasonId: effectiveIntegration.seasonId,
       allowRemovals: !removalsSkipped,
@@ -525,14 +587,16 @@ export async function synchronizeOrganizationSchedule(orgId: string): Promise<Sc
     await writeReconciliation(orgId, reconciliation);
 
     const routingAutoUpdated = prepared.discoveryStatus === "matched" &&
-      prepared.changed && failures.length === 0;
+      prepared.changed && failures.length === 0 && unroutableTeams.length === 0;
     if (routingAutoUpdated) await persistDiscoveredRouting(orgId, prepared);
     const seasonAutoUpdated = routingAutoUpdated &&
       effectiveIntegration.seasonId !== integration.seasonId;
 
     const discoveryWarning = prepared.discoveryStatus === "warning";
     const status = removalsSkipped || discoveryWarning ? "warning" : "ok";
-    const message = failures.length > 0
+    const message = unroutableTeams.length > 0
+      ? `${unroutableTeams.length} team${unroutableTeams.length === 1 ? " is" : "s are"} missing fallback routes; missing games were preserved. ${prepared.discoveryMessage}`
+      : failures.length > 0
       ? `${failures.length} team feed${failures.length === 1 ? "" : "s"} failed; missing games were preserved.`
       : suspiciousDrop
         ? "The feed returned an unusually small schedule; missing games were preserved."
@@ -551,9 +615,9 @@ export async function synchronizeOrganizationSchedule(orgId: string): Promise<Sc
         ? { discoveredSeasonId: prepared.discovery.discoveredSeasonId }
         : {}),
       seasonAutoUpdated,
-      teamFeedsTotal: teams.length,
-      teamFeedsSucceeded: teams.length - failures.length,
-      teamFeedsFailed: failures.length,
+      teamFeedsTotal: feedResults.length + unroutableTeams.length,
+      teamFeedsSucceeded: feedResults.length - failures.length,
+      teamFeedsFailed: failures.length + unroutableTeams.length,
       eventCount: incoming.length,
       ...reconciliation.counts,
       removalsSkipped,
@@ -561,11 +625,18 @@ export async function synchronizeOrganizationSchedule(orgId: string): Promise<Sc
     await writeSyncState(orgId, {
       ...result,
       lastSuccessAt: admin.firestore.FieldValue.serverTimestamp(),
-      failedTeams: failures.slice(0, 20).map((result) => ({
-        teamId: result.team.id,
-        teamName: result.team.name,
-        error: result.error,
-      })),
+      failedTeams: [
+        ...failures.map((result) => ({
+          teamId: result.team.id,
+          teamName: result.team.name,
+          error: result.error,
+        })),
+        ...unroutableTeams.map((team) => ({
+          teamId: team.id,
+          teamName: team.name,
+          error: "No fallback RAMP team or division route is configured.",
+        })),
+      ].slice(0, 20),
     });
     return result;
   } catch (error) {

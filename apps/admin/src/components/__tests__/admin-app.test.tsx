@@ -117,7 +117,7 @@ describe("AdminApp operations shell", () => {
 
     fireEvent.click(screen.getByText("RAMP source settings"));
     expect(screen.getByLabelText(/Season ID/)).toBeTruthy();
-    expect(screen.getByText(/preserves previously imported results/i)).toBeTruthy();
+    expect(screen.getByText(/older team IDs are not required/i)).toBeTruthy();
     expect(screen.getByLabelText("17U division ID")).toBeTruthy();
     const autoDiscovery = screen.getByRole("checkbox", { name: "Automatically discover new JPHL seasons" });
     expect((autoDiscovery as HTMLInputElement).checked).toBe(true);

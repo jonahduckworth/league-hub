@@ -1416,7 +1416,7 @@ function ScheduleSection({ data, currentUser, runAction }: { data: AdminData; cu
                   <Input required value={settings.seasonId} onChange={(event) => setSettings((current) => ({ ...current, seasonId: event.target.value }))} />
                 </Field>
                 <p className="-mt-2 text-xs font-medium leading-5 text-muted">
-                  This is the fallback season and the value used for historical imports. Changing it preserves previously imported results.
+                  This is the fallback season and the value used for historical imports. With discovery off, League Hub reads the season-wide archive so older team IDs are not required.
                 </p>
                 <Field label="Association ID">
                   <Input required value={settings.associationId} onChange={(event) => setSettings((current) => ({ ...current, associationId: event.target.value }))} />

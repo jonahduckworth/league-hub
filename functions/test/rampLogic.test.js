@@ -2,12 +2,18 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  existingSourceSeasonId,
   isSuspiciousScheduleDrop,
   parseRampCalendar,
   reconcileSchedule,
 } = require("../lib/schedule/rampLogic");
 
 const sourceSeasonId = "12322";
+
+test("assigns legacy records to the persisted season during discovery", () => {
+  assert.equal(existingSourceSeasonId(undefined, "previous-season"), "previous-season");
+  assert.equal(existingSourceSeasonId("stored-season", "previous-season"), "stored-season");
+});
 
 function reconciliationOptions(overrides = {}) {
   return {

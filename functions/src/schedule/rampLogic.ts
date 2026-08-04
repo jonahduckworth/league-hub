@@ -274,6 +274,10 @@ export function isSuspiciousScheduleDrop(
   return activeExistingCount > 0 && incomingCount < activeExistingCount * 0.65;
 }
 
+export function existingSourceSeasonId(value: unknown, persistedSeasonId: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : persistedSeasonId;
+}
+
 function replacementScore(existing: ExistingScheduleEvent, incoming: IncomingScheduleEvent): number {
   const timeDifference = Math.abs(existing.startsAt.getTime() - incoming.startsAt.getTime());
   if (timeDifference > replacementTimeWindowMs) return 0;

@@ -407,6 +407,7 @@ async function writeCanonicalStructure(db, state, logoUrls) {
       baseUrl: "https://juniorprospectshockeyleague.com",
       associationId: "2888",
       seasonId: "12322",
+      legacySourceSeasonId: "12322",
       timezone: "America/Edmonton",
       divisionIds: RAMP_DIVISION_IDS,
       updatedAt: now,

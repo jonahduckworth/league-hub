@@ -499,13 +499,19 @@ export const adminUpdateScheduleIntegration = onCall(adminRuntime, async (reques
       throw new HttpsError("invalid-argument", "At least one RAMP division ID is required.");
     }
 
+    const existingOrganization = await orgRef(orgId).get();
+    const existingIntegration = existingOrganization.data()?.scheduleIntegration;
+    const requestedSeasonId = requiredString(integration.seasonId, "integration.seasonId");
+    const legacySourceSeasonId = optionalString(existingIntegration?.legacySourceSeasonId) ??
+      optionalString(existingIntegration?.seasonId) ?? requestedSeasonId;
     const scheduleIntegration = {
       provider: "ramp",
       enabled: optionalBoolean(integration.enabled) ?? true,
       autoDiscoverSeason: optionalBoolean(integration.autoDiscoverSeason) ?? true,
       baseUrl: parsedBaseUrl.origin,
       associationId: requiredString(integration.associationId, "integration.associationId"),
-      seasonId: requiredString(integration.seasonId, "integration.seasonId"),
+      seasonId: requestedSeasonId,
+      legacySourceSeasonId,
       timezone,
       divisionIds,
     };
