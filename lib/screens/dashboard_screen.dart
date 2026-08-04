@@ -15,6 +15,7 @@ import '../services/weather_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
 import '../widgets/glass_bottom_nav.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/profile_summary_card.dart';
@@ -27,7 +28,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  static const double _homeHeaderExtraSpacing = 8;
   static const double _bottomNavBottomInset = 12;
   static const double _quickLinksHeight = 52;
   static const double _quickLinksContentGap = 12;
@@ -53,7 +53,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final headerLabel = headerLeague?.name ?? org?.name ?? 'League Hub';
     final topContentPadding = appShellTopPadding(
       context,
-      extra: _homeHeaderExtraSpacing,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
 
@@ -72,7 +71,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onSelected: (id) => setState(() => _selectedLeagueId = id),
             )
           : null,
-      topSpacing: _homeHeaderExtraSpacing,
       child: Stack(
         children: [
           Positioned.fill(
@@ -86,17 +84,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _HomeProfileCard(
-                    user: currentUser,
-                    onProfileTap: () => context.go('/profile'),
+                  AppMotionReveal(
+                    child: _HomeProfileCard(
+                      user: currentUser,
+                      onProfileTap: () => context.go('/profile'),
+                    ),
                   ),
                   const SizedBox(height: 18),
-                  const _SectionHeading(
-                    icon: Icons.grid_view_rounded,
-                    label: 'Quick Access',
+                  const AppMotionReveal(
+                    index: 1,
+                    child: _SectionHeading(
+                      icon: Icons.grid_view_rounded,
+                      label: 'Quick Access',
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  _buildHomeGrid(context),
+                  AppMotionReveal(
+                    index: 2,
+                    child: _buildHomeGrid(context),
+                  ),
                 ],
               ),
             ),
@@ -105,9 +111,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             left: 16,
             right: 16,
             bottom: quickLinksBottomOffset,
-            child: _QuickLinksRow(
-              league: headerLeague,
-              fallbackLabel: headerLabel,
+            child: AppMotionReveal(
+              index: 3,
+              child: _QuickLinksRow(
+                league: headerLeague,
+                fallbackLabel: headerLabel,
+              ),
             ),
           ),
         ],
@@ -567,7 +576,10 @@ class _WeatherDataContent extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _HomeTileIcon(
-              icon: _weatherIconForCode(weather.weatherCode),
+              icon: _weatherIconForCode(
+                weather.weatherCode,
+                isDay: weather.isDay,
+              ),
               accentColor: accentColor,
             ),
             const SizedBox(width: 8),
@@ -703,8 +715,10 @@ class _HomeTileIcon extends StatelessWidget {
   }
 }
 
-IconData _weatherIconForCode(int code) {
-  if (code == 0) return Icons.wb_sunny_outlined;
+IconData _weatherIconForCode(int code, {required bool isDay}) {
+  if (code == 0) {
+    return isDay ? Icons.wb_sunny_outlined : Icons.nightlight_outlined;
+  }
   if (code >= 1 && code <= 3) return Icons.cloud;
   if (code == 45 || code == 48) return Icons.blur_on;
   if ((code >= 51 && code <= 57) ||
@@ -712,14 +726,18 @@ IconData _weatherIconForCode(int code) {
       (code >= 80 && code <= 82)) {
     return Icons.water_drop_outlined;
   }
-  if (code >= 71 && code <= 77) return Icons.ac_unit;
+  if ((code >= 71 && code <= 77) || code == 85 || code == 86) {
+    return Icons.ac_unit;
+  }
   if (code >= 95) return Icons.thunderstorm;
   return Icons.cloud_outlined;
 }
 
 Color _weatherAccentForCode(int code) {
   if (code == 0) return AppGlassColors.gold;
-  if (code >= 71 && code <= 77) return AppGlassColors.inkSecondary;
+  if ((code >= 71 && code <= 77) || code == 85 || code == 86) {
+    return AppGlassColors.inkSecondary;
+  }
   if (code >= 95) return AppGlassColors.rose;
   return AppGlassColors.aqua;
 }

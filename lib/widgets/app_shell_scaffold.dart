@@ -1,18 +1,15 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import '../core/design_system.dart';
 import '../core/scroll_behavior.dart';
 import 'app_glass.dart';
 import 'glass_bottom_nav.dart';
 import 'app_shell_header.dart';
 
-const double appShellHeaderContentSpacing = 12;
+const double appShellHeaderContentSpacing = AppSpacing.xs;
 const double appShellBottomNavSpacing = 20;
 const double appShellScrollEndClearance = 40;
-const _appShellContentFadeDuration = Duration(milliseconds: 620);
-const _appShellRevealSoftness = 0.28;
-const _appShellRevealLift = 8.0;
-const _defaultAppShellContentFadeKey = Object();
 
 double appShellBottomPadding(BuildContext context, {double extra = 8}) {
   return MediaQuery.viewPaddingOf(context).bottom +
@@ -156,96 +153,9 @@ class _AppShellContentFade extends StatelessWidget {
         child: child,
       );
     }
-    final transitionKey =
-        AppShellContentFadeScope.maybeTransitionKeyOf(context) ??
-            _defaultAppShellContentFadeKey;
-
-    return TweenAnimationBuilder<double>(
-      key: ValueKey(transitionKey),
-      tween: Tween(begin: 0, end: 1),
-      duration: _appShellContentFadeDuration,
-      curve: Curves.easeOut,
+    return Opacity(
+      opacity: routeOpacity.clamp(0.0, 1.0).toDouble(),
       child: child,
-      builder: (context, progress, child) {
-        final revealOpacity = (progress * 1.25).clamp(0.0, 1.0).toDouble();
-        final opacity =
-            (routeOpacity * revealOpacity).clamp(0.0, 1.0).toDouble();
-        final revealProgress = Curves.easeOutCubic.transform(progress);
-        final lift = ui.lerpDouble(_appShellRevealLift, 0, revealProgress)!;
-
-        return Opacity(
-          opacity: opacity,
-          child: Transform.translate(
-            offset: Offset(0, lift),
-            child: _AppShellTopDownReveal(
-              progress: revealProgress,
-              child: child!,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AppShellTopDownReveal extends StatelessWidget {
-  final double progress;
-  final Widget child;
-
-  const _AppShellTopDownReveal({
-    required this.progress,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (progress <= 0) return child;
-    if (progress >= 1) return child;
-
-    return ClipRect(
-      child: ShaderMask(
-        blendMode: BlendMode.dstIn,
-        shaderCallback: (bounds) {
-          final revealEdge = ui.lerpDouble(
-            -_appShellRevealSoftness,
-            1 + _appShellRevealSoftness,
-            progress,
-          )!;
-          final fadeStart =
-              (revealEdge - _appShellRevealSoftness).clamp(0.0, 1.0).toDouble();
-          final fadeEnd = revealEdge.clamp(0.0, 1.0).toDouble();
-
-          if (fadeEnd <= 0) {
-            return const LinearGradient(
-              colors: [Colors.transparent, Colors.transparent],
-            ).createShader(bounds);
-          }
-
-          if (fadeStart >= 1) {
-            return const LinearGradient(
-              colors: [Colors.white, Colors.white],
-            ).createShader(bounds);
-          }
-
-          return LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: const [
-              Colors.white,
-              Colors.white,
-              Colors.transparent,
-              Colors.transparent,
-            ],
-            stops: [
-              0,
-              fadeStart,
-              fadeEnd,
-              1,
-            ],
-          ).createShader(bounds);
-        },
-        child: child,
-      ),
     );
   }
 }
@@ -270,6 +180,53 @@ class AppShellRouteVisualScope extends InheritedWidget {
   bool updateShouldNotify(AppShellRouteVisualScope oldWidget) {
     return contentOpacity != oldWidget.contentOpacity ||
         showHeader != oldWidget.showHeader;
+  }
+}
+
+/// Stable frame used for both forward and reverse shell route transitions.
+///
+/// Only the visual values change while navigating. Keeping this widget tree
+/// intact prevents nested pages from remounting or restarting their reveal
+/// animation when a pop begins.
+class AppShellRouteTransitionFrame extends StatelessWidget {
+  final double pageOpacity;
+  final double contentOpacity;
+  final bool showHeader;
+  final Object transitionKey;
+  final Offset translation;
+  final double scale;
+  final Widget child;
+
+  const AppShellRouteTransitionFrame({
+    super.key,
+    required this.pageOpacity,
+    required this.contentOpacity,
+    required this.showHeader,
+    required this.transitionKey,
+    required this.translation,
+    required this.scale,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: pageOpacity.clamp(0.0, 1.0).toDouble(),
+      child: AppShellRouteVisualScope(
+        contentOpacity: contentOpacity.clamp(0.0, 1.0).toDouble(),
+        showHeader: showHeader,
+        child: AppShellContentFadeScope(
+          transitionKey: transitionKey,
+          child: FractionalTranslation(
+            translation: translation,
+            child: Transform.scale(
+              scale: scale,
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

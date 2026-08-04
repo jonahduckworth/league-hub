@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/core/design_system.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/connectivity_banner.dart';
 
@@ -103,7 +104,7 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(AppMotion.standard);
 
       expect(
         find.text('No internet connection — 2 changes pending'),
@@ -127,7 +128,7 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(AppMotion.standard);
 
       expect(
         find.text('No internet connection — 1 change pending'),
@@ -145,7 +146,7 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(AppMotion.standard);
 
       expect(find.byIcon(Icons.wifi_off), findsNothing);
 
@@ -166,10 +167,11 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(AppMotion.standard);
       expect(find.text('No internet connection'), findsOneWidget);
 
       controller.add([ConnectivityResult.wifi]);
+      await tester.pump();
       await tester.pump();
 
       expect(find.text('Back online'), findsOneWidget);
@@ -179,7 +181,7 @@ void main() {
       expect(onlineContainer.color, AppColors.success);
 
       await tester.pump(const Duration(seconds: 2));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(AppMotion.standard);
 
       final slide = tester.widget<SlideTransition>(bannerSlideTransition());
       expect(slide.position.value.dy, -1);
@@ -201,7 +203,8 @@ void main() {
 
       controller.add([ConnectivityResult.wifi]);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      await tester.pump(AppMotion.standard);
 
       final slide = tester.widget<SlideTransition>(bannerSlideTransition());
       expect(slide.position.value.dy, -1);
@@ -220,11 +223,12 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(AppMotion.standard);
 
       expect(find.text('No internet connection'), findsOneWidget);
 
       pendingController.add(3);
+      await tester.pump();
       await tester.pump();
 
       expect(
@@ -242,7 +246,7 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(AppMotion.standard);
 
       final container = tester.widget<Container>(bannerContainer());
       final padding = container.padding as EdgeInsets;

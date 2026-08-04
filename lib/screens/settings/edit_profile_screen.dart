@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/design_system.dart';
 import '../../core/league_branding.dart';
 import '../../core/utils.dart';
 import '../../models/app_user.dart';
@@ -395,6 +396,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     showDialog(
       context: context,
+      animationStyle: AppMotion.overlayStyle(context),
       barrierColor: Colors.black.withValues(alpha: 0.54),
       builder: (ctx) => Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24),

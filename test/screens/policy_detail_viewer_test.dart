@@ -1,8 +1,82 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/core/design_system.dart';
 import 'package:league_hub/screens/policy_detail_screen.dart';
 
 /// Tests for file-type based viewer routing logic in PolicyDetailScreen.
 void main() {
+  test('viewer uses the full-screen motion cadence', () {
+    final route = policyViewerRoute(const SizedBox()) as PageRouteBuilder<void>;
+
+    expect(route.transitionDuration, AppMotion.route);
+    expect(route.reverseTransitionDuration, AppMotion.routeReverse);
+  });
+
+  testWidgets('viewer remains visibly in motion during forward navigation',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              policyViewerRoute(_MountProbe(onMount: () {})),
+            ),
+            child: const Text('Open viewer'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open viewer'));
+    await tester.pump();
+    await tester.pump(AppMotion.route * 0.25);
+
+    final opacityFinder = find
+        .ancestor(
+          of: find.byType(_MountProbe),
+          matching: find.byType(Opacity),
+        )
+        .first;
+    final opacity = tester.widget<Opacity>(opacityFinder).opacity;
+    expect(opacity, greaterThan(0));
+    expect(opacity, lessThan(0.5));
+
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('viewer keeps its page mounted while popping', (tester) async {
+    var mountCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return TextButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  policyViewerRoute(
+                    _MountProbe(onMount: () => mountCount += 1),
+                  ),
+                );
+              },
+              child: const Text('Open viewer'),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open viewer'));
+    await tester.pumpAndSettle();
+    expect(mountCount, 1);
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pump(const Duration(milliseconds: 40));
+
+    expect(mountCount, 1);
+    await tester.pumpAndSettle();
+  });
+
   group('Policy viewer routing', () {
     test('PNG files route to image viewer', () {
       expect(policyViewerTypeForExt('png'), PolicyViewerType.image);
@@ -129,3 +203,23 @@ void main() {
 
 const _testImageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
 const _testOfficeExts = {'docx', 'xlsx', 'doc', 'xls'};
+
+class _MountProbe extends StatefulWidget {
+  final VoidCallback onMount;
+
+  const _MountProbe({required this.onMount});
+
+  @override
+  State<_MountProbe> createState() => _MountProbeState();
+}
+
+class _MountProbeState extends State<_MountProbe> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onMount();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
+}

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/design_system.dart';
 import '../models/league.dart';
 import 'app_glass.dart';
 import 'entity_avatar.dart';
@@ -55,47 +56,60 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppGlassColors.aqua.withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.08),
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? AppGlassColors.aqua.withValues(alpha: 0.5)
-                : AppGlassColors.border,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (league != null) ...[
-              EntityAvatar(
-                name: league!.abbreviation,
-                imageUrl: league!.logoUrl,
-                iconName: league!.iconName,
-                fallbackIcon: Icons.emoji_events_outlined,
-                size: 22,
-                borderRadius: 8,
-                color: isSelected ? AppGlassColors.ink : AppGlassColors.aqua,
-              ),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color:
-                    isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
+          child: AnimatedContainer(
+            duration: AppMotion.accessible(context, AppMotion.standard),
+            curve: AppMotion.enter,
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppGlassColors.aqua.withValues(alpha: 0.2)
+                  : Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected
+                    ? AppGlassColors.aqua.withValues(alpha: 0.5)
+                    : AppGlassColors.border,
               ),
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (league != null) ...[
+                  EntityAvatar(
+                    name: league!.abbreviation,
+                    imageUrl: league!.logoUrl,
+                    iconName: league!.iconName,
+                    fallbackIcon: Icons.emoji_events_outlined,
+                    size: 22,
+                    borderRadius: 8,
+                    color:
+                        isSelected ? AppGlassColors.ink : AppGlassColors.aqua,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? AppGlassColors.aqua
+                        : AppGlassColors.inkMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

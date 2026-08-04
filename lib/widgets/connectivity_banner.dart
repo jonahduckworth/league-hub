@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import '../core/design_system.dart';
 import '../core/theme.dart';
 
 Future<List<InternetAddress>> defaultConnectivityBannerLookup(String host) {
@@ -63,14 +64,14 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
     _pendingCount = widget.initialPendingCount;
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: AppMotion.standard,
     );
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, -1),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeOut,
+      curve: AppMotion.enter,
     ));
 
     _subscription =
@@ -113,18 +114,34 @@ class _ConnectivityBannerState extends State<ConnectivityBanner>
         _isOffline = offline;
       });
       if (offline) {
-        _animController.forward();
+        _showBanner();
       } else {
         // Show "back online" briefly, then hide.
         if (_wasOffline) {
           Future.delayed(const Duration(seconds: 2), () {
-            if (mounted && !_isOffline) _animController.reverse();
+            if (mounted && !_isOffline) _hideBanner();
           });
         } else if (shouldHideOnlineBannerImmediately(_wasOffline)) {
-          _animController.reverse();
+          _hideBanner();
         }
       }
     }
+  }
+
+  void _showBanner() {
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      _animController.value = 1;
+      return;
+    }
+    _animController.forward();
+  }
+
+  void _hideBanner() {
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      _animController.value = 0;
+      return;
+    }
+    _animController.reverse();
   }
 
   @override

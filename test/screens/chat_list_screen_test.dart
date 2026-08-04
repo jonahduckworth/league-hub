@@ -1518,7 +1518,8 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        expect(find.textContaining('Error loading chats:'), findsOneWidget);
+        expect(find.text('Unable to load conversations'), findsOneWidget);
+        expect(find.text('Try again'), findsOneWidget);
       });
     });
   });

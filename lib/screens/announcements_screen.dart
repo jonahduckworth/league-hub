@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
@@ -14,6 +15,8 @@ import '../services/permission_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
+import '../widgets/app_states.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
@@ -202,7 +205,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
       child: RefreshIndicator(
         onRefresh: () => refreshAnnouncements(ref),
         child: announcementsAsync.isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const AppLoadingState(label: 'Loading announcements…')
             : filtered.isEmpty
                 ? const EmptyState(
                     icon: Icons.campaign_outlined,
@@ -215,14 +218,17 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final a = filtered[index];
-                      return _AnnouncementCard(
-                        announcement: a,
-                        author: _userById(users, a.authorId),
-                        leagues: leagues,
-                        canManage: canManage,
-                        onTap: () => context.push('/announcements/${a.id}'),
-                        onLongPress:
-                            canManage ? () => _showOptions(context, a) : null,
+                      return AppMotionReveal(
+                        index: index,
+                        child: _AnnouncementCard(
+                          announcement: a,
+                          author: _userById(users, a.authorId),
+                          leagues: leagues,
+                          canManage: canManage,
+                          onTap: () => context.push('/announcements/${a.id}'),
+                          onLongPress:
+                              canManage ? () => _showOptions(context, a) : null,
+                        ),
                       );
                     },
                   ),
@@ -251,6 +257,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
 
     showModalBottomSheet(
       context: context,
+      sheetAnimationStyle: AppMotion.overlayStyle(context),
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (ctx) => SafeArea(

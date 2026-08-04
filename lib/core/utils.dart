@@ -5,26 +5,55 @@ import 'theme.dart';
 
 class AppUtils {
   static void showErrorSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: AppColors.danger,
-      behavior: SnackBarBehavior.fixed,
-    ));
+    _showSnackBar(
+      context,
+      message: message,
+      icon: Icons.error_outline_rounded,
+      color: AppColors.danger,
+    );
   }
 
   static void showSuccessSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: AppColors.success,
-      behavior: SnackBarBehavior.fixed,
-    ));
+    _showSnackBar(
+      context,
+      message: message,
+      icon: Icons.check_circle_outline_rounded,
+      color: AppColors.success,
+    );
   }
 
   static void showInfoSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      behavior: SnackBarBehavior.fixed,
-    ));
+    _showSnackBar(
+      context,
+      message: message,
+      icon: Icons.info_outline_rounded,
+      color: AppColors.primary,
+    );
+  }
+
+  static void _showSnackBar(
+    BuildContext context, {
+    required String message,
+    required IconData icon,
+    required Color color,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: Text(message)),
+            ],
+          ),
+          backgroundColor: color,
+          behavior: SnackBarBehavior.fixed,
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 
   static String formatDate(DateTime date) {

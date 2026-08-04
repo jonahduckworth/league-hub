@@ -11,6 +11,7 @@ import '../models/league.dart';
 import 'announcement_navigation_source.dart';
 import 'chat_navigation_source.dart';
 import 'route_guard.dart';
+import 'route_motion.dart';
 import 'shell_navigation.dart';
 import '../core/constants.dart';
 import '../screens/login_screen.dart';
@@ -43,6 +44,7 @@ import '../screens/admin/team_detail_screen.dart';
 import '../screens/unauthorized_screen.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/glass_bottom_nav.dart';
+import '../core/design_system.dart';
 
 class _AuthNotifier extends ChangeNotifier {
   StreamSubscription<User?>? _authSubscription;
@@ -86,25 +88,17 @@ final _authNotifier = _AuthNotifier();
 /// Kept in sync by [_AuthNotifier] because GoRouter redirects are synchronous.
 AppUser? _cachedAppUser;
 
-const _shellTransitionDuration = Duration(milliseconds: 540);
-const _shellTransitionCurve = Cubic(0.2, 0, 0, 1);
-const _shellTransitionSlideFactor = 0.075;
-const _shellRouteIncomingSlideFactor = 0.065;
-const _shellRouteOutgoingSlideFactor = 0.026;
-const _shellIncomingFadeStart = 0.58;
-const _shellOutgoingFadeEnd = 0.7;
-const _shellOutgoingPresenceEnd = 0.3;
+const _shellTransitionDuration = AppMotion.route;
+const _shellMoveCurve = AppMotion.enter;
+const _shellFadeCurve = AppMotion.screenFadeCurve;
+const _shellTransitionSlideFactor = 0.012;
+const _shellRouteIncomingSlideFactor = 0.012;
+const _shellRouteOutgoingSlideFactor = 0.004;
+const _shellIncomingFadeStart = 0.0;
+const _shellOutgoingFadeEnd = 1.0;
+const _shellOutgoingPresenceEnd = 1.0;
 
-enum _ShellTransitionStyle {
-  fade,
-  sharedAxis,
-}
-
-/// Set this to sharedAxis to bring back the directional slide/scale motion.
-final _shellTransitionStyle = _ShellTransitionStyle.fade;
-
-bool get _shellUsesSharedAxis =>
-    _shellTransitionStyle == _ShellTransitionStyle.sharedAxis;
+const _shellUsesSharedAxis = true;
 
 enum _ShellPageMotion {
   sharedAxisForward,
@@ -112,11 +106,15 @@ enum _ShellPageMotion {
   scaleFade,
 }
 
-double _shellTransitionProgress(double value) {
-  return _shellTransitionCurve.transform(value);
+double _shellMoveProgress(double value) {
+  return _shellMoveCurve.transform(value);
 }
 
-double _shellFastOutgoingProgress(double progress) {
+double _shellFadeProgress(double value) {
+  return _shellFadeCurve.transform(value);
+}
+
+double _shellOutgoingFadeProgress(double progress) {
   return (progress / _shellOutgoingFadeEnd).clamp(0.0, 1.0).toDouble();
 }
 
@@ -135,7 +133,7 @@ double _shellFadeOpacity({
     return _shellIncomingFadeProgress(clampedProgress);
   }
 
-  return ui.lerpDouble(1, 0, _shellFastOutgoingProgress(clampedProgress))!;
+  return ui.lerpDouble(1, 0, _shellOutgoingFadeProgress(clampedProgress))!;
 }
 
 double _shellRouteFadeOpacity({
@@ -144,7 +142,7 @@ double _shellRouteFadeOpacity({
   required bool animatePrimary,
 }) {
   if (secondaryAnimation.status == AnimationStatus.reverse) {
-    return _shellIncomingFadeProgress(_shellTransitionProgress(
+    return _shellIncomingFadeProgress(_shellFadeProgress(
       1 - secondaryAnimation.value,
     ));
   }
@@ -154,7 +152,7 @@ double _shellRouteFadeOpacity({
     return ui.lerpDouble(
       1,
       0,
-      _shellFastOutgoingProgress(_shellTransitionProgress(
+      _shellOutgoingFadeProgress(_shellFadeProgress(
         secondaryAnimation.value,
       )),
     )!;
@@ -164,7 +162,7 @@ double _shellRouteFadeOpacity({
       (animation.status == AnimationStatus.forward ||
           animation.status == AnimationStatus.dismissed)) {
     if (animation.status == AnimationStatus.dismissed) return 0;
-    return _shellIncomingFadeProgress(_shellTransitionProgress(
+    return _shellIncomingFadeProgress(_shellFadeProgress(
       animation.value,
     ));
   }
@@ -173,7 +171,7 @@ double _shellRouteFadeOpacity({
     return ui.lerpDouble(
       1,
       0,
-      _shellFastOutgoingProgress(_shellTransitionProgress(
+      _shellOutgoingFadeProgress(_shellFadeProgress(
         1 - animation.value,
       )),
     )!;
@@ -218,26 +216,25 @@ bool _shellRouteContentIsVisible({
 }
 
 ({double opacity, double offsetFactor, double scale}) _shellTransitionFrame({
-  required double progress,
+  required double fadeProgress,
+  required double moveProgress,
   required bool isCurrent,
 }) {
-  final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
-  final outgoingProgress = _shellFastOutgoingProgress(clampedProgress);
+  final clampedFade = fadeProgress.clamp(0.0, 1.0).toDouble();
+  final clampedMove = moveProgress.clamp(0.0, 1.0).toDouble();
+  final outgoingFade = _shellOutgoingFadeProgress(clampedFade);
   return (
-    opacity: isCurrent
-        ? ui.lerpDouble(0.88, 1, clampedProgress)!
-        : ui.lerpDouble(1, 0, outgoingProgress)!,
-    offsetFactor: isCurrent ? 1 - clampedProgress : -outgoingProgress,
-    scale: isCurrent
-        ? ui.lerpDouble(0.984, 1, clampedProgress)!
-        : ui.lerpDouble(1, 0.994, outgoingProgress)!,
+    opacity: isCurrent ? clampedFade : ui.lerpDouble(1, 0, outgoingFade)!,
+    offsetFactor: isCurrent ? 1 - clampedMove : -clampedMove,
+    scale: 1,
   );
 }
 
 Widget _shellTransitionMotion({
   required BuildContext context,
   required Widget child,
-  required double progress,
+  required double fadeProgress,
+  required double moveProgress,
   required double direction,
   required bool isCurrent,
 }) {
@@ -252,7 +249,7 @@ Widget _shellTransitionMotion({
   if (!_shellUsesSharedAxis) {
     return Opacity(
       opacity: _shellFadeOpacity(
-        progress: progress,
+        progress: fadeProgress,
         isCurrent: isCurrent,
       ),
       child: child,
@@ -260,7 +257,8 @@ Widget _shellTransitionMotion({
   }
 
   final frame = _shellTransitionFrame(
-    progress: progress,
+    fadeProgress: fadeProgress,
+    moveProgress: moveProgress,
     isCurrent: isCurrent,
   );
 
@@ -319,11 +317,19 @@ final router = GoRouter(
   routes: [
     GoRoute(
       path: '/login',
-      builder: (context, state) => const LoginScreen(),
+      pageBuilder: (context, state) => _shellTransitionPage(
+        state,
+        const LoginScreen(),
+        motion: _ShellPageMotion.scaleFade,
+      ),
     ),
     GoRoute(
       path: '/create-league',
-      builder: (context, state) => const OrgCreationScreen(),
+      pageBuilder: (context, state) => _shellTransitionPage(
+        state,
+        const OrgCreationScreen(),
+        motion: _ShellPageMotion.sharedAxisForward,
+      ),
     ),
     GoRoute(
       path: '/create-org',
@@ -331,11 +337,19 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/accept-invite',
-      builder: (context, state) => const AcceptInvitationScreen(),
+      pageBuilder: (context, state) => _shellTransitionPage(
+        state,
+        const AcceptInvitationScreen(),
+        motion: _ShellPageMotion.sharedAxisForward,
+      ),
     ),
     GoRoute(
       path: '/unauthorized',
-      builder: (context, state) => const UnauthorizedScreen(),
+      pageBuilder: (context, state) => _shellTransitionPage(
+        state,
+        const UnauthorizedScreen(),
+        motion: _ShellPageMotion.scaleFade,
+      ),
     ),
     StatefulShellRoute(
       builder: (context, state, navigationShell) => _MainScaffold(
@@ -745,7 +759,7 @@ Page<void> _shellTransitionPage(
     key: state.pageKey,
     child: child,
     transitionDuration: _shellTransitionDuration,
-    reverseTransitionDuration: _shellTransitionDuration,
+    reverseTransitionDuration: AppMotion.routeReverse,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final reduceMotion =
           MediaQuery.maybeOf(context)?.disableAnimations ?? false;
@@ -770,7 +784,6 @@ Page<void> _shellTransitionPage(
         );
       }
 
-      final isBackward = motion == _ShellPageMotion.sharedAxisBackward;
       final incomingOffset = switch (motion) {
         _ShellPageMotion.sharedAxisForward => const Offset(
             _shellRouteIncomingSlideFactor,
@@ -797,41 +810,44 @@ Page<void> _shellTransitionPage(
       return AnimatedBuilder(
         animation: Listenable.merge([animation, secondaryAnimation]),
         builder: (context, animatedChild) {
-          final primaryProgress =
-              animatePrimary ? _shellTransitionProgress(animation.value) : 1.0;
-          final secondaryProgress =
-              _shellTransitionProgress(secondaryAnimation.value);
-          final outgoingProgress =
-              _shellFastOutgoingProgress(secondaryProgress);
+          final popLayer = appPopTransitionLayer(
+            primaryStatus: animation.status,
+            secondaryStatus: secondaryAnimation.status,
+          );
+          final isPopping = popLayer != AppPopTransitionLayer.none;
+          final primaryFadeProgress =
+              animatePrimary ? _shellFadeProgress(animation.value) : 1.0;
+          final primaryMoveProgress =
+              animatePrimary ? _shellMoveProgress(animation.value) : 1.0;
+          final secondaryFadeProgress =
+              _shellFadeProgress(secondaryAnimation.value);
+          final secondaryMoveProgress =
+              _shellMoveProgress(secondaryAnimation.value);
+          final outgoingFadeProgress =
+              _shellOutgoingFadeProgress(secondaryFadeProgress);
           final incomingDx =
-              ui.lerpDouble(incomingOffset.dx, 0, primaryProgress)!;
+              ui.lerpDouble(incomingOffset.dx, 0, primaryMoveProgress)!;
           final outgoingDx =
-              ui.lerpDouble(0, outgoingOffset.dx, outgoingProgress)!;
-          final incomingOpacity =
-              ui.lerpDouble(isBackward ? 0.92 : 0.88, 1, primaryProgress)!;
-          final outgoingOpacity = ui.lerpDouble(1, 0, outgoingProgress)!;
-          final incomingScale = ui.lerpDouble(
-            motion == _ShellPageMotion.scaleFade ? 0.988 : 0.984,
-            1,
-            primaryProgress,
-          )!;
-          final outgoingScale = ui.lerpDouble(1, 0.994, outgoingProgress)!;
+              ui.lerpDouble(0, outgoingOffset.dx, secondaryMoveProgress)!;
+          final incomingOpacity = primaryFadeProgress;
+          final outgoingOpacity = ui.lerpDouble(1, 0, outgoingFadeProgress)!;
+          final transitionOpacity = isPopping
+              ? appPopPageOpacity(
+                  layer: popLayer,
+                  primaryValue: animation.value,
+                  disableAnimations: false,
+                )
+              : (incomingOpacity * outgoingOpacity).clamp(0, 1).toDouble();
 
-          return AppShellRouteVisualScope(
-            contentOpacity:
-                (incomingOpacity * outgoingOpacity).clamp(0, 1).toDouble(),
-            showHeader: secondaryAnimation.status != AnimationStatus.forward &&
-                secondaryAnimation.status != AnimationStatus.completed,
-            child: AppShellContentFadeScope(
-              transitionKey: state.pageKey,
-              child: FractionalTranslation(
-                translation: Offset(incomingDx + outgoingDx, 0),
-                child: Transform.scale(
-                  scale: incomingScale * outgoingScale,
-                  child: animatedChild,
-                ),
-              ),
-            ),
+          return AppShellRouteTransitionFrame(
+            pageOpacity: transitionOpacity,
+            contentOpacity: 1,
+            showHeader: true,
+            transitionKey: state.pageKey,
+            translation:
+                isPopping ? Offset.zero : Offset(incomingDx + outgoingDx, 0),
+            scale: 1,
+            child: animatedChild!,
           );
         },
         child: child,
@@ -1110,13 +1126,14 @@ class _AnimatedBranchContainerState extends State<_AnimatedBranchContainer>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final progress = _shellTransitionProgress(_controller.value);
+        final fadeProgress = _shellFadeProgress(_controller.value);
+        final moveProgress = _shellMoveProgress(_controller.value);
         final direction = _branchDirection;
         final isAnimating = _controller.value < 1 && _previousIndex != null;
         final outgoingPresenceEnd = _shellUsesSharedAxis
             ? _shellOutgoingPresenceEnd
             : _shellOutgoingFadeEnd;
-        final showPrevious = isAnimating && progress < outgoingPresenceEnd;
+        final showPrevious = isAnimating && fadeProgress < outgoingPresenceEnd;
 
         Widget buildStage(int index) {
           final isCurrent = index == widget.currentIndex;
@@ -1130,13 +1147,14 @@ class _AnimatedBranchContainerState extends State<_AnimatedBranchContainer>
               ? _shellTransitionMotion(
                   context: context,
                   child: child,
-                  progress: progress,
+                  fadeProgress: fadeProgress,
+                  moveProgress: moveProgress,
                   direction: direction,
                   isCurrent: isCurrent,
                 )
               : AppShellRouteVisualScope(
                   contentOpacity: _shellFadeOpacity(
-                    progress: progress,
+                    progress: fadeProgress,
                     isCurrent: isCurrent,
                   ),
                   showHeader: isCurrent,

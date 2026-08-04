@@ -6,6 +6,10 @@ import 'package:league_hub/widgets/app_shell_scaffold.dart';
 
 void main() {
   group('AppShellScaffold', () {
+    test('matches the Home header-to-content spacing', () {
+      expect(appShellHeaderContentSpacing, 8);
+    });
+
     testWidgets('uses the shared header content spacing by default',
         (WidgetTester tester) async {
       const topInset = 47.0;
@@ -76,7 +80,7 @@ void main() {
       expect(computedBottomPadding, 34 + 84 + appShellScrollEndClearance + 8);
     });
 
-    testWidgets('fades in content below the header',
+    testWidgets('does not stack a second fade under the route transition',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -104,8 +108,8 @@ void main() {
           )
           .first;
 
-      expect(tester.widget<Opacity>(stickyOpacityFinder).opacity, 0);
-      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 0);
+      expect(tester.widget<Opacity>(stickyOpacityFinder).opacity, 1);
+      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
 
       await tester.pumpAndSettle();
 
@@ -113,7 +117,7 @@ void main() {
       expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
     });
 
-    testWidgets('restarts content fade when transition scope changes',
+    testWidgets('transition scope changes do not restart scaffold content',
         (WidgetTester tester) async {
       Widget buildScopedShell(Object transitionKey) {
         return MaterialApp(
@@ -134,7 +138,7 @@ void main() {
             matching: find.byType(Opacity),
           )
           .first;
-      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 0);
+      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
 
       await tester.pumpAndSettle();
       expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
@@ -146,7 +150,7 @@ void main() {
             matching: find.byType(Opacity),
           )
           .first;
-      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 0);
+      expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
 
       await tester.pumpAndSettle();
       expect(tester.widget<Opacity>(contentOpacityFinder).opacity, 1);
@@ -205,6 +209,31 @@ void main() {
       expect(find.byKey(const Key('outgoing-content')), findsOneWidget);
     });
 
+    testWidgets('route transition frame preserves page state during pop',
+        (WidgetTester tester) async {
+      var mountCount = 0;
+
+      Widget buildFrame({required double pageOpacity}) {
+        return MaterialApp(
+          home: AppShellRouteTransitionFrame(
+            pageOpacity: pageOpacity,
+            contentOpacity: 1,
+            showHeader: true,
+            transitionKey: 'policy-detail',
+            translation: Offset.zero,
+            scale: 1,
+            child: _MountProbe(onMount: () => mountCount += 1),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(buildFrame(pageOpacity: 1));
+      expect(mountCount, 1);
+
+      await tester.pumpWidget(buildFrame(pageOpacity: 0.6));
+      expect(mountCount, 1);
+    });
+
     testWidgets('applies clamping scroll behavior to page content',
         (WidgetTester tester) async {
       const scrollContentKey = Key('shell-scroll-content');
@@ -238,4 +267,24 @@ Widget _scrollBehaviorProbeBuilder(BuildContext context) {
       SizedBox(height: 1200),
     ],
   );
+}
+
+class _MountProbe extends StatefulWidget {
+  final VoidCallback onMount;
+
+  const _MountProbe({required this.onMount});
+
+  @override
+  State<_MountProbe> createState() => _MountProbeState();
+}
+
+class _MountProbeState extends State<_MountProbe> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onMount();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
 }

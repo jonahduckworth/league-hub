@@ -11,6 +11,7 @@ import '../services/messaging_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
 
 class SettingsNavigationItem {
   final IconData icon;
@@ -223,50 +224,58 @@ class _SettingsContent extends ConsumerWidget {
           EdgeInsets.fromLTRB(16, topContentPadding, 16, bottomContentPadding),
       children: [
         if (showAdministrationSection)
-          _SettingsSection(
-            title: 'Administration',
-            items: administrationItems
+          AppMotionReveal(
+            child: _SettingsSection(
+              title: 'Administration',
+              items: administrationItems
+                  .map(
+                    (item) => _SettingsItem(
+                      icon: item.icon,
+                      title: item.title,
+                      badge: item.badge,
+                      onTap: () => context.push(item.route),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        if (showAdministrationSection) const SizedBox(height: 16),
+        AppMotionReveal(
+          index: 1,
+          child: _SettingsSection(
+            title: 'Preferences',
+            items: preferenceItems
                 .map(
                   (item) => _SettingsItem(
                     icon: item.icon,
                     title: item.title,
-                    badge: item.badge,
                     onTap: () => context.push(item.route),
                   ),
                 )
                 .toList(),
           ),
-        if (showAdministrationSection) const SizedBox(height: 16),
-        _SettingsSection(
-          title: 'Preferences',
-          items: preferenceItems
-              .map(
-                (item) => _SettingsItem(
-                  icon: item.icon,
-                  title: item.title,
-                  onTap: () => context.push(item.route),
-                ),
-              )
-              .toList(),
         ),
         const SizedBox(height: 16),
-        AppGlassSurface(
-          padding: EdgeInsets.zero,
-          radius: 20,
-          child: ListTile(
-            leading: const Icon(Icons.logout, color: AppColors.danger),
-            title: const Text('Sign Out',
-                style: TextStyle(
-                    color: AppColors.danger, fontWeight: FontWeight.w600)),
-            onTap: () async {
-              final user = ref.read(currentUserProvider).valueOrNull;
-              await signOutFromSettings(
-                user: user,
-                messagingService: ref.read(messagingServiceProvider),
-                authService: ref.read(authServiceProvider),
-              );
-              if (context.mounted) context.go('/login');
-            },
+        AppMotionReveal(
+          index: 2,
+          child: AppGlassSurface(
+            padding: EdgeInsets.zero,
+            radius: 20,
+            child: ListTile(
+              leading: const Icon(Icons.logout, color: AppColors.danger),
+              title: const Text('Sign Out',
+                  style: TextStyle(
+                      color: AppColors.danger, fontWeight: FontWeight.w600)),
+              onTap: () async {
+                final user = ref.read(currentUserProvider).valueOrNull;
+                await signOutFromSettings(
+                  user: user,
+                  messagingService: ref.read(messagingServiceProvider),
+                  authService: ref.read(authServiceProvider),
+                );
+                if (context.mounted) context.go('/login');
+              },
+            ),
           ),
         ),
         const SizedBox(height: 24),

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/design_system.dart';
 import '../../core/league_branding.dart';
 import '../../core/utils.dart';
 import '../../providers/data_providers.dart';
@@ -57,6 +58,7 @@ class PrivacySecurityScreen extends ConsumerWidget {
 
     showDialog(
       context: context,
+      animationStyle: AppMotion.overlayStyle(context),
       barrierColor: Colors.black.withValues(alpha: 0.54),
       builder: (ctx) => Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24),

@@ -66,6 +66,7 @@ void main() {
       apparentTemperatureC: 17.9,
       windSpeedKph: 12,
       weatherCode: 1,
+      isDay: true,
       observedAt: DateTime(2026),
     );
 
@@ -76,6 +77,7 @@ void main() {
       int hubCount = 3,
       int teamCount = 12,
       int memberCount = 45,
+      WeatherSnapshot? weather,
     }) {
       return ProviderScope(
         overrides: [
@@ -98,7 +100,7 @@ void main() {
             (ref) => memberCount,
           ),
           unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
-          currentWeatherProvider.overrideWith((ref) => testWeather),
+          currentWeatherProvider.overrideWith((ref) => weather ?? testWeather),
         ],
         child: MaterialApp(
           home: DashboardScreen(),
@@ -416,6 +418,64 @@ void main() {
         expect(find.text('Contacts'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('18°'), findsOneWidget);
+      });
+
+      testWidgets('uses a night icon for clear nighttime conditions',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createTestWidget(
+            weather: WeatherSnapshot(
+              temperatureC: 12,
+              apparentTemperatureC: 11,
+              windSpeedKph: 4,
+              weatherCode: 0,
+              isDay: false,
+              observedAt: DateTime(2026, 7, 17, 23),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final weatherTile = find
+            .ancestor(
+              of: find.text('Weather'),
+              matching: find.byType(AppGlassSurface),
+            )
+            .first;
+        expect(
+          find.descendant(
+            of: weatherTile,
+            matching: find.byIcon(Icons.nightlight_outlined),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: weatherTile,
+            matching: find.byIcon(Icons.wb_sunny_outlined),
+          ),
+          findsNothing,
+        );
+      });
+
+      testWidgets('renders snow showers with snow styling',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createTestWidget(
+            weather: WeatherSnapshot(
+              temperatureC: -4,
+              apparentTemperatureC: -9,
+              windSpeedKph: 22,
+              weatherCode: 85,
+              isDay: true,
+              observedAt: DateTime(2026, 1, 17, 12),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Snow showers'), findsOneWidget);
+        expect(find.byIcon(Icons.ac_unit), findsOneWidget);
       });
 
       testWidgets('home shows quick link icons for the selected league',

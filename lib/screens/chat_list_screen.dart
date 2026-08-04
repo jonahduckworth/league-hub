@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
@@ -13,6 +14,8 @@ import '../services/authorized_firestore_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
+import '../widgets/app_states.dart';
 import '../widgets/chat_room_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
@@ -328,7 +331,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         (showLeagueFilter ? _stickyFilterGap + _leagueFilterHeight : 0);
     final topContentPadding = appShellTopPadding(
       context,
-      extra: 8,
       stickyHeight: stickyHeight,
       stickySpacing: 8,
     );
@@ -357,11 +359,14 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         selectedLeagueId: _selectedLeagueId,
         onLeagueSelected: (id) => setState(() => _selectedLeagueId = id),
       ),
-      topSpacing: 8,
       stickySpacing: 8,
       child: chatRoomsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error loading chats: $e')),
+        loading: () => const AppLoadingState(label: 'Loading conversations…'),
+        error: (e, _) => AppErrorState(
+          title: 'Unable to load conversations',
+          message: 'Check your connection and try again.',
+          onRetry: () => ref.invalidate(chatRoomsProvider),
+        ),
         data: (rooms) {
           final filtered = filterChatRooms(
             rooms: rooms,
@@ -383,7 +388,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             padding: EdgeInsets.fromLTRB(
                 16, topContentPadding, 16, bottomContentPadding),
             children: [
-              for (final room in visibleRooms) _ChatRoomTile(room: room),
+              for (final entry in visibleRooms.asMap().entries)
+                AppMotionReveal(
+                  index: entry.key,
+                  child: _ChatRoomTile(room: entry.value),
+                ),
             ],
           );
         },
@@ -487,8 +496,8 @@ class _ChatTypePill extends StatelessWidget {
           alignment: Alignment.center,
           margin: const EdgeInsets.only(right: 8),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
+            duration: AppMotion.accessible(context, AppMotion.fast),
+            curve: AppMotion.enter,
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
             decoration: BoxDecoration(
               color: isSelected

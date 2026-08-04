@@ -18,6 +18,8 @@ import '../services/storage_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_motion.dart';
+import '../core/design_system.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/chat_room_avatar.dart';
 import '../widgets/glass_form_widgets.dart';
@@ -273,9 +275,26 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
               ),
             )
           : AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeOutCubic,
+              duration: AppMotion.accessible(context, AppMotion.emphasized),
+              switchInCurve: AppMotion.enter,
+              switchOutCurve: AppMotion.exit,
+              transitionBuilder: (child, animation) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: AppMotion.enter,
+                  reverseCurve: AppMotion.exit,
+                );
+                return FadeTransition(
+                  opacity: curved,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.035, 0),
+                      end: Offset.zero,
+                    ).animate(curved),
+                    child: child,
+                  ),
+                );
+              },
               child: switch (_step) {
                 _NewChatStep.choose => _ChooseConversationType(
                     key: const ValueKey('choose'),
@@ -395,20 +414,26 @@ class _ChooseConversationType extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        _ConversationTypeCard(
-          icon: Icons.event_outlined,
-          title: 'Event Room',
-          subtitle: 'A shared room for tournaments, games, or planning.',
-          color: AppGlassColors.gold,
-          onTap: onEventRoom,
+        AppMotionReveal(
+          index: 1,
+          child: _ConversationTypeCard(
+            icon: Icons.event_outlined,
+            title: 'Event Room',
+            subtitle: 'A shared room for tournaments, games, or planning.',
+            color: AppGlassColors.gold,
+            onTap: onEventRoom,
+          ),
         ),
         const SizedBox(height: 12),
-        _ConversationTypeCard(
-          icon: Icons.person_outline,
-          title: 'Direct Message',
-          subtitle: 'Message another member one-on-one.',
-          color: AppGlassColors.aqua,
-          onTap: onDirectMessage,
+        AppMotionReveal(
+          index: 2,
+          child: _ConversationTypeCard(
+            icon: Icons.person_outline,
+            title: 'Direct Message',
+            subtitle: 'Message another member one-on-one.',
+            color: AppGlassColors.aqua,
+            onTap: onDirectMessage,
+          ),
         ),
       ],
     );

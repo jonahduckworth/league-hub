@@ -7,13 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 
+import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../services/permission_service.dart';
 import '../models/policy.dart';
+import '../navigation/route_motion.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
@@ -33,6 +34,56 @@ enum PolicyViewerType {
 
 const _imageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
 const _pdfExts = {'pdf'};
+const _policyViewerSlideFactor = 0.012;
+
+Route<void> policyViewerRoute(Widget child) {
+  return PageRouteBuilder<void>(
+    transitionDuration: AppMotion.route,
+    reverseTransitionDuration: AppMotion.routeReverse,
+    pageBuilder: (_, __, ___) => child,
+    transitionsBuilder: (context, animation, secondaryAnimation, page) {
+      return AnimatedBuilder(
+        animation: Listenable.merge([animation, secondaryAnimation]),
+        child: page,
+        builder: (context, animatedPage) {
+          final disableAnimations =
+              MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+          final popLayer = appPopTransitionLayer(
+            primaryStatus: animation.status,
+            secondaryStatus: secondaryAnimation.status,
+          );
+          final isPopping = popLayer != AppPopTransitionLayer.none;
+          final forwardFadeProgress = disableAnimations
+              ? 1.0
+              : AppMotion.screenFadeCurve.transform(animation.value);
+          final forwardMoveProgress = disableAnimations
+              ? 1.0
+              : AppMotion.enter.transform(animation.value);
+          final opacity = isPopping
+              ? appPopPageOpacity(
+                  layer: popLayer,
+                  primaryValue: animation.value,
+                  disableAnimations: disableAnimations,
+                )
+              : forwardFadeProgress;
+
+          return Opacity(
+            opacity: opacity,
+            child: FractionalTranslation(
+              translation: isPopping
+                  ? Offset.zero
+                  : Offset(
+                      _policyViewerSlideFactor * (1 - forwardMoveProgress),
+                      0,
+                    ),
+              child: animatedPage,
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
 PolicyViewerType policyViewerTypeForExt(String ext) {
   final normalized = ext.toLowerCase();
@@ -75,8 +126,8 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
     if (viewerType == PolicyViewerType.image) {
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => ImageViewerScreen(
+        policyViewerRoute(
+          ImageViewerScreen(
             imageUrl: url,
             title: title ?? 'Image',
           ),
@@ -88,8 +139,8 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
     if (viewerType == PolicyViewerType.pdf) {
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => PdfViewerScreen(
+        policyViewerRoute(
+          PdfViewerScreen(
             pdfUrl: url,
             title: title ?? 'PDF',
           ),
@@ -115,7 +166,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
     setState(() => _isOpeningPolicy = true);
 
     try {
-      final tempDir = await getTemporaryDirectory();
+      final tempDir = Directory.systemTemp;
       final extension = fileType.isEmpty ? 'bin' : fileType;
       final baseName = title.replaceAll(RegExp(r'[^\w\-. ]'), '_');
       final fileName = baseName.toLowerCase().endsWith('.$extension')

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/design_system.dart';
 import '../core/utils.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/app_glass.dart';
@@ -74,6 +75,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final resetEmailController = TextEditingController();
     showDialog(
       context: context,
+      animationStyle: AppMotion.overlayStyle(context),
       barrierColor: Colors.black.withValues(alpha: 0.64),
       builder: (ctx) => AuthDialogSurface(
         title: 'Reset Password',
