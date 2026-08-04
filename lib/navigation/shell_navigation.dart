@@ -87,13 +87,14 @@ int shellBottomNavIndexFor({
   required String location,
 }) {
   if (shellQuickDestinationForLocation(location) != null) {
-    return 3;
+    return 4;
   }
 
   return switch (branchIndex) {
-    3 => 1,
-    1 => 2,
-    5 => 3,
+    7 => 1,
+    3 => 2,
+    1 => 3,
+    5 => 4,
     _ => 0,
   };
 }
@@ -101,9 +102,10 @@ int shellBottomNavIndexFor({
 int shellBranchNavSlot(int branchIndex) {
   return switch (branchIndex) {
     0 => 0,
-    3 => 1,
-    1 => 2,
-    2 || 4 || 5 || 6 => 3,
+    7 => 1,
+    3 => 2,
+    1 => 3,
+    2 || 4 || 5 || 6 => 4,
     _ => 0,
   };
 }

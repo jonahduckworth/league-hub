@@ -23,6 +23,7 @@ import '../screens/chat_conversation_screen.dart';
 import '../screens/new_chat_screen.dart';
 import '../screens/policy_screen.dart';
 import '../screens/announcements_screen.dart';
+import '../screens/schedule_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/org_creation_screen.dart';
@@ -720,6 +721,18 @@ final router = GoRouter(
             ),
           ],
         ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/schedule',
+              pageBuilder: (context, state) => _shellTransitionPage(
+                state,
+                const ScheduleScreen(),
+                animatePrimary: false,
+              ),
+            ),
+          ],
+        ),
       ],
     ),
     GoRoute(
@@ -1054,7 +1067,7 @@ class _MainScaffold extends StatelessWidget {
   void _handleBottomNavTap(BuildContext context, int index) {
     final quickDestinationConfig =
         shellQuickDestinationConfigForLocation(location);
-    if (index == 3 && quickDestinationConfig != null) {
+    if (index == 4 && quickDestinationConfig != null) {
       if (location == quickDestinationConfig.route) return;
       context.go(quickDestinationConfig.route);
       return;
@@ -1062,9 +1075,10 @@ class _MainScaffold extends StatelessWidget {
 
     final branchIndex = switch (index) {
       0 => 0,
-      1 => 3,
-      2 => 1,
-      3 => 5,
+      1 => 7,
+      2 => 3,
+      3 => 1,
+      4 => 5,
       _ => 0,
     };
     navigationShell.goBranch(

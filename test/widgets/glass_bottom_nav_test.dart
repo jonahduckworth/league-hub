@@ -23,36 +23,39 @@ void main() {
       );
     }
 
-    testWidgets('shows announcements immediately after home', (tester) async {
+    testWidgets('shows schedule immediately after home', (tester) async {
       await pumpNav(tester, onTap: (_) {});
 
       final homeX = tester.getCenter(find.text('Home')).dx;
+      final scheduleX = tester.getCenter(find.text('Schedule')).dx;
       final announcementsX = tester.getCenter(find.text('Announcements')).dx;
       final chatsX = tester.getCenter(find.text('Chats')).dx;
       final profileX = tester.getCenter(find.text('Profile')).dx;
 
-      expect(homeX, lessThan(announcementsX));
+      expect(homeX, lessThan(scheduleX));
+      expect(scheduleX, lessThan(announcementsX));
       expect(announcementsX, lessThan(chatsX));
       expect(chatsX, lessThan(profileX));
     });
 
-    testWidgets('reports announcements as nav index 1', (tester) async {
+    testWidgets('reports schedule as nav index 1', (tester) async {
       final taps = <int>[];
 
       await pumpNav(tester, onTap: taps.add);
-      await tester.tap(find.text('Announcements'));
+      await tester.tap(find.text('Schedule'));
       await tester.pump();
 
       expect(taps, [1]);
     });
 
-    testWidgets('fits four nav items on a compact width', (tester) async {
+    testWidgets('fits five nav items on a compact width', (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await pumpNav(tester, currentIndex: 1, onTap: (_) {});
 
       expect(find.text('Home'), findsOneWidget);
+      expect(find.text('Schedule'), findsOneWidget);
       expect(find.text('Announcements'), findsOneWidget);
       expect(find.text('Chats'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
@@ -77,7 +80,7 @@ void main() {
 
       await pumpNav(
         tester,
-        currentIndex: 3,
+        currentIndex: 4,
         onTap: taps.add,
         overrideLastItem: const GlassNavBarItem(
           icon: Icons.settings_outlined,
@@ -92,7 +95,7 @@ void main() {
       await tester.tap(find.text('Settings'));
       await tester.pump();
 
-      expect(taps, [3]);
+      expect(taps, [4]);
     });
   });
 }

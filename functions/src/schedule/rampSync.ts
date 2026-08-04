@@ -190,6 +190,33 @@ function toDate(value: unknown): Date {
   return new Date(0);
 }
 
+function localScheduleFields(event: IncomingScheduleEvent): {
+  localDate: string;
+  localStartTime: string;
+  localEndTime: string;
+} {
+  const parts = (date: Date) => Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: event.timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  const start = parts(event.startsAt);
+  const end = parts(event.endsAt);
+  return {
+    localDate: `${start.year}-${start.month}-${start.day}`,
+    localStartTime: `${start.hour}:${start.minute}`,
+    localEndTime: `${end.hour}:${end.minute}`,
+  };
+}
+
 async function loadExistingEvents(orgId: string): Promise<ExistingScheduleEvent[]> {
   const snapshot = await db.collection("organizations").doc(orgId)
     .collection("scheduleEvents").where("source", "==", "ramp").get();
@@ -235,6 +262,7 @@ async function writeReconciliation(
 
   for (const upsert of reconciliation.upserts) {
     const event = upsert.event;
+    const localFields = localScheduleFields(event);
     await addWrite(events.doc(upsert.id), {
       source: "ramp",
       sourceUid: event.sourceUid,
@@ -250,6 +278,7 @@ async function writeReconciliation(
       startsAt: admin.firestore.Timestamp.fromDate(event.startsAt),
       endsAt: admin.firestore.Timestamp.fromDate(event.endsAt),
       timezone: event.timezone,
+      ...localFields,
       location: event.location ?? null,
       description: event.description ?? null,
       status: event.status,

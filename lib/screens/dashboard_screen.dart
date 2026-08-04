@@ -2,11 +2,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../models/league.dart';
+import '../models/schedule_event.dart';
 import '../models/weather_snapshot.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
@@ -19,6 +22,7 @@ import '../widgets/app_motion.dart';
 import '../widgets/glass_bottom_nav.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/profile_summary_card.dart';
+import '../widgets/schedule_game_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -46,6 +50,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final leaguesAsync = ref.watch(leaguesProvider);
     final org = ref.watch(organizationProvider).valueOrNull;
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final visibleUpcoming = ref.watch(upcomingScheduleEventsProvider);
 
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
@@ -55,6 +60,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       context,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
+    final nextGame = visibleUpcoming
+        .where((event) =>
+            _selectedLeagueId == null ||
+            event.leagueIds.contains(_selectedLeagueId))
+        .firstOrNull;
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -94,13 +104,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   const AppMotionReveal(
                     index: 1,
                     child: _SectionHeading(
+                      icon: Icons.event_available_outlined,
+                      label: 'Next Game',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppMotionReveal(
+                    index: 2,
+                    child: _NextGameCard(
+                      event: nextGame,
+                      onTap: () => context.go('/schedule'),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const AppMotionReveal(
+                    index: 3,
+                    child: _SectionHeading(
                       icon: Icons.grid_view_rounded,
                       label: 'Quick Access',
                     ),
                   ),
                   const SizedBox(height: 12),
                   AppMotionReveal(
-                    index: 2,
+                    index: 4,
                     child: _buildHomeGrid(context),
                   ),
                 ],
@@ -112,7 +138,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             right: 16,
             bottom: quickLinksBottomOffset,
             child: AppMotionReveal(
-              index: 3,
+              index: 5,
               child: _QuickLinksRow(
                 league: headerLeague,
                 fallbackLabel: headerLabel,
@@ -167,6 +193,87 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _NextGameCard extends StatelessWidget {
+  final ScheduleEvent? event;
+  final VoidCallback onTap;
+
+  const _NextGameCard({required this.event, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final game = event;
+    if (game != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            DateFormat('EEEE, MMMM d').format(game.scheduleDate),
+            style: const TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ScheduleGameCard(event: game, onTap: onTap, compact: true),
+        ],
+      );
+    }
+
+    return AppGlassSurface(
+      onTap: onTap,
+      height: 92,
+      radius: AppRadius.card,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      child: const Row(
+        children: [
+          _HomeTileIcon(
+            icon: Icons.calendar_month_outlined,
+            accentColor: AppGlassColors.aqua,
+          ),
+          SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Schedule coming soon',
+                  style: TextStyle(
+                    color: AppGlassColors.ink,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Games update automatically when published.',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppGlassColors.inkMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: AppSpacing.sm),
+          Icon(
+            Icons.arrow_forward_rounded,
+            color: AppGlassColors.inkMuted,
+            size: 22,
+          ),
+        ],
+      ),
     );
   }
 }

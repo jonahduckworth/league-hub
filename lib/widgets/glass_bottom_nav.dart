@@ -34,6 +34,12 @@ class LeagueHubGlassBottomNav extends StatelessWidget {
           iconSize: 26,
         ),
         const GlassNavBarItem(
+          icon: Icons.calendar_month_outlined,
+          activeIcon: Icons.calendar_month_rounded,
+          label: 'Schedule',
+          iconSize: 25,
+        ),
+        const GlassNavBarItem(
           icon: Icons.campaign_outlined,
           activeIcon: Icons.campaign_rounded,
           label: 'Announcements',
@@ -136,7 +142,7 @@ class _LiquidGlassBottomBarState extends State<_LiquidGlassBottomBar>
         child: Align(
           alignment: Alignment.bottomCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 384),
+            constraints: const BoxConstraints(maxWidth: 440),
             child: SizedBox(
               height: leagueHubGlassBottomNavBarHeight,
               child: DecoratedBox(
@@ -224,7 +230,7 @@ class _LiquidGlassBottomBarState extends State<_LiquidGlassBottomBar>
         const verticalPadding = 4.0;
         const horizontalInset = 8.0;
         final pillWidth =
-            (itemWidth - horizontalInset * 2).clamp(64.0, 118.0).toDouble();
+            (itemWidth - horizontalInset * 2).clamp(48.0, 100.0).toDouble();
         const pillHeight =
             leagueHubGlassBottomNavBarHeight - verticalPadding * 2;
 

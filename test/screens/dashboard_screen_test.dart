@@ -6,6 +6,7 @@ import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/weather_snapshot.dart';
 import 'package:league_hub/models/organization.dart';
+import 'package:league_hub/models/schedule_event.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/providers/weather_provider.dart';
@@ -78,6 +79,7 @@ void main() {
       int teamCount = 12,
       int memberCount = 45,
       WeatherSnapshot? weather,
+      List<ScheduleEvent> scheduleEvents = const [],
     }) {
       return ProviderScope(
         overrides: [
@@ -101,6 +103,9 @@ void main() {
           ),
           unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
           currentWeatherProvider.overrideWith((ref) => weather ?? testWeather),
+          scheduleEventsProvider.overrideWith(
+            (ref) => Stream.value(scheduleEvents),
+          ),
         ],
         child: MaterialApp(
           home: DashboardScreen(),
@@ -121,6 +126,7 @@ void main() {
       int hubCount = 3,
       int teamCount = 12,
       int memberCount = 45,
+      List<ScheduleEvent> scheduleEvents = const [],
     }) {
       final router = GoRouter(
         initialLocation: '/',
@@ -128,6 +134,11 @@ void main() {
           GoRoute(
             path: '/',
             builder: (context, state) => const DashboardScreen(),
+          ),
+          GoRoute(
+            path: '/schedule',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Schedule Route')),
           ),
           GoRoute(
             path: '/settings/notifications',
@@ -184,6 +195,9 @@ void main() {
           activeUserCountProvider.overrideWith((ref) => memberCount),
           unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
           currentWeatherProvider.overrideWith((ref) => testWeather),
+          scheduleEventsProvider.overrideWith(
+            (ref) => Stream.value(scheduleEvents),
+          ),
         ],
         child: MaterialApp.router(
           routerConfig: router,
@@ -340,7 +354,7 @@ void main() {
         expect(find.byType(TextField), findsNothing);
       });
 
-      testWidgets('places quick access below the profile row',
+      testWidgets('places next game between the profile and quick access',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
         await tester.pump();
@@ -353,6 +367,16 @@ void main() {
             )
             .first;
         final headerBottom = tester.getBottomLeft(profileSurface).dy;
+        final nextGameTop = tester
+            .getTopLeft(
+              find
+                  .ancestor(
+                    of: find.text('Schedule coming soon'),
+                    matching: find.byType(AppGlassSurface),
+                  )
+                  .last,
+            )
+            .dy;
         final policySurface = find
             .ancestor(
               of: find.text('Policy'),
@@ -361,8 +385,8 @@ void main() {
             .last;
         final contentTop = tester.getTopLeft(policySurface).dy;
 
-        expect(contentTop, greaterThan(headerBottom));
-        expect(contentTop - headerBottom, lessThanOrEqualTo(96));
+        expect(nextGameTop, greaterThan(headerBottom));
+        expect(contentTop, greaterThan(nextGameTop));
       });
 
       testWidgets('matches quick access heading to the greeting pill',
@@ -528,6 +552,7 @@ void main() {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
+        await tester.ensureVisible(find.text('Contacts'));
         await tester.tap(find.text('Contacts'));
         await tester.pumpAndSettle();
 
@@ -539,6 +564,7 @@ void main() {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
+        await tester.ensureVisible(find.text('Settings'));
         await tester.tap(find.text('Settings'));
         await tester.pumpAndSettle();
 

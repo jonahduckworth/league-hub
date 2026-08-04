@@ -7,6 +7,7 @@ void main() {
       expect(shouldShowShellBottomNavigation('/'), isTrue);
       expect(shouldShowShellBottomNavigation('/chat'), isTrue);
       expect(shouldShowShellBottomNavigation('/announcements'), isTrue);
+      expect(shouldShowShellBottomNavigation('/schedule'), isTrue);
       expect(shouldShowShellBottomNavigation('/contacts'), isTrue);
       expect(shouldShowShellBottomNavigation('/policy'), isTrue);
       expect(shouldShowShellBottomNavigation('/settings'), isTrue);
@@ -24,31 +25,35 @@ void main() {
     test('uses fixed slots for primary shell pages', () {
       expect(shellBottomNavIndexFor(branchIndex: 0, location: '/'), 0);
       expect(
+        shellBottomNavIndexFor(branchIndex: 7, location: '/schedule'),
+        1,
+      );
+      expect(
         shellBottomNavIndexFor(
           branchIndex: 3,
           location: '/announcements',
         ),
-        1,
+        2,
       );
-      expect(shellBottomNavIndexFor(branchIndex: 1, location: '/chat'), 2);
-      expect(shellBottomNavIndexFor(branchIndex: 5, location: '/profile'), 3);
+      expect(shellBottomNavIndexFor(branchIndex: 1, location: '/chat'), 3);
+      expect(shellBottomNavIndexFor(branchIndex: 5, location: '/profile'), 4);
     });
 
     test('uses the last slot for quick destinations', () {
-      expect(shellBottomNavIndexFor(branchIndex: 0, location: '/contacts'), 3);
+      expect(shellBottomNavIndexFor(branchIndex: 0, location: '/contacts'), 4);
       expect(
         shellBottomNavIndexFor(branchIndex: 0, location: '/contacts/user-1'),
-        3,
+        4,
       );
-      expect(shellBottomNavIndexFor(branchIndex: 2, location: '/policy'), 3);
+      expect(shellBottomNavIndexFor(branchIndex: 2, location: '/policy'), 4);
       expect(
         shellBottomNavIndexFor(branchIndex: 2, location: '/policy/policy-1'),
-        3,
+        4,
       );
-      expect(shellBottomNavIndexFor(branchIndex: 4, location: '/settings'), 3);
+      expect(shellBottomNavIndexFor(branchIndex: 4, location: '/settings'), 4);
       expect(
         shellBottomNavIndexFor(branchIndex: 4, location: '/settings/users'),
-        3,
+        4,
       );
     });
   });
@@ -83,12 +88,13 @@ void main() {
   group('shellBranchNavSlot', () {
     test('orders branches by the visible bottom nav slots', () {
       expect(shellBranchNavSlot(0), 0);
-      expect(shellBranchNavSlot(3), 1);
-      expect(shellBranchNavSlot(1), 2);
-      expect(shellBranchNavSlot(2), 3);
-      expect(shellBranchNavSlot(4), 3);
-      expect(shellBranchNavSlot(5), 3);
-      expect(shellBranchNavSlot(6), 3);
+      expect(shellBranchNavSlot(7), 1);
+      expect(shellBranchNavSlot(3), 2);
+      expect(shellBranchNavSlot(1), 3);
+      expect(shellBranchNavSlot(2), 4);
+      expect(shellBranchNavSlot(4), 4);
+      expect(shellBranchNavSlot(5), 4);
+      expect(shellBranchNavSlot(6), 4);
     });
   });
 }

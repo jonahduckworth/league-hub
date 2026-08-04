@@ -14,6 +14,9 @@ class ScheduleEvent {
   final DateTime startsAt;
   final DateTime endsAt;
   final String timezone;
+  final String? localDate;
+  final String? localStartTime;
+  final String? localEndTime;
   final String? location;
   final String? description;
   final ScheduleEventStatus status;
@@ -35,6 +38,9 @@ class ScheduleEvent {
     required this.startsAt,
     required this.endsAt,
     required this.timezone,
+    this.localDate,
+    this.localStartTime,
+    this.localEndTime,
     this.location,
     this.description,
     required this.status,
@@ -57,6 +63,9 @@ class ScheduleEvent {
         startsAt: DateTime.parse(json['startsAt'] as String),
         endsAt: DateTime.parse(json['endsAt'] as String),
         timezone: json['timezone'] as String? ?? 'America/Edmonton',
+        localDate: json['localDate'] as String?,
+        localStartTime: json['localStartTime'] as String?,
+        localEndTime: json['localEndTime'] as String?,
         location: json['location'] as String?,
         description: json['description'] as String?,
         status: switch (json['status']) {
@@ -83,6 +92,9 @@ class ScheduleEvent {
         'startsAt': startsAt.toIso8601String(),
         'endsAt': endsAt.toIso8601String(),
         'timezone': timezone,
+        'localDate': localDate,
+        'localStartTime': localStartTime,
+        'localEndTime': localEndTime,
         'location': location,
         'description': description,
         'status': switch (status) {
@@ -96,6 +108,16 @@ class ScheduleEvent {
       };
 
   bool isUpcomingAt(DateTime now) => isActive && startsAt.isAfter(now);
+
+  DateTime get scheduleDate {
+    final parsed = localDate == null ? null : DateTime.tryParse(localDate!);
+    final fallback = startsAt.toLocal();
+    return DateTime(
+      parsed?.year ?? fallback.year,
+      parsed?.month ?? fallback.month,
+      parsed?.day ?? fallback.day,
+    );
+  }
 
   String get cleanFirstTeamName => _cleanTeamName(firstTeamName);
   String get cleanSecondTeamName => _cleanTeamName(secondTeamName);
