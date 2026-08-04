@@ -8,6 +8,7 @@ import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/models/team.dart';
+import 'package:league_hub/models/schedule_event.dart';
 import 'package:league_hub/services/firestore_service.dart';
 import 'package:league_hub/core/constants.dart';
 
@@ -1164,6 +1165,39 @@ void main() {
       final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
       final team = teams.firstWhere((t) => t.id == 't1');
       expect(team.chatRoomId, 'chat-t1');
+    });
+  });
+
+  group('Schedule', () {
+    test('streams active games in start-time order', () async {
+      final games = fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.scheduleEventsCollection);
+      Future<void> addGame(String id, DateTime start, bool active) =>
+          games.doc(id).set({
+            'sourceUid': '$id@rampinteractive.com',
+            'teamIds': ['team-1'],
+            'hubIds': ['hub-1'],
+            'leagueIds': ['league-1'],
+            'title': 'Wolves HC vs Rockies',
+            'firstTeamName': 'Wolves HC',
+            'secondTeamName': 'Rockies',
+            'startsAt': start,
+            'endsAt': start.add(const Duration(hours: 2)),
+            'timezone': 'America/Edmonton',
+            'status': 'scheduled',
+            'isActive': active,
+          });
+
+      await addGame('later', DateTime.utc(2026, 9, 2), true);
+      await addGame('removed', DateTime.utc(2026, 9, 1), false);
+      await addGame('earlier', DateTime.utc(2026, 8, 30), true);
+
+      final result = await svc.getScheduleEvents(orgId).first;
+
+      expect(result.map((event) => event.id), ['earlier', 'later']);
+      expect(result.first.status, ScheduleEventStatus.scheduled);
     });
   });
 }

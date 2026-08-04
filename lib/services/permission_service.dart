@@ -50,6 +50,7 @@ class PermissionService {
     '/chat',
     '/policy',
     '/announcements',
+    '/schedule',
     '/profile',
     '/profile/edit',
     '/settings',
@@ -312,6 +313,27 @@ class PermissionService {
       return user.leagueIds.contains(leagueId);
     }
     // Invalid or incomplete scoped records are not broadly visible.
+    return false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Schedule
+  // ---------------------------------------------------------------------------
+
+  bool canViewScheduleEvent(
+    AppUser user, {
+    required List<String> teamIds,
+    required List<String> hubIds,
+    required List<String> leagueIds,
+  }) {
+    if (!isActiveUser(user)) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    if (teamIds.any(user.teamIds.contains)) return true;
+    if (hubIds.any(user.hubIds.contains)) return true;
+    // Some older user records have league assignments without team/hub IDs.
+    if (user.teamIds.isEmpty && user.hubIds.isEmpty) {
+      return leagueIds.any(user.leagueIds.contains);
+    }
     return false;
   }
 

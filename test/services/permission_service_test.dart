@@ -951,6 +951,75 @@ void main() {
     });
   });
 
+  group('schedule', () {
+    test('elevated admins see the full organization schedule', () {
+      expect(
+        service.canViewScheduleEvent(
+          superAdmin(),
+          teamIds: const ['other-team'],
+          hubIds: const ['other-hub'],
+          leagueIds: const ['other-league'],
+        ),
+        isTrue,
+      );
+      expect(
+        service.canViewScheduleEvent(
+          owner(),
+          teamIds: const [],
+          hubIds: const [],
+          leagueIds: const [],
+        ),
+        isTrue,
+      );
+    });
+
+    test('staff see assigned team games but not unrelated games', () {
+      final user = staff(teamIds: const ['team-1']);
+      expect(
+        service.canViewScheduleEvent(
+          user,
+          teamIds: const ['team-1'],
+          hubIds: const ['hub-1'],
+          leagueIds: const ['league-1'],
+        ),
+        isTrue,
+      );
+      expect(
+        service.canViewScheduleEvent(
+          user,
+          teamIds: const ['team-2'],
+          hubIds: const ['hub-2'],
+          leagueIds: const ['league-1'],
+        ),
+        isFalse,
+      );
+    });
+
+    test('hub managers see games for teams in their hubs', () {
+      expect(
+        service.canViewScheduleEvent(
+          manager(hubIds: const ['hub-1']),
+          teamIds: const ['team-2'],
+          hubIds: const ['hub-1'],
+          leagueIds: const ['league-1'],
+        ),
+        isTrue,
+      );
+    });
+
+    test('inactive users cannot see schedule data', () {
+      expect(
+        service.canViewScheduleEvent(
+          staff(isActive: false, teamIds: const ['team-1']),
+          teamIds: const ['team-1'],
+          hubIds: const [],
+          leagueIds: const [],
+        ),
+        isFalse,
+      );
+    });
+  });
+
   // -------------------------------------------------------------------------
   // Settings tiles visibility
   // -------------------------------------------------------------------------

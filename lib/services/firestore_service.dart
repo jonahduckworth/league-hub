@@ -11,6 +11,7 @@ import '../models/message.dart';
 import '../models/policy.dart';
 import '../models/announcement.dart';
 import '../models/invitation.dart';
+import '../models/schedule_event.dart';
 import '../core/constants.dart';
 
 class FirestoreService {
@@ -41,6 +42,11 @@ class FirestoreService {
 
   CollectionReference _teamsRef(String orgId, String leagueId, String hubId) =>
       _hubsRef(orgId, leagueId).doc(hubId).collection('teams');
+
+  CollectionReference _scheduleEventsRef(String orgId) => _db
+      .collection(AppConstants.orgsCollection)
+      .doc(orgId)
+      .collection(AppConstants.scheduleEventsCollection);
 
   /// Recursively converts Firestore Timestamp objects to ISO strings so models
   /// can parse them without importing cloud_firestore.
@@ -679,6 +685,24 @@ class FirestoreService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
+  }
+
+  // --- Schedule ---
+
+  Stream<List<ScheduleEvent>> getScheduleEvents(String orgId) {
+    return _scheduleEventsRef(orgId)
+        .orderBy('startsAt')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((document) => ScheduleEvent.fromJson({
+                  'id': document.id,
+                  'orgId': orgId,
+                  ..._convertTimestamps(
+                    document.data() as Map<String, dynamic>,
+                  ),
+                }))
+            .where((event) => event.isActive)
+            .toList());
   }
 
   // --- Announcements ---
