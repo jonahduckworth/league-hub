@@ -236,7 +236,14 @@ async function loadExistingEvents(orgId: string): Promise<ExistingScheduleEvent[
       teamIds: Array.isArray(data.teamIds)
         ? data.teamIds.filter((value): value is string => typeof value === "string")
         : [],
+      hubIds: Array.isArray(data.hubIds)
+        ? data.hubIds.filter((value): value is string => typeof value === "string")
+        : [],
+      leagueIds: Array.isArray(data.leagueIds)
+        ? data.leagueIds.filter((value): value is string => typeof value === "string")
+        : [],
       isActive: data.isActive !== false,
+      sourceMissingSince: data.sourceMissingSince ? toDate(data.sourceMissingSince) : undefined,
     };
   });
 }
@@ -332,7 +339,12 @@ export async function synchronizeOrganizationSchedule(orgId: string): Promise<Sc
     const activeExisting = existing.filter((event) => event.isActive);
     const suspiciousDrop = activeExisting.length > 0 && incoming.length < Math.floor(activeExisting.length * 0.65);
     const removalsSkipped = failures.length > 0 || suspiciousDrop;
-    const reconciliation = reconcileSchedule(existing, incoming, !removalsSkipped);
+    const reconciliation = reconcileSchedule(
+      existing,
+      incoming,
+      !removalsSkipped,
+      removalsSkipped,
+    );
     await writeReconciliation(orgId, reconciliation);
 
     const status = removalsSkipped ? "warning" : "ok";

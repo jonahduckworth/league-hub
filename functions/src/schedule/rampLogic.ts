@@ -36,7 +36,10 @@ export type ExistingScheduleEvent = {
   title: string;
   location?: string;
   teamIds: string[];
+  hubIds: string[];
+  leagueIds: string[];
   isActive: boolean;
+  sourceMissingSince?: Date;
 };
 
 export type ReconciledUpsert = {
@@ -250,7 +253,15 @@ function shareValue(first: string[], second: string[]): boolean {
   return second.some((value) => values.has(value));
 }
 
+// RAMP replacements caused by minor edits stay close to the original slot. A
+// hard bound is safer than recycling an ID for a later game between repeat opponents.
+const replacementTimeWindowMs = 72 * 60 * 60 * 1000;
+const recentlyMissingWindowMs = 14 * 24 * 60 * 60 * 1000;
+
 function replacementScore(existing: ExistingScheduleEvent, incoming: IncomingScheduleEvent): number {
+  const timeDifference = Math.abs(existing.startsAt.getTime() - incoming.startsAt.getTime());
+  if (timeDifference > replacementTimeWindowMs) return 0;
+
   let score = 0;
   const exactTeams = normalize(existing.firstTeamName) === normalize(incoming.firstTeamName) &&
     normalize(existing.secondTeamName) === normalize(incoming.secondTeamName);
@@ -259,11 +270,23 @@ function replacementScore(existing: ExistingScheduleEvent, incoming: IncomingSch
   if (exactTeams || reversedTeams) score += 7;
   if (normalize(existing.title) === normalize(incoming.title)) score += 5;
   if (shareValue(existing.teamIds, incoming.teamIds)) score += 4;
-  const timeDifference = Math.abs(existing.startsAt.getTime() - incoming.startsAt.getTime());
-  if (timeDifference <= 72 * 60 * 60 * 1000) score += 4;
-  else if (timeDifference <= 14 * 24 * 60 * 60 * 1000) score += 2;
+  score += 4;
   if (normalize(existing.location) && normalize(existing.location) === normalize(incoming.location)) score += 1;
   return score;
+}
+
+function withPreservedScope(
+  incoming: IncomingScheduleEvent,
+  existing: ExistingScheduleEvent,
+  preserveExistingScope: boolean,
+): IncomingScheduleEvent {
+  if (!preserveExistingScope) return incoming;
+  return {
+    ...incoming,
+    teamIds: [...new Set([...existing.teamIds, ...incoming.teamIds])],
+    hubIds: [...new Set([...existing.hubIds, ...incoming.hubIds])],
+    leagueIds: [...new Set([...existing.leagueIds, ...incoming.leagueIds])],
+  };
 }
 
 function newDocumentId(sourceUid: string): string {
@@ -274,6 +297,8 @@ export function reconcileSchedule(
   existing: ExistingScheduleEvent[],
   incoming: IncomingScheduleEvent[],
   allowRemovals: boolean,
+  preserveExistingScope = false,
+  now = new Date(),
 ): ReconciliationResult {
   const existingByUid = new Map<string, ExistingScheduleEvent>();
   for (const event of existing) {
@@ -294,13 +319,19 @@ export function reconcileSchedule(
     matchedExisting.add(match.id);
     upserts.push({
       id: match.id,
-      event,
+      event: withPreservedScope(event, match, preserveExistingScope),
       previousSourceUids: match.previousSourceUids,
       kind: "updated",
     });
   }
 
-  const missing = existing.filter((event) => event.isActive && !matchedExisting.has(event.id));
+  const missing = existing.filter((event) => {
+    if (matchedExisting.has(event.id)) return false;
+    if (event.isActive) return true;
+    if (!event.sourceMissingSince) return false;
+    const missingAge = now.getTime() - event.sourceMissingSince.getTime();
+    return missingAge >= 0 && missingAge <= recentlyMissingWindowMs;
+  });
   for (const event of unmatchedIncoming) {
     const ranked = missing
       .filter((candidate) => !matchedExisting.has(candidate.id))
@@ -313,7 +344,7 @@ export function reconcileSchedule(
       matchedExisting.add(replacement.candidate.id);
       upserts.push({
         id: replacement.candidate.id,
-        event,
+        event: withPreservedScope(event, replacement.candidate, preserveExistingScope),
         previousSourceUids: [...new Set([
           ...replacement.candidate.previousSourceUids,
           replacement.candidate.sourceUid,

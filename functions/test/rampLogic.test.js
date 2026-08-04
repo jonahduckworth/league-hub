@@ -57,6 +57,8 @@ function existing(overrides = {}) {
     title: "Wolves HC vs Calgary Rockies",
     location: "Great Plains Arena",
     teamIds: ["wolves", "rockies"],
+    hubIds: ["hub-wolves", "hub-rockies"],
+    leagueIds: ["jphl"],
     isActive: true,
     ...overrides,
   };
@@ -123,4 +125,76 @@ test("does not rebind an unrelated game", () => {
   assert.equal(result.counts.added, 1);
   assert.equal(result.counts.removed, 1);
   assert.notEqual(result.upserts[0].id, "league-hub-event-1");
+});
+
+test("does not rebind repeat opponents outside the replacement time window", () => {
+  const result = reconcileSchedule([existing()], [incoming({
+    sourceUid: "leaguegame-999@rampinteractive.com",
+    sourceGameId: "999",
+    startsAt: new Date("2027-02-10T01:00:00.000Z"),
+    endsAt: new Date("2027-02-10T03:00:00.000Z"),
+  })], true);
+
+  assert.equal(result.counts.added, 1);
+  assert.equal(result.counts.replaced, 0);
+  assert.equal(result.counts.removed, 1);
+  assert.notEqual(result.upserts[0].id, "league-hub-event-1");
+});
+
+test("rebinds a recreated game after an intervening missing sync", () => {
+  const now = new Date("2026-09-01T12:00:00.000Z");
+  const current = existing();
+  const missingSync = reconcileSchedule([current], [], true, false, now);
+  assert.equal(missingSync.removals[0].id, current.id);
+
+  const tombstone = existing({
+    isActive: false,
+    sourceMissingSince: now,
+  });
+  const replacement = incoming({
+    sourceUid: "leaguegame-999@rampinteractive.com",
+    sourceGameId: "999",
+  });
+  const result = reconcileSchedule(
+    [tombstone],
+    [replacement],
+    true,
+    false,
+    new Date("2026-09-01T18:00:00.000Z"),
+  );
+
+  assert.deepEqual(result.counts, { added: 0, updated: 0, replaced: 1, removed: 0 });
+  assert.equal(result.upserts[0].id, tombstone.id);
+  assert.deepEqual(result.upserts[0].previousSourceUids, [tombstone.sourceUid]);
+});
+
+test("does not reuse a stale inactive game as a replacement candidate", () => {
+  const current = existing({
+    isActive: false,
+    sourceMissingSince: new Date("2026-08-01T00:00:00.000Z"),
+  });
+  const result = reconcileSchedule(
+    [current],
+    [incoming({ sourceUid: "leaguegame-999@rampinteractive.com" })],
+    true,
+    false,
+    new Date("2026-09-01T00:00:00.000Z"),
+  );
+
+  assert.equal(result.counts.added, 1);
+  assert.equal(result.counts.replaced, 0);
+});
+
+test("preserves both team scopes when one of two team feeds fails", () => {
+  const current = existing();
+  const onlySuccessfulFeed = incoming({
+    sourceUid: current.sourceUid,
+    teamIds: ["wolves"],
+    hubIds: ["hub-wolves"],
+  });
+  const result = reconcileSchedule([current], [onlySuccessfulFeed], false, true);
+
+  assert.deepEqual(result.upserts[0].event.teamIds, ["wolves", "rockies"]);
+  assert.deepEqual(result.upserts[0].event.hubIds, ["hub-wolves", "hub-rockies"]);
+  assert.deepEqual(result.upserts[0].event.leagueIds, ["jphl"]);
 });
