@@ -87,12 +87,32 @@ describe("AdminApp operations shell", () => {
     expect(sectionNavigations).toHaveLength(2);
 
     for (const navigation of sectionNavigations) {
-      for (const section of ["Overview", "People", "Structure", "Announcements", "Policies"]) {
+      for (const section of ["Overview", "People", "Structure", "Schedule", "Announcements", "Policies"]) {
         expect(within(navigation).getByRole("button", { name: section })).toBeTruthy();
       }
       expect(within(navigation).getByRole("button", { name: "Overview" }).getAttribute("aria-current")).toBe("page");
       expect(within(navigation).getByRole("button", { name: "People" }).getAttribute("aria-current")).toBeNull();
     }
+  });
+
+  it("shows native game data, sync health, and source controls in the schedule workspace", async () => {
+    window.history.replaceState(null, "", "/admin#schedule");
+    render(<AdminApp />);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "RAMP schedule" })).toBeTruthy();
+    expect(screen.getByText("Wolves HC")).toBeTruthy();
+    expect(screen.getByText("Calgary Rockies")).toBeTruthy();
+    expect(screen.getByText("RAMP game schedules are up to date.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sync now" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /results/i }));
+    expect(await screen.findByText("Island HC")).toBeTruthy();
+    expect(screen.getByText("Okanagan HC")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("RAMP source settings"));
+    expect(screen.getByLabelText(/Season ID/)).toBeTruthy();
+    expect(screen.getByLabelText("17U division ID")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save source settings" })).toBeTruthy();
   });
 
   it("exposes labeled organization selectors for both responsive shell variants", () => {

@@ -507,10 +507,14 @@ export const adminUpdateScheduleIntegration = onCall(adminRuntime, async (reques
       seasonId: requiredString(integration.seasonId, "integration.seasonId"),
       timezone,
       divisionIds,
-      updatedAt: now(),
-      updatedBy: actor.id,
     };
-    await orgRef(orgId).set({ scheduleIntegration }, { merge: true });
+    await orgRef(orgId).set({
+      scheduleIntegration: {
+        ...scheduleIntegration,
+        updatedAt: now(),
+        updatedBy: actor.id,
+      },
+    }, { merge: true });
     return { scheduleIntegration };
   });
 });

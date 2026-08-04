@@ -24,6 +24,8 @@ import type {
   NotificationEvent,
   Organization,
   Policy,
+  ScheduleEvent,
+  ScheduleSyncState,
   Team
 } from "./types";
 import { db, demoMode } from "./firebase";
@@ -50,7 +52,8 @@ const emptyData: AdminData = {
   policies: [],
   chatRooms: [],
   auditLogs: [],
-  notificationEvents: []
+  notificationEvents: [],
+  scheduleEvents: []
 };
 
 function clearOrganizationScopedData(data: AdminData): AdminData {
@@ -307,6 +310,28 @@ export function useAdminData(currentUser?: AppUser | null) {
           data: { ...current.data, chatRooms: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as ChatRoom[] }
         }));
       }, requiredSnapshotError("Chat rooms")),
+      onSnapshot(query(collection(db, "organizations", selectedOrgId, "scheduleEvents"), orderBy("startsAt"), limit(500)), (snap) => {
+        if (!active) return;
+        setState((current) => ({
+          ...current,
+          data: {
+            ...current.data,
+            scheduleEvents: snap.docs
+              .map((item) => ({ id: item.id, ...item.data() }) as ScheduleEvent)
+              .filter((event) => event.isActive !== false)
+          }
+        }));
+      }, requiredSnapshotError("Schedule events")),
+      onSnapshot(doc(db, "organizations", selectedOrgId, "scheduleSync", "state"), (snap) => {
+        if (!active) return;
+        setState((current) => ({
+          ...current,
+          data: {
+            ...current.data,
+            scheduleSync: snap.exists() ? snap.data() as ScheduleSyncState : undefined
+          }
+        }));
+      }, requiredSnapshotError("Schedule sync")),
       onSnapshot(query(collection(db, "organizations", selectedOrgId, "auditLogs"), orderBy("createdAt", "desc"), limit(100)), (snap) => {
         if (!active) return;
         setState((current) => ({

@@ -10,6 +10,18 @@ export function dateLabel(value: unknown): string {
   }).format(date);
 }
 
+export function dateTimeLabel(value: unknown): string {
+  const date = toDate(value);
+  if (!date) return "Not set";
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
+}
+
 export function timeAgo(value: unknown): string {
   const date = toDate(value);
   if (!date) return "Unknown";
@@ -34,7 +46,7 @@ export function bytesLabel(value: number): string {
   return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
-function toDate(value: unknown): Date | null {
+export function toDate(value: unknown): Date | null {
   if (!value) return null;
   if (value instanceof Date) return value;
   if (typeof value === "string") {

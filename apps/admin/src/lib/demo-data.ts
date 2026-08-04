@@ -21,7 +21,16 @@ export const demoData: AdminData = {
       primaryColor: "#087E8B",
       secondaryColor: "#35A67B",
       accentColor: "#C58220",
-      ownerId: "demo-owner"
+      ownerId: "demo-owner",
+      scheduleIntegration: {
+        provider: "ramp",
+        enabled: true,
+        baseUrl: "https://juniorprospectshockeyleague.com",
+        associationId: "2888",
+        seasonId: "12322",
+        timezone: "America/Edmonton",
+        divisionIds: { "14U": "16624", "15U": "16623", "17U": "23859", "18U": "16622" }
+      }
     }
   ],
   selectedOrg: {
@@ -30,7 +39,16 @@ export const demoData: AdminData = {
     primaryColor: "#087E8B",
     secondaryColor: "#35A67B",
     accentColor: "#C58220",
-    ownerId: "demo-owner"
+    ownerId: "demo-owner",
+    scheduleIntegration: {
+      provider: "ramp",
+      enabled: true,
+      baseUrl: "https://juniorprospectshockeyleague.com",
+      associationId: "2888",
+      seasonId: "12322",
+      timezone: "America/Edmonton",
+      divisionIds: { "14U": "16624", "15U": "16623", "17U": "23859", "18U": "16622" }
+    }
   },
   users: [
     demoUser,
@@ -183,6 +201,65 @@ export const demoData: AdminData = {
       lastMessageAt: new Date().toISOString()
     }
   ],
+  scheduleEvents: [
+    {
+      id: "game-upcoming",
+      sourceUid: "leaguegame-demo-1@rampinteractive.com",
+      teamIds: ["team-u11-aa"],
+      hubIds: ["hub-calgary"],
+      leagueIds: ["league-winter"],
+      division: "17U AAA",
+      title: "Wolves HC vs Calgary Rockies",
+      firstTeamName: "17U AAA - Wolves HC",
+      secondTeamName: "17U AAA - Calgary Rockies",
+      startsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      endsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(),
+      timezone: "America/Edmonton",
+      localDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      localStartTime: "18:30",
+      localEndTime: "20:30",
+      location: "Great Plains Arena 1, Calgary, AB",
+      status: "scheduled",
+      isActive: true
+    },
+    {
+      id: "game-final",
+      sourceUid: "leaguegame-demo-2@rampinteractive.com",
+      teamIds: ["team-u13-a"],
+      hubIds: ["hub-reddeer"],
+      leagueIds: ["league-winter"],
+      division: "17U AAA",
+      title: "Island HC vs Okanagan HC",
+      firstTeamName: "17U AAA - Island HC",
+      secondTeamName: "17U AAA - Okanagan HC",
+      startsAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      endsAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(),
+      timezone: "America/Edmonton",
+      localDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      localStartTime: "19:00",
+      localEndTime: "21:00",
+      location: "Silent Ice Center, Nisku, AB",
+      status: "final",
+      firstScore: 4,
+      secondScore: 2,
+      isActive: true
+    }
+  ],
+  scheduleSync: {
+    status: "ok",
+    message: "RAMP game schedules are up to date.",
+    lastAttemptAt: new Date().toISOString(),
+    lastSuccessAt: new Date().toISOString(),
+    teamFeedsTotal: 48,
+    teamFeedsSucceeded: 48,
+    teamFeedsFailed: 0,
+    eventCount: 320,
+    added: 2,
+    updated: 318,
+    replaced: 1,
+    removed: 0,
+    removalsSkipped: false
+  },
   auditLogs: [
     {
       id: "audit-1",
