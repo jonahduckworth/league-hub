@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 const bool useFirebaseEmulators =
@@ -10,10 +11,20 @@ const String firebaseEmulatorHost = String.fromEnvironment(
 );
 
 Future<void> configureFirebaseEmulators() async {
-  if (!useFirebaseEmulators) return;
+  if (!useFirebaseEmulators) {
+    // setAutoInitEnabled persists across launches, so explicitly restore the
+    // production default after a developer previously used emulator mode.
+    await FirebaseMessaging.instance.setAutoInitEnabled(true);
+    return;
+  }
   if (kReleaseMode) {
     throw StateError('Firebase emulators cannot be enabled in release builds.');
   }
+
+  // Firebase Messaging has no local emulator. Disable its native auto-init
+  // before signing into local Auth so emulator sessions cannot create or
+  // modify production FCM registrations.
+  await FirebaseMessaging.instance.setAutoInitEnabled(false);
 
   final auth = FirebaseAuth.instance;
   await auth.useAuthEmulator(firebaseEmulatorHost, 9099);

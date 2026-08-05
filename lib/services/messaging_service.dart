@@ -13,6 +13,7 @@ class MessagingService {
   final FirebaseMessaging _messaging;
   final FirebaseFirestore _db;
   final FlutterLocalNotificationsPlugin _localNotifications;
+  final bool enabled;
 
   /// Navigator key for deep linking from notification taps.
   final GlobalKey<NavigatorState>? navigatorKey;
@@ -24,6 +25,7 @@ class MessagingService {
     FirebaseMessaging? messaging,
     FirebaseFirestore? firestore,
     FlutterLocalNotificationsPlugin? localNotifications,
+    this.enabled = true,
     this.navigatorKey,
     this.router,
   })  : _messaging = messaging ?? FirebaseMessaging.instance,
@@ -37,6 +39,7 @@ class MessagingService {
 
   /// Full initialization: permissions → local notifications → listeners → token.
   Future<void> initialize(String userId) async {
+    if (!enabled) return;
     await _requestPermission();
     await _initLocalNotifications();
     _setupListeners();
@@ -129,6 +132,7 @@ class MessagingService {
 
   /// Removes the current token on sign-out so the user stops receiving pushes.
   Future<void> removeToken(String userId) async {
+    if (!enabled) return;
     try {
       final token = await _messaging.getToken();
       if (token != null) {
@@ -147,16 +151,19 @@ class MessagingService {
   // ---------------------------------------------------------------------------
 
   Future<void> subscribeToTopic(String topic) async {
+    if (!enabled) return;
     await _messaging.subscribeToTopic(topic);
   }
 
   Future<void> unsubscribeFromTopic(String topic) async {
+    if (!enabled) return;
     await _messaging.unsubscribeFromTopic(topic);
   }
 
   /// Subscribes/unsubscribes based on the user's notification preferences.
   Future<void> syncPreferences(
       String orgId, Map<String, bool> preferences) async {
+    if (!enabled) return;
     final topicMap = {
       'announcements': 'org_${orgId}_announcements',
       'chat_messages': 'org_${orgId}_chat',

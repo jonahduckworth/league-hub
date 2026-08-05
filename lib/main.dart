@@ -30,8 +30,11 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await configureFirebaseEmulators();
 
-  // Register the top-level background handler before runApp.
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  // Firebase Messaging has no local emulator, so keep it entirely disabled
+  // when Auth and Firestore are pointed at local services.
+  if (!useFirebaseEmulators) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
   // ---------- Global error handling ----------
 
@@ -64,7 +67,10 @@ void main() async {
       child: ProviderScope(
         overrides: [
           messagingServiceProvider.overrideWithValue(
-            MessagingService(router: router),
+            MessagingService(
+              router: router,
+              enabled: !useFirebaseEmulators,
+            ),
           ),
         ],
         child: const LeagueHubApp(),
