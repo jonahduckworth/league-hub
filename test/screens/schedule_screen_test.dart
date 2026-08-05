@@ -228,4 +228,26 @@ void main() {
     expect(find.text('Wolves HC'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('game details scroll in landscape with large text',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(667, 375));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(subject(textScale: 1.6, disableAnimations: true));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Wolves HC'));
+    await tester.pumpAndSettle();
+
+    final detailsScroll =
+        find.byKey(const ValueKey('schedule-game-details-scroll'));
+    expect(detailsScroll, findsOneWidget);
+    expect(tester.getSize(detailsScroll).height, lessThanOrEqualTo(337.5));
+    expect(tester.takeException(), isNull);
+
+    await tester.drag(detailsScroll, const Offset(0, -250));
+    await tester.pumpAndSettle();
+    expect(find.text('Done'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

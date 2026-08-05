@@ -182,9 +182,16 @@ async function seedStructure(db, teams, seasonId) {
 }
 
 async function seedUpcomingPreview(db, teams, seasonId) {
-  const first = teams.find((team) => team.teamId === "319163");
-  const second = teams.find((team) => team.teamId === "319142");
-  if (!first || !second) throw new Error("Preview teams were not found in the current JPHL directory.");
+  const orderedTeams = [...teams].sort((first, second) =>
+    first.ageGroup.localeCompare(second.ageGroup) || first.hubName.localeCompare(second.hubName));
+  const first = orderedTeams.find((team) =>
+    team.ageGroup === "17U" && team.hubName === "Wolves HC") ?? orderedTeams[0];
+  const sameDivision = orderedTeams.filter((team) =>
+    team.ageGroup === first?.ageGroup && team.hubName !== first.hubName);
+  const second = sameDivision.find((team) => team.hubName === "Calgary Rockies") ?? sameDivision[0];
+  if (!first || !second) {
+    throw new Error("The current JPHL directory needs two teams in one division for the preview game.");
+  }
 
   const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   startsAt.setUTCMinutes(0, 0, 0);
@@ -219,7 +226,7 @@ async function seedUpcomingPreview(db, teams, seasonId) {
       teamIds: [firstTeamId, secondTeamId],
       hubIds: [firstHubId, secondHubId],
       leagueIds: [LEAGUE_ID],
-      division: "17U AAA",
+      division: `${first.ageGroup} AAA`,
       title: `${first.name} vs ${second.name}`,
       firstTeamName: first.name,
       secondTeamName: second.name,

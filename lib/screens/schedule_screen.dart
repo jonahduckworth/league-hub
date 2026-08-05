@@ -200,99 +200,108 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-          child: AppGlassSurface(
-            radius: 28,
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppGlassColors.inkMuted.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                if (event.division != null)
-                  Text(
-                    event.division!.toUpperCase(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppGlassColors.aqua,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.9,
-                    ),
-                  ),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+            ),
+            child: AppGlassSurface(
+              radius: 28,
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: SingleChildScrollView(
+                key: const ValueKey('schedule-game-details-scroll'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: _DetailTeam(
-                        name: event.cleanFirstTeamName,
-                        logoUrl: teamLogos.logoFor(
-                          teamId: event.firstTeamId,
-                          teamName: event.firstTeamName,
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color:
+                              AppGlassColors.inkMuted.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 18, 10, 0),
-                      child: Text(
-                        event.status == ScheduleEventStatus.finalGame
-                            ? '${event.firstScore ?? '–'}\nFINAL\n${event.secondScore ?? '–'}'
-                            : 'VS',
+                    const SizedBox(height: AppSpacing.xl),
+                    if (event.division != null)
+                      Text(
+                        event.division!.toUpperCase(),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                          color: AppGlassColors.inkMuted,
-                          fontSize: 13,
-                          height: 1.35,
+                          color: AppGlassColors.aqua,
+                          fontSize: 12,
                           fontWeight: FontWeight.w900,
+                          letterSpacing: 0.9,
                         ),
                       ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _DetailTeam(
+                            name: event.cleanFirstTeamName,
+                            logoUrl: teamLogos.logoFor(
+                              teamId: event.firstTeamId,
+                              teamName: event.firstTeamName,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 18, 10, 0),
+                          child: Text(
+                            event.status == ScheduleEventStatus.finalGame
+                                ? '${event.firstScore ?? '–'}\nFINAL\n${event.secondScore ?? '–'}'
+                                : 'VS',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppGlassColors.inkMuted,
+                              fontSize: 13,
+                              height: 1.35,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: _DetailTeam(
+                            name: event.cleanSecondTeamName,
+                            logoUrl: teamLogos.logoFor(
+                              teamId: event.secondTeamId,
+                              teamName: event.secondTeamName,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Expanded(
-                      child: _DetailTeam(
-                        name: event.cleanSecondTeamName,
-                        logoUrl: teamLogos.logoFor(
-                          teamId: event.secondTeamId,
-                          teamName: event.secondTeamName,
-                        ),
+                    const SizedBox(height: AppSpacing.xl),
+                    _DetailRow(
+                      icon: Icons.calendar_today_outlined,
+                      text: DateFormat('EEEE, MMMM d, yyyy')
+                          .format(event.scheduleDate),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _DetailRow(
+                      icon: Icons.schedule_outlined,
+                      text:
+                          '${scheduleTimeLabel(event, includeEnd: true)} · ${_timezoneLabel(event.timezone)}',
+                    ),
+                    if (event.location != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _DetailRow(
+                        icon: Icons.location_on_outlined,
+                        text: event.location!,
                       ),
+                    ],
+                    const SizedBox(height: AppSpacing.lg),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Done'),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.xl),
-                _DetailRow(
-                  icon: Icons.calendar_today_outlined,
-                  text: DateFormat('EEEE, MMMM d, yyyy')
-                      .format(event.scheduleDate),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _DetailRow(
-                  icon: Icons.schedule_outlined,
-                  text:
-                      '${scheduleTimeLabel(event, includeEnd: true)} · ${_timezoneLabel(event.timezone)}',
-                ),
-                if (event.location != null) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  _DetailRow(
-                    icon: Icons.location_on_outlined,
-                    text: event.location!,
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.lg),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Done'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
