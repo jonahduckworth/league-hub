@@ -14,12 +14,19 @@ void main() {
         ),
       );
 
-  testWidgets('reserves a fixed contained frame and falls back to initials',
+  testWidgets('uses a transparent fixed frame and falls back to initials',
       (tester) async {
     await tester.pumpWidget(subject());
 
     expect(find.text('WH'), findsOneWidget);
     expect(tester.getSize(find.byType(ScheduleTeamLogo)), const Size(28, 28));
+    expect(
+      find.descendant(
+        of: find.byType(ScheduleTeamLogo),
+        matching: find.byType(DecoratedBox),
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 

@@ -20,27 +20,24 @@ class ScheduleTeamLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = imageUrl?.trim();
     return ExcludeSemantics(
-      child: Container(
+      child: SizedBox(
         width: size,
         height: size,
-        padding: EdgeInsets.all(size * 0.1),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(size * 0.27),
-          border: Border.all(
-            color: AppGlassColors.inkMuted.withValues(alpha: 0.2),
+        child: Padding(
+          padding: EdgeInsets.all(size * 0.1),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(size * 0.27),
+            child: url != null && url.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.contain,
+                    fadeInDuration: const Duration(milliseconds: 140),
+                    placeholder: (_, __) => _fallback(),
+                    errorWidget: (_, __, ___) => _fallback(),
+                  )
+                : _fallback(),
           ),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: url != null && url.isNotEmpty
-            ? CachedNetworkImage(
-                imageUrl: url,
-                fit: BoxFit.contain,
-                fadeInDuration: const Duration(milliseconds: 140),
-                placeholder: (_, __) => _fallback(),
-                errorWidget: (_, __, ___) => _fallback(),
-              )
-            : _fallback(),
       ),
     );
   }
