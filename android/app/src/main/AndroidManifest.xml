@@ -7,6 +7,17 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher">
+        <!--
+          Keep native Firebase Messaging inert until Dart explicitly enables it.
+          This prevents token generation before emulator mode can be configured;
+          production startup restores auto-init in configureFirebaseEmulators().
+        -->
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
