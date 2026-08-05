@@ -36,7 +36,7 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<!-- Dart enables this for normal app startup after emulator mode is known. -->
+	<!-- MessagingService requests production tokens explicitly; auto-init stays off. -->
 	<key>FirebaseMessagingAutoInitEnabled</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

@@ -11,12 +11,7 @@ const String firebaseEmulatorHost = String.fromEnvironment(
 );
 
 Future<void> configureFirebaseEmulators() async {
-  if (!useFirebaseEmulators) {
-    // setAutoInitEnabled persists across launches, so explicitly restore the
-    // production default after a developer previously used emulator mode.
-    await FirebaseMessaging.instance.setAutoInitEnabled(true);
-    return;
-  }
+  if (!useFirebaseEmulators) return;
   if (kReleaseMode) {
     throw StateError('Firebase emulators cannot be enabled in release builds.');
   }
