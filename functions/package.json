@@ -6,6 +6,7 @@
     "build": "tsc",
     "test": "npm run build && node --test test/*.test.js",
     "migrate:jphl-structure": "node scripts/reconcile-jphl-structure.js",
+    "seed:schedule-emulator": "node scripts/seed-schedule-emulator.js",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
