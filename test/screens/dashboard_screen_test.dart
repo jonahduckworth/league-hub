@@ -7,6 +7,7 @@ import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/weather_snapshot.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/models/schedule_event.dart';
+import 'package:league_hub/models/schedule_team_logos.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/providers/weather_provider.dart';
@@ -15,6 +16,7 @@ import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/league_filter.dart';
+import 'package:league_hub/widgets/schedule_team_logo.dart';
 
 void main() {
   group('DashboardScreen', () {
@@ -105,6 +107,14 @@ void main() {
           currentWeatherProvider.overrideWith((ref) => weather ?? testWeather),
           scheduleEventsProvider.overrideWith(
             (ref) => Stream.value(scheduleEvents),
+          ),
+          scheduleTeamLogosProvider.overrideWith(
+            (ref) => const ScheduleTeamLogos(
+              byTeamId: {
+                'wolves': 'https://example.com/wolves.png',
+                'rockies': 'https://example.com/rockies.png',
+              },
+            ),
           ),
         ],
         child: MaterialApp(
@@ -198,6 +208,14 @@ void main() {
           scheduleEventsProvider.overrideWith(
             (ref) => Stream.value(scheduleEvents),
           ),
+          scheduleTeamLogosProvider.overrideWith(
+            (ref) => const ScheduleTeamLogos(
+              byTeamId: {
+                'wolves': 'https://example.com/wolves.png',
+                'rockies': 'https://example.com/rockies.png',
+              },
+            ),
+          ),
         ],
         child: MaterialApp.router(
           routerConfig: router,
@@ -210,6 +228,37 @@ void main() {
     }
 
     group('Main Content', () {
+      testWidgets('shows team logos with the next game',
+          (WidgetTester tester) async {
+        final startsAt = DateTime.now().add(const Duration(days: 2));
+        final game = ScheduleEvent(
+          id: 'next-game',
+          orgId: 'org-1',
+          sourceUid: 'next-game@rampinteractive.com',
+          firstTeamId: 'wolves',
+          secondTeamId: 'rockies',
+          teamIds: const ['wolves', 'rockies'],
+          hubIds: const ['hub-wolves', 'hub-rockies'],
+          leagueIds: const ['league-1'],
+          division: '17U AAA',
+          title: 'Wolves HC vs Calgary Rockies',
+          firstTeamName: '17U AAA - Wolves HC',
+          secondTeamName: '17U AAA - Calgary Rockies',
+          startsAt: startsAt,
+          endsAt: startsAt.add(const Duration(hours: 2)),
+          timezone: 'America/Edmonton',
+          status: ScheduleEventStatus.scheduled,
+          isActive: true,
+        );
+
+        await tester.pumpWidget(createTestWidget(scheduleEvents: [game]));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Wolves HC'), findsOneWidget);
+        expect(find.text('Calgary Rockies'), findsOneWidget);
+        expect(find.byType(ScheduleTeamLogo), findsNWidgets(2));
+      });
+
       testWidgets('does not render the old stats card grid',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());

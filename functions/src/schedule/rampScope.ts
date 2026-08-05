@@ -35,6 +35,16 @@ function teamKey(name: string, ageGroup?: string, division?: string): string | u
   return age && club ? `${age}:${club}` : undefined;
 }
 
+export function scheduleTeamMatches(
+  team: ScheduleScopeTeam,
+  eventTeamName: string,
+  division?: string,
+): boolean {
+  const configuredKey = teamKey(team.name, team.ageGroup);
+  const eventKey = teamKey(eventTeamName, undefined, division);
+  return configuredKey != null && configuredKey === eventKey;
+}
+
 export function scopeAssociationEvents(
   events: ParsedRampEvent[],
   sourceSeasonId: string,
@@ -52,13 +62,19 @@ export function scopeAssociationEvents(
 
   const allLeagueIds = [...new Set(teams.map((team) => team.leagueId))];
   return events.map((event) => {
-    const matched = [event.firstTeamName, event.secondTeamName]
-      .map((name) => teamKey(name, undefined, event.division))
-      .map((key) => key ? configuredByKey.get(key) : undefined)
+    const firstTeam = configuredByKey.get(
+      teamKey(event.firstTeamName, undefined, event.division) ?? "",
+    );
+    const secondTeam = configuredByKey.get(
+      teamKey(event.secondTeamName, undefined, event.division) ?? "",
+    );
+    const matched = [firstTeam, secondTeam]
       .filter((team): team is ScheduleScopeTeam => team != null);
     return {
       ...event,
       sourceSeasonId,
+      firstTeamId: firstTeam?.id,
+      secondTeamId: secondTeam?.id,
       teamIds: [...new Set(matched.map((team) => team.id))],
       hubIds: [...new Set(matched.map((team) => team.hubId))],
       // The association-wide archive feed belongs to the configured league even

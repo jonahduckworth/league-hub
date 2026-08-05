@@ -10,6 +10,26 @@ const USER_ID = "emulator_schedule_admin";
 const USER_EMAIL = "simulator@leaguehub.local";
 const USER_PASSWORD = "LeagueHub123!";
 const JPHL_URL = "https://juniorprospectshockeyleague.com";
+const JPHL_LOGO_URLS = Object.freeze({
+  "Bow Valley HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Bow%20Valley%20Circle%20Badge.png",
+  "Calgary Rockies": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Calgary%20Rockies.png",
+  "Calgary Stallions": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Calgary%20Stallions.png",
+  "Coquitlam HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Coquitlam%20HC%20PNG.png",
+  "Epic Hockey Academy": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/EPIC-E-icon-full-colour-no-background.png",
+  "HC Edmonton": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/EHC.png",
+  "Island HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Island%20Hockey%20Club%20png.png",
+  "Kootenay HA": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Kootenay%20Hockey%20Academy%20Text%20Only%20-%20PNG.png",
+  "Langley HA": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Langley.png",
+  "Lethbridge United": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Lethbridge%20United.png",
+  "Lloydminster Athletics": "https://cloud3.rampinteractive.com/juniorprospectshockeyleagueimages/team-logos/4e434092-bd0b-410e-b092-ab059cab8427_Lloydminster%20Athletics.png",
+  "Northstars HA": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Northstar%20Hockey%20Academy%20-%20PNG.png",
+  "Okanagan HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Okanagan%20HC%20Logo%20-%20OFFICIAL.png",
+  "South Sask HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/team/319121/16839aad-a9c3-452b-b490-ab0f2cbe31e0.png",
+  "Surrey Eagles HA": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/SE_ACADEMEY_LOGO.png",
+  "Titans Hockey Union": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Logo%20PNGs/Titans%20Hockey%20Union.png",
+  "Victoria HA": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Victoria%20HC%20On%20White%20-%20PNG.png",
+  "Wolves HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Wolves%20HC%20-%20PNG.png",
+});
 
 function assertLocalEmulator(name, value, expectedPort) {
   if (!value) throw new Error(`${name} must be set before this script can run.`);
@@ -59,6 +79,11 @@ async function seedStructure(db, teams, seasonId) {
   const hubIds = new Map();
   for (const team of teams) {
     if (!hubIds.has(team.hubName)) hubIds.set(team.hubName, `emulator_hub_${slug(team.hubName)}`);
+  }
+  for (const hubName of hubIds.keys()) {
+    if (!JPHL_LOGO_URLS[hubName]) {
+      throw new Error(`Missing official logo fixture for ${hubName}.`);
+    }
   }
   const teamIds = teams.map((team) => `emulator_team_${team.teamId}`);
   const divisionIds = Object.fromEntries(teams.map((team) => [team.ageGroup, team.divisionId]));
@@ -115,7 +140,7 @@ async function seedStructure(db, teams, seasonId) {
       leagueId: LEAGUE_ID,
       name: hubName,
       location: null,
-      logoUrl: null,
+      logoUrl: JPHL_LOGO_URLS[hubName],
       iconName: "groups",
       createdAt: now,
     });
@@ -130,7 +155,7 @@ async function seedStructure(db, teams, seasonId) {
       name: team.name,
       ageGroup: team.ageGroup,
       division: "AAA",
-      logoUrl: null,
+      logoUrl: JPHL_LOGO_URLS[team.hubName],
       iconName: "groups",
       memberIds: [USER_ID],
       sourceTeamId: team.teamId,
@@ -154,6 +179,65 @@ async function seedStructure(db, teams, seasonId) {
     createdAt: now,
     isActive: true,
   });
+}
+
+async function seedUpcomingPreview(db, teams, seasonId) {
+  const first = teams.find((team) => team.teamId === "319163");
+  const second = teams.find((team) => team.teamId === "319142");
+  if (!first || !second) throw new Error("Preview teams were not found in the current JPHL directory.");
+
+  const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  startsAt.setUTCMinutes(0, 0, 0);
+  const endsAt = new Date(startsAt.getTime() + 2 * 60 * 60 * 1000);
+  const localParts = (date) => Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Edmonton",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(date).filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  const start = localParts(startsAt);
+  const end = localParts(endsAt);
+  const firstTeamId = `emulator_team_${first.teamId}`;
+  const secondTeamId = `emulator_team_${second.teamId}`;
+  const firstHubId = `emulator_hub_${slug(first.hubName)}`;
+  const secondHubId = `emulator_hub_${slug(second.hubName)}`;
+
+  await db.collection("organizations").doc(ORG_ID)
+    .collection("scheduleEvents").doc("emulator_preview_upcoming_game").set({
+      source: "emulator-preview",
+      sourceSeasonId: seasonId,
+      sourceUid: "emulator-preview-upcoming@leaguehub.local",
+      previousSourceUids: [],
+      firstTeamId,
+      secondTeamId,
+      teamIds: [firstTeamId, secondTeamId],
+      hubIds: [firstHubId, secondHubId],
+      leagueIds: [LEAGUE_ID],
+      division: "17U AAA",
+      title: `${first.name} vs ${second.name}`,
+      firstTeamName: first.name,
+      secondTeamName: second.name,
+      startsAt,
+      endsAt,
+      timezone: "America/Edmonton",
+      localDate: `${start.year}-${start.month}-${start.day}`,
+      localStartTime: `${start.hour}:${start.minute}`,
+      localEndTime: `${end.hour}:${end.minute}`,
+      location: "Great Plains Recreation Facility, Calgary",
+      description: "Local emulator preview game for UI testing.",
+      status: "scheduled",
+      firstScore: null,
+      secondScore: null,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 }
 
 async function main() {
@@ -183,6 +267,7 @@ async function main() {
   await seedStructure(db, discovered, seasons[0]);
   const { synchronizeOrganizationSchedule } = require("../lib/schedule/rampSync");
   const result = await synchronizeOrganizationSchedule(ORG_ID);
+  await seedUpcomingPreview(db, discovered, seasons[0]);
   const eventCount = await db.collection("organizations").doc(ORG_ID)
     .collection("scheduleEvents").where("isActive", "==", true).count().get();
 

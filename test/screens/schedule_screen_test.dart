@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/models/schedule_event.dart';
+import 'package:league_hub/models/schedule_team_logos.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/schedule_screen.dart';
+import 'package:league_hub/widgets/schedule_team_logo.dart';
 
 void main() {
   final now = DateTime.now();
@@ -26,7 +28,9 @@ void main() {
       orgId: 'org-1',
       sourceUid: '$id@rampinteractive.com',
       sourceSeasonId: sourceSeasonId,
-      teamIds: const ['team-1'],
+      firstTeamId: 'team-1',
+      secondTeamId: 'team-2',
+      teamIds: const ['team-1', 'team-2'],
       hubIds: const ['hub-1'],
       leagueIds: const ['league-1'],
       division: '17U AAA',
@@ -73,6 +77,14 @@ void main() {
       ProviderScope(
         overrides: [
           scheduleEventsProvider.overrideWith((ref) => Stream.value(games)),
+          scheduleTeamLogosProvider.overrideWith(
+            (ref) => const ScheduleTeamLogos(
+              byTeamId: {
+                'team-1': 'https://example.com/team-1.png',
+                'team-2': 'https://example.com/team-2.png',
+              },
+            ),
+          ),
         ],
         child: MaterialApp(
           builder: (context, child) => MediaQuery(
@@ -117,6 +129,7 @@ void main() {
     expect(find.text('Schedule'), findsOneWidget);
     expect(find.text('Wolves HC'), findsOneWidget);
     expect(find.text('Calgary Rockies'), findsOneWidget);
+    expect(find.byType(ScheduleTeamLogo), findsNWidgets(2));
     expect(find.text('Island HC'), findsNothing);
 
     await tester.tap(find.text('Wolves HC'));
@@ -125,6 +138,7 @@ void main() {
     expect(find.text('Great Plains Arena'), findsWidgets);
     expect(find.textContaining('Mountain time'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
+    expect(find.byType(ScheduleTeamLogo), findsNWidgets(4));
   });
 
   testWidgets('switches to final results with scores', (tester) async {
@@ -138,6 +152,7 @@ void main() {
     expect(find.text('Okanagan HC'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
+    expect(find.byType(ScheduleTeamLogo), findsNWidgets(2));
     expect(find.text('Wolves HC'), findsNothing);
   });
 

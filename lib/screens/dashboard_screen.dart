@@ -10,6 +10,7 @@ import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../models/league.dart';
 import '../models/schedule_event.dart';
+import '../models/schedule_team_logos.dart';
 import '../models/weather_snapshot.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
@@ -51,6 +52,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final org = ref.watch(organizationProvider).valueOrNull;
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
     final visibleUpcoming = ref.watch(upcomingScheduleEventsProvider);
+    final scheduleTeamLogos =
+        ref.watch(scheduleTeamLogosProvider).valueOrNull ??
+            const ScheduleTeamLogos();
 
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
@@ -113,6 +117,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     index: 2,
                     child: _NextGameCard(
                       event: nextGame,
+                      teamLogos: scheduleTeamLogos,
                       onTap: () => context.go('/schedule'),
                     ),
                   ),
@@ -199,9 +204,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
 class _NextGameCard extends StatelessWidget {
   final ScheduleEvent? event;
+  final ScheduleTeamLogos teamLogos;
   final VoidCallback onTap;
 
-  const _NextGameCard({required this.event, required this.onTap});
+  const _NextGameCard({
+    required this.event,
+    required this.teamLogos,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -219,7 +229,19 @@ class _NextGameCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          ScheduleGameCard(event: game, onTap: onTap, compact: true),
+          ScheduleGameCard(
+            event: game,
+            onTap: onTap,
+            compact: true,
+            firstTeamLogoUrl: teamLogos.logoFor(
+              teamId: game.firstTeamId,
+              teamName: game.firstTeamName,
+            ),
+            secondTeamLogoUrl: teamLogos.logoFor(
+              teamId: game.secondTeamId,
+              teamName: game.secondTeamName,
+            ),
+          ),
         ],
       );
     }

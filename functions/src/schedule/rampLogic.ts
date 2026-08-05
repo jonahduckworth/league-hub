@@ -22,6 +22,8 @@ export type ParsedRampEvent = {
 
 export type IncomingScheduleEvent = ParsedRampEvent & {
   sourceSeasonId: string;
+  firstTeamId?: string;
+  secondTeamId?: string;
   teamIds: string[];
   hubIds: string[];
   leagueIds: string[];
@@ -37,6 +39,8 @@ export type ExistingScheduleEvent = {
   secondTeamName: string;
   title: string;
   location?: string;
+  firstTeamId?: string;
+  secondTeamId?: string;
   teamIds: string[];
   hubIds: string[];
   leagueIds: string[];
@@ -301,8 +305,19 @@ function withPreservedScope(
   preserveExistingScope: boolean,
 ): IncomingScheduleEvent {
   if (!preserveExistingScope) return incoming;
+  const preservedTeamId = (incomingName: string): string | undefined => {
+    if (normalize(existing.firstTeamName) === normalize(incomingName)) {
+      return existing.firstTeamId;
+    }
+    if (normalize(existing.secondTeamName) === normalize(incomingName)) {
+      return existing.secondTeamId;
+    }
+    return undefined;
+  };
   return {
     ...incoming,
+    firstTeamId: incoming.firstTeamId ?? preservedTeamId(incoming.firstTeamName),
+    secondTeamId: incoming.secondTeamId ?? preservedTeamId(incoming.secondTeamName),
     teamIds: [...new Set([...existing.teamIds, ...incoming.teamIds])],
     hubIds: [...new Set([...existing.hubIds, ...incoming.hubIds])],
     leagueIds: [...new Set([...existing.leagueIds, ...incoming.leagueIds])],

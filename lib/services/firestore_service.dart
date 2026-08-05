@@ -12,6 +12,7 @@ import '../models/policy.dart';
 import '../models/announcement.dart';
 import '../models/invitation.dart';
 import '../models/schedule_event.dart';
+import '../models/schedule_team_logos.dart';
 import '../core/constants.dart';
 
 class FirestoreService {
@@ -703,6 +704,57 @@ class FirestoreService {
                 }))
             .where((event) => event.isActive)
             .toList());
+  }
+
+  Future<ScheduleTeamLogos> getScheduleTeamLogos(String orgId) async {
+    String? logoUrl(Object? value) {
+      if (value is! String) return null;
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    final byTeamId = <String, String>{};
+    final byClubName = <String, String>{};
+    final leagues = await _leaguesRef(orgId).get();
+    final hubGroups = await Future.wait(leagues.docs.map((league) async {
+      final data = league.data() as Map<String, dynamic>;
+      return (
+        leagueId: league.id,
+        leagueLogo: logoUrl(data['logoUrl']),
+        hubs: (await _hubsRef(orgId, league.id).get()).docs,
+      );
+    }));
+    final teamGroups = await Future.wait([
+      for (final group in hubGroups)
+        for (final hub in group.hubs)
+          () async {
+            final hubData = hub.data() as Map<String, dynamic>;
+            return (
+              hub: hub,
+              hubData: hubData,
+              hubLogo: logoUrl(hubData['logoUrl']) ?? group.leagueLogo,
+              teams:
+                  (await _teamsRef(orgId, group.leagueId, hub.id).get()).docs,
+            );
+          }(),
+    ]);
+    for (final group in teamGroups) {
+      final hubName = group.hubData['name'];
+      if (group.hubLogo != null && hubName is String) {
+        byClubName[normalizeScheduleClubName(hubName)] = group.hubLogo!;
+      }
+      for (final team in group.teams) {
+        final teamData = team.data() as Map<String, dynamic>;
+        final effectiveLogo = logoUrl(teamData['logoUrl']) ?? group.hubLogo;
+        if (effectiveLogo == null) continue;
+        byTeamId[team.id] = effectiveLogo;
+        final teamName = teamData['name'];
+        if (teamName is String) {
+          byClubName[normalizeScheduleClubName(teamName)] = effectiveLogo;
+        }
+      }
+    }
+    return ScheduleTeamLogos(byTeamId: byTeamId, byClubName: byClubName);
   }
 
   // --- Announcements ---

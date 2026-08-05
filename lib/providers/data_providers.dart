@@ -15,6 +15,7 @@ import '../models/organization.dart';
 import '../models/app_user.dart';
 import '../models/invitation.dart';
 import '../models/schedule_event.dart';
+import '../models/schedule_team_logos.dart';
 import 'auth_provider.dart';
 
 final firestoreServiceProvider =
@@ -192,6 +193,12 @@ final upcomingScheduleEventsProvider = Provider<List<ScheduleEvent>>((ref) {
   return (ref.watch(scheduleEventsProvider).valueOrNull ?? [])
       .where((event) => event.isUpcomingAt(now))
       .toList();
+});
+
+final scheduleTeamLogosProvider = FutureProvider<ScheduleTeamLogos>((ref) {
+  final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+  if (orgId == null) return const ScheduleTeamLogos();
+  return ref.watch(firestoreServiceProvider).getScheduleTeamLogos(orgId);
 });
 
 // --- User Management ---

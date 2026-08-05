@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../core/design_system.dart';
 import '../models/schedule_event.dart';
 import 'app_glass.dart';
+import 'schedule_team_logo.dart';
 
 String scheduleTimeLabel(ScheduleEvent event, {bool includeEnd = false}) {
   String format(String? value, DateTime fallback) {
@@ -28,12 +29,16 @@ class ScheduleGameCard extends StatelessWidget {
   final ScheduleEvent event;
   final VoidCallback onTap;
   final bool compact;
+  final String? firstTeamLogoUrl;
+  final String? secondTeamLogoUrl;
 
   const ScheduleGameCard({
     super.key,
     required this.event,
     required this.onTap,
     this.compact = false,
+    this.firstTeamLogoUrl,
+    this.secondTeamLogoUrl,
   });
 
   @override
@@ -100,11 +105,15 @@ class ScheduleGameCard extends StatelessWidget {
                 children: [
                   _TeamRow(
                     name: event.cleanFirstTeamName,
+                    logoUrl: firstTeamLogoUrl,
+                    compact: compact,
                     score: isFinal ? event.firstScore : null,
                   ),
                   const SizedBox(height: 8),
                   _TeamRow(
                     name: event.cleanSecondTeamName,
+                    logoUrl: secondTeamLogoUrl,
+                    compact: compact,
                     score: isFinal ? event.secondScore : null,
                   ),
                   if (!compact && event.location != null) ...[
@@ -150,14 +159,27 @@ class ScheduleGameCard extends StatelessWidget {
 
 class _TeamRow extends StatelessWidget {
   final String name;
+  final String? logoUrl;
+  final bool compact;
   final int? score;
 
-  const _TeamRow({required this.name, this.score});
+  const _TeamRow({
+    required this.name,
+    required this.logoUrl,
+    required this.compact,
+    this.score,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
+        ScheduleTeamLogo(
+          teamName: name,
+          imageUrl: logoUrl,
+          size: compact ? 24 : 28,
+        ),
+        SizedBox(width: compact ? 7 : AppSpacing.sm),
         Expanded(
           child: Text(
             name,

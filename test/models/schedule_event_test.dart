@@ -7,6 +7,8 @@ void main() {
     'orgId': 'org-1',
     'sourceUid': 'leaguegame-1@rampinteractive.com',
     'sourceSeasonId': '12322',
+    'firstTeamId': 'wolves',
+    'secondTeamId': 'rockies',
     'teamIds': ['wolves', 'rockies'],
     'hubIds': ['hub-1', 'hub-2'],
     'leagueIds': ['jphl'],
@@ -30,17 +32,26 @@ void main() {
 
     expect(event.status, ScheduleEventStatus.finalGame);
     expect(event.sourceSeasonId, '12322');
+    expect(event.firstTeamId, 'wolves');
+    expect(event.secondTeamId, 'rockies');
     expect(event.cleanFirstTeamName, 'Wolves HC');
     expect(event.cleanSecondTeamName, 'Calgary Rockies');
     expect(event.firstScore, 2);
     expect(event.toJson()['status'], 'final');
     expect(event.toJson()['sourceSeasonId'], '12322');
+    expect(event.toJson()['firstTeamId'], 'wolves');
+    expect(event.toJson()['secondTeamId'], 'rockies');
   });
 
   test('accepts legacy schedule data without season metadata', () {
-    final legacy = ScheduleEvent.fromJson({...json}..remove('sourceSeasonId'));
+    final legacy = ScheduleEvent.fromJson({...json}
+      ..remove('sourceSeasonId')
+      ..remove('firstTeamId')
+      ..remove('secondTeamId'));
 
     expect(legacy.sourceSeasonId, isNull);
+    expect(legacy.firstTeamId, isNull);
+    expect(legacy.secondTeamId, isNull);
   });
 
   test('identifies only active future games as upcoming', () {

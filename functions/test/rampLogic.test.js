@@ -57,6 +57,8 @@ function incoming(overrides = {}) {
     title: "Wolves HC vs Calgary Rockies",
     location: "Great Plains Arena",
     status: "scheduled",
+    firstTeamId: "wolves",
+    secondTeamId: "rockies",
     teamIds: ["wolves", "rockies"],
     hubIds: ["hub-wolves", "hub-rockies"],
     leagueIds: ["jphl"],
@@ -75,6 +77,8 @@ function existing(overrides = {}) {
     secondTeamName: "Calgary Rockies",
     title: "Wolves HC vs Calgary Rockies",
     location: "Great Plains Arena",
+    firstTeamId: "wolves",
+    secondTeamId: "rockies",
     teamIds: ["wolves", "rockies"],
     hubIds: ["hub-wolves", "hub-rockies"],
     leagueIds: ["jphl"],
@@ -216,6 +220,7 @@ test("preserves both team scopes when one of two team feeds fails", () => {
   const current = existing();
   const onlySuccessfulFeed = incoming({
     sourceUid: current.sourceUid,
+    secondTeamId: undefined,
     teamIds: ["wolves"],
     hubIds: ["hub-wolves"],
   });
@@ -229,8 +234,35 @@ test("preserves both team scopes when one of two team feeds fails", () => {
   );
 
   assert.deepEqual(result.upserts[0].event.teamIds, ["wolves", "rockies"]);
+  assert.equal(result.upserts[0].event.firstTeamId, "wolves");
+  assert.equal(result.upserts[0].event.secondTeamId, "rockies");
   assert.deepEqual(result.upserts[0].event.hubIds, ["hub-wolves", "hub-rockies"]);
   assert.deepEqual(result.upserts[0].event.leagueIds, ["jphl"]);
+});
+
+test("preserves ordered team IDs when RAMP reverses the matchup during a partial sync", () => {
+  const current = existing();
+  const reversedFeed = incoming({
+    sourceUid: current.sourceUid,
+    firstTeamName: "Calgary Rockies",
+    secondTeamName: "Wolves HC",
+    title: "Calgary Rockies vs Wolves HC",
+    firstTeamId: undefined,
+    secondTeamId: "wolves",
+    teamIds: ["wolves"],
+    hubIds: ["hub-wolves"],
+  });
+  const result = reconcileSchedule(
+    [current],
+    [reversedFeed],
+    reconciliationOptions({
+      allowRemovals: false,
+      preserveExistingScope: true,
+    }),
+  );
+
+  assert.equal(result.upserts[0].event.firstTeamId, "rockies");
+  assert.equal(result.upserts[0].event.secondTeamId, "wolves");
 });
 
 test("keeps historical games active when a different season is synchronized", () => {

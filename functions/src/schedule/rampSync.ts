@@ -15,7 +15,7 @@ import {
   parseRampDirectory,
   RampDiscoveryResult,
 } from "./rampDiscovery";
-import { scopeAssociationEvents } from "./rampScope";
+import { scheduleTeamMatches, scopeAssociationEvents } from "./rampScope";
 
 type ScheduleIntegration = {
   provider: "ramp";
@@ -291,6 +291,12 @@ async function fetchTeamFeed(
     const events = parseRampCalendar(calendar, integration.timezone).map((event) => ({
       ...event,
       sourceSeasonId: integration.seasonId,
+      firstTeamId: scheduleTeamMatches(team, event.firstTeamName, event.division)
+        ? team.id
+        : undefined,
+      secondTeamId: scheduleTeamMatches(team, event.secondTeamName, event.division)
+        ? team.id
+        : undefined,
       teamIds: [team.id],
       hubIds: [team.hubId],
       leagueIds: [team.leagueId],
@@ -369,6 +375,8 @@ function aggregateEvents(results: FeedResult[]): IncomingScheduleEvent[] {
         events.set(event.sourceUid, event);
         continue;
       }
+      existing.firstTeamId ??= event.firstTeamId;
+      existing.secondTeamId ??= event.secondTeamId;
       existing.teamIds = [...new Set([...existing.teamIds, ...event.teamIds])];
       existing.hubIds = [...new Set([...existing.hubIds, ...event.hubIds])];
       existing.leagueIds = [...new Set([...existing.leagueIds, ...event.leagueIds])];
@@ -434,6 +442,8 @@ async function loadExistingEvents(
       secondTeamName: optionalString(data.secondTeamName) ?? "",
       title: optionalString(data.title) ?? "",
       location: optionalString(data.location),
+      firstTeamId: optionalString(data.firstTeamId),
+      secondTeamId: optionalString(data.secondTeamId),
       teamIds: Array.isArray(data.teamIds)
         ? data.teamIds.filter((value): value is string => typeof value === "string")
         : [],
@@ -477,6 +487,8 @@ async function writeReconciliation(
       sourceUid: event.sourceUid,
       previousSourceUids: upsert.previousSourceUids,
       sourceGameId: event.sourceGameId ?? null,
+      firstTeamId: event.firstTeamId ?? null,
+      secondTeamId: event.secondTeamId ?? null,
       teamIds: event.teamIds,
       hubIds: event.hubIds,
       leagueIds: event.leagueIds,

@@ -1201,5 +1201,42 @@ void main() {
       expect(result.first.status, ScheduleEventStatus.scheduled);
       expect(result.first.sourceSeasonId, '12322');
     });
+
+    test('resolves team logos with team, hub, and legacy-name fallbacks',
+        () async {
+      final league = fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('leagues')
+          .doc('league-1');
+      await league.set({'logoUrl': 'https://example.com/league.png'});
+      final hub = league.collection('hubs').doc('hub-1');
+      await hub.set({
+        'name': 'Wolves HC',
+        'logoUrl': 'https://example.com/wolves.png',
+      });
+      await hub.collection('teams').doc('wolves-17').set({
+        'name': '17U AAA - Wolves HC',
+      });
+      await hub.collection('teams').doc('wolves-18').set({
+        'name': '18U AAA - Wolves HC',
+        'logoUrl': 'https://example.com/wolves-18.png',
+      });
+
+      final logos = await svc.getScheduleTeamLogos(orgId);
+
+      expect(
+        logos.logoFor(teamId: 'wolves-17', teamName: 'ignored'),
+        'https://example.com/wolves.png',
+      );
+      expect(
+        logos.logoFor(teamId: 'wolves-18', teamName: 'ignored'),
+        'https://example.com/wolves-18.png',
+      );
+      expect(
+        logos.logoFor(teamName: 'U17 Wolves Hockey Club'),
+        'https://example.com/wolves-18.png',
+      );
+    });
   });
 }

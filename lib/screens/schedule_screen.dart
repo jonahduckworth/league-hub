@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../core/design_system.dart';
 import '../models/schedule_event.dart';
+import '../models/schedule_team_logos.dart';
 import '../providers/data_providers.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_motion.dart';
@@ -12,6 +13,7 @@ import '../widgets/app_shell_scaffold.dart';
 import '../widgets/app_states.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/schedule_game_card.dart';
+import '../widgets/schedule_team_logo.dart';
 
 enum ScheduleView { upcoming, results }
 
@@ -52,6 +54,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     final scheduleAsync = ref.watch(scheduleEventsProvider);
+    final teamLogos = ref.watch(scheduleTeamLogosProvider).valueOrNull ??
+        const ScheduleTeamLogos();
     final events = filterScheduleEvents(
       scheduleAsync.valueOrNull ?? [],
       view: _view,
@@ -136,7 +140,16 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                 index: groupIndex * 3 + entry.$1,
                                 child: ScheduleGameCard(
                                   event: entry.$2,
-                                  onTap: () => _showGameDetails(entry.$2),
+                                  firstTeamLogoUrl: teamLogos.logoFor(
+                                    teamId: entry.$2.firstTeamId,
+                                    teamName: entry.$2.firstTeamName,
+                                  ),
+                                  secondTeamLogoUrl: teamLogos.logoFor(
+                                    teamId: entry.$2.secondTeamId,
+                                    teamName: entry.$2.secondTeamName,
+                                  ),
+                                  onTap: () =>
+                                      _showGameDetails(entry.$2, teamLogos),
                                 ),
                               ),
                             ),
@@ -174,7 +187,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     if (picked != null && mounted) setState(() => _selectedDate = picked);
   }
 
-  void _showGameDetails(ScheduleEvent event) {
+  void _showGameDetails(
+    ScheduleEvent event,
+    ScheduleTeamLogos teamLogos,
+  ) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -214,37 +230,43 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     ),
                   ),
                 const SizedBox(height: AppSpacing.sm),
-                Text(
-                  event.cleanFirstTeamName,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppGlassColors.ink,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    event.status == ScheduleEventStatus.finalGame
-                        ? '${event.firstScore ?? '–'}  FINAL  ${event.secondScore ?? '–'}'
-                        : 'vs',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppGlassColors.inkMuted,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _DetailTeam(
+                        name: event.cleanFirstTeamName,
+                        logoUrl: teamLogos.logoFor(
+                          teamId: event.firstTeamId,
+                          teamName: event.firstTeamName,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Text(
-                  event.cleanSecondTeamName,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppGlassColors.ink,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 18, 10, 0),
+                      child: Text(
+                        event.status == ScheduleEventStatus.finalGame
+                            ? '${event.firstScore ?? '–'}\nFINAL\n${event.secondScore ?? '–'}'
+                            : 'VS',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppGlassColors.inkMuted,
+                          fontSize: 13,
+                          height: 1.35,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: _DetailTeam(
+                        name: event.cleanSecondTeamName,
+                        logoUrl: teamLogos.logoFor(
+                          teamId: event.secondTeamId,
+                          teamName: event.secondTeamName,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 _DetailRow(
@@ -280,6 +302,35 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
   String _timezoneLabel(String timezone) =>
       timezone == 'America/Edmonton' ? 'Mountain time' : timezone;
+}
+
+class _DetailTeam extends StatelessWidget {
+  final String name;
+  final String? logoUrl;
+
+  const _DetailTeam({required this.name, required this.logoUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ScheduleTeamLogo(teamName: name, imageUrl: logoUrl, size: 56),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: AppGlassColors.ink,
+            fontSize: 16,
+            height: 1.15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ScheduleDateGroup {
