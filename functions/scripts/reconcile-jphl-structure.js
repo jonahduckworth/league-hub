@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*
- * Reconciles the production JPHL structure with the official JPHL standings.
+ * Reconciles the production JPHL structure with the official JPHL directory.
  *
  * Safety defaults:
  *   node scripts/reconcile-jphl-structure.js          # validate and dry-run
@@ -17,7 +17,9 @@ const PROJECT_ID = "jdb-league-hub";
 const STORAGE_BUCKET = "jdb-league-hub.firebasestorage.app";
 const ORG_ID = "JMl7VkKm9tAADBaxxdiI";
 const LEAGUE_ID = "KHuoFdO37RD0i2ARocIl";
-const STANDINGS_URL = "https://juniorprospectshockeyleague.com/division/0/16623/standings";
+const DIRECTORY_URL = "https://juniorprospectshockeyleague.com";
+const CURRENT_SEASON_ID = "14553";
+const LEGACY_SEASON_ID = "12322";
 const RAMP_DIVISION_IDS = {
   "14U": "16624",
   "15U": "16623",
@@ -33,130 +35,130 @@ if (UNKNOWN_ARGS.length > 0) {
 
 const hubs = [
   {
+    slug: "bellingham-hc",
+    name: "Bellingham HC",
+    location: "Bellingham, WA",
+    logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Bellingham HC Logo - White.png",
+    teams: [["398224", "17U"]],
+  },
+  {
     slug: "bow-valley-hc",
     name: "Bow Valley HC",
     location: "Cochrane, AB",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Bow%20Valley%20Circle%20Badge.png",
-    teams: [["319122", "14U"], ["319136", "15U"], ["319158", "18U"]],
+    teams: [["398202", "14U"], ["398214", "15U"], ["398225", "17U"], ["398237", "18U"]],
   },
   {
     slug: "calgary-rockies",
     name: "Calgary Rockies",
     location: "Calgary, AB",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Calgary%20Rockies.png",
-    teams: [["319117", "14U"], ["319131", "15U"], ["319142", "17U"], ["319153", "18U"]],
+    teams: [["398203", "14U"], ["398215", "15U"], ["398226", "17U"], ["398238", "18U"]],
   },
   {
     slug: "calgary-stallions",
     name: "Calgary Stallions",
     location: "Calgary, AB",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Calgary%20Stallions.png",
-    teams: [["319149", "17U"]],
+    teams: [["398239", "18U"]],
   },
   {
     slug: "coquitlam-hc",
     name: "Coquitlam HC",
     location: "Coquitlam, BC",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Coquitlam%20HC%20PNG.png",
-    teams: [["319119", "14U"], ["319133", "15U"], ["319144", "17U"], ["319156", "18U"]],
+    teams: [["398204", "14U"], ["398216", "15U"], ["398227", "17U"], ["398240", "18U"]],
+  },
+  {
+    slug: "cowichan-jr-capitals",
+    name: "Cowichan Jr Capitals",
+    location: "Cowichan Valley, BC",
+    logoSource: "https://cloud.rampinteractive.com/juniorprospectshockeyleague/files/JR-CAPITALS-Logo.png",
+    teams: [["398241", "18U"]],
   },
   {
     slug: "epic-hockey-academy",
     name: "Epic Hockey Academy",
     location: "Middlesex, ON",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/EPIC-E-icon-full-colour-no-background.png",
-    teams: [["353941", "17U"]],
+    teams: [["398242", "18U"]],
   },
   {
     slug: "hc-edmonton",
     name: "HC Edmonton",
     location: "Edmonton, AB",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/EHC.png",
-    teams: [["319116", "14U"], ["319130", "15U"], ["319141", "17U"], ["319152", "18U"]],
+    teams: [["398205", "14U"], ["398217", "15U"], ["398228", "17U"], ["398243", "18U"]],
   },
   {
     slug: "island-hc",
     name: "Island HC",
     location: "Vancouver Island, BC",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Island%20Hockey%20Club%20png.png",
-    teams: [["319124", "14U"], ["319138", "15U"], ["319148", "17U"], ["319161", "18U"]],
+    teams: [["398206", "14U"], ["398218", "15U"], ["398229", "17U"]],
   },
   {
     slug: "kootenay-ha",
     name: "Kootenay HA",
     location: "Cranbrook, BC",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Kootenay%20Hockey%20Academy%20Text%20Only%20-%20PNG.png",
-    teams: [["319146", "17U"], ["319159", "18U"]],
+    teams: [["398230", "17U"], ["398244", "18U"]],
   },
   {
     slug: "langley-ha",
     name: "Langley HA",
     location: "Langley, BC",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Langley.png",
-    teams: [["319120", "14U"], ["319134", "15U"], ["319145", "17U"], ["319157", "18U"]],
+    teams: [["398207", "14U"], ["398219", "15U"], ["398231", "17U"], ["398245", "18U"]],
   },
   {
     slug: "lethbridge-united",
     name: "Lethbridge United",
     location: "Lethbridge, AB",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Lethbridge%20United.png",
-    teams: [["319154", "18U"]],
-  },
-  {
-    slug: "lloydminster-athletics",
-    name: "Lloydminster Athletics",
-    location: "Lloydminster, AB/SK",
-    logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleagueimages/team-logos/4e434092-bd0b-410e-b092-ab059cab8427_Lloydminster%20Athletics.png",
-    teams: [["319115", "14U"], ["319140", "17U"], ["319151", "18U"]],
+    teams: [["398232", "17U"], ["398246", "18U"]],
   },
   {
     slug: "northstars-ha",
     name: "Northstars HA",
     location: "Fort McMurray, AB",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Northstar%20Hockey%20Academy%20-%20PNG.png",
-    teams: [["319126", "14U"]],
+    teams: [["398208", "14U"], ["398220", "15U"]],
   },
   {
     slug: "okanagan-hc",
     name: "Okanagan HC",
     location: "Kelowna, BC",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Okanagan%20HC%20Logo%20-%20OFFICIAL.png",
-    teams: [["319132", "15U"], ["319143", "17U"], ["319155", "18U"]],
-  },
-  {
-    slug: "south-sask-hc",
-    name: "South Sask HC",
-    location: "Moose Jaw, SK",
-    logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/team/319121/16839aad-a9c3-452b-b490-ab0f2cbe31e0.png",
-    teams: [["319121", "14U"], ["319135", "15U"]],
+    teams: [["398209", "14U"], ["398221", "15U"], ["398233", "17U"], ["398247", "18U"]],
   },
   {
     slug: "surrey-eagles-ha",
     name: "Surrey Eagles HA",
     location: "Surrey, BC",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/SE_ACADEMEY_LOGO.png",
-    teams: [["319125", "14U"], ["319162", "18U"]],
+    teams: [["398210", "14U"], ["398222", "15U"], ["398248", "18U"]],
   },
   {
     slug: "titans-hockey-union",
     name: "Titans Hockey Union",
     location: "St. Albert, AB",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Logo%20PNGs/Titans%20Hockey%20Union.png",
-    teams: [["319114", "14U"], ["319128", "15U"], ["319139", "17U"], ["319150", "18U"]],
+    teams: [["398211", "14U"], ["398223", "15U"], ["398234", "17U"], ["398249", "18U"]],
   },
   {
     slug: "victoria-ha",
     name: "Victoria HA",
     location: "Victoria, BC",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Victoria%20HC%20On%20White%20-%20PNG.png",
-    teams: [["319123", "14U"], ["319137", "15U"], ["319147", "17U"], ["319160", "18U"]],
+    teams: [["398212", "14U"], ["398235", "17U"], ["398250", "18U"]],
   },
   {
     slug: "wolves-hc",
     name: "Wolves HC",
     location: "Spruce Grove, AB",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Wolves%20HC%20-%20PNG.png",
-    teams: [["319163", "17U"]],
+    teams: [["398213", "14U"], ["398236", "17U"], ["398251", "18U"]],
   },
 ].map((hub) => ({
   ...hub,
@@ -304,13 +306,13 @@ async function loadState(db) {
 }
 
 async function validateOfficialSource() {
-  const [{ bytes: standings }, ...logos] = await Promise.all([
-    fetchBytes(STANDINGS_URL, "Official standings"),
+  const [{ bytes: directory }, ...logos] = await Promise.all([
+    fetchBytes(DIRECTORY_URL, "Official directory"),
     ...hubs.map((hub) => fetchBytes(hub.logoSource, `${hub.name} logo`)),
   ]);
-  const standingsHtml = standings.toString("utf8");
+  const directoryHtml = directory.toString("utf8");
   for (const team of hubs.flatMap((hub) => hub.teams)) {
-    assert(standingsHtml.includes(team.sourceId), `Official standings no longer include team ${team.sourceId} (${team.name})`);
+    assert(directoryHtml.includes(team.sourceId), `Official directory no longer includes team ${team.sourceId} (${team.name})`);
   }
   for (const [index, logo] of logos.entries()) {
     assert(logo.contentType.toLowerCase().includes("image"), `${hubs[index].name} source is not an image (${logo.contentType})`);
@@ -406,8 +408,8 @@ async function writeCanonicalStructure(db, state, logoUrls) {
       autoDiscoverSeason: true,
       baseUrl: "https://juniorprospectshockeyleague.com",
       associationId: "2888",
-      seasonId: "12322",
-      legacySourceSeasonId: "12322",
+      seasonId: CURRENT_SEASON_ID,
+      legacySourceSeasonId: LEGACY_SEASON_ID,
       timezone: "America/Edmonton",
       divisionIds: RAMP_DIVISION_IDS,
       updatedAt: now,
@@ -443,7 +445,7 @@ async function writeCanonicalStructure(db, state, logoUrls) {
         memberIds: existing.exists && Array.isArray(existing.data().memberIds) ? existing.data().memberIds : [],
         sourceTeamId: team.sourceId,
         sourceDivisionId: RAMP_DIVISION_IDS[team.ageGroup],
-        sourceUrl: STANDINGS_URL,
+        sourceUrl: DIRECTORY_URL,
         ...(existing.exists ? {} : { createdAt: now }),
       }, { merge: true });
     }
@@ -519,7 +521,7 @@ async function verify(db) {
     assert(teams.docs.every((doc) => doc.data().logoUrl === hubDoc.data().logoUrl), `Team logo differs from hub logo under ${hubDoc.id}`);
     logoUrls.push(hubDoc.data().logoUrl);
   }
-  assert(teamCount === 48, `Expected 48 teams, found ${teamCount}`);
+  assert(teamCount === 50, `Expected 50 teams, found ${teamCount}`);
   assert(userDocs.docs.every((doc) => !hasAny(doc.data().hubIds, dummyHubIds) && !hasAny(doc.data().teamIds, dummyTeamIds)), "A user still references dummy structure");
   assert(invitationDocs.docs.every((doc) => !hasAny(doc.data().hubIds, dummyHubIds) && !hasAny(doc.data().teamIds, dummyTeamIds)), "An invitation still references dummy structure");
   assert(announcementDocs.docs.every((doc) => !dummyHubIds.has(doc.data().hubId)), "An announcement still targets dummy structure");
@@ -561,8 +563,8 @@ async function main() {
     actorEmail: null,
     actorRole: "system",
     request: {
-      approvedPlan: "Replace approved dummy structure from official JPHL standings",
-      sourceUrl: STANDINGS_URL,
+      approvedPlan: "Replace approved dummy structure from the official JPHL directory",
+      sourceUrl: DIRECTORY_URL,
     },
     result: {
       ...verification,
@@ -580,7 +582,15 @@ async function main() {
   console.log("Production JPHL structure reconciliation completed successfully.");
 }
 
-main().catch((error) => {
-  console.error(error.stack || error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.stack || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  CURRENT_SEASON_ID,
+  RAMP_DIVISION_IDS,
+  hubs,
+};

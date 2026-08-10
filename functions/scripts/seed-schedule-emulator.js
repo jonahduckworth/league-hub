@@ -11,10 +11,12 @@ const USER_EMAIL = "simulator@leaguehub.local";
 const USER_PASSWORD = "LeagueHub123!";
 const JPHL_URL = "https://juniorprospectshockeyleague.com";
 const JPHL_LOGO_URLS = Object.freeze({
+  "Bellingham HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Bellingham HC Logo - White.png",
   "Bow Valley HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Bow%20Valley%20Circle%20Badge.png",
   "Calgary Rockies": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Calgary%20Rockies.png",
   "Calgary Stallions": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Calgary%20Stallions.png",
   "Coquitlam HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Coquitlam%20HC%20PNG.png",
+  "Cowichan Jr Capitals": "https://cloud.rampinteractive.com/juniorprospectshockeyleague/files/JR-CAPITALS-Logo.png",
   "Epic Hockey Academy": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/EPIC-E-icon-full-colour-no-background.png",
   "HC Edmonton": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/EHC.png",
   "Island HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Island%20Hockey%20Club%20png.png",
