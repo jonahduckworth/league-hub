@@ -45,9 +45,17 @@ function slug(value) {
 }
 
 function teamDetails(team) {
-  const match = team.name.match(/^(\d{2}U)\s+AAA\s+-\s+(.+)$/i);
-  if (!match) throw new Error(`Unexpected JPHL team name: ${team.name}`);
-  return { ...team, ageGroup: match[1].toUpperCase(), hubName: match[2].trim() };
+  const legacyMatch = team.name.match(/^(\d{2}U)\s+AAA\s+-\s+(.+)$/i);
+  const ageGroup = team.ageGroup ?? legacyMatch?.[1]?.toUpperCase();
+  const hubName = (legacyMatch?.[2] ?? team.name).trim();
+  if (!ageGroup || !hubName) throw new Error(`Unexpected JPHL team route: ${team.name}`);
+  return { ...team, name: `${ageGroup} AAA - ${hubName}`, ageGroup, hubName };
+}
+
+function logoUrlForHub(hubName) {
+  const normalized = slug(hubName);
+  const match = Object.entries(JPHL_LOGO_URLS).find(([name]) => slug(name) === normalized);
+  return match?.[1] ?? null;
 }
 
 async function ensureAuthUser(auth) {
@@ -80,10 +88,9 @@ async function seedStructure(db, teams, seasonId) {
   for (const team of teams) {
     if (!hubIds.has(team.hubName)) hubIds.set(team.hubName, `emulator_hub_${slug(team.hubName)}`);
   }
-  for (const hubName of hubIds.keys()) {
-    if (!JPHL_LOGO_URLS[hubName]) {
-      throw new Error(`Missing official logo fixture for ${hubName}.`);
-    }
+  const hubsWithoutLogos = [...hubIds.keys()].filter((hubName) => logoUrlForHub(hubName) == null);
+  if (hubsWithoutLogos.length > 0) {
+    console.warn(`Using initials for hubs without a published logo fixture: ${hubsWithoutLogos.join(", ")}`);
   }
   const teamIds = teams.map((team) => `emulator_team_${team.teamId}`);
   const divisionIds = Object.fromEntries(teams.map((team) => [team.ageGroup, team.divisionId]));
@@ -140,7 +147,7 @@ async function seedStructure(db, teams, seasonId) {
       leagueId: LEAGUE_ID,
       name: hubName,
       location: null,
-      logoUrl: JPHL_LOGO_URLS[hubName],
+      logoUrl: logoUrlForHub(hubName),
       iconName: "groups",
       createdAt: now,
     });
@@ -155,7 +162,7 @@ async function seedStructure(db, teams, seasonId) {
       name: team.name,
       ageGroup: team.ageGroup,
       division: "AAA",
-      logoUrl: JPHL_LOGO_URLS[team.hubName],
+      logoUrl: logoUrlForHub(team.hubName),
       iconName: "groups",
       memberIds: [USER_ID],
       sourceTeamId: team.teamId,
@@ -266,9 +273,7 @@ async function main() {
   if (seasons.length !== 1) {
     throw new Error(`Expected one current JPHL season; found ${seasons.join(", ") || "none"}.`);
   }
-  if (discovered.length !== 48) {
-    throw new Error(`Expected 48 current JPHL teams; found ${discovered.length}.`);
-  }
+  if (discovered.length === 0) throw new Error("The current JPHL directory exposed no teams.");
 
   await ensureAuthUser(auth);
   await seedStructure(db, discovered, seasons[0]);

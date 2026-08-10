@@ -52,6 +52,28 @@ test("matches an exact League Hub structure and derives routing IDs", () => {
   ]);
 });
 
+test("matches current RAMP routes whose age groups are supplied by division headings", () => {
+  const html = `
+    <button id="accordion-menu-title-23859"><span>17U AAA</span></button>
+    <a href="/team/14553/0/23859/398226/masterschedule"><p>Calgary Rockies</p></a>
+    <a href="/team/14553/0/23859/398236/masterschedule"><p>Wolves HC</p></a>
+    <button id="accordion-menu-title-16622"><span>18U AAA</span></button>
+    <a href="/team/14553/0/16622/398251/masterschedule"><p>Wolves HC</p></a>
+  `;
+
+  const discovered = parseRampDirectory(html);
+  assert.deepEqual(discovered.map((team) => team.ageGroup), ["17U", "17U", "18U"]);
+
+  const result = matchRampDirectory(discovered, configured);
+  assert.equal(result.status, "matched");
+  assert.equal(result.discoveredSeasonId, "14553");
+  assert.deepEqual(result.assignments, [
+    { configuredTeamId: "wolves-17", sourceDivisionId: "23859", sourceTeamId: "398236" },
+    { configuredTeamId: "rockies-17", sourceDivisionId: "23859", sourceTeamId: "398226" },
+    { configuredTeamId: "wolves-18", sourceDivisionId: "16622", sourceTeamId: "398251" },
+  ]);
+});
+
 test("rejects incomplete or expanded structures instead of switching seasons", () => {
   const missing = matchRampDirectory(
     parseRampDirectory(directoryHtml().replace(/<a href="\/team\/12322\/0\/16622[\s\S]*?<\/a>/, "")),

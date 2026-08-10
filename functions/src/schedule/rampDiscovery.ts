@@ -9,6 +9,7 @@ export type DiscoveredRampTeam = {
   divisionId: string;
   teamId: string;
   name: string;
+  ageGroup?: string;
 };
 
 export type RampTeamAssignment = {
@@ -52,13 +53,37 @@ function normalizeTeamName(value: string): string {
     .trim();
 }
 
+function ageGroupFrom(value: string): string | undefined {
+  return value.match(/\b(\d{2}U)\b/i)?.[1].toUpperCase();
+}
+
+function clubNameFrom(value: string): string {
+  return value
+    .replace(/^\s*\d{2}U(?:\s+AAA)?\s*[-–—:]\s*/i, "")
+    .trim();
+}
+
+function teamMatchKey(name: string, ageGroup?: string): string {
+  const normalizedName = normalizeTeamName(clubNameFrom(name));
+  const normalizedAgeGroup = ageGroup?.trim().toUpperCase() ?? ageGroupFrom(name);
+  return normalizedAgeGroup ? `${normalizedAgeGroup}:${normalizedName}` : normalizedName;
+}
+
 function ageGroupFor(team: ConfiguredRampTeam): string | undefined {
   const configured = team.ageGroup?.trim();
-  if (configured) return configured;
-  return team.name.match(/^\s*(\d{2}U)\b/i)?.[1].toUpperCase();
+  if (configured) return configured.toUpperCase();
+  return ageGroupFrom(team.name);
 }
 
 export function parseRampDirectory(html: string): DiscoveredRampTeam[] {
+  const divisionAgeGroups = new Map<string, string>();
+  const divisionPattern = /<button\b[^>]*\bid\s*=\s*["']accordion-menu-title-(\d+)["'][^>]*>([\s\S]*?)<\/button>/gi;
+  for (const match of html.matchAll(divisionPattern)) {
+    const [, divisionId, body] = match;
+    const ageGroup = ageGroupFrom(textContent(body));
+    if (ageGroup) divisionAgeGroups.set(divisionId, ageGroup);
+  }
+
   const routePattern = /<a\b[^>]*\bhref\s*=\s*["']\/team\/(\d+)\/0\/(\d+)\/(\d+)\/masterschedule(?:[?#][^"']*)?["'][^>]*>([\s\S]*?)<\/a>/gi;
   const teams = new Map<string, DiscoveredRampTeam>();
   for (const match of html.matchAll(routePattern)) {
@@ -68,7 +93,14 @@ export function parseRampDirectory(html: string): DiscoveredRampTeam[] {
     const name = textContent(paragraph ?? alt ?? "");
     if (!name) continue;
     const key = `${seasonId}:${divisionId}:${teamId}`;
-    teams.set(key, { seasonId, divisionId, teamId, name });
+    const ageGroup = divisionAgeGroups.get(divisionId);
+    teams.set(key, {
+      seasonId,
+      divisionId,
+      teamId,
+      name,
+      ...(ageGroup ? { ageGroup } : {}),
+    });
   }
   return [...teams.values()];
 }
@@ -97,7 +129,7 @@ export function matchRampDirectory(
 
   const configuredByName = new Map<string, ConfiguredRampTeam>();
   for (const team of configured) {
-    const normalized = normalizeTeamName(team.name);
+    const normalized = teamMatchKey(team.name, ageGroupFor(team));
     if (!normalized || configuredByName.has(normalized)) {
       return rejected(`League Hub has duplicate or invalid team names near ${team.name}.`);
     }
@@ -115,7 +147,7 @@ export function matchRampDirectory(
     const discoveredByName = new Map<string, DiscoveredRampTeam>();
     let duplicateName = false;
     for (const team of teams) {
-      const normalized = normalizeTeamName(team.name);
+      const normalized = teamMatchKey(team.name, team.ageGroup);
       if (!normalized || discoveredByName.has(normalized)) duplicateName = true;
       discoveredByName.set(normalized, team);
     }
