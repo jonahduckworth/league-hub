@@ -219,7 +219,9 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       currentUser: currentUser,
       otherUser: user,
       orgId: orgId,
-      getOrCreateDMRoom: ref.read(firestoreServiceProvider).getOrCreateDMRoom,
+      getOrCreateDMRoom: (_, __, ___, ____, _____) => ref
+          .read(authorizedFirestoreServiceProvider)
+          .getOrCreateDirectMessage(currentUser!, user, orgId),
     );
     if (roomId != null && mounted) {
       context.pushReplacement('/chat/$roomId');
@@ -302,6 +304,9 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                     bottomPadding: bottomContentPadding,
                     onEventRoom: () =>
                         setState(() => _step = _NewChatStep.eventRoom),
+                    canCreateEventRoom: currentUser != null &&
+                        const PermissionService()
+                            .canCreateChatRoom(currentUser),
                     onDirectMessage: () =>
                         setState(() => _step = _NewChatStep.directMessage),
                   ),
@@ -382,6 +387,7 @@ class _ChooseConversationType extends StatelessWidget {
   final double bottomPadding;
   final VoidCallback onEventRoom;
   final VoidCallback onDirectMessage;
+  final bool canCreateEventRoom;
 
   const _ChooseConversationType({
     super.key,
@@ -389,6 +395,7 @@ class _ChooseConversationType extends StatelessWidget {
     required this.bottomPadding,
     required this.onEventRoom,
     required this.onDirectMessage,
+    required this.canCreateEventRoom,
   });
 
   @override
@@ -405,26 +412,30 @@ class _ChooseConversationType extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Create an event room for a group or start a private conversation.',
-          style: TextStyle(
+        Text(
+          canCreateEventRoom
+              ? 'Create an event room for a group or start a private conversation.'
+              : 'Start a private conversation with another member.',
+          style: const TextStyle(
             fontSize: 14,
             color: AppGlassColors.inkSecondary,
             height: 1.35,
           ),
         ),
         const SizedBox(height: 20),
-        AppMotionReveal(
-          index: 1,
-          child: _ConversationTypeCard(
-            icon: Icons.event_outlined,
-            title: 'Event Room',
-            subtitle: 'A shared room for tournaments, games, or planning.',
-            color: AppGlassColors.gold,
-            onTap: onEventRoom,
+        if (canCreateEventRoom) ...[
+          AppMotionReveal(
+            index: 1,
+            child: _ConversationTypeCard(
+              icon: Icons.event_outlined,
+              title: 'Event Room',
+              subtitle: 'A shared room for tournaments, games, or planning.',
+              color: AppGlassColors.gold,
+              onTap: onEventRoom,
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         AppMotionReveal(
           index: 2,
           child: _ConversationTypeCard(

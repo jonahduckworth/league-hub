@@ -7,7 +7,7 @@ List<League> manageableLeaguesForUser(AppUser? user, List<League> leagues) {
   if (PermissionService.isAtLeast(user.role, UserRole.superAdmin)) {
     return leagues;
   }
-  if (user.leagueIds.isEmpty) return leagues;
+  if (user.leagueIds.isEmpty) return const [];
   return leagues.where((league) => user.leagueIds.contains(league.id)).toList();
 }
 

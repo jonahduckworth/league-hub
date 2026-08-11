@@ -64,7 +64,8 @@ void main() {
       role: UserRole.managerAdmin,
       orgId: 'org-1',
       hubIds: ['hub-1'],
-      teamIds: [],
+      leagueIds: ['league-1'],
+      teamIds: ['team-1'],
       createdAt: DateTime(2024),
       isActive: true,
     );
@@ -410,6 +411,16 @@ void main() {
               division: 'AA',
               createdAt: DateTime(2024),
             ),
+            Team(
+              id: 'team-3',
+              hubId: 'hub-1',
+              leagueId: 'league-1',
+              orgId: 'org-1',
+              name: 'Calgary U16',
+              ageGroup: 'U16',
+              division: 'AA',
+              createdAt: DateTime(2024),
+            ),
           ],
         );
 
@@ -422,6 +433,10 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
+        expect(find.text('Staff', skipOffstage: false), findsOneWidget);
+        expect(find.text('Manager', skipOffstage: false), findsNothing);
+        expect(
+            find.text('Edmonton Falcons', skipOffstage: false), findsNothing);
         expect(
             find.text('Select hubs to choose team assignments.',
                 skipOffstage: false),
@@ -434,6 +449,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Calgary U18', skipOffstage: false), findsOneWidget);
+        expect(find.text('Calgary U16', skipOffstage: false), findsNothing);
         expect(find.text('Edmonton U15', skipOffstage: false), findsNothing);
       });
     });

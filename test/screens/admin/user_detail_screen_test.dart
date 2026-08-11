@@ -440,6 +440,52 @@ void main() {
         expect(find.text('Edit'), findsOneWidget);
       });
 
+      testWidgets('manager can edit Staff fully inside assigned scope',
+          (WidgetTester tester) async {
+        final manager = AppUser(
+          id: 'manager-1',
+          email: 'manager@example.com',
+          displayName: 'Manager',
+          role: UserRole.managerAdmin,
+          orgId: 'org-1',
+          hubIds: const ['hub-1', 'hub-2'],
+          leagueIds: const ['league-1'],
+          teamIds: const ['team-1'],
+          createdAt: DateTime(2024),
+          isActive: true,
+        );
+
+        await tester.pumpWidget(createTestWidget(currentUser: manager));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Edit'), findsOneWidget);
+        await tester.tap(find.text('Edit'));
+        await tester.pumpAndSettle();
+        expect(find.text('Save'), findsOneWidget);
+        expect(find.byType(RadioListTile<UserRole>), findsNothing);
+      });
+
+      testWidgets('manager cannot edit Staff with an outside hub',
+          (WidgetTester tester) async {
+        final manager = AppUser(
+          id: 'manager-1',
+          email: 'manager@example.com',
+          displayName: 'Manager',
+          role: UserRole.managerAdmin,
+          orgId: 'org-1',
+          hubIds: const ['hub-1'],
+          leagueIds: const ['league-1'],
+          teamIds: const [],
+          createdAt: DateTime(2024),
+          isActive: true,
+        );
+
+        await tester.pumpWidget(createTestWidget(currentUser: manager));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Edit'), findsNothing);
+      });
+
       testWidgets('shows Save and Cancel when in edit mode',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());

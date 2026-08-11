@@ -78,7 +78,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Roles & Permissions'), findsOneWidget);
-      expect(find.text('Platform Owner'), findsNothing);
+      expect(find.text('Platform Owner'), findsOneWidget);
       expect(find.text('Admin'), findsOneWidget);
       expect(find.text('Manager'), findsOneWidget);
       expect(find.text('Staff'), findsOneWidget);
@@ -93,7 +93,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('1 member'), findsNWidgets(2)); // admin and manager
+      expect(find.text('1 member'), findsNWidgets(3)); // owner, admin, manager
       expect(find.text('2 members'), findsOneWidget); // 2 staff
     });
 
@@ -109,8 +109,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('PERMISSIONS'), findsOneWidget);
-      expect(find.text('Manage leagues, hubs, and teams'), findsOneWidget);
-      expect(find.text('All Manager permissions'), findsOneWidget);
+      expect(find.text('Update or delete existing leagues'), findsOneWidget);
+      expect(find.text('Create and manage hubs and teams'), findsOneWidget);
     });
 
     testWidgets('renders role descriptions', (tester) async {
@@ -121,8 +121,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(
-          find.textContaining('Manage leagues, hubs, teams'), findsOneWidget);
+      expect(find.textContaining('Runs one organization'), findsOneWidget);
     });
 
     testWidgets('renders with empty user list', (tester) async {
@@ -133,7 +132,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('0 members'), findsNWidgets(3));
+      expect(find.text('0 members'), findsNWidgets(4));
     });
   });
 }

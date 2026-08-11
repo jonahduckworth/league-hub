@@ -884,13 +884,25 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('New Conversation'), findsOneWidget);
+        expect(find.text('Event Room'), findsNothing);
+        expect(find.text('Direct Message'), findsOneWidget);
+      });
+
+      testWidgets('manager sees managed event room option',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: managerUser));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+
         expect(find.text('Event Room'), findsOneWidget);
         expect(find.text('Direct Message'), findsOneWidget);
       });
 
       testWidgets('event option opens event room form',
           (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpWidget(createRoutedTestWidget(user: managerUser));
         await tester.pumpAndSettle();
 
         await tester.tap(find.byIcon(Icons.add));
@@ -926,12 +938,13 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              currentUserProvider.overrideWith((ref) => testUser),
+              currentUserProvider.overrideWith((ref) => managerUser),
               organizationProvider.overrideWith((ref) => testOrg),
               leaguesProvider.overrideWith((ref) => controller.stream),
               chatRoomsProvider
                   .overrideWith((ref) => Stream.value(testChatRooms)),
-              orgUsersProvider.overrideWith((ref) => Stream.value([testUser])),
+              orgUsersProvider
+                  .overrideWith((ref) => Stream.value([managerUser])),
               unreadCountProvider
                   .overrideWith((ref, roomId) => Stream.value(0)),
             ],
@@ -968,14 +981,15 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              currentUserProvider.overrideWith((ref) => testUser),
+              currentUserProvider.overrideWith((ref) => managerUser),
               organizationProvider.overrideWith((ref) => testOrg),
               leaguesProvider.overrideWith(
                 (ref) => Stream<List<League>>.error('boom'),
               ),
               chatRoomsProvider
                   .overrideWith((ref) => Stream.value(testChatRooms)),
-              orgUsersProvider.overrideWith((ref) => Stream.value([testUser])),
+              orgUsersProvider
+                  .overrideWith((ref) => Stream.value([managerUser])),
               unreadCountProvider
                   .overrideWith((ref, roomId) => Stream.value(0)),
             ],
@@ -1143,24 +1157,27 @@ void main() {
         final service = MockAuthorizedFirestoreService();
         when(
           service.createChatRoom(
-            testUser,
+            managerUser,
             'org-1',
             'Playoffs',
             ChatRoomType.event,
             leagueId: 'league-1',
-            participants: [testUser.id, managerUser.id],
+            participants: [managerUser.id, testUser.id],
             roomIconName: 'event',
           ),
         ).thenThrow(
           PermissionDeniedException(
             action: 'createChatRoom',
-            userId: testUser.id,
-            role: testUser.role,
+            userId: managerUser.id,
+            role: managerUser.role,
           ),
         );
 
         await tester.pumpWidget(
-          createRoutedTestWidget(authorizedFirestoreService: service),
+          createRoutedTestWidget(
+            user: managerUser,
+            authorizedFirestoreService: service,
+          ),
         );
         await tester.pumpAndSettle();
 

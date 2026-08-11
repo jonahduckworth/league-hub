@@ -120,7 +120,7 @@ void main() {
             .called(1);
       });
 
-      test('can create league', () async {
+      test('can create a league', () async {
         final actor = AppUser(
           id: 'po1',
           email: 'po@example.com',
@@ -315,7 +315,7 @@ void main() {
             .called(1);
       });
 
-      test('can create league', () async {
+      test('cannot create league', () async {
         final actor = AppUser(
           id: 'sa1',
           email: 'sa@example.com',
@@ -335,11 +335,11 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.createLeague('org1', league))
-            .thenAnswer((_) => Future.value());
-
-        await afs.createLeague(actor, 'org1', league);
-        verify(mockFs.createLeague('org1', league)).called(1);
+        expect(
+          () => afs.createLeague(actor, 'org1', league),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyNever(mockFs.createLeague('org1', league));
       });
 
       test('can create chat room', () async {
@@ -393,7 +393,7 @@ void main() {
     });
 
     group('managerAdmin can only operate within their scope', () {
-      test('can create hub in assigned league', () async {
+      test('cannot create a hub', () async {
         final actor = AppUser(
           id: 'ma1',
           email: 'ma@example.com',
@@ -413,11 +413,11 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        when(mockFs.createHub('org1', 'l1', hub))
-            .thenAnswer((_) => Future.value());
-
-        await afs.createHub(actor, 'org1', 'l1', hub);
-        verify(mockFs.createHub('org1', 'l1', hub)).called(1);
+        expect(
+          () => afs.createHub(actor, 'org1', 'l1', hub),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyNever(mockFs.createHub('org1', 'l1', hub));
       });
 
       test('can create team in their hub', () async {

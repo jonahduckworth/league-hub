@@ -5,7 +5,8 @@ class Invitation {
   final String orgId;
   final String email;
   final String? displayName;
-  final String role; // UserRole name: 'managerAdmin' or 'staff'
+  final String
+      role; // UserRole name invited by the actor's permitted hierarchy.
   final List<String> hubIds;
   final List<String> teamIds;
   final String invitedBy;

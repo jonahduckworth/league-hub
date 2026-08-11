@@ -30,6 +30,7 @@ void main() {
       role: UserRole.managerAdmin,
       orgId: 'org-1',
       hubIds: ['hub-1'],
+      leagueIds: ['league-1'],
       teamIds: [],
       createdAt: DateTime(2024),
       isActive: true,
@@ -264,7 +265,7 @@ void main() {
         );
       });
 
-      testWidgets('shows delete button for author',
+      testWidgets('hides delete button for Manager author',
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
@@ -276,7 +277,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           find.byIcon(Icons.delete_outline),
-          findsOneWidget,
+          findsNothing,
         );
       });
 

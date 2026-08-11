@@ -524,10 +524,10 @@ void main() {
       final manager = makeUser(id: 'ma', role: UserRole.managerAdmin);
       final staff = makeUser(id: 's', role: UserRole.staff);
 
-      // Admin routes
+      // Assigned structure routes
       expect(ps.canAccessRoute(owner, '/settings/leagues'), isTrue);
       expect(ps.canAccessRoute(admin, '/settings/leagues'), isTrue);
-      expect(ps.canAccessRoute(manager, '/settings/leagues'), isFalse);
+      expect(ps.canAccessRoute(manager, '/settings/leagues'), isTrue);
       expect(ps.canAccessRoute(staff, '/settings/leagues'), isFalse);
 
       // Manager routes

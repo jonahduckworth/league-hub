@@ -125,8 +125,14 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
 
   Widget _buildContent(
       BuildContext context, Team team, String? orgId, AppUser? currentUser) {
-    final canManage = currentUser != null &&
+    final canManageStructure = currentUser != null &&
         _ps.canCreateTeam(currentUser, hubId: widget.hubId);
+    final canManageRoster = currentUser != null &&
+        _ps.canManageTeamRoster(
+          currentUser,
+          hubId: widget.hubId,
+          teamId: team.id,
+        );
     final orgUsersAsync = ref.watch(orgUsersProvider);
 
     return ListView(
@@ -175,7 +181,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                       ],
                     ),
                   ),
-                  if (canManage)
+                  if (canManageStructure)
                     IconButton(
                       tooltip: 'Edit Team',
                       icon: const Icon(Icons.edit_outlined,
@@ -227,7 +233,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     Text('${team.memberIds.length} members',
                         style: const TextStyle(
                             fontSize: 12, color: AppGlassColors.inkMuted)),
-                    if (canManage) ...[
+                    if (canManageRoster) ...[
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () =>
@@ -273,7 +279,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                       children: members
                           .map((m) => _MemberTile(
                                 user: m,
-                                canRemove: canManage,
+                                canRemove: canManageRoster &&
+                                    _ps.canManageUser(currentUser, m),
                                 onRemove: () =>
                                     _removeMember(team, m.id, orgId ?? ''),
                               ))
@@ -292,9 +299,14 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       BuildContext context, Team team, String orgId) async {
     final orgUsersAsync = ref.read(orgUsersProvider);
     final allUsers = orgUsersAsync.valueOrNull ?? [];
-    // Exclude users already in the team.
-    final available =
-        allUsers.where((u) => !team.memberIds.contains(u.id)).toList();
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    // Exclude existing members and users outside the actor's management scope.
+    final available = allUsers
+        .where((user) =>
+            !team.memberIds.contains(user.id) &&
+            currentUser != null &&
+            _ps.canManageUser(currentUser, user))
+        .toList();
 
     if (!mounted) return;
 
@@ -398,9 +410,14 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
       if (targetUser != null) {
-        await authFs.updateUserFields(currentUser, targetUser, {
-          'teamIds': [...targetUser.teamIds, team.id],
-        });
+        await authFs.updateUserFields(
+          currentUser,
+          targetUser,
+          _userAssignmentUpdate(
+            targetUser,
+            [...targetUser.teamIds, team.id],
+          ),
+        );
       }
     } on PermissionDeniedException {
       if (mounted) {
@@ -426,9 +443,14 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
       if (targetUser != null) {
-        await authFs.updateUserFields(currentUser, targetUser, {
-          'teamIds': targetUser.teamIds.where((id) => id != team.id).toList(),
-        });
+        await authFs.updateUserFields(
+          currentUser,
+          targetUser,
+          _userAssignmentUpdate(
+            targetUser,
+            targetUser.teamIds.where((id) => id != team.id).toList(),
+          ),
+        );
       }
     } on PermissionDeniedException {
       if (mounted) {
@@ -441,6 +463,17 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       }
     }
   }
+
+  Map<String, dynamic> _userAssignmentUpdate(
+    AppUser targetUser,
+    List<String> teamIds,
+  ) =>
+      {
+        'role': targetUser.role.name,
+        'hubIds': targetUser.hubIds,
+        'leagueIds': targetUser.leagueIds,
+        'teamIds': teamIds,
+      };
 }
 
 class _TeamGlassMessage extends StatelessWidget {

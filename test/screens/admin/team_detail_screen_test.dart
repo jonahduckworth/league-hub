@@ -12,6 +12,8 @@ AppUser _makeUser({
   String id = 'u1',
   UserRole role = UserRole.staff,
   List<String> hubIds = const [],
+  List<String> leagueIds = const [],
+  List<String> teamIds = const [],
 }) =>
     AppUser(
       id: id,
@@ -20,7 +22,8 @@ AppUser _makeUser({
       role: role,
       orgId: 'org1',
       hubIds: hubIds,
-      teamIds: [],
+      leagueIds: leagueIds,
+      teamIds: teamIds,
       createdAt: DateTime(2024),
       isActive: true,
     );
@@ -209,7 +212,11 @@ void main() {
     group('Permission checks', () {
       testWidgets('managerAdmin+ sees add member button', (tester) async {
         await tester.pumpWidget(_buildWidget(
-          currentUser: _makeUser(role: UserRole.managerAdmin, hubIds: ['hub1']),
+          currentUser: _makeUser(
+            role: UserRole.managerAdmin,
+            hubIds: ['hub1'],
+            teamIds: ['team2'],
+          ),
           team: _emptyTeam,
           orgUsers: [],
         ));
@@ -231,13 +238,47 @@ void main() {
 
       testWidgets('managerAdmin+ sees remove member button', (tester) async {
         await tester.pumpWidget(_buildWidget(
-          currentUser: _makeUser(role: UserRole.managerAdmin, hubIds: ['hub1']),
+          currentUser: _makeUser(
+            role: UserRole.managerAdmin,
+            hubIds: ['hub1'],
+            teamIds: ['team1'],
+          ),
+          team: _testTeam,
+          orgUsers: [
+            _makeUser(
+              id: 'u1',
+              hubIds: ['hub1'],
+              leagueIds: ['league1'],
+              teamIds: ['team1'],
+            ),
+            _makeUser(
+              id: 'u2',
+              hubIds: ['hub1'],
+              leagueIds: ['league1'],
+              teamIds: ['team1'],
+            ),
+          ],
+        ));
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(Icons.remove_circle_outline), findsWidgets);
+      });
+
+      testWidgets('manager without the team assignment cannot edit roster',
+          (tester) async {
+        await tester.pumpWidget(_buildWidget(
+          currentUser: _makeUser(
+            role: UserRole.managerAdmin,
+            hubIds: ['hub1'],
+          ),
           team: _testTeam,
           orgUsers: [_makeUser(id: 'u1'), _makeUser(id: 'u2')],
         ));
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.remove_circle_outline), findsWidgets);
+        expect(find.byIcon(Icons.person_add_outlined), findsNothing);
+        expect(find.byIcon(Icons.remove_circle_outline), findsNothing);
+        expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
       });
 
       testWidgets('staff does not see remove member button', (tester) async {

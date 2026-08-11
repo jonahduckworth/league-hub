@@ -77,6 +77,66 @@ service cloud.firestore {
       return sameOrg(orgId) && isManagerAdmin();
     }
 
+    function hasAssignedLeague(leagueId) {
+      return 'leagueIds' in currentUser()
+        && leagueId in currentUser().leagueIds;
+    }
+
+    function hasAssignedHub(hubId) {
+      return 'hubIds' in currentUser()
+        && hubId in currentUser().hubIds;
+    }
+
+    function hasAssignedTeam(teamId) {
+      return 'teamIds' in currentUser()
+        && teamId in currentUser().teamIds;
+    }
+
+    function canManageHub(orgId, hubId) {
+      return sameOrg(orgId)
+        && (
+          isSuperAdmin()
+          || (currentUser().role == 'managerAdmin' && hasAssignedHub(hubId))
+        );
+    }
+
+    function canManageScopedTarget(data) {
+      return isSuperAdmin()
+        || (
+          currentUser().role == 'managerAdmin'
+          && (
+            (
+              'teamId' in data
+              && data.teamId != null
+              && (
+                hasAssignedTeam(data.teamId)
+                || (
+                  'hubId' in data
+                  && data.hubId != null
+                  && hasAssignedHub(data.hubId)
+                )
+              )
+            )
+            || (
+              'teamId' in data
+              && data.teamId == null
+              && 'hubId' in data
+              && data.hubId != null
+              && hasAssignedHub(data.hubId)
+            )
+            || (
+              'teamId' in data
+              && data.teamId == null
+              && 'hubId' in data
+              && data.hubId == null
+              && 'leagueId' in data
+              && data.leagueId != null
+              && hasAssignedLeague(data.leagueId)
+            )
+          )
+        );
+    }
+
     function validAnnouncementTarget(data) {
       return data.keys().hasAll(['scope', 'leagueId', 'hubId', 'teamId'])
         && data.scope in ['league', 'hub', 'team']
@@ -168,7 +228,7 @@ service cloud.firestore {
       return isSelf(userId)
         && request.resource.data.id == userId
         && request.resource.data.email == request.auth.token.email
-        && request.resource.data.role == 'superAdmin'
+        && request.resource.data.role == 'platformOwner'
         && request.resource.data.isActive == true
         && request.resource.data.orgId is string
         && canBootstrapOrg(request.resource.data.orgId);
@@ -190,9 +250,22 @@ service cloud.firestore {
             && role in ['superAdmin', 'managerAdmin', 'staff']
           )
           || (
-            currentUser().role in ['superAdmin', 'managerAdmin']
+            currentUser().role == 'superAdmin'
             && role in ['managerAdmin', 'staff']
           )
+          || (currentUser().role == 'managerAdmin' && role == 'staff')
+        );
+    }
+
+    function validManagerInvitationScope(data) {
+      return currentUser().role != 'managerAdmin'
+        || (
+          data.role == 'staff'
+          && data.hubIds is list
+          && data.hubIds.size() > 0
+          && data.hubIds.hasOnly(currentUser().hubIds)
+          && data.teamIds is list
+          && data.teamIds.hasOnly(currentUser().teamIds)
         );
     }
 
@@ -246,34 +319,93 @@ service cloud.firestore {
     function canAdminUpdateUser(userData) {
       return isActive()
         && (
-          isPlatformOwner()
+          (
+            isPlatformOwner()
+            && userData.role != 'platformOwner'
+            && request.resource.data.role != 'platformOwner'
+          )
           || (
             userData.orgId == currentOrgId()
             && (
-              isSuperAdmin()
+              (
+                currentUser().role == 'superAdmin'
+                && userData.role in ['managerAdmin', 'staff']
+                && request.resource.data.role in ['managerAdmin', 'staff']
+              )
               || (
                 currentUser().role == 'managerAdmin'
                 && userData.role == 'staff'
                 && request.resource.data.role == 'staff'
+                && userData.hubIds is list
+                && userData.hubIds.size() > 0
+                && userData.hubIds.hasOnly(currentUser().hubIds)
+                && userData.teamIds is list
+                && userData.teamIds.hasOnly(currentUser().teamIds)
+                && request.resource.data.hubIds is list
+                && request.resource.data.hubIds.size() > 0
+                && request.resource.data.hubIds.hasOnly(currentUser().hubIds)
+                && request.resource.data.leagueIds is list
+                && request.resource.data.leagueIds.hasOnly(currentUser().leagueIds)
+                && request.resource.data.teamIds is list
+                && request.resource.data.teamIds.hasOnly(currentUser().teamIds)
+                && request.resource.data.diff(userData).affectedKeys().hasOnly([
+                  'role',
+                  'hubIds',
+                  'leagueIds',
+                  'teamIds',
+                  'title',
+                  'phone',
+                  'address',
+                  'isActive'
+                ])
               )
             )
           )
         );
     }
 
+    function validDirectRoomCreate(orgId, data) {
+      return sameOrg(orgId)
+        && data.orgId == orgId
+        && data.type == 'direct'
+        && data.participants is list
+        && data.participants.size() == 2
+        && request.auth.uid in data.participants
+        && data.participants[0] != data.participants[1]
+        && exists(userPath(data.participants[0]))
+        && exists(userPath(data.participants[1]))
+        && get(userPath(data.participants[0])).data.isActive == true
+        && get(userPath(data.participants[1])).data.isActive == true
+        && get(userPath(data.participants[0])).data.orgId == orgId
+        && get(userPath(data.participants[1])).data.orgId == orgId;
+    }
+
     function roomIsReadable(room) {
       return sameOrg(room.orgId)
         && (
           isSuperAdmin()
-          || room.type == 'event'
           || (room.type == 'direct' && request.auth.uid in room.participants)
           || (
-            room.type == 'league'
+            room.type in ['league', 'event']
             && (
+              (
+                'teamId' in room
+                && room.teamId != null
+                && (
+                  hasAssignedTeam(room.teamId)
+                  || (
+                    'hubId' in room
+                    && room.hubId != null
+                    && hasAssignedHub(room.hubId)
+                  )
+                )
+              )
+              ||
               (
                 'hubId' in room
                 && room.hubId != null
-                && room.hubId in currentUser().hubIds
+                && (!('teamId' in room) || room.teamId == null)
+                && hasAssignedHub(room.hubId)
               )
               ||
               (
@@ -281,7 +413,7 @@ service cloud.firestore {
                 && (
                   !('leagueId' in room)
                   || room.leagueId == null
-                  || room.leagueId in currentUser().leagueIds
+                  || hasAssignedLeague(room.leagueId)
                 )
               )
             )
@@ -359,21 +491,19 @@ service cloud.firestore {
 
       match /leagues/{leagueId} {
         allow get, list: if canReadOrg(orgId);
-        allow create: if canManageOrg(orgId);
+        allow create: if sameOrg(orgId) && isPlatformOwner();
         allow update: if canManageOrg(orgId);
         allow delete: if canManageOrg(orgId);
 
         match /hubs/{hubId} {
           allow get, list: if canReadOrg(orgId);
-          allow create: if canManageContent(orgId);
-          allow update: if canManageContent(orgId);
+          allow create: if canManageOrg(orgId);
+          allow update: if canManageHub(orgId, hubId);
           allow delete: if canManageOrg(orgId);
 
           match /teams/{teamId} {
             allow get, list: if canReadOrg(orgId);
-            allow create: if canManageContent(orgId);
-            allow update: if canManageContent(orgId);
-            allow delete: if canManageContent(orgId);
+            allow create, update, delete: if canManageHub(orgId, hubId);
           }
         }
       }
@@ -382,8 +512,18 @@ service cloud.firestore {
         // Room metadata is readable inside the org because current list screens
         // query the full room collection before client-side filtering.
         allow get, list: if sameOrg(orgId);
-        allow create: if canManageContent(orgId);
-        allow update: if canManageContent(orgId);
+        allow create: if (
+          validDirectRoomCreate(orgId, request.resource.data)
+          || (
+            canManageContent(orgId)
+            && request.resource.data.orgId == orgId
+            && request.resource.data.type in ['league', 'event']
+            && canManageScopedTarget(request.resource.data)
+          )
+        );
+        allow update: if canManageContent(orgId)
+          && canManageScopedTarget(resource.data)
+          && canManageScopedTarget(request.resource.data);
         allow delete: if false;
 
         match /messages/{messageId} {
@@ -413,8 +553,12 @@ service cloud.firestore {
         allow get, list: if sameOrg(orgId);
         allow create: if canManageContent(orgId)
           && request.resource.data.uploadedBy == request.auth.uid
-          && validPolicyCategory(request.resource.data);
+          && validPolicyCategory(request.resource.data)
+          && canManageScopedTarget(request.resource.data);
         allow update: if canManageContent(orgId)
+          && canManageScopedTarget(resource.data)
+          && canManageScopedTarget(request.resource.data)
+          && (canManageOrg(orgId) || resource.data.uploadedBy == request.auth.uid)
           && (
             request.resource.data.category == resource.data.category
             || validPolicyCategory(request.resource.data)
@@ -456,10 +600,12 @@ service cloud.firestore {
         allow list: if canManageContent(orgId);
         allow create: if canManageContent(orgId)
           && request.resource.data.invitedBy == request.auth.uid
-          && canCreateInvitationForRole(orgId, request.resource.data.role);
+          && canCreateInvitationForRole(orgId, request.resource.data.role)
+          && validManagerInvitationScope(request.resource.data);
         allow update: if (
             canManageContent(orgId)
             && canCreateInvitationForRole(orgId, request.resource.data.role)
+            && validManagerInvitationScope(request.resource.data)
           )
           || (
             signedIn()
