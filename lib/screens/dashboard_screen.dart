@@ -24,6 +24,7 @@ import '../widgets/glass_bottom_nav.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/profile_summary_card.dart';
 import '../widgets/schedule_game_card.dart';
+import '../widgets/schedule_team_logo.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -64,11 +65,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       context,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
-    final nextGame = visibleUpcoming
+    final filteredUpcoming = visibleUpcoming
         .where((event) =>
             _selectedLeagueId == null ||
             event.leagueIds.contains(_selectedLeagueId))
-        .firstOrNull;
+        .toList();
+    final nextGame = filteredUpcoming.firstOrNull;
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -105,25 +107,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  const AppMotionReveal(
-                    index: 1,
-                    child: _SectionHeading(
-                      icon: Icons.event_available_outlined,
-                      label: 'Next Game',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   AppMotionReveal(
-                    index: 2,
+                    index: 1,
                     child: _NextGameCard(
                       event: nextGame,
+                      upcomingCount: filteredUpcoming.length,
                       teamLogos: scheduleTeamLogos,
                       onTap: () => context.go('/schedule'),
                     ),
                   ),
                   const SizedBox(height: 18),
                   const AppMotionReveal(
-                    index: 3,
+                    index: 2,
                     child: _SectionHeading(
                       icon: Icons.grid_view_rounded,
                       label: 'Quick Access',
@@ -131,7 +126,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                   const SizedBox(height: 12),
                   AppMotionReveal(
-                    index: 4,
+                    index: 3,
                     child: _buildHomeGrid(context),
                   ),
                 ],
@@ -143,7 +138,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             right: 16,
             bottom: quickLinksBottomOffset,
             child: AppMotionReveal(
-              index: 5,
+              index: 4,
               child: _QuickLinksRow(
                 league: headerLeague,
                 fallbackLabel: headerLabel,
@@ -203,12 +198,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 }
 
 class _NextGameCard extends StatelessWidget {
+  static const _ink = Color(0xFF061D3A);
+  static const _mutedInk = Color(0xFF34516F);
+
   final ScheduleEvent? event;
+  final int upcomingCount;
   final ScheduleTeamLogos teamLogos;
   final VoidCallback onTap;
 
   const _NextGameCard({
     required this.event,
+    required this.upcomingCount,
     required this.teamLogos,
     required this.onTap,
   });
@@ -217,83 +217,298 @@ class _NextGameCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final game = event;
     if (game != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            DateFormat('EEEE, MMMM d').format(game.scheduleDate),
-            style: const TextStyle(
-              color: AppGlassColors.inkMuted,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
+      final dateLabel = DateFormat('EEE, MMM d').format(game.scheduleDate);
+      final details = [game.division, game.location]
+          .whereType<String>()
+          .where((value) => value.trim().isNotEmpty)
+          .join('  •  ');
+      final semanticLabel = 'Next game, ${game.cleanFirstTeamName} versus '
+          '${game.cleanSecondTeamName}, $dateLabel at '
+          '${scheduleTimeLabel(game)}';
+
+      return Semantics(
+        button: true,
+        label: semanticLabel,
+        child: AppGlassSurface(
+          key: const ValueKey('next-game-card'),
+          onTap: onTap,
+          radius: AppRadius.card,
+          padding: EdgeInsets.zero,
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: _DashboardCardArtwork(
+                  imageKey: ValueKey('next-game-active-background'),
+                  assetPath: 'assets/dashboard/upcoming_games_active.jpg',
+                  alignment: Alignment.centerRight,
+                  overlay: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Color(0xF7FFFFFF),
+                      Color(0xE8FFFFFF),
+                      Color(0x9EFFFFFF),
+                    ],
+                    stops: [0, 0.6, 1],
+                  ),
+                ),
+              ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 190),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.event_available_outlined,
+                            color: _ink,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Next Game',
+                            style: TextStyle(
+                              color: _ink,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (upcomingCount > 1)
+                            Text(
+                              'View all $upcomingCount',
+                              style: const TextStyle(
+                                color: _mutedInk,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.arrow_forward_rounded,
+                            color: _mutedInk,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '$dateLabel  •  ${scheduleTimeLabel(game)}',
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _NextGameTeamRow(
+                        name: game.cleanFirstTeamName,
+                        logoUrl: teamLogos.logoFor(
+                          teamId: game.firstTeamId,
+                          teamName: game.firstTeamName,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _NextGameTeamRow(
+                        name: game.cleanSecondTeamName,
+                        logoUrl: teamLogos.logoFor(
+                          teamId: game.secondTeamId,
+                          teamName: game.secondTeamName,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            color: _mutedInk,
+                            size: 15,
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              details.isEmpty ? 'Game details' : details,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _mutedInk,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          ScheduleGameCard(
-            event: game,
-            onTap: onTap,
-            compact: true,
-            firstTeamLogoUrl: teamLogos.logoFor(
-              teamId: game.firstTeamId,
-              teamName: game.firstTeamName,
-            ),
-            secondTeamLogoUrl: teamLogos.logoFor(
-              teamId: game.secondTeamId,
-              teamName: game.secondTeamName,
-            ),
-          ),
-        ],
+        ),
       );
     }
 
-    return AppGlassSurface(
-      onTap: onTap,
-      height: 92,
-      radius: AppRadius.card,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.sm,
+    return Semantics(
+      button: true,
+      label: 'No upcoming games. Open schedule.',
+      child: AppGlassSurface(
+        key: const ValueKey('next-game-card'),
+        onTap: onTap,
+        radius: AppRadius.card,
+        padding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            const Positioned.fill(
+              child: _DashboardCardArtwork(
+                imageKey: ValueKey('next-game-empty-background'),
+                assetPath: 'assets/dashboard/upcoming_games_empty.jpg',
+                alignment: Alignment.centerRight,
+                overlay: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xFAFFFFFF),
+                    Color(0xEDFFFFFF),
+                    Color(0x38FFFFFF),
+                  ],
+                  stops: [0, 0.58, 1],
+                ),
+              ),
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 190),
+              child: const Padding(
+                padding: EdgeInsets.all(AppSpacing.lg),
+                child: FractionallySizedBox(
+                  widthFactor: 0.72,
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _UpcomingCalendarMark(),
+                      SizedBox(height: 16),
+                      Text(
+                        'No upcoming games',
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'New games will appear here when the schedule is published.',
+                        style: TextStyle(
+                          color: _mutedInk,
+                          fontSize: 13,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: const Row(
-        children: [
-          _HomeTileIcon(
-            icon: Icons.calendar_month_outlined,
-            accentColor: AppGlassColors.aqua,
-          ),
-          SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Schedule coming soon',
-                  style: TextStyle(
-                    color: AppGlassColors.ink,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Games update automatically when published.',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppGlassColors.inkMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+    );
+  }
+}
+
+class _NextGameTeamRow extends StatelessWidget {
+  final String name;
+  final String? logoUrl;
+
+  const _NextGameTeamRow({
+    required this.name,
+    required this.logoUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ScheduleTeamLogo(
+          teamName: name,
+          imageUrl: logoUrl,
+          size: 30,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _NextGameCard._ink,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(width: AppSpacing.sm),
-          Icon(
-            Icons.arrow_forward_rounded,
-            color: AppGlassColors.inkMuted,
-            size: 22,
+        ),
+      ],
+    );
+  }
+}
+
+class _UpcomingCalendarMark extends StatelessWidget {
+  const _UpcomingCalendarMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: const BoxDecoration(
+        color: Color(0xFFDCEAFF),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Icons.calendar_month_outlined,
+        color: Color(0xFF1D5A9E),
+        size: 25,
+      ),
+    );
+  }
+}
+
+class _DashboardCardArtwork extends StatelessWidget {
+  final Key imageKey;
+  final String assetPath;
+  final AlignmentGeometry alignment;
+  final Gradient overlay;
+
+  const _DashboardCardArtwork({
+    required this.imageKey,
+    required this.assetPath,
+    required this.alignment,
+    required this.overlay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            assetPath,
+            key: imageKey,
+            fit: BoxFit.cover,
+            alignment: alignment,
+            filterQuality: FilterQuality.medium,
           ),
+          DecoratedBox(decoration: BoxDecoration(gradient: overlay)),
         ],
       ),
     );
@@ -888,9 +1103,25 @@ class _HomeProfileCard extends StatelessWidget {
       user: user!,
       showEmail: false,
       compact: true,
+      minHeight: 112,
       actionIcon: Icons.chevron_right,
       actionTooltip: 'Open profile',
       onTap: onProfileTap,
+      background: const _DashboardCardArtwork(
+        imageKey: ValueKey('home-profile-background'),
+        assetPath: 'assets/dashboard/profile_hockey_arena.jpg',
+        alignment: Alignment.centerRight,
+        overlay: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Color(0xF2071428),
+            Color(0xD9081C35),
+            Color(0x63020A14),
+          ],
+          stops: [0, 0.58, 1],
+        ),
+      ),
     );
   }
 }
@@ -951,25 +1182,52 @@ class _ProfileHeaderPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppGlassSurface(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       radius: 21,
-      child: Row(
+      child: Stack(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
-              shape: BoxShape.circle,
+          const Positioned.fill(
+            child: _DashboardCardArtwork(
+              imageKey: ValueKey('home-profile-background'),
+              assetPath: 'assets/dashboard/profile_hockey_arena.jpg',
+              alignment: Alignment.centerRight,
+              overlay: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0xF2071428),
+                  Color(0xD9081C35),
+                  Color(0x63020A14),
+                ],
+                stops: [0, 0.58, 1],
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Loading profile...',
-              style: TextStyle(
-                color: AppGlassColors.inkSecondary,
-                fontWeight: FontWeight.w700,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 112),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Loading profile...',
+                      style: TextStyle(
+                        color: AppGlassColors.inkSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

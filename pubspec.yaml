@@ -49,3 +49,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/app_icons/
+    - assets/dashboard/

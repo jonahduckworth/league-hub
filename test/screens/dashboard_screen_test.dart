@@ -247,6 +247,7 @@ void main() {
           startsAt: startsAt,
           endsAt: startsAt.add(const Duration(hours: 2)),
           timezone: 'America/Edmonton',
+          location: 'Winsport Arena',
           status: ScheduleEventStatus.scheduled,
           isActive: true,
         );
@@ -257,6 +258,38 @@ void main() {
         expect(find.text('Wolves HC'), findsOneWidget);
         expect(find.text('Calgary Rockies'), findsOneWidget);
         expect(find.byType(ScheduleTeamLogo), findsNWidgets(2));
+        expect(find.text('Next Game'), findsOneWidget);
+        expect(find.text('17U AAA  •  Winsport Arena'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('next-game-active-background')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-empty-background')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('shows a helpful empty schedule state',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+
+        expect(find.text('No upcoming games'), findsOneWidget);
+        expect(
+          find.text(
+            'New games will appear here when the schedule is published.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-empty-background')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-active-background')),
+          findsNothing,
+        );
       });
 
       testWidgets('does not render the old stats card grid',
@@ -279,6 +312,18 @@ void main() {
 
         expect(find.text('Quick Access'), findsOneWidget);
         expect(find.text('Test User'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('home-profile-background')),
+          findsOneWidget,
+        );
+        final profileSurface = find
+            .ancestor(
+              of: find.byKey(const ValueKey('home-profile-background')),
+              matching: find.byType(AppGlassSurface),
+            )
+            .last;
+        expect(
+            tester.getSize(profileSurface).height, greaterThanOrEqualTo(112));
         expect(
           find.descendant(
             of: find.byType(SingleChildScrollView),
@@ -420,7 +465,7 @@ void main() {
             .getTopLeft(
               find
                   .ancestor(
-                    of: find.text('Schedule coming soon'),
+                    of: find.text('No upcoming games'),
                     matching: find.byType(AppGlassSurface),
                   )
                   .last,
@@ -436,6 +481,44 @@ void main() {
 
         expect(nextGameTop, greaterThan(headerBottom));
         expect(contentTop, greaterThan(nextGameTop));
+      });
+
+      testWidgets('keeps empty and active next game cards the same height',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+        final emptyHeight =
+            tester.getSize(find.byKey(const ValueKey('next-game-card'))).height;
+
+        final startsAt = DateTime.now().add(const Duration(days: 2));
+        final game = ScheduleEvent(
+          id: 'next-game',
+          orgId: 'org-1',
+          sourceUid: 'next-game@rampinteractive.com',
+          firstTeamId: 'wolves',
+          secondTeamId: 'rockies',
+          teamIds: const ['wolves', 'rockies'],
+          hubIds: const ['hub-wolves', 'hub-rockies'],
+          leagueIds: const ['league-1'],
+          division: '17U AAA',
+          title: 'Wolves HC vs Calgary Rockies',
+          firstTeamName: '17U AAA - Wolves HC',
+          secondTeamName: '17U AAA - Calgary Rockies',
+          startsAt: startsAt,
+          endsAt: startsAt.add(const Duration(hours: 2)),
+          timezone: 'America/Edmonton',
+          location: 'Winsport Arena',
+          status: ScheduleEventStatus.scheduled,
+          isActive: true,
+        );
+
+        await tester.pumpWidget(createTestWidget(scheduleEvents: [game]));
+        await tester.pumpAndSettle();
+        final activeHeight =
+            tester.getSize(find.byKey(const ValueKey('next-game-card'))).height;
+
+        expect(activeHeight, closeTo(emptyHeight, 1));
+        expect(tester.takeException(), isNull);
       });
 
       testWidgets('matches quick access heading to the greeting pill',
