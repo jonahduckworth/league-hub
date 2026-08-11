@@ -424,10 +424,13 @@ void main() {
         expect(find.text('user@example.com'), findsNothing);
         expect(find.byIcon(Icons.chevron_right), findsOneWidget);
         expect(find.byType(TextField), findsNothing);
-        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('home-header-league-mark')),
+          findsOneWidget,
+        );
       });
 
-      testWidgets('aligns the league mark with the greeting row',
+      testWidgets('uses a borderless greeting and league mark',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -436,18 +439,17 @@ void main() {
         final greetingFinder = find.textContaining(
           RegExp(r'Good (morning|afternoon|evening)'),
         );
-        final logoFinder = find.byType(AppHeaderLogoMark);
-        final greetingSurface = find
-            .ancestor(
-              of: greetingFinder,
-              matching: find.byType(AppGlassSurface),
-            )
-            .first;
+        final logoFinder =
+            find.byKey(const ValueKey('home-header-league-mark'));
 
         expect(greetingFinder, findsOneWidget);
         expect(logoFinder, findsOneWidget);
         expect(
-          tester.getSize(greetingSurface).height,
+          tester
+              .getSize(
+                find.byKey(const ValueKey('home-greeting-row')),
+              )
+              .height,
           closeTo(tester.getSize(logoFinder).height, 1),
         );
         expect(tester.getCenter(logoFinder).dy,
@@ -456,6 +458,35 @@ void main() {
           tester.getTopRight(logoFinder).dx,
           greaterThan(tester.getTopRight(greetingFinder).dx),
         );
+        expect(
+          find.ancestor(
+            of: greetingFinder,
+            matching: find.byType(AppGlassSurface),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.ancestor(
+            of: logoFinder,
+            matching: find.byType(AppGlassSurface),
+          ),
+          findsNothing,
+        );
+      });
+
+      testWidgets('keeps the profile close to the borderless header',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
+        await tester.pumpAndSettle();
+
+        final greetingBottom = tester
+            .getBottomLeft(find.byKey(const ValueKey('home-greeting-row')))
+            .dy;
+        final profileTop = tester
+            .getTopLeft(find.byKey(const ValueKey('home-profile-frame')))
+            .dy;
+
+        expect(profileTop - greetingBottom, closeTo(12, 1));
       });
 
       testWidgets('uses a compact header without org welcome copy',
@@ -570,7 +601,7 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('matches quick access heading to the greeting pill',
+      testWidgets('matches quick access heading to the greeting text',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -698,11 +729,11 @@ void main() {
             of: find.byType(SingleChildScrollView),
             matching: find.byTooltip('League Website'),
           ),
-          findsNothing,
+          findsOneWidget,
         );
       });
 
-      testWidgets('positions quick links above the bottom nav area',
+      testWidgets('keeps quick links at the bottom of the scrollable page',
           (WidgetTester tester) async {
         await tester.binding.setSurfaceSize(const Size(390, 844));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -711,10 +742,24 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        final websiteBottom =
-            tester.getBottomLeft(find.byTooltip('League Website')).dy;
+        final websiteFinder = find.byTooltip('League Website');
+        final settingsSurface = find
+            .ancestor(
+              of: find.text('Settings'),
+              matching: find.byType(AppGlassSurface),
+            )
+            .last;
+        final websiteTop = tester.getTopLeft(websiteFinder).dy;
+        final settingsBottom = tester.getBottomLeft(settingsSurface).dy;
 
-        expect(websiteBottom, closeTo(844 - 64 - 12 - 40, 1));
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -100),
+        );
+        await tester.pumpAndSettle();
+
+        expect(websiteTop, greaterThan(settingsBottom));
+        expect(tester.getTopLeft(websiteFinder).dy, lessThan(websiteTop));
       });
 
       testWidgets('policy tile navigates to policy',

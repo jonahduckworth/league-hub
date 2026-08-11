@@ -21,7 +21,6 @@ import '../widgets/app_motion.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/dashboard_empty_schedule_state.dart';
-import '../widgets/glass_bottom_nav.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/profile_summary_card.dart';
 import '../widgets/schedule_game_card.dart';
@@ -35,21 +34,11 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  static const double _bottomNavBottomInset = 12;
-  static const double _quickLinksHeight = 52;
-  static const double _quickLinksContentGap = 12;
-  static const double _quickLinksNavGap = 40;
-
   String? _selectedLeagueId;
 
   @override
   Widget build(BuildContext context) {
-    final quickLinksBottomOffset = MediaQuery.viewPaddingOf(context).bottom +
-        leagueHubGlassBottomNavBarHeight +
-        _bottomNavBottomInset +
-        _quickLinksNavGap;
-    final bottomContentPadding =
-        quickLinksBottomOffset + _quickLinksHeight + _quickLinksContentGap;
+    final bottomContentPadding = appShellBottomPadding(context);
     final leaguesAsync = ref.watch(leaguesProvider);
     final org = ref.watch(organizationProvider).valueOrNull;
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
@@ -64,6 +53,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final headerLabel = headerLeague?.name ?? org?.name ?? 'League Hub';
     final topContentPadding = appShellTopPadding(
       context,
+      extra: 0,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
     final filteredUpcoming = visibleUpcoming
@@ -88,65 +78,56 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onSelected: (id) => setState(() => _selectedLeagueId = id),
             )
           : null,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                topContentPadding,
-                16,
-                bottomContentPadding,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AppMotionReveal(
-                    child: _HomeProfileCard(
-                      user: currentUser,
-                      onProfileTap: () => context.go('/profile'),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  AppMotionReveal(
-                    index: 1,
-                    child: _NextGameCard(
-                      event: nextGame,
-                      upcomingCount: filteredUpcoming.length,
-                      teamLogos: scheduleTeamLogos,
-                      onTap: () => context.go('/schedule'),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const AppMotionReveal(
-                    index: 2,
-                    child: _SectionHeading(
-                      icon: Icons.grid_view_rounded,
-                      label: 'Quick Access',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  AppMotionReveal(
-                    index: 3,
-                    child: _buildHomeGrid(context),
-                  ),
-                ],
+      topSpacing: 0,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          topContentPadding,
+          16,
+          bottomContentPadding,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppMotionReveal(
+              child: _HomeProfileCard(
+                user: currentUser,
+                onProfileTap: () => context.go('/profile'),
               ),
             ),
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: quickLinksBottomOffset,
-            child: AppMotionReveal(
+            const SizedBox(height: 18),
+            AppMotionReveal(
+              index: 1,
+              child: _NextGameCard(
+                event: nextGame,
+                upcomingCount: filteredUpcoming.length,
+                teamLogos: scheduleTeamLogos,
+                onTap: () => context.go('/schedule'),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const AppMotionReveal(
+              index: 2,
+              child: _SectionHeading(
+                icon: Icons.grid_view_rounded,
+                label: 'Quick Access',
+              ),
+            ),
+            const SizedBox(height: 12),
+            AppMotionReveal(
+              index: 3,
+              child: _buildHomeGrid(context),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AppMotionReveal(
               index: 4,
               child: _QuickLinksRow(
                 league: headerLeague,
                 fallbackLabel: headerLabel,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1132,29 +1113,89 @@ class _GreetingRow extends StatelessWidget {
             ? Icons.wb_sunny
             : Icons.nightlight_outlined;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Flexible(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: AppHeaderPill(
-              text: greeting,
-              icon: icon,
-              iconSize: 18,
-              showIconBubble: false,
-              padding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
-              textStyle: _homePillTextStyle(),
+    return SizedBox(
+      key: const ValueKey('home-greeting-row'),
+      height: 40,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: AppGlassColors.ink.withValues(alpha: 0.9),
+                  size: 18,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Flexible(
+                  child: Text(
+                    greeting,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _homePillTextStyle(),
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: AppSpacing.sm),
+          _BorderlessLeagueMark(
+            imageUrl: leagueLogoUrl,
+            label: leagueLabel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BorderlessLeagueMark extends StatelessWidget {
+  final String? imageUrl;
+  final String label;
+
+  const _BorderlessLeagueMark({
+    required this.imageUrl,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    return Semantics(
+      image: hasImage,
+      label: '$label logo',
+      child: SizedBox(
+        key: const ValueKey('home-header-league-mark'),
+        width: 40,
+        height: 40,
+        child: hasImage
+            ? Padding(
+                padding: const EdgeInsets.all(AppSpacing.xxs),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl!,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => _fallback(),
+                  errorWidget: (_, __, ___) => _fallback(),
+                ),
+              )
+            : _fallback(),
+      ),
+    );
+  }
+
+  Widget _fallback() {
+    return Center(
+      child: Text(
+        AppUtils.getInitials(label),
+        style: const TextStyle(
+          color: AppGlassColors.ink,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
         ),
-        const SizedBox(width: 10),
-        AppHeaderLogoMark(
-          imageUrl: leagueLogoUrl,
-          label: leagueLabel,
-          size: 40,
-        ),
-      ],
+      ),
     );
   }
 }
