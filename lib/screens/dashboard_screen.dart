@@ -442,6 +442,7 @@ class _NextGameTeamRow extends StatelessWidget {
           teamName: name,
           imageUrl: logoUrl,
           size: 30,
+          fallbackTextColor: _NextGameCard._ink,
         ),
         const SizedBox(width: 8),
         Expanded(

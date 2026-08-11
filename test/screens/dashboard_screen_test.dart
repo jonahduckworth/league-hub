@@ -258,6 +258,14 @@ void main() {
         expect(find.text('Wolves HC'), findsOneWidget);
         expect(find.text('Calgary Rockies'), findsOneWidget);
         expect(find.byType(ScheduleTeamLogo), findsNWidgets(2));
+        expect(
+          tester
+              .widgetList<ScheduleTeamLogo>(find.byType(ScheduleTeamLogo))
+              .every(
+                (logo) => logo.fallbackTextColor == const Color(0xFF061D3A),
+              ),
+          isTrue,
+        );
         expect(find.text('Next Game'), findsOneWidget);
         expect(find.text('17U AAA  •  Winsport Arena'), findsOneWidget);
         expect(

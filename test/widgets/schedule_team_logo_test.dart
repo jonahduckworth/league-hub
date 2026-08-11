@@ -1,15 +1,21 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/widgets/schedule_team_logo.dart';
 
 void main() {
-  Widget subject({String? imageUrl}) => MaterialApp(
+  Widget subject({
+    String? imageUrl,
+    Color fallbackTextColor = AppGlassColors.ink,
+  }) =>
+      MaterialApp(
         home: Scaffold(
           body: ScheduleTeamLogo(
             teamName: 'Wolves HC',
             imageUrl: imageUrl,
             size: 28,
+            fallbackTextColor: fallbackTextColor,
           ),
         ),
       );
@@ -19,6 +25,10 @@ void main() {
     await tester.pumpWidget(subject());
 
     expect(find.text('WH'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('WH')).style?.color,
+      AppGlassColors.ink,
+    );
     expect(tester.getSize(find.byType(ScheduleTeamLogo)), const Size(28, 28));
     expect(
       find.descendant(
@@ -28,6 +38,17 @@ void main() {
       findsNothing,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('supports dark fallback initials on a light card',
+      (tester) async {
+    const fallbackColor = Color(0xFF061D3A);
+    await tester.pumpWidget(subject(fallbackTextColor: fallbackColor));
+
+    expect(
+      tester.widget<Text>(find.text('WH')).style?.color,
+      fallbackColor,
+    );
   });
 
   testWidgets('uses a cached network image when a logo URL is available',

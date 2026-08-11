@@ -8,12 +8,14 @@ class ScheduleTeamLogo extends StatelessWidget {
   final String teamName;
   final String? imageUrl;
   final double size;
+  final Color fallbackTextColor;
 
   const ScheduleTeamLogo({
     super.key,
     required this.teamName,
     this.imageUrl,
     this.size = 28,
+    this.fallbackTextColor = AppGlassColors.ink,
   });
 
   @override
@@ -47,7 +49,7 @@ class ScheduleTeamLogo extends StatelessWidget {
           AppUtils.getInitials(teamName),
           maxLines: 1,
           style: TextStyle(
-            color: AppGlassColors.ink,
+            color: fallbackTextColor,
             fontSize: size * 0.27,
             fontWeight: FontWeight.w900,
           ),
