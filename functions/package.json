@@ -5,6 +5,7 @@
     "lint": "eslint --ext .js,.ts src/ scripts/",
     "build": "tsc",
     "test": "npm run build && node --test test/*.test.js",
+    "test:rules": "cd .. && firebase emulators:exec --config firebase.rules-test.json --project demo-league-hub-rules --only firestore,storage \"node --test functions/test/security-rules.rules.js\"",
     "migrate:jphl-structure": "node scripts/reconcile-jphl-structure.js",
     "seed:schedule-emulator": "node scripts/seed-schedule-emulator.js",
     "build:watch": "tsc --watch",
@@ -26,6 +27,7 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",

@@ -252,6 +252,38 @@ async function getStructure(orgId: string) {
   return { leagues, hubs, teams };
 }
 
+async function validateAssignments(
+  orgId: string,
+  hubIds: string[],
+  teamIds: string[],
+): Promise<string[]> {
+  const structure = await getStructure(orgId);
+  const hubById = new Map(structure.hubs.map((hub) => [hub.id as string, hub]));
+  const teamById = new Map(structure.teams.map((team) => [team.id as string, team]));
+
+  for (const hubId of hubIds) {
+    if (!hubById.has(hubId)) {
+      throw new HttpsError("invalid-argument", `Hub ${hubId} is not in this organization.`);
+    }
+  }
+  for (const teamId of teamIds) {
+    const team = teamById.get(teamId);
+    if (!team) {
+      throw new HttpsError("invalid-argument", `Team ${teamId} is not in this organization.`);
+    }
+    if (!hubIds.includes(team.hubId as string)) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Team ${teamId} must be assigned with its parent hub.`,
+      );
+    }
+  }
+
+  return [...new Set(hubIds
+    .map((hubId) => hubById.get(hubId)?.leagueId as string | undefined)
+    .filter((leagueId): leagueId is string => Boolean(leagueId)))];
+}
+
 async function ensureLeagueRoom(orgId: string, leagueId: string, league: RequestRecord): Promise<void> {
   const rooms = orgRef(orgId).collection("chatRooms");
   const existing = await rooms
@@ -546,13 +578,17 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
 
     const invitationRef = orgRef(orgId).collection("invitations").doc();
     const token = randomBytes(16).toString("hex");
+    const hubIds = normalizeStringArray(data.hubIds);
+    const teamIds = normalizeStringArray(data.teamIds);
+    const leagueIds = await validateAssignments(orgId, hubIds, teamIds);
     const invitationData = {
       orgId,
       email,
       displayName: optionalString(data.displayName) ?? null,
       role,
-      hubIds: normalizeStringArray(data.hubIds),
-      teamIds: normalizeStringArray(data.teamIds),
+      leagueIds,
+      hubIds,
+      teamIds,
       invitedBy: actor.id,
       invitedByName: actor.displayName ?? actor.email ?? "Admin",
       createdAt: now(),
@@ -612,6 +648,9 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
     }
     const hubIds = data.hubIds === undefined ? undefined : normalizeStringArray(data.hubIds);
     const teamIds = data.teamIds === undefined ? undefined : normalizeStringArray(data.teamIds);
+    const nextHubIds = hubIds ?? normalizeStringArray(targetData.hubIds);
+    const nextTeamIds = teamIds ?? normalizeStringArray(targetData.teamIds);
+    const leagueIds = await validateAssignments(orgId, nextHubIds, nextTeamIds);
     if (hubIds) updates.hubIds = hubIds;
     if (teamIds) updates.teamIds = teamIds;
     const isActive = optionalBoolean(data.isActive);
@@ -626,13 +665,7 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
       }
     }
 
-    if (hubIds) {
-      const structure = await getStructure(orgId);
-      updates.leagueIds = [...new Set(structure.hubs
-        .filter((hub) => hubIds.includes(hub.id as string))
-        .map((hub) => hub.leagueId as string)
-        .filter(Boolean))];
-    }
+    if (hubIds || teamIds) updates.leagueIds = leagueIds;
 
     if (teamIds) {
       const beforeTeamIds = normalizeStringArray(targetData.teamIds);

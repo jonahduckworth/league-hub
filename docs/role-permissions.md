@@ -12,6 +12,9 @@ all implement this model.
   another Admin.
 - Manager permissions are limited to explicitly assigned leagues, hubs, and
   teams. Missing assignments fail closed.
+- Invitation records persist the exact league, hub, and team scope that the
+  accepted account receives. Pending invitations created before this schema
+  must be reissued (or backfilled) before acceptance.
 - Staff can view and participate in assigned content and can start direct
   messages, but cannot create managed group rooms or publish content.
 - Nobody manages their own account through User Management. Personal details

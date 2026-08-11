@@ -151,6 +151,45 @@ service firebase.storage {
         );
     }
 
+    function canManagePolicyFile(orgId, policyId) {
+      let policy = policyData(orgId, policyId);
+      return sameOrg(orgId)
+        && policyExists(orgId, policyId)
+        && (
+          isSuperAdmin()
+          || (
+            userDoc().role == 'managerAdmin'
+            && policy.uploadedBy == request.auth.uid
+            && (
+              (
+                'teamId' in policy
+                && policy.teamId != null
+                && (
+                  hasAssignedTeam(policy.teamId)
+                  || (
+                    'hubId' in policy
+                    && policy.hubId != null
+                    && hasAssignedHub(policy.hubId)
+                  )
+                )
+              )
+              || (
+                'hubId' in policy
+                && policy.hubId != null
+                && (!('teamId' in policy) || policy.teamId == null)
+                && hasAssignedHub(policy.hubId)
+              )
+              || (
+                'leagueId' in policy
+                && policy.leagueId != null
+                && (!('hubId' in policy) || policy.hubId == null)
+                && hasAssignedLeague(policy.leagueId)
+              )
+            )
+          )
+        );
+    }
+
     match /orgs/{orgId}/avatars/{fileName} {
       allow read: if sameOrg(orgId);
       allow write: if sameOrg(orgId)
@@ -197,8 +236,7 @@ service firebase.storage {
 
     match /organizations/{orgId}/policies/{policyId}/{fileName} {
       allow read: if canReadPolicy(orgId, policyId);
-      allow write: if sameOrg(orgId)
-        && isManagerAdmin()
+      allow write: if canManagePolicyFile(orgId, policyId)
         && request.resource != null
         && request.resource.size <= 50 * 1024 * 1024;
       allow delete: if sameOrg(orgId) && isSuperAdmin();

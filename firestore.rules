@@ -137,6 +137,36 @@ service cloud.firestore {
         );
     }
 
+    function scopedTargetExists(orgId, data) {
+      return (
+          !('leagueId' in data)
+          || data.leagueId == null
+        )
+        || (
+          data.leagueId is string
+          && exists(leaguePath(orgId, data.leagueId))
+          && (
+            (!('hubId' in data) || data.hubId == null)
+            || (
+              data.hubId is string
+              && exists(hubPath(orgId, data.leagueId, data.hubId))
+              && (
+                (!('teamId' in data) || data.teamId == null)
+                || (
+                  data.teamId is string
+                  && exists(teamPath(
+                    orgId,
+                    data.leagueId,
+                    data.hubId,
+                    data.teamId
+                  ))
+                )
+              )
+            )
+          )
+        );
+    }
+
     function validAnnouncementTarget(data) {
       return data.keys().hasAll(['scope', 'leagueId', 'hubId', 'teamId'])
         && data.scope in ['league', 'hub', 'team']
@@ -238,6 +268,7 @@ service cloud.firestore {
       return invite.status == 'pending'
         && invite.email == request.auth.token.email
         && invite.role == request.resource.data.role
+        && invite.leagueIds == request.resource.data.leagueIds
         && invite.hubIds == request.resource.data.hubIds
         && invite.teamIds == request.resource.data.teamIds;
     }
@@ -261,6 +292,8 @@ service cloud.firestore {
       return currentUser().role != 'managerAdmin'
         || (
           data.role == 'staff'
+          && data.leagueIds is list
+          && data.leagueIds.hasOnly(currentUser().leagueIds)
           && data.hubIds is list
           && data.hubIds.size() > 0
           && data.hubIds.hasOnly(currentUser().hubIds)
@@ -318,6 +351,22 @@ service cloud.firestore {
 
     function canAdminUpdateUser(userData) {
       return isActive()
+        && request.resource.data.id == userData.id
+        && request.resource.data.orgId == userData.orgId
+        && request.resource.data.email == userData.email
+        && request.resource.data.hubIds is list
+        && request.resource.data.leagueIds is list
+        && request.resource.data.teamIds is list
+        && request.resource.data.diff(userData).affectedKeys().hasOnly([
+          'role',
+          'hubIds',
+          'leagueIds',
+          'teamIds',
+          'title',
+          'phone',
+          'address',
+          'isActive'
+        ])
         && (
           (
             isPlatformOwner()
@@ -348,20 +397,92 @@ service cloud.firestore {
                 && request.resource.data.leagueIds.hasOnly(currentUser().leagueIds)
                 && request.resource.data.teamIds is list
                 && request.resource.data.teamIds.hasOnly(currentUser().teamIds)
-                && request.resource.data.diff(userData).affectedKeys().hasOnly([
-                  'role',
-                  'hubIds',
-                  'leagueIds',
-                  'teamIds',
-                  'title',
-                  'phone',
-                  'address',
-                  'isActive'
-                ])
               )
             )
           )
         );
+    }
+
+    function validOrganizationUpdate(orgId) {
+      return request.resource.data.id == orgId
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'logoUrl',
+          'primaryColor',
+          'secondaryColor',
+          'accentColor'
+        ]);
+    }
+
+    function validTeamCreate(orgId, leagueId, hubId) {
+      return request.resource.data.orgId == orgId
+        && request.resource.data.leagueId == leagueId
+        && request.resource.data.hubId == hubId
+        && request.resource.data.memberIds is list
+        && (isSuperAdmin() || request.resource.data.memberIds.size() == 0);
+    }
+
+    function validTeamUpdate(orgId, leagueId, hubId, teamId) {
+      return request.resource.data.id == resource.data.id
+        && request.resource.data.orgId == orgId
+        && request.resource.data.orgId == resource.data.orgId
+        && request.resource.data.leagueId == leagueId
+        && request.resource.data.leagueId == resource.data.leagueId
+        && request.resource.data.hubId == hubId
+        && request.resource.data.hubId == resource.data.hubId
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memberIds'])
+          || isSuperAdmin()
+          || (
+            currentUser().role == 'managerAdmin'
+            && hasAssignedHub(hubId)
+            && hasAssignedTeam(teamId)
+          )
+        );
+    }
+
+    function validAnnouncementUpdate(orgId) {
+      return request.resource.data.orgId == orgId
+        && request.resource.data.orgId == resource.data.orgId
+        && request.resource.data.authorId == resource.data.authorId
+        && request.resource.data.authorName == resource.data.authorName
+        && request.resource.data.authorRole == resource.data.authorRole
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title',
+          'body',
+          'scope',
+          'leagueId',
+          'hubId',
+          'teamId',
+          'attachments',
+          'isPinned',
+          'updatedAt'
+        ])
+        && (isSuperAdmin() || request.resource.data.isPinned == resource.data.isPinned);
+    }
+
+    function validPolicyUpdate(orgId) {
+      return request.resource.data.orgId == orgId
+        && request.resource.data.orgId == resource.data.orgId
+        && request.resource.data.uploadedBy == resource.data.uploadedBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'fileUrl',
+          'fileType',
+          'fileSize',
+          'category',
+          'leagueId',
+          'hubId',
+          'teamId',
+          'versions',
+          'uploadStatus',
+          'updatedAt'
+        ]);
     }
 
     function validDirectRoomCreate(orgId, data) {
@@ -486,7 +607,7 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.id == orgId;
-      allow update: if canManageOrg(orgId);
+      allow update: if canManageOrg(orgId) && validOrganizationUpdate(orgId);
       allow delete: if isPlatformOwner();
 
       match /leagues/{leagueId} {
@@ -503,7 +624,11 @@ service cloud.firestore {
 
           match /teams/{teamId} {
             allow get, list: if canReadOrg(orgId);
-            allow create, update, delete: if canManageHub(orgId, hubId);
+            allow create: if canManageHub(orgId, hubId)
+              && validTeamCreate(orgId, leagueId, hubId);
+            allow update: if canManageHub(orgId, hubId)
+              && validTeamUpdate(orgId, leagueId, hubId, teamId);
+            allow delete: if canManageHub(orgId, hubId);
           }
         }
       }
@@ -519,11 +644,15 @@ service cloud.firestore {
             && request.resource.data.orgId == orgId
             && request.resource.data.type in ['league', 'event']
             && canManageScopedTarget(request.resource.data)
+            && scopedTargetExists(orgId, request.resource.data)
           )
         );
         allow update: if canManageContent(orgId)
+          && resource.data.type in ['league', 'event']
+          && request.resource.data.type in ['league', 'event']
           && canManageScopedTarget(resource.data)
-          && canManageScopedTarget(request.resource.data);
+          && canManageScopedTarget(request.resource.data)
+          && scopedTargetExists(orgId, request.resource.data);
         allow delete: if false;
 
         match /messages/{messageId} {
@@ -552,12 +681,16 @@ service cloud.firestore {
       match /policies/{policyId} {
         allow get, list: if sameOrg(orgId);
         allow create: if canManageContent(orgId)
+          && request.resource.data.orgId == orgId
           && request.resource.data.uploadedBy == request.auth.uid
           && validPolicyCategory(request.resource.data)
-          && canManageScopedTarget(request.resource.data);
+          && canManageScopedTarget(request.resource.data)
+          && scopedTargetExists(orgId, request.resource.data);
         allow update: if canManageContent(orgId)
+          && validPolicyUpdate(orgId)
           && canManageScopedTarget(resource.data)
           && canManageScopedTarget(request.resource.data)
+          && scopedTargetExists(orgId, request.resource.data)
           && (canManageOrg(orgId) || resource.data.uploadedBy == request.auth.uid)
           && (
             request.resource.data.category == resource.data.category
@@ -570,10 +703,12 @@ service cloud.firestore {
         allow get, list: if sameOrg(orgId);
         allow create: if canManageContent(orgId)
           && request.resource.data.authorId == request.auth.uid
+          && (isSuperAdmin() || request.resource.data.isPinned == false)
           && validAnnouncementTarget(request.resource.data)
           && announcementTargetExists(orgId, request.resource.data)
           && canManageAnnouncementTarget(request.resource.data);
         allow update: if canManageContent(orgId)
+          && validAnnouncementUpdate(orgId)
           && validAnnouncementTarget(request.resource.data)
           && announcementTargetExists(orgId, request.resource.data)
           && canManageAnnouncementTarget(request.resource.data)
@@ -604,8 +739,10 @@ service cloud.firestore {
           && validManagerInvitationScope(request.resource.data);
         allow update: if (
             canManageContent(orgId)
-            && canCreateInvitationForRole(orgId, request.resource.data.role)
-            && validManagerInvitationScope(request.resource.data)
+            && canCreateInvitationForRole(orgId, resource.data.role)
+            && validManagerInvitationScope(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+            && request.resource.data.status in ['pending', 'expired']
           )
           || (
             signedIn()

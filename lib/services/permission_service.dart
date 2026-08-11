@@ -298,6 +298,12 @@ class PermissionService {
     return user.hubIds.contains(hubId);
   }
 
+  bool canInviteToLeague(AppUser user, String leagueId) {
+    if (!canCreateInvitation(user)) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    return user.leagueIds.contains(leagueId);
+  }
+
   bool canInviteToTeam(AppUser user, String teamId) {
     if (!canCreateInvitation(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;

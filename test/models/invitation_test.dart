@@ -14,6 +14,7 @@ void main() {
           'email': 'newuser@example.com',
           'displayName': 'New User',
           'role': 'managerAdmin',
+          'leagueIds': ['league1'],
           'hubIds': ['hub1', 'hub2'],
           'teamIds': ['team1'],
           'invitedBy': 'user1',
@@ -30,6 +31,7 @@ void main() {
         expect(inv.email, 'newuser@example.com');
         expect(inv.displayName, 'New User');
         expect(inv.role, 'managerAdmin');
+        expect(inv.leagueIds, ['league1']);
         expect(inv.hubIds, ['hub1', 'hub2']);
         expect(inv.teamIds, ['team1']);
         expect(inv.invitedBy, 'user1');
@@ -76,7 +78,7 @@ void main() {
         expect(Invitation.fromJson(json).status, InvitationStatus.pending);
       });
 
-      test('defaults hubIds and teamIds to empty lists', () {
+      test('defaults assignment lists to empty lists', () {
         final json = {
           'id': 'inv1',
           'orgId': 'org1',
@@ -91,6 +93,7 @@ void main() {
 
         final inv = Invitation.fromJson(json);
 
+        expect(inv.leagueIds, isEmpty);
         expect(inv.hubIds, isEmpty);
         expect(inv.teamIds, isEmpty);
       });
@@ -139,6 +142,7 @@ void main() {
           email: 'user@example.com',
           displayName: 'Test User',
           role: 'staff',
+          leagueIds: ['l1'],
           hubIds: ['h1'],
           teamIds: ['t1', 't2'],
           invitedBy: 'admin1',
@@ -154,6 +158,7 @@ void main() {
         expect(json['email'], 'user@example.com');
         expect(json['displayName'], 'Test User');
         expect(json['role'], 'staff');
+        expect(json['leagueIds'], ['l1']);
         expect(json['hubIds'], ['h1']);
         expect(json['teamIds'], ['t1', 't2']);
         expect(json['invitedBy'], 'admin1');

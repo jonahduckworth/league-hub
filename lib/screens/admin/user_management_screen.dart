@@ -594,6 +594,11 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
             ? null
             : _nameController.text.trim(),
         role: _selectedRole,
+        leagueIds: _allHubs
+            .where((hub) => _selectedHubIds.contains(hub.id))
+            .map((hub) => hub.leagueId)
+            .toSet()
+            .toList(),
         hubIds: _selectedHubIds.toList(),
         teamIds: _selectedTeamIdsForSelectedHubs().toList(),
         invitedBy: currentUser.id,

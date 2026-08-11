@@ -89,6 +89,7 @@ export type Invitation = {
   email: string;
   displayName?: string | null;
   role: UserRole;
+  leagueIds: string[];
   hubIds: string[];
   teamIds: string[];
   invitedBy: string;

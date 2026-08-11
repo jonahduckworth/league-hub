@@ -95,6 +95,7 @@ export const demoData: AdminData = {
       email: "coach@example.com",
       displayName: "Coach New",
       role: "managerAdmin",
+      leagueIds: ["league-winter"],
       hubIds: ["hub-calgary"],
       teamIds: [],
       invitedBy: "demo-owner",

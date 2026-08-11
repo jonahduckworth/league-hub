@@ -186,6 +186,28 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
       final contentType = _contentType(ext);
       final now = DateTime.now();
 
+      // Reserve the scoped policy document before uploading. Storage rules use
+      // this authoritative metadata to prevent out-of-scope file overwrites.
+      await authorizedFirestore.createPolicy(
+        currentUser,
+        orgId,
+        {
+          'name': name,
+          'fileUrl': '',
+          'fileType': ext,
+          'fileSize': file.size,
+          'category': _category,
+          'leagueId': _selectedLeagueId,
+          'hubId': _scope == _PolicyScope.league ? null : _selectedHubId,
+          'teamId': _scope == _PolicyScope.team ? _selectedTeamId : null,
+          'uploadedBy': currentUser.id,
+          'uploadedByName': currentUser.displayName,
+          'versions': const <Map<String, dynamic>>[],
+          'uploadStatus': 'uploading',
+        },
+        policyId: policyId,
+      );
+
       final fileUrl = await storage.uploadPolicy(
         orgId,
         policyId,
@@ -206,23 +228,16 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
         'fileSize': file.size,
       };
 
-      await authorizedFirestore.createPolicy(
+      await authorizedFirestore.updatePolicy(
         currentUser,
         orgId,
+        policyId,
         {
-          'name': name,
           'fileUrl': fileUrl,
-          'fileType': ext,
-          'fileSize': file.size,
-          'category': _category,
-          'leagueId': _selectedLeagueId,
-          'hubId': _scope == _PolicyScope.league ? null : _selectedHubId,
-          'teamId': _scope == _PolicyScope.team ? _selectedTeamId : null,
-          'uploadedBy': currentUser.id,
-          'uploadedByName': currentUser.displayName,
           'versions': [versionEntry],
+          'uploadStatus': 'ready',
         },
-        policyId: policyId,
+        uploadedBy: currentUser.id,
       );
 
       if (mounted) {
