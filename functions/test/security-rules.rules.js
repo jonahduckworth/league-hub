@@ -10,6 +10,7 @@ const {
   doc,
   setDoc,
   updateDoc,
+  writeBatch,
 } = require("firebase/firestore");
 const {
   ref,
@@ -170,6 +171,44 @@ test("manager cannot change the roster of an unassigned team", async () => {
     "organizations/org-1/leagues/league-1/hubs/hub-1/teams/team-1");
   await assertFails(updateDoc(teamRef, { memberIds: ["staff"] }));
   await assertSucceeds(updateDoc(teamRef, { name: "Renamed Team" }));
+});
+
+test("manager can atomically add Staff to a team in another assigned hub", async () => {
+  await seedFirestore([
+    ["users/manager", user({
+      id: "manager",
+      role: "managerAdmin",
+      leagueIds: ["league-1"],
+      hubIds: ["hub-1", "hub-2"],
+      teamIds: ["team-2"],
+    })],
+    ["users/staff", user({
+      id: "staff",
+      leagueIds: ["league-1"],
+      hubIds: ["hub-1"],
+    })],
+    ["organizations/org-1/leagues/league-1/hubs/hub-2/teams/team-2", {
+      id: "team-2",
+      orgId: "org-1",
+      leagueId: "league-1",
+      hubId: "hub-2",
+      name: "Team 2",
+      memberIds: [],
+    }],
+  ]);
+  const db = testEnv.authenticatedContext("manager").firestore();
+  const batch = writeBatch(db);
+  batch.update(
+    doc(db, "organizations/org-1/leagues/league-1/hubs/hub-2/teams/team-2"),
+    { memberIds: ["staff"] },
+  );
+  batch.update(doc(db, "users/staff"), {
+    leagueIds: ["league-1"],
+    hubIds: ["hub-1", "hub-2"],
+    teamIds: ["team-2"],
+  });
+
+  await assertSucceeds(batch.commit());
 });
 
 test("manager cannot pin an announcement through a direct update", async () => {

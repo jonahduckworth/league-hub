@@ -9,12 +9,15 @@ import {
   assignableRoles,
   canAccessOrg,
   canCreateLeague,
+  canManageInvitationRole,
   canManageTarget,
   isAdminRole,
+  isManagedChatRoomType,
   isValidAnnouncementTarget,
   isValidPolicyCategory,
   isUserRole,
   normalizeStringArray,
+  teamMemberRecordsMatchOrg,
 } from "./adminLogic";
 import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
 
@@ -364,7 +367,8 @@ async function deleteCollection(query: FirebaseFirestore.Query): Promise<number>
   return deleted;
 }
 
-async function syncTeamMemberships(
+async function addTeamMembershipMutations(
+  batch: FirebaseFirestore.WriteBatch,
   orgId: string,
   teamId: string,
   beforeIds: string[],
@@ -375,15 +379,33 @@ async function syncTeamMemberships(
   const added = [...after].filter((id) => !before.has(id));
   const removed = [...before].filter((id) => !after.has(id));
 
-  const batch = db.batch();
   for (const userId of added) {
-    batch.set(usersRef().doc(userId), { teamIds: arrayUnion(teamId), orgId }, { merge: true });
+    batch.update(usersRef().doc(userId), { teamIds: arrayUnion(teamId) });
   }
-  for (const userId of removed) {
-    batch.set(usersRef().doc(userId), { teamIds: arrayRemove(teamId) }, { merge: true });
+  if (removed.length > 0) {
+    const removedSnaps = await db.getAll(...removed.map((userId) => usersRef().doc(userId)));
+    for (const snap of removedSnaps) {
+      if (snap.exists && snap.data()?.orgId === orgId) {
+        batch.update(snap.ref, { teamIds: arrayRemove(teamId) });
+      }
+    }
   }
-  if (added.length > 0 || removed.length > 0) {
-    await batch.commit();
+}
+
+async function assertTeamMembersBelongToOrg(
+  orgId: string,
+  memberIds: string[],
+): Promise<void> {
+  if (memberIds.length === 0) return;
+  const snaps = await db.getAll(...memberIds.map((userId) => usersRef().doc(userId)));
+  const records = snaps
+    .filter((snap) => snap.exists)
+    .map((snap) => ({ id: snap.id, orgId: snap.data()?.orgId }));
+  if (!teamMemberRecordsMatchOrg(memberIds, orgId, records)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Every team member must be an existing user in this organization.",
+    );
   }
 }
 
@@ -611,11 +633,14 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
 });
 
 export const adminExpireInvitation = onCall(adminRuntime, async (request) => {
-  return withAdmin(request, "adminExpireInvitation", async (_actor, data, orgId) => {
+  return withAdmin(request, "adminExpireInvitation", async (actor, data, orgId) => {
     const invitationId = requiredString(data.invitationId, "invitationId");
     const invitationRef = orgRef(orgId).collection("invitations").doc(invitationId);
     const snap = await invitationRef.get();
     if (!snap.exists) throw new HttpsError("not-found", "Invitation was not found.");
+    if (!canManageInvitationRole(actor.role, snap.data()?.role)) {
+      throw new HttpsError("permission-denied", "You cannot manage an invitation for this role.");
+    }
     const token = optionalString(snap.data()?.token);
     const batch = db.batch();
     batch.update(invitationRef, { status: "expired" });
@@ -764,6 +789,7 @@ export const adminUpsertTeam = onCall(adminRuntime, async (request) => {
     const memberIds = team.memberIds === undefined ?
       normalizeStringArray(before.data()?.memberIds) :
       normalizeStringArray(team.memberIds);
+    await assertTeamMembersBelongToOrg(orgId, memberIds);
     const payload = {
       orgId,
       leagueId,
@@ -776,8 +802,16 @@ export const adminUpsertTeam = onCall(adminRuntime, async (request) => {
       memberIds,
       ...(before.exists ? {} : { createdAt: now() }),
     };
-    await teamRef.set(payload, { merge: true });
-    await syncTeamMemberships(orgId, teamId, normalizeStringArray(before.data()?.memberIds), memberIds);
+    const batch = db.batch();
+    batch.set(teamRef, payload, { merge: true });
+    await addTeamMembershipMutations(
+      batch,
+      orgId,
+      teamId,
+      normalizeStringArray(before.data()?.memberIds),
+      memberIds,
+    );
+    await batch.commit();
     return { teamId, created: !before.exists };
   });
 });
@@ -789,8 +823,16 @@ export const adminDeleteTeam = onCall(adminRuntime, async (request) => {
     const teamId = requiredString(data.teamId, "teamId");
     const teamRef = orgRef(orgId).collection("leagues").doc(leagueId).collection("hubs").doc(hubId).collection("teams").doc(teamId);
     const before = await teamRef.get();
-    await syncTeamMemberships(orgId, teamId, normalizeStringArray(before.data()?.memberIds), []);
-    await teamRef.delete();
+    const batch = db.batch();
+    batch.delete(teamRef);
+    await addTeamMembershipMutations(
+      batch,
+      orgId,
+      teamId,
+      normalizeStringArray(before.data()?.memberIds),
+      [],
+    );
+    await batch.commit();
     return { teamId };
   });
 });
@@ -918,9 +960,14 @@ export const adminDeletePolicy = onCall(adminRuntime, async (request) => {
 export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminUpdateChatRoom", async (_actor, data, orgId) => {
     const roomId = requiredString(data.roomId, "roomId");
+    const roomRef = orgRef(orgId).collection("chatRooms").doc(roomId);
+    const roomSnap = await roomRef.get();
+    if (!roomSnap.exists) throw new HttpsError("not-found", "Chat room was not found.");
+    if (!isManagedChatRoomType(roomSnap.data()?.type)) {
+      throw new HttpsError("permission-denied", "Direct-message rooms cannot be managed by administrators.");
+    }
     const patch = allowedPatch(data.patch, "patch", [
       "name",
-      "type",
       "leagueId",
       "hubId",
       "teamId",
@@ -928,7 +975,7 @@ export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
       "roomIconName",
       "roomImageUrl",
     ]);
-    await orgRef(orgId).collection("chatRooms").doc(roomId).update(patch);
+    await roomRef.update(patch);
     return { roomId, updatedFields: Object.keys(patch) };
   });
 });
@@ -936,7 +983,13 @@ export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
 export const adminArchiveChatRoom = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminArchiveChatRoom", async (_actor, data, orgId) => {
     const roomId = requiredString(data.roomId, "roomId");
-    await orgRef(orgId).collection("chatRooms").doc(roomId).update({ isArchived: true });
+    const roomRef = orgRef(orgId).collection("chatRooms").doc(roomId);
+    const roomSnap = await roomRef.get();
+    if (!roomSnap.exists) throw new HttpsError("not-found", "Chat room was not found.");
+    if (!isManagedChatRoomType(roomSnap.data()?.type)) {
+      throw new HttpsError("permission-denied", "Direct-message rooms cannot be managed by administrators.");
+    }
+    await roomRef.update({ isArchived: true });
     return { roomId, isArchived: true };
   });
 });

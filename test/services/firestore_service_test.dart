@@ -1166,6 +1166,35 @@ void main() {
       final team = teams.firstWhere((t) => t.id == 't1');
       expect(team.chatRoomId, 'chat-t1');
     });
+
+    test('atomically updates team roster and nested user assignments',
+        () async {
+      await fakeFirestore
+          .collection(AppConstants.usersCollection)
+          .doc('u1')
+          .set(makeUser('u1').toJson());
+
+      await svc.updateTeamRosterAssignment(
+        orgId,
+        'l1',
+        'h1',
+        't1',
+        ['u1'],
+        'u1',
+        {
+          'hubIds': ['h1'],
+          'leagueIds': ['l1'],
+          'teamIds': ['t1'],
+        },
+      );
+
+      final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
+      expect(teams.single.memberIds, ['u1']);
+      final user = await svc.getUser('u1');
+      expect(user?.hubIds, ['h1']);
+      expect(user?.leagueIds, ['l1']);
+      expect(user?.teamIds, ['t1']);
+    });
   });
 
   group('Schedule', () {

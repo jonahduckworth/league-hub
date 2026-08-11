@@ -85,6 +85,29 @@ Widget _buildWidget({
 }
 
 void main() {
+  test('cross-hub roster assignment includes the team parent scope', () {
+    final staff = _makeUser(
+      id: 'staff',
+      hubIds: ['hub1'],
+      leagueIds: ['league1'],
+    );
+
+    expect(
+      buildTeamRosterUserFields(
+        staff,
+        ['team2'],
+        addedHubId: 'hub2',
+        addedLeagueId: 'league1',
+      ),
+      {
+        'role': 'staff',
+        'hubIds': ['hub1', 'hub2'],
+        'leagueIds': ['league1'],
+        'teamIds': ['team2'],
+      },
+    );
+  });
+
   group('TeamDetailScreen', () {
     group('All Roles - Basic Rendering', () {
       for (final role in UserRole.values) {

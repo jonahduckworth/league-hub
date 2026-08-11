@@ -17,6 +17,26 @@ import '../../widgets/bottom_sheet_handle.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entity_avatar.dart';
 
+/// Builds a nested assignment update for an atomic roster change.
+Map<String, dynamic> buildTeamRosterUserFields(
+  AppUser targetUser,
+  List<String> teamIds, {
+  String? addedHubId,
+  String? addedLeagueId,
+}) =>
+    {
+      'role': targetUser.role.name,
+      'hubIds': {
+        ...targetUser.hubIds,
+        if (addedHubId != null) addedHubId,
+      }.toList(),
+      'leagueIds': {
+        ...targetUser.leagueIds,
+        if (addedLeagueId != null) addedLeagueId,
+      }.toList(),
+      'teamIds': {...teamIds}.toList(),
+    };
+
 /// Displays team details, roster management, and a link to the team chat room.
 class TeamDetailScreen extends ConsumerStatefulWidget {
   final String teamId;
@@ -404,21 +424,24 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     try {
       final authFs = ref.read(authorizedFirestoreServiceProvider);
       final newMembers = [...team.memberIds, userId];
-      await authFs.updateTeamFields(currentUser, orgId, team.leagueId,
-          team.hubId, team.id, {'memberIds': newMembers});
-      // Also update the user's teamIds.
       final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
-      if (targetUser != null) {
-        await authFs.updateUserFields(
-          currentUser,
+      if (targetUser == null) throw StateError('User is no longer available');
+      await authFs.updateTeamRosterAssignment(
+        currentUser,
+        targetUser,
+        orgId,
+        team.leagueId,
+        team.hubId,
+        team.id,
+        newMembers,
+        buildTeamRosterUserFields(
           targetUser,
-          _userAssignmentUpdate(
-            targetUser,
-            [...targetUser.teamIds, team.id],
-          ),
-        );
-      }
+          [...targetUser.teamIds, team.id],
+          addedHubId: team.hubId,
+          addedLeagueId: team.leagueId,
+        ),
+      );
     } on PermissionDeniedException {
       if (mounted) {
         AppUtils.showErrorSnackBar(
@@ -437,21 +460,22 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     try {
       final authFs = ref.read(authorizedFirestoreServiceProvider);
       final newMembers = team.memberIds.where((id) => id != userId).toList();
-      await authFs.updateTeamFields(currentUser, orgId, team.leagueId,
-          team.hubId, team.id, {'memberIds': newMembers});
-      // Also update the user's teamIds.
       final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
-      if (targetUser != null) {
-        await authFs.updateUserFields(
-          currentUser,
+      if (targetUser == null) throw StateError('User is no longer available');
+      await authFs.updateTeamRosterAssignment(
+        currentUser,
+        targetUser,
+        orgId,
+        team.leagueId,
+        team.hubId,
+        team.id,
+        newMembers,
+        buildTeamRosterUserFields(
           targetUser,
-          _userAssignmentUpdate(
-            targetUser,
-            targetUser.teamIds.where((id) => id != team.id).toList(),
-          ),
-        );
-      }
+          targetUser.teamIds.where((id) => id != team.id).toList(),
+        ),
+      );
     } on PermissionDeniedException {
       if (mounted) {
         AppUtils.showErrorSnackBar(
@@ -463,17 +487,6 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       }
     }
   }
-
-  Map<String, dynamic> _userAssignmentUpdate(
-    AppUser targetUser,
-    List<String> teamIds,
-  ) =>
-      {
-        'role': targetUser.role.name,
-        'hubIds': targetUser.hubIds,
-        'leagueIds': targetUser.leagueIds,
-        'teamIds': teamIds,
-      };
 }
 
 class _TeamGlassMessage extends StatelessWidget {

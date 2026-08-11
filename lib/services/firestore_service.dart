@@ -171,6 +171,31 @@ class FirestoreService {
           .doc(teamId)
           .set(data, SetOptions(merge: true));
 
+  /// Keeps the nested team roster and the user's assignment fields in sync.
+  /// Both documents commit together, so a rejected user-scope update cannot
+  /// leave a one-sided roster membership behind.
+  Future<void> updateTeamRosterAssignment(
+    String orgId,
+    String leagueId,
+    String hubId,
+    String teamId,
+    List<String> memberIds,
+    String userId,
+    Map<String, dynamic> userFields,
+  ) async {
+    final batch = _db.batch();
+    batch.set(
+      _teamsRef(orgId, leagueId, hubId).doc(teamId),
+      {'memberIds': memberIds},
+      SetOptions(merge: true),
+    );
+    batch.update(
+      _db.collection(AppConstants.usersCollection).doc(userId),
+      userFields,
+    );
+    await batch.commit();
+  }
+
   // --- ID generators (for creating documents with known IDs) ---
 
   String newLeagueId(String orgId) => _leaguesRef(orgId).doc().id;

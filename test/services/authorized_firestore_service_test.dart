@@ -74,6 +74,27 @@ class MockFirestoreService extends Mock implements FirestoreService {
           returnValue: Future<void>.value()) as Future<void>);
 
   @override
+  Future<void> updateTeamRosterAssignment(
+          String orgId,
+          String leagueId,
+          String hubId,
+          String teamId,
+          List<String> memberIds,
+          String userId,
+          Map<String, dynamic> userFields) =>
+      (super.noSuchMethod(
+          Invocation.method(#updateTeamRosterAssignment, [
+            orgId,
+            leagueId,
+            hubId,
+            teamId,
+            memberIds,
+            userId,
+            userFields,
+          ]),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
   Future<void> sendMediaMessage(String orgId, String roomId,
           {required String senderId,
           required String senderName,
@@ -2163,6 +2184,91 @@ void main() {
         final staff = makeUser(id: 's', role: UserRole.staff);
         expect(
           () => afs.updateTeamFields(staff, 'org1', 'l1', 'h1', 't1', {}),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+      });
+
+      test(
+          'manager atomically adds a Staff user from another assigned hub when parent scope is included',
+          () async {
+        final manager = makeUser(
+          id: 'manager',
+          role: UserRole.managerAdmin,
+          hubIds: ['h1', 'h2'],
+          leagueIds: ['l1'],
+          teamIds: ['t2'],
+        );
+        final target = makeUser(
+          id: 'staff',
+          role: UserRole.staff,
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+        );
+        final userFields = {
+          'role': 'staff',
+          'hubIds': ['h1', 'h2'],
+          'leagueIds': ['l1'],
+          'teamIds': ['t2'],
+        };
+        when(mockFs.getAllTeamsFlat('org1'))
+            .thenAnswer((_) async => [makeTeam(id: 't2', hubId: 'h2')]);
+        when(mockFs.updateTeamRosterAssignment(
+          'org1',
+          'l1',
+          'h2',
+          't2',
+          ['staff'],
+          'staff',
+          userFields,
+        )).thenAnswer((_) async {});
+
+        await afs.updateTeamRosterAssignment(
+          manager,
+          target,
+          'org1',
+          'l1',
+          'h2',
+          't2',
+          ['staff'],
+          userFields,
+        );
+
+        verify(mockFs.updateTeamRosterAssignment(
+          'org1',
+          'l1',
+          'h2',
+          't2',
+          ['staff'],
+          'staff',
+          userFields,
+        )).called(1);
+      });
+
+      test('atomic roster update rejects a target from another organization',
+          () async {
+        final admin = makeUser(id: 'admin', role: UserRole.superAdmin);
+        final external = makeUser(
+          id: 'external',
+          role: UserRole.staff,
+          orgId: 'org2',
+        );
+
+        expect(
+          () => afs.updateTeamRosterAssignment(
+            admin,
+            external,
+            'org1',
+            'l1',
+            'h1',
+            't1',
+            ['external'],
+            {
+              'role': 'staff',
+              'hubIds': ['h1'],
+              'leagueIds': ['l1'],
+              'teamIds': ['t1'],
+            },
+          ),
           throwsA(isA<PermissionDeniedException>()),
         );
       });

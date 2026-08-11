@@ -162,6 +162,12 @@ class AuthorizedFirestoreService {
 
   Future<void> updateTeamFields(AppUser actor, String orgId, String leagueId,
       String hubId, String teamId, Map<String, dynamic> data) {
+    _assertCanUpdateTeamFields(actor, hubId, teamId, data);
+    return _fs.updateTeamFields(orgId, leagueId, hubId, teamId, data);
+  }
+
+  void _assertCanUpdateTeamFields(
+      AppUser actor, String hubId, String teamId, Map<String, dynamic> data) {
     if (!_ps.canCreateTeam(actor, hubId: hubId)) {
       _deny('updateTeamFields', actor);
     }
@@ -169,7 +175,6 @@ class AuthorizedFirestoreService {
         !_ps.canManageTeamRoster(actor, hubId: hubId, teamId: teamId)) {
       _deny('updateTeamFields roster', actor);
     }
-    return _fs.updateTeamFields(orgId, leagueId, hubId, teamId, data);
   }
 
   // -------------------------------------------------------------------------
@@ -191,6 +196,12 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> updateUserFields(
+      AppUser actor, AppUser target, Map<String, dynamic> data) async {
+    await _assertCanUpdateUserFields(actor, target, data);
+    return _fs.updateUserFields(target.id, data);
+  }
+
+  Future<void> _assertCanUpdateUserFields(
       AppUser actor, AppUser target, Map<String, dynamic> data) async {
     if (!_ps.canManageUser(actor, target)) {
       _deny('updateUserFields', actor);
@@ -245,7 +256,35 @@ class AuthorizedFirestoreService {
         }
       }
     }
-    return _fs.updateUserFields(target.id, data);
+  }
+
+  /// Atomically updates both sides of a roster assignment after applying the
+  /// same role and nested-scope checks as the individual write methods.
+  Future<void> updateTeamRosterAssignment(
+    AppUser actor,
+    AppUser target,
+    String orgId,
+    String leagueId,
+    String hubId,
+    String teamId,
+    List<String> memberIds,
+    Map<String, dynamic> userFields,
+  ) async {
+    if (target.orgId != orgId) {
+      _deny('updateTeamRosterAssignment cross-organization target', actor);
+    }
+    final teamFields = <String, dynamic>{'memberIds': memberIds};
+    _assertCanUpdateTeamFields(actor, hubId, teamId, teamFields);
+    await _assertCanUpdateUserFields(actor, target, userFields);
+    return _fs.updateTeamRosterAssignment(
+      orgId,
+      leagueId,
+      hubId,
+      teamId,
+      memberIds,
+      target.id,
+      userFields,
+    );
   }
 
   // -------------------------------------------------------------------------
