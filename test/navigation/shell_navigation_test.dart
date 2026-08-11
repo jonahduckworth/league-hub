@@ -33,13 +33,13 @@ void main() {
         2,
       );
       expect(shellBottomNavIndexFor(branchIndex: 5, location: '/profile'), 3);
-      expect(shellBottomNavIndexFor(branchIndex: 1, location: '/chat'), 0);
+      expect(shellBottomNavIndexFor(branchIndex: 1, location: '/chat'), 3);
       expect(
         shellBottomNavIndexFor(
           branchIndex: 3,
           location: '/announcements',
         ),
-        0,
+        3,
       );
     });
 
@@ -54,12 +54,28 @@ void main() {
         shellBottomNavIndexFor(branchIndex: 4, location: '/settings/users'),
         3,
       );
+      expect(shellBottomNavIndexFor(branchIndex: 1, location: '/chat'), 3);
+      expect(
+        shellBottomNavIndexFor(
+          branchIndex: 3,
+          location: '/announcements/announcement-1',
+        ),
+        3,
+      );
     });
   });
 
   group('shellQuickDestinationForLocation', () {
     test('detects dynamic last-slot destinations', () {
       expect(shellQuickDestinationForLocation('/contacts'), isNull);
+      expect(
+        shellQuickDestinationForLocation('/chat'),
+        ShellQuickDestination.chats,
+      );
+      expect(
+        shellQuickDestinationForLocation('/announcements/announcement-1'),
+        ShellQuickDestination.chats,
+      );
       expect(
         shellQuickDestinationForLocation('/policy/upload'),
         ShellQuickDestination.policy,
@@ -69,7 +85,10 @@ void main() {
         ShellQuickDestination.settings,
       );
       expect(shellQuickDestinationForLocation('/profile'), isNull);
-      expect(shellQuickDestinationForLocation('/announcements'), isNull);
+      expect(
+        shellQuickDestinationForLocation('/announcements'),
+        ShellQuickDestination.chats,
+      );
     });
 
     test('exposes label and route config', () {
@@ -78,6 +97,10 @@ void main() {
 
       expect(settings?.label, 'Settings');
       expect(settings?.route, '/settings');
+
+      final chats = shellQuickDestinationConfigForLocation('/chat');
+      expect(chats?.label, 'Chats');
+      expect(chats?.route, '/chat');
     });
   });
 
@@ -89,8 +112,8 @@ void main() {
       expect(shellBranchNavSlot(2), 3);
       expect(shellBranchNavSlot(4), 3);
       expect(shellBranchNavSlot(5), 3);
-      expect(shellBranchNavSlot(1), 0);
-      expect(shellBranchNavSlot(3), 0);
+      expect(shellBranchNavSlot(1), 3);
+      expect(shellBranchNavSlot(3), 3);
     });
   });
 }

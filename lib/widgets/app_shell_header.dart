@@ -111,35 +111,33 @@ class _HeaderTitlePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width - 104;
-        final reservedWidth = leadingIcon == null ? 32.0 : 76.0;
-        final maxTitleWidth =
-            (availableWidth - reservedWidth).clamp(0.0, availableWidth);
-
-        return AppHeaderPill(
-          text: title,
-          icon: leadingIcon,
-          showIconBubble: leadingIcon != null,
-          padding: EdgeInsets.fromLTRB(
-            leadingIcon == null ? 16 : 8,
-            0,
-            14,
-            0,
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          if (leadingIcon != null) ...[
+            Icon(
+              leadingIcon,
+              color: AppGlassColors.ink.withValues(alpha: 0.9),
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+          ],
+          Flexible(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppGlassColors.ink,
+                height: 1.1,
+              ),
+            ),
           ),
-          iconSize: 15,
-          maxTextWidth: maxTitleWidth,
-          textStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: AppGlassColors.ink,
-            height: 1.1,
-          ),
-        );
-      },
+        ],
+      ),
     );
   }
 }
@@ -243,15 +241,14 @@ class AppHeaderLogoMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
 
-    return AppGlassSurface(
-      width: size,
-      height: size,
-      padding: EdgeInsets.zero,
-      radius: size / 2,
-      clipBehavior: Clip.antiAlias,
-      child: hasImage
-          ? ClipOval(
-              child: Padding(
+    return Semantics(
+      image: hasImage,
+      label: '$label logo',
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: hasImage
+            ? Padding(
                 padding: EdgeInsets.all(size * 0.12),
                 child: CachedNetworkImage(
                   imageUrl: imageUrl!,
@@ -259,9 +256,9 @@ class AppHeaderLogoMark extends StatelessWidget {
                   placeholder: (_, __) => _fallback(),
                   errorWidget: (_, __, ___) => _fallback(),
                 ),
-              ),
-            )
-          : _fallback(),
+              )
+            : _fallback(),
+      ),
     );
   }
 

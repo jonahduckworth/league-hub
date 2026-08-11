@@ -29,7 +29,6 @@ class ContactsScreen extends ConsumerWidget {
         leadingIcon: Icons.contacts_outlined,
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',
-        showBackButton: true,
       ),
       child: usersAsync.when(
         loading: () => const AppLoadingState(label: 'Loading contacts…'),

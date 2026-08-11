@@ -34,10 +34,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  // The shared shell reserves 12pt below its 40pt header. Home uses a tighter
-  // 4pt relationship between the borderless greeting row and profile card.
-  static const double _compactHeaderSpacing = -AppSpacing.xs;
-
   String? _selectedLeagueId;
 
   @override
@@ -57,7 +53,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final headerLabel = headerLeague?.name ?? org?.name ?? 'League Hub';
     final topContentPadding = appShellTopPadding(
       context,
-      extra: _compactHeaderSpacing,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
     final filteredUpcoming = visibleUpcoming
@@ -82,7 +77,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onSelected: (id) => setState(() => _selectedLeagueId = id),
             )
           : null,
-      topSpacing: _compactHeaderSpacing,
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
           16,
@@ -160,7 +154,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             Expanded(
               child: _CompactHomeTile(
                 icon: Icons.mark_unread_chat_alt_outlined,
-                label: 'Communication',
+                label: 'Chats',
                 subtitle: 'Chats & announcements',
                 accentColor: AppGlassColors.rose,
                 onTap: () => context.go('/chat'),

@@ -117,6 +117,7 @@ void main() {
       expect(find.text('zoe@example.com'), findsNothing);
       expect(find.text('Manager'), findsNothing);
       expect(find.text('Inactive Person'), findsNothing);
+      expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
     });
 
     testWidgets('opens a contact profile with title and contact details',

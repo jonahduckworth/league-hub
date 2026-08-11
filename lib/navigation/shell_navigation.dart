@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 enum ShellQuickDestination {
+  chats,
   policy,
   settings,
 }
@@ -25,6 +26,14 @@ class ShellQuickDestinationConfig {
 
 const Map<ShellQuickDestination, ShellQuickDestinationConfig>
     _quickDestinationConfigs = {
+  ShellQuickDestination.chats: ShellQuickDestinationConfig(
+    destination: ShellQuickDestination.chats,
+    route: '/chat',
+    label: 'Chats',
+    icon: Icons.mark_unread_chat_alt_outlined,
+    activeIcon: Icons.mark_unread_chat_alt_rounded,
+    iconSize: 24,
+  ),
   ShellQuickDestination.policy: ShellQuickDestinationConfig(
     destination: ShellQuickDestination.policy,
     route: '/policy',
@@ -54,6 +63,10 @@ ShellQuickDestinationConfig quickDestinationConfig(
 }
 
 ShellQuickDestination? shellQuickDestinationForLocation(String location) {
+  if (_matchesShellRoute(location, '/chat') ||
+      _matchesShellRoute(location, '/announcements')) {
+    return ShellQuickDestination.chats;
+  }
   if (_matchesShellRoute(location, '/policy')) {
     return ShellQuickDestination.policy;
   }
@@ -91,8 +104,7 @@ int shellBranchNavSlot(int branchIndex) {
     0 => 0,
     7 => 1,
     6 => 2,
-    2 || 4 || 5 => 3,
-    1 || 3 => 0,
+    1 || 2 || 3 || 4 || 5 => 3,
     _ => 0,
   };
 }

@@ -383,7 +383,7 @@ void main() {
         );
         expect(find.text('Policy'), findsOneWidget);
         expect(find.text('Weather'), findsOneWidget);
-        expect(find.text('Communication'), findsOneWidget);
+        expect(find.text('Chats'), findsOneWidget);
         expect(find.text('Chats & announcements'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
       });
@@ -644,8 +644,7 @@ void main() {
         expect(find.byType(ShaderMask), findsOneWidget);
       });
 
-      testWidgets(
-          'home grid shows policy, weather, communication, and settings',
+      testWidgets('home grid shows policy, weather, chats, and settings',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -654,7 +653,7 @@ void main() {
         expect(find.text('Policy'), findsOneWidget);
         expect(find.text('Policies'), findsNothing);
         expect(find.text('Weather'), findsOneWidget);
-        expect(find.text('Communication'), findsOneWidget);
+        expect(find.text('Chats'), findsOneWidget);
         expect(find.text('Chats & announcements'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('18°'), findsOneWidget);
@@ -777,13 +776,12 @@ void main() {
         expect(find.text('Policy Route'), findsOneWidget);
       });
 
-      testWidgets('communication tile navigates to chat',
-          (WidgetTester tester) async {
+      testWidgets('chats tile navigates to chat', (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.ensureVisible(find.text('Communication'));
-        await tester.tap(find.text('Communication'));
+        await tester.ensureVisible(find.text('Chats'));
+        await tester.tap(find.text('Chats'));
         await tester.pumpAndSettle();
 
         expect(find.text('Chat Route'), findsOneWidget);
