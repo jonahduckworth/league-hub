@@ -239,18 +239,11 @@ class _NextGameCard extends StatelessWidget {
               const Positioned.fill(
                 child: _DashboardCardArtwork(
                   imageKey: ValueKey('next-game-active-background'),
+                  frameKey: ValueKey('next-game-active-frame'),
+                  overlayKey: ValueKey('next-game-active-overlay'),
                   assetPath: 'assets/dashboard/upcoming_games_active.jpg',
                   alignment: Alignment.centerRight,
-                  overlay: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Color(0xF7FFFFFF),
-                      Color(0xE8FFFFFF),
-                      Color(0x9EFFFFFF),
-                    ],
-                    stops: [0, 0.6, 1],
-                  ),
+                  borderColor: Color(0x803A5875),
                 ),
               ),
               ConstrainedBox(
@@ -367,17 +360,20 @@ class _NextGameCard extends StatelessWidget {
             const Positioned.fill(
               child: _DashboardCardArtwork(
                 imageKey: ValueKey('next-game-empty-background'),
+                frameKey: ValueKey('next-game-empty-frame'),
+                overlayKey: ValueKey('next-game-empty-overlay'),
                 assetPath: 'assets/dashboard/upcoming_games_empty.jpg',
                 alignment: Alignment.centerRight,
+                borderColor: Color(0x803A5875),
                 overlay: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    Color(0xFAFFFFFF),
-                    Color(0xEDFFFFFF),
-                    Color(0x38FFFFFF),
+                    Color(0xCCFFFFFF),
+                    Color(0x66FFFFFF),
+                    Color(0x00FFFFFF),
                   ],
-                  stops: [0, 0.58, 1],
+                  stops: [0, 0.48, 0.78],
                 ),
               ),
             ),
@@ -485,15 +481,23 @@ class _UpcomingCalendarMark extends StatelessWidget {
 
 class _DashboardCardArtwork extends StatelessWidget {
   final Key imageKey;
+  final Key frameKey;
+  final Key? overlayKey;
   final String assetPath;
   final AlignmentGeometry alignment;
-  final Gradient overlay;
+  final Gradient? overlay;
+  final Color borderColor;
+  final double borderRadius;
 
   const _DashboardCardArtwork({
     required this.imageKey,
+    required this.frameKey,
     required this.assetPath,
     required this.alignment,
-    required this.overlay,
+    required this.borderColor,
+    this.overlayKey,
+    this.overlay,
+    this.borderRadius = AppRadius.card,
   });
 
   @override
@@ -509,7 +513,18 @@ class _DashboardCardArtwork extends StatelessWidget {
             alignment: alignment,
             filterQuality: FilterQuality.medium,
           ),
-          DecoratedBox(decoration: BoxDecoration(gradient: overlay)),
+          if (overlay != null)
+            DecoratedBox(
+              key: overlayKey,
+              decoration: BoxDecoration(gradient: overlay),
+            ),
+          DecoratedBox(
+            key: frameKey,
+            decoration: BoxDecoration(
+              border: Border.all(color: borderColor),
+              borderRadius: BorderRadius.circular(borderRadius),
+            ),
+          ),
         ],
       ),
     );
@@ -1110,15 +1125,18 @@ class _HomeProfileCard extends StatelessWidget {
       onTap: onProfileTap,
       background: const _DashboardCardArtwork(
         imageKey: ValueKey('home-profile-background'),
+        frameKey: ValueKey('home-profile-frame'),
         assetPath: 'assets/dashboard/profile_hockey_arena.jpg',
         alignment: Alignment.centerRight,
+        borderColor: Color(0x70FFFFFF),
+        borderRadius: 21,
         overlay: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: [
-            Color(0xF2071428),
-            Color(0xD9081C35),
-            Color(0x63020A14),
+            Color(0xD9071428),
+            Color(0xA6081C35),
+            Color(0x33020A14),
           ],
           stops: [0, 0.58, 1],
         ),
@@ -1190,15 +1208,18 @@ class _ProfileHeaderPlaceholder extends StatelessWidget {
           const Positioned.fill(
             child: _DashboardCardArtwork(
               imageKey: ValueKey('home-profile-background'),
+              frameKey: ValueKey('home-profile-frame'),
               assetPath: 'assets/dashboard/profile_hockey_arena.jpg',
               alignment: Alignment.centerRight,
+              borderColor: Color(0x70FFFFFF),
+              borderRadius: 21,
               overlay: LinearGradient(
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
                 colors: [
-                  Color(0xF2071428),
-                  Color(0xD9081C35),
-                  Color(0x63020A14),
+                  Color(0xD9071428),
+                  Color(0xA6081C35),
+                  Color(0x33020A14),
                 ],
                 stops: [0, 0.58, 1],
               ),

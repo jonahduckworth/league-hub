@@ -273,6 +273,21 @@ void main() {
           findsOneWidget,
         );
         expect(
+          find.byKey(const ValueKey('next-game-active-frame')),
+          findsOneWidget,
+        );
+        final activeFrame = tester.widget<DecoratedBox>(
+          find.byKey(const ValueKey('next-game-active-frame')),
+        );
+        expect(
+          (activeFrame.decoration as BoxDecoration).border,
+          isNotNull,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-active-overlay')),
+          findsNothing,
+        );
+        expect(
           find.byKey(const ValueKey('next-game-empty-background')),
           findsNothing,
         );
@@ -292,6 +307,21 @@ void main() {
         );
         expect(
           find.byKey(const ValueKey('next-game-empty-background')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-empty-frame')),
+          findsOneWidget,
+        );
+        final emptyFrame = tester.widget<DecoratedBox>(
+          find.byKey(const ValueKey('next-game-empty-frame')),
+        );
+        expect(
+          (emptyFrame.decoration as BoxDecoration).border,
+          isNotNull,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-empty-overlay')),
           findsOneWidget,
         );
         expect(
@@ -323,6 +353,17 @@ void main() {
         expect(
           find.byKey(const ValueKey('home-profile-background')),
           findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('home-profile-frame')),
+          findsOneWidget,
+        );
+        final profileFrame = tester.widget<DecoratedBox>(
+          find.byKey(const ValueKey('home-profile-frame')),
+        );
+        expect(
+          (profileFrame.decoration as BoxDecoration).border,
+          isNotNull,
         );
         final profileSurface = find
             .ancestor(
