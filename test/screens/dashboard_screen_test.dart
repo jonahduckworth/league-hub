@@ -936,6 +936,89 @@ void main() {
         expect(find.byType(SingleChildScrollView), findsOneWidget);
       });
 
+      testWidgets('pull to refresh reloads every visible home data source',
+          (WidgetTester tester) async {
+        var userLoads = 0;
+        var organizationLoads = 0;
+        var leagueLoads = 0;
+        var scheduleLoads = 0;
+        var logoLoads = 0;
+        var weatherLoads = 0;
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentUserProvider.overrideWith((ref) {
+                userLoads += 1;
+                return testUser;
+              }),
+              organizationProvider.overrideWith((ref) {
+                organizationLoads += 1;
+                return testOrg;
+              }),
+              leaguesProvider.overrideWith((ref) {
+                leagueLoads += 1;
+                return Stream.value(testLeagues);
+              }),
+              scheduleEventsProvider.overrideWith((ref) {
+                scheduleLoads += 1;
+                return Stream.value(const []);
+              }),
+              scheduleTeamLogosProvider.overrideWith((ref) {
+                logoLoads += 1;
+                return const ScheduleTeamLogos();
+              }),
+              currentWeatherProvider.overrideWith((ref) {
+                weatherLoads += 1;
+                return testWeather;
+              }),
+              unreadCountProvider.overrideWith(
+                (ref, roomId) => Stream.value(0),
+              ),
+            ],
+            child: MaterialApp(
+              home: const DashboardScreen(),
+              theme: ThemeData(
+                useMaterial3: true,
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final initialLoads = [
+          userLoads,
+          organizationLoads,
+          leagueLoads,
+          scheduleLoads,
+          logoLoads,
+          weatherLoads,
+        ];
+        final refreshFinder =
+            find.byKey(const ValueKey('home-refresh-indicator'));
+        final scrollView = tester.widget<SingleChildScrollView>(
+          find.byType(SingleChildScrollView),
+        );
+
+        expect(refreshFinder, findsOneWidget);
+        expect(scrollView.physics, isA<AlwaysScrollableScrollPhysics>());
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, 300),
+        );
+        await tester.pumpAndSettle();
+
+        expect(userLoads, greaterThan(initialLoads[0]));
+        expect(organizationLoads, greaterThan(initialLoads[1]));
+        expect(leagueLoads, greaterThan(initialLoads[2]));
+        expect(scheduleLoads, greaterThan(initialLoads[3]));
+        expect(logoLoads, greaterThan(initialLoads[4]));
+        expect(weatherLoads, greaterThan(initialLoads[5]));
+      });
+
       testWidgets('league filter stays outside the home content',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());

@@ -189,6 +189,7 @@ void main() {
               .label,
           'Spring League',
         );
+        expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
       });
 
       testWidgets('does not show a header search field',

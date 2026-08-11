@@ -106,7 +106,6 @@ class SettingsScreen extends ConsumerWidget {
         leadingIcon: Icons.settings_outlined,
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',
-        showBackButton: true,
         title: 'Settings',
       ),
       child: user == null

@@ -36,6 +36,28 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String? _selectedLeagueId;
 
+  Future<void> _refreshHome() async {
+    ref.invalidate(currentUserProvider);
+    ref.invalidate(organizationProvider);
+
+    await Future.wait([
+      _waitForDashboardRefresh(ref.read(currentUserProvider.future)),
+      _waitForDashboardRefresh(ref.read(organizationProvider.future)),
+    ]);
+
+    ref.invalidate(leaguesProvider);
+    ref.invalidate(scheduleEventsProvider);
+    ref.invalidate(scheduleTeamLogosProvider);
+    ref.invalidate(currentWeatherProvider);
+
+    await Future.wait([
+      _waitForDashboardRefresh(ref.read(leaguesProvider.future)),
+      _waitForDashboardRefresh(ref.read(scheduleEventsProvider.future)),
+      _waitForDashboardRefresh(ref.read(scheduleTeamLogosProvider.future)),
+      _waitForDashboardRefresh(ref.read(currentWeatherProvider.future)),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomContentPadding = appShellBottomPadding(context);
@@ -77,54 +99,63 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onSelected: (id) => setState(() => _selectedLeagueId = id),
             )
           : null,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          topContentPadding,
-          16,
-          bottomContentPadding,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppMotionReveal(
-              child: _HomeProfileCard(
-                user: currentUser,
-                onProfileTap: () => context.go('/profile'),
+      child: RefreshIndicator(
+        key: const ValueKey('home-refresh-indicator'),
+        onRefresh: _refreshHome,
+        color: AppGlassColors.aqua,
+        backgroundColor: AppGlassColors.pageMid,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            topContentPadding,
+            16,
+            bottomContentPadding,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppMotionReveal(
+                child: _HomeProfileCard(
+                  user: currentUser,
+                  onProfileTap: () => context.go('/profile'),
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            AppMotionReveal(
-              index: 1,
-              child: _NextGameCard(
-                event: nextGame,
-                upcomingCount: filteredUpcoming.length,
-                teamLogos: scheduleTeamLogos,
-                onTap: () => context.go('/schedule'),
+              const SizedBox(height: 18),
+              AppMotionReveal(
+                index: 1,
+                child: _NextGameCard(
+                  event: nextGame,
+                  upcomingCount: filteredUpcoming.length,
+                  teamLogos: scheduleTeamLogos,
+                  onTap: () => context.go('/schedule'),
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            const AppMotionReveal(
-              index: 2,
-              child: _SectionHeading(
-                icon: Icons.grid_view_rounded,
-                label: 'Quick Access',
+              const SizedBox(height: 18),
+              const AppMotionReveal(
+                index: 2,
+                child: _SectionHeading(
+                  icon: Icons.grid_view_rounded,
+                  label: 'Quick Access',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            AppMotionReveal(
-              index: 3,
-              child: _buildHomeGrid(context),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            AppMotionReveal(
-              index: 4,
-              child: _QuickLinksRow(
-                league: headerLeague,
-                fallbackLabel: headerLabel,
+              const SizedBox(height: 12),
+              AppMotionReveal(
+                index: 3,
+                child: _buildHomeGrid(context),
               ),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.md),
+              AppMotionReveal(
+                index: 4,
+                child: _QuickLinksRow(
+                  league: headerLeague,
+                  fallbackLabel: headerLabel,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -174,6 +205,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ],
     );
+  }
+}
+
+Future<void> _waitForDashboardRefresh<T>(Future<T> operation) async {
+  try {
+    await operation;
+  } catch (_) {
+    // Each provider retains and presents its own error state. The refresh
+    // gesture should always settle cleanly even when one source is offline.
   }
 }
 
