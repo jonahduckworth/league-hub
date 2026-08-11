@@ -47,8 +47,10 @@ class _PinnedAnnouncementsCarouselState
   @override
   void didUpdateWidget(PinnedAnnouncementsCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_page < widget.announcements.length) return;
-    _page = widget.announcements.isEmpty ? 0 : widget.announcements.length - 1;
+    final pinned = pinnedAnnouncementsForCarousel(widget.announcements);
+    final lastPage = pinned.isEmpty ? 0 : pinned.length - 1;
+    if (_page <= lastPage) return;
+    _page = lastPage;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _controller.hasClients) {
         _controller.jumpToPage(_page);
@@ -142,7 +144,7 @@ class _PinnedAnnouncementsCarouselState
 
   double _carouselHeight(BuildContext context) {
     final scale = MediaQuery.textScalerOf(context).scale(1);
-    return 196 + ((scale - 1).clamp(0, 1) * 54);
+    return 196 + ((scale - 1).clamp(0, 2.2) * 72);
   }
 }
 
@@ -153,7 +155,8 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final accessibilityLayout = MediaQuery.textScalerOf(context).scale(1) > 1.5;
+    final title = Row(
       children: [
         Container(
           width: 34,
@@ -175,7 +178,7 @@ class _SectionHeader extends StatelessWidget {
         const Expanded(
           child: Text(
             'Pinned announcements',
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: AppGlassColors.ink,
@@ -184,15 +187,32 @@ class _SectionHeader extends StatelessWidget {
             ),
           ),
         ),
-        TextButton(
-          key: const ValueKey('view-all-announcements'),
-          onPressed: onViewAll,
-          style: TextButton.styleFrom(
-            minimumSize: const Size(72, 44),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-          ),
-          child: const Text('View all'),
-        ),
+      ],
+    );
+    final viewAll = TextButton(
+      key: const ValueKey('view-all-announcements'),
+      onPressed: onViewAll,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(72, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+      ),
+      child: const Text('View all'),
+    );
+
+    if (accessibilityLayout) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          title,
+          Align(alignment: Alignment.centerRight, child: viewAll),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: title),
+        viewAll,
       ],
     );
   }
@@ -259,105 +279,140 @@ class _PinnedAnnouncementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accessibilityLayout = MediaQuery.textScalerOf(context).scale(1) > 1.5;
+
     return Semantics(
       button: true,
       label: 'Pinned announcement $position of $total. '
           '${announcement.title}. ${announcement.body}',
-      child: AppGlassSurface(
-        key: ValueKey('pinned-announcement-${announcement.id}'),
-        radius: 22,
-        padding: const EdgeInsets.all(AppSpacing.md),
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      _CardBadge(
-                        icon: Icons.push_pin_rounded,
-                        label: 'Pinned',
-                        color: AppGlassColors.gold,
-                      ),
-                      _CardBadge(
-                        icon: Icons.groups_2_outlined,
-                        label: announcement.scopeLabel,
-                        color: AppGlassColors.aqua,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: AppGlassColors.inkMuted,
-                  size: 19,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              announcement.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppGlassColors.ink,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                height: 1.2,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Expanded(
-              child: Text(
-                announcement.body,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppGlassColors.inkSecondary,
-                  fontSize: 13,
-                  height: 1.35,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(
-                  Icons.account_circle_outlined,
-                  color: AppGlassColors.inkMuted,
-                  size: 17,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    announcement.authorName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppGlassColors.inkSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.8,
+        child: AppGlassSurface(
+          key: ValueKey('pinned-announcement-${announcement.id}'),
+          radius: 22,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _CardBadge(
+                          icon: Icons.push_pin_rounded,
+                          label: 'Pinned',
+                          color: AppGlassColors.gold,
+                        ),
+                        _CardBadge(
+                          icon: Icons.groups_2_outlined,
+                          label: announcement.scopeLabel,
+                          color: AppGlassColors.aqua,
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                Text(
-                  AppUtils.formatDateTime(announcement.createdAt),
-                  style: const TextStyle(
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
                     color: AppGlassColors.inkMuted,
-                    fontSize: 11,
+                    size: 19,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                announcement.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppGlassColors.ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Text(
+                  announcement.body,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppGlassColors.inkSecondary,
+                    fontSize: 13,
+                    height: 1.35,
                   ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 8),
+              _AnnouncementMetadata(
+                announcement: announcement,
+                stack: accessibilityLayout,
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _AnnouncementMetadata extends StatelessWidget {
+  final Announcement announcement;
+  final bool stack;
+
+  const _AnnouncementMetadata({
+    required this.announcement,
+    required this.stack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final author = Row(
+      mainAxisSize: stack ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.account_circle_outlined,
+          color: AppGlassColors.inkMuted,
+          size: 17,
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            announcement.authorName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppGlassColors.inkSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+    final date = Text(
+      AppUtils.formatDateTime(announcement.createdAt),
+      style: const TextStyle(
+        color: AppGlassColors.inkMuted,
+        fontSize: 11,
+      ),
+    );
+
+    if (stack) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [author, const SizedBox(height: 4), date],
+      );
+    }
+
+    return Row(
+      children: [Expanded(child: author), const SizedBox(width: 8), date],
     );
   }
 }
