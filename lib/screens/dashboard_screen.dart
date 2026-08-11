@@ -17,9 +17,10 @@ import '../providers/data_providers.dart';
 import '../providers/weather_provider.dart';
 import '../services/weather_service.dart';
 import '../widgets/app_glass.dart';
+import '../widgets/app_motion.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
-import '../widgets/app_motion.dart';
+import '../widgets/dashboard_empty_schedule_state.dart';
 import '../widgets/glass_bottom_nav.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/profile_summary_card.dart';
@@ -347,6 +348,8 @@ class _NextGameCard extends StatelessWidget {
       );
     }
 
+    final accessibilityLayout =
+        DashboardEmptyScheduleState.shouldUseAccessibilityLayout(context);
     return Semantics(
       button: true,
       label: 'No upcoming games. Open schedule.',
@@ -357,60 +360,42 @@ class _NextGameCard extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: Stack(
           children: [
-            const Positioned.fill(
+            Positioned.fill(
               child: _DashboardCardArtwork(
-                imageKey: ValueKey('next-game-empty-background'),
-                frameKey: ValueKey('next-game-empty-frame'),
-                overlayKey: ValueKey('next-game-empty-overlay'),
+                imageKey: const ValueKey('next-game-empty-background'),
+                frameKey: const ValueKey('next-game-empty-frame'),
+                overlayKey: const ValueKey('next-game-empty-overlay'),
                 assetPath: 'assets/dashboard/upcoming_games_empty.jpg',
                 alignment: Alignment.centerRight,
-                borderColor: Color(0x803A5875),
+                borderColor: const Color(0x803A5875),
                 overlay: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [
-                    Color(0xCCFFFFFF),
-                    Color(0x66FFFFFF),
-                    Color(0x00FFFFFF),
-                  ],
-                  stops: [0, 0.48, 0.78],
+                  colors: accessibilityLayout
+                      ? const [
+                          Color(0xEBFFFFFF),
+                          Color(0xD6FFFFFF),
+                          Color(0xA8FFFFFF),
+                        ]
+                      : const [
+                          Color(0xCCFFFFFF),
+                          Color(0x66FFFFFF),
+                          Color(0x00FFFFFF),
+                        ],
+                  stops: accessibilityLayout
+                      ? const [0, 0.62, 1]
+                      : const [0, 0.48, 0.78],
                 ),
               ),
             ),
             ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 190),
-              child: const Padding(
-                padding: EdgeInsets.all(AppSpacing.lg),
-                child: FractionallySizedBox(
-                  widthFactor: 0.72,
-                  alignment: Alignment.centerLeft,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _UpcomingCalendarMark(),
-                      SizedBox(height: 16),
-                      Text(
-                        'No upcoming games',
-                        style: TextStyle(
-                          color: _ink,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        'New games will appear here when the schedule is published.',
-                        style: TextStyle(
-                          color: _mutedInk,
-                          fontSize: 13,
-                          height: 1.35,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: DashboardEmptyScheduleState(
+                  accessibilityLayout: accessibilityLayout,
+                  titleColor: _ink,
+                  bodyColor: _mutedInk,
                 ),
               ),
             ),
@@ -454,27 +439,6 @@ class _NextGameTeamRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _UpcomingCalendarMark extends StatelessWidget {
-  const _UpcomingCalendarMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 46,
-      height: 46,
-      decoration: const BoxDecoration(
-        color: Color(0xFFDCEAFF),
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(
-        Icons.calendar_month_outlined,
-        color: Color(0xFF1D5A9E),
-        size: 25,
-      ),
     );
   }
 }
