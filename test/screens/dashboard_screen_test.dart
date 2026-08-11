@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:league_hub/core/design_system.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/weather_snapshot.dart';
@@ -486,7 +487,7 @@ void main() {
             .getTopLeft(find.byKey(const ValueKey('home-profile-frame')))
             .dy;
 
-        expect(profileTop - greetingBottom, closeTo(12, 1));
+        expect(profileTop - greetingBottom, closeTo(AppSpacing.xxs, 1));
       });
 
       testWidgets('uses a compact header without org welcome copy',
