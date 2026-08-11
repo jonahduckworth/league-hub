@@ -28,14 +28,12 @@ void main() {
 
       final homeX = tester.getCenter(find.text('Home')).dx;
       final scheduleX = tester.getCenter(find.text('Schedule')).dx;
-      final announcementsX = tester.getCenter(find.text('Announcements')).dx;
-      final chatsX = tester.getCenter(find.text('Chats')).dx;
+      final contactsX = tester.getCenter(find.text('Contacts')).dx;
       final profileX = tester.getCenter(find.text('Profile')).dx;
 
       expect(homeX, lessThan(scheduleX));
-      expect(scheduleX, lessThan(announcementsX));
-      expect(announcementsX, lessThan(chatsX));
-      expect(chatsX, lessThan(profileX));
+      expect(scheduleX, lessThan(contactsX));
+      expect(contactsX, lessThan(profileX));
     });
 
     testWidgets('reports schedule as nav index 1', (tester) async {
@@ -48,7 +46,7 @@ void main() {
       expect(taps, [1]);
     });
 
-    testWidgets('fits five nav items on a compact width', (tester) async {
+    testWidgets('fits four nav items on a compact width', (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -56,8 +54,7 @@ void main() {
 
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Schedule'), findsOneWidget);
-      expect(find.text('Announcements'), findsOneWidget);
-      expect(find.text('Chats'), findsOneWidget);
+      expect(find.text('Contacts'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -74,13 +71,37 @@ void main() {
       expect(navSize.height, lessThan(120));
     });
 
+    testWidgets('keeps fixed tab labels compact at accessibility text sizes',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: MaterialApp(
+            home: Scaffold(
+              bottomNavigationBar: LeagueHubGlassBottomNav(
+                currentIndex: 2,
+                onTap: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Contacts'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('replaces profile with a dynamic last nav item',
         (tester) async {
       final taps = <int>[];
 
       await pumpNav(
         tester,
-        currentIndex: 4,
+        currentIndex: 3,
         onTap: taps.add,
         overrideLastItem: const GlassNavBarItem(
           icon: Icons.settings_outlined,
@@ -95,7 +116,7 @@ void main() {
       await tester.tap(find.text('Settings'));
       await tester.pump();
 
-      expect(taps, [4]);
+      expect(taps, [3]);
     });
   });
 }

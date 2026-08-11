@@ -383,7 +383,8 @@ void main() {
         );
         expect(find.text('Policy'), findsOneWidget);
         expect(find.text('Weather'), findsOneWidget);
-        expect(find.text('Contacts'), findsOneWidget);
+        expect(find.text('Communication'), findsOneWidget);
+        expect(find.text('Chats & announcements'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
       });
 
@@ -643,7 +644,8 @@ void main() {
         expect(find.byType(ShaderMask), findsOneWidget);
       });
 
-      testWidgets('home grid shows policy, weather, contacts, and settings',
+      testWidgets(
+          'home grid shows policy, weather, communication, and settings',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -652,7 +654,8 @@ void main() {
         expect(find.text('Policy'), findsOneWidget);
         expect(find.text('Policies'), findsNothing);
         expect(find.text('Weather'), findsOneWidget);
-        expect(find.text('Contacts'), findsOneWidget);
+        expect(find.text('Communication'), findsOneWidget);
+        expect(find.text('Chats & announcements'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('18°'), findsOneWidget);
       });
@@ -774,16 +777,16 @@ void main() {
         expect(find.text('Policy Route'), findsOneWidget);
       });
 
-      testWidgets('contacts tile navigates to contacts',
+      testWidgets('communication tile navigates to chat',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.ensureVisible(find.text('Contacts'));
-        await tester.tap(find.text('Contacts'));
+        await tester.ensureVisible(find.text('Communication'));
+        await tester.tap(find.text('Communication'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Contacts Route'), findsOneWidget);
+        expect(find.text('Chat Route'), findsOneWidget);
       });
 
       testWidgets('settings tile navigates to settings',

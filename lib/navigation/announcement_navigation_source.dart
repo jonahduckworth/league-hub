@@ -1,3 +1,4 @@
 enum AnnouncementNavigationSource {
   dashboardCard,
+  communicationHub,
 }

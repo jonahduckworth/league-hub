@@ -159,11 +159,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           children: [
             Expanded(
               child: _CompactHomeTile(
-                icon: Icons.contacts_outlined,
-                label: 'Contacts',
-                subtitle: 'People and roles',
+                icon: Icons.mark_unread_chat_alt_outlined,
+                label: 'Communication',
+                subtitle: 'Chats & announcements',
                 accentColor: AppGlassColors.rose,
-                onTap: () => context.go('/contacts'),
+                onTap: () => context.go('/chat'),
               ),
             ),
             const SizedBox(width: 12),
@@ -659,12 +659,13 @@ class _CompactHomeTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             subtitle,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppGlassColors.inkMuted,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
+              height: 1.15,
             ),
           ),
         ],

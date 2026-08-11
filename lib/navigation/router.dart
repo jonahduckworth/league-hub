@@ -377,7 +377,7 @@ final router = GoRouter(
               path: '/chat',
               pageBuilder: (context, state) => _shellTransitionPage(
                 state,
-                const ChatListScreen(),
+                const ChatListScreen(includePinnedAnnouncements: true),
                 animatePrimary: false,
               ),
               routes: [
@@ -454,7 +454,10 @@ final router = GoRouter(
               path: '/announcements',
               pageBuilder: (context, state) => _shellTransitionPage(
                 state,
-                const AnnouncementsScreen(),
+                AnnouncementsScreen(
+                  returnToCommunication: state.extra ==
+                      AnnouncementNavigationSource.communicationHub,
+                ),
                 animatePrimary: false,
               ),
               routes: [
@@ -1067,7 +1070,7 @@ class _MainScaffold extends StatelessWidget {
   void _handleBottomNavTap(BuildContext context, int index) {
     final quickDestinationConfig =
         shellQuickDestinationConfigForLocation(location);
-    if (index == 4 && quickDestinationConfig != null) {
+    if (index == 3 && quickDestinationConfig != null) {
       if (location == quickDestinationConfig.route) return;
       context.go(quickDestinationConfig.route);
       return;
@@ -1076,9 +1079,8 @@ class _MainScaffold extends StatelessWidget {
     final branchIndex = switch (index) {
       0 => 0,
       1 => 7,
-      2 => 3,
-      3 => 1,
-      4 => 5,
+      2 => 6,
+      3 => 5,
       _ => 0,
     };
     navigationShell.goBranch(

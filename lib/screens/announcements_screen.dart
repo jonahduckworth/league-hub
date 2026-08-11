@@ -149,7 +149,12 @@ List<AnnouncementActionData> buildAnnouncementActions({
 }
 
 class AnnouncementsScreen extends ConsumerStatefulWidget {
-  const AnnouncementsScreen({super.key});
+  final bool returnToCommunication;
+
+  const AnnouncementsScreen({
+    super.key,
+    this.returnToCommunication = false,
+  });
 
   @override
   ConsumerState<AnnouncementsScreen> createState() =>
@@ -194,6 +199,9 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',
         title: 'Announcements',
+        showBackButton: widget.returnToCommunication,
+        backFallbackLocation: '/chat',
+        onBack: widget.returnToCommunication ? () => context.go('/chat') : null,
       ),
       stickyContent: showLeagueFilter
           ? LeagueFilter(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 enum ShellQuickDestination {
-  contacts,
   policy,
   settings,
 }
@@ -26,14 +25,6 @@ class ShellQuickDestinationConfig {
 
 const Map<ShellQuickDestination, ShellQuickDestinationConfig>
     _quickDestinationConfigs = {
-  ShellQuickDestination.contacts: ShellQuickDestinationConfig(
-    destination: ShellQuickDestination.contacts,
-    route: '/contacts',
-    label: 'Contacts',
-    icon: Icons.contacts_outlined,
-    activeIcon: Icons.contacts_rounded,
-    iconSize: 24,
-  ),
   ShellQuickDestination.policy: ShellQuickDestinationConfig(
     destination: ShellQuickDestination.policy,
     route: '/policy',
@@ -63,9 +54,6 @@ ShellQuickDestinationConfig quickDestinationConfig(
 }
 
 ShellQuickDestination? shellQuickDestinationForLocation(String location) {
-  if (_matchesShellRoute(location, '/contacts')) {
-    return ShellQuickDestination.contacts;
-  }
   if (_matchesShellRoute(location, '/policy')) {
     return ShellQuickDestination.policy;
   }
@@ -87,14 +75,13 @@ int shellBottomNavIndexFor({
   required String location,
 }) {
   if (shellQuickDestinationForLocation(location) != null) {
-    return 4;
+    return 3;
   }
 
   return switch (branchIndex) {
     7 => 1,
-    3 => 2,
-    1 => 3,
-    5 => 4,
+    6 => 2,
+    5 => 3,
     _ => 0,
   };
 }
@@ -103,9 +90,9 @@ int shellBranchNavSlot(int branchIndex) {
   return switch (branchIndex) {
     0 => 0,
     7 => 1,
-    3 => 2,
-    1 => 3,
-    2 || 4 || 5 || 6 => 4,
+    6 => 2,
+    2 || 4 || 5 => 3,
+    1 || 3 => 0,
     _ => 0,
   };
 }
