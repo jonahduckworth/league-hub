@@ -161,12 +161,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 24),
           const AuthDivider(),
           const SizedBox(height: 24),
-          AuthSecondaryButton(
-            label: 'Create League',
-            icon: Icons.emoji_events_outlined,
-            onTap: () => context.push('/create-league'),
-          ),
-          const SizedBox(height: 12),
           Center(
             child: AuthTextLink(
               label: 'Accept Invitation',
@@ -175,7 +169,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'League admins can invite managers and staff after setup.',
+            'New leagues are set up by League Hub. League admins can invite '
+            'managers and staff.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppGlassColors.inkMuted,

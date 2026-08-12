@@ -109,6 +109,33 @@ void main() {
       );
     });
 
+    test('redirects retired public league creation routes', () {
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: false,
+          location: '/create-league',
+          user: null,
+        ),
+        '/login',
+      );
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: false,
+          location: '/create-org',
+          user: null,
+        ),
+        '/login',
+      );
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: true,
+          location: '/create-league',
+          user: platformOwner(),
+        ),
+        '/',
+      );
+    });
+
     test('keeps missing profile users on dashboard while cache loads', () {
       expect(
         routeRedirectForAuthState(

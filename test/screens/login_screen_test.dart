@@ -32,9 +32,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         expect(
           find.byWidgetPredicate(
-            (widget) =>
-                widget is Image &&
-                widget.semanticLabel == 'League Hub',
+            (widget) => widget is Image && widget.semanticLabel == 'League Hub',
           ),
           findsOneWidget,
         );
@@ -262,17 +260,11 @@ void main() {
     });
 
     group('Navigation Links', () {
-      testWidgets('create league button is present',
+      testWidgets('does not offer public league creation',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
-        expect(find.text('Create League'), findsOneWidget);
-      });
-
-      testWidgets('create league button is tappable',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-
-        expect(find.byType(AuthSecondaryButton), findsOneWidget);
+        expect(find.text('Create League'), findsNothing);
+        expect(find.byType(AuthSecondaryButton), findsNothing);
       });
 
       testWidgets('accept invitation button is present',
@@ -375,8 +367,7 @@ void main() {
         // Logo container should be present
         expect(
           find.byWidgetPredicate(
-            (widget) =>
-                widget is Image && widget.semanticLabel == 'League Hub',
+            (widget) => widget is Image && widget.semanticLabel == 'League Hub',
           ),
           findsOneWidget,
         );
@@ -393,7 +384,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
 
         expect(find.byType(GlassSubmitButton), findsOneWidget);
-        expect(find.byType(AuthSecondaryButton), findsOneWidget);
+        expect(find.byType(AuthTextLink), findsNWidgets(2));
         expect(find.byType(TextButton), findsWidgets);
       });
     });
@@ -453,7 +444,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
 
         expect(find.byType(GlassSubmitButton), findsOneWidget);
-        expect(find.byType(AuthSecondaryButton), findsOneWidget);
+        expect(find.byType(AuthTextLink), findsNWidgets(2));
       });
 
       testWidgets('icons are present for visual context',
@@ -464,8 +455,7 @@ void main() {
         expect(find.byIcon(Icons.lock_outlined), findsOneWidget);
         expect(
           find.byWidgetPredicate(
-            (widget) =>
-                widget is Image && widget.semanticLabel == 'League Hub',
+            (widget) => widget is Image && widget.semanticLabel == 'League Hub',
           ),
           findsOneWidget,
         );
