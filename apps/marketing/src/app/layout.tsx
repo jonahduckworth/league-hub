@@ -20,12 +20,21 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_CA",
     siteName: "League Hub",
+    images: [
+      {
+        url: "/league-hub-social.png",
+        width: 1200,
+        height: 630,
+        alt: "League Hub",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "League Hub | Your league, connected",
     description:
       "One trusted place for every game, update, conversation, and league resource.",
+    images: ["/league-hub-social.png"],
   },
 };
 
