@@ -8,19 +8,12 @@ import {
   allowedLandingOrigin,
   landingContactEmail,
   parseLandingContact,
+  trustedClientIp,
 } from "./landingContactLogic";
 
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 const destination = "jonah@jdbuilds.ca";
 const sender = "League Hub <notifications@jdbuilds.ca>";
-
-function clientIp(request: {headers: Record<string, unknown>; ip?: string}): string {
-  const forwarded = request.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.length > 0) {
-    return forwarded.split(",")[0].trim();
-  }
-  return request.ip ?? "unknown";
-}
 
 async function consumeRateLimit(ip: string): Promise<boolean> {
   const id = createHash("sha256").update(`league-hub-contact:${ip}`).digest("hex");
@@ -98,7 +91,10 @@ export const submitLandingContact = onRequest(
       return;
     }
 
-    if (!await consumeRateLimit(clientIp(request))) {
+    if (!await consumeRateLimit(trustedClientIp(
+      request.get("x-forwarded-for"),
+      request.ip,
+    ))) {
       response.status(429).json({error: "Please wait before sending another inquiry."});
       return;
     }

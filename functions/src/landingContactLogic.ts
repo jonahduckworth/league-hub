@@ -118,6 +118,24 @@ export function allowedLandingOrigin(origin: string | undefined): string | null 
   return null;
 }
 
+export function trustedClientIp(
+  forwardedFor: string | undefined,
+  requestIp: string | undefined,
+): string {
+  if (forwardedFor) {
+    const chain = forwardedFor
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+
+    // Google Cloud Load Balancing appends both the actual client and the
+    // load-balancer address. Any values before those two may be forged.
+    if (chain.length >= 2) return chain[chain.length - 2];
+  }
+
+  return requestIp?.trim() || "unknown";
+}
+
 export function inquiryTypeLabel(type: InquiryType): string {
   switch (type) {
     case "pricing": return "Pricing";

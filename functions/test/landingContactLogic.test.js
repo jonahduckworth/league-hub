@@ -6,6 +6,7 @@ const {
   escapeHtml,
   landingContactEmail,
   parseLandingContact,
+  trustedClientIp,
 } = require("../lib/landingContactLogic");
 
 const now = 1_800_000_000_000;
@@ -49,6 +50,21 @@ test("allows only production League Hub origins and local development", () => {
   assert.equal(allowedLandingOrigin("http://localhost:3020"), "http://localhost:3020");
   assert.equal(allowedLandingOrigin("https://evil.example"), null);
   assert.equal(allowedLandingOrigin("javascript:alert(1)"), null);
+});
+
+test("uses Google's appended client IP instead of a forged X-Forwarded-For prefix", () => {
+  assert.equal(
+    trustedClientIp(
+      "198.51.100.77, 203.0.113.25, 35.191.0.1",
+      "10.0.0.2",
+    ),
+    "203.0.113.25",
+  );
+  assert.equal(
+    trustedClientIp("203.0.113.25, 35.191.0.1", "10.0.0.2"),
+    "203.0.113.25",
+  );
+  assert.equal(trustedClientIp("198.51.100.77", "10.0.0.2"), "10.0.0.2");
 });
 
 test("escapes requester content in the email while preserving plain text", () => {
