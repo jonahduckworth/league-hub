@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/design_system.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
@@ -146,6 +147,7 @@ class _ChatConversationScreenState
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (orgId == null || currentUser == null) return;
+    if (!await _ensureCommunityGuidelinesAccepted(currentUser)) return;
 
     setState(() => _isSending = true);
     _messageController.clear();
@@ -242,6 +244,7 @@ class _ChatConversationScreenState
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     final currentUser = ref.read(currentUserProvider).valueOrNull;
     if (orgId == null || currentUser == null) return;
+    if (!await _ensureCommunityGuidelinesAccepted(currentUser)) return;
 
     try {
       final picker = ImagePicker();
@@ -277,6 +280,195 @@ class _ChatConversationScreenState
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<bool> _ensureCommunityGuidelinesAccepted(AppUser currentUser) async {
+    if (currentUser.hasAcceptedCommunityGuidelines) return true;
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Community guidelines'),
+        content: const Text(
+          'Keep team communication respectful and safe. Harassment, hate, '
+          'sexual content, threats, spam, and unlawful or harmful material '
+          'are not allowed. Messages can be reported, and serious or repeated '
+          'violations may result in access being removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => launchUrl(
+              Uri.parse('https://leaguehub.ca/terms'),
+              mode: LaunchMode.externalApplication,
+            ),
+            child: const Text('Read Terms'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('I agree'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return false;
+    try {
+      await ref
+          .read(authorizedFirestoreServiceProvider)
+          .updateOwnSafetySettings(currentUser, {
+        'hasAcceptedCommunityGuidelines': true,
+        'blockedUserIds': currentUser.blockedUserIds,
+      });
+      ref.invalidate(currentUserProvider);
+      return true;
+    } catch (_) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(
+          context,
+          'Unable to save your agreement. Please try again.',
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _reportMessage(
+    Message message, {
+    required bool reportUser,
+  }) async {
+    final reason = await _showReportDialog(reportUser: reportUser);
+    if (reason == null || !mounted) return;
+    final orgId = ref.read(organizationProvider).valueOrNull?.id;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (orgId == null || currentUser == null) return;
+    try {
+      await ref.read(authorizedFirestoreServiceProvider).reportMessage(
+            currentUser,
+            orgId,
+            widget.roomId,
+            message,
+            reason: reason.reason,
+            details: '${reportUser ? 'User report' : 'Message report'}: '
+                '${reason.details}',
+          );
+      if (mounted) {
+        AppUtils.showSuccessSnackBar(
+          context,
+          reportUser
+              ? 'User reported. Our safety team will review it.'
+              : 'Message reported. Our safety team will review it.',
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(context, 'Unable to submit the report');
+      }
+    }
+  }
+
+  Future<_SafetyReport?> _showReportDialog({required bool reportUser}) async {
+    const reasons = [
+      'Harassment or bullying',
+      'Hateful or abusive content',
+      'Sexual or inappropriate content',
+      'Spam or misleading content',
+      'Safety concern',
+      'Other',
+    ];
+    var selected = reasons.first;
+    final detailsController = TextEditingController();
+    final result = await showDialog<_SafetyReport>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(reportUser ? 'Report user' : 'Report message'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: selected,
+                  decoration: const InputDecoration(labelText: 'Reason'),
+                  items: reasons
+                      .map((reason) => DropdownMenuItem(
+                            value: reason,
+                            child: Text(reason),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) setState(() => selected = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: detailsController,
+                  maxLength: 450,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Details (optional)',
+                    hintText: 'Tell us what happened',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                _SafetyReport(selected, detailsController.text.trim()),
+              ),
+              child: const Text('Submit report'),
+            ),
+          ],
+        ),
+      ),
+    );
+    detailsController.dispose();
+    return result;
+  }
+
+  Future<void> _blockUser(Message message) async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null || currentUser.id == message.senderId) return;
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: 'Block ${message.senderName}?',
+      message:
+          'Messages from this person will be hidden for you. You can contact support to unblock them.',
+      confirmLabel: 'Block user',
+      confirmColor: AppGlassColors.rose,
+    );
+    if (confirmed != true) return;
+    try {
+      final blocked =
+          {...currentUser.blockedUserIds, message.senderId}.toList();
+      await ref
+          .read(authorizedFirestoreServiceProvider)
+          .updateOwnSafetySettings(currentUser, {
+        'blockedUserIds': blocked,
+        'hasAcceptedCommunityGuidelines':
+            currentUser.hasAcceptedCommunityGuidelines,
+      });
+      ref.invalidate(currentUserProvider);
+      if (mounted) {
+        AppUtils.showSuccessSnackBar(
+          context,
+          '${message.senderName} has been blocked',
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(context, 'Unable to block this user');
+      }
     }
   }
 
@@ -444,6 +636,14 @@ class _ChatConversationScreenState
             isSelf && !message.deleted ? () => _startEditing(message) : null,
         onDelete:
             isSelf && !message.deleted ? () => _deleteMessage(message) : null,
+        onReportMessage: !isSelf && !message.deleted
+            ? () => _reportMessage(message, reportUser: false)
+            : null,
+        onReportUser: !isSelf && !message.deleted
+            ? () => _reportMessage(message, reportUser: true)
+            : null,
+        onBlockUser:
+            !isSelf && !message.deleted ? () => _blockUser(message) : null,
       ));
     }
 
@@ -583,6 +783,13 @@ class _ChatConversationScreenState
       ),
     );
   }
+}
+
+class _SafetyReport {
+  final String reason;
+  final String details;
+
+  const _SafetyReport(this.reason, this.details);
 }
 
 class _ConversationHeaderContent extends StatelessWidget {

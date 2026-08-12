@@ -25,6 +25,10 @@ class MockFirestoreService extends Mock implements FirestoreService {
       returnValue: Stream<List<ChatRoom>>.value([])) as Stream<List<ChatRoom>>);
 
   @override
+  Stream<List<ChatRoom>> getVisibleChatRooms(String orgId, AppUser viewer) =>
+      getChatRooms(orgId);
+
+  @override
   Stream<List<Policy>> policiesStream(String orgId,
           {String? leagueId, String? category}) =>
       (super.noSuchMethod(
@@ -108,6 +112,61 @@ void main() {
     });
 
     group('chatRoomsProvider filtering', () {
+      test('blocked direct-message rooms are removed from the chat list',
+          () async {
+        final staffUser = AppUser(
+          id: 'staff1',
+          email: 'staff@example.com',
+          displayName: 'Staff',
+          role: UserRole.staff,
+          orgId: 'org1',
+          hubIds: const [],
+          leagueIds: const ['l1'],
+          teamIds: const [],
+          blockedUserIds: const ['blocked1'],
+          createdAt: DateTime(2026),
+          isActive: true,
+        );
+        final testOrg = Organization(
+          id: 'org1',
+          name: 'Test Org',
+          primaryColor: '#1A3A5C',
+          secondaryColor: '#2E75B6',
+          accentColor: '#4DA3FF',
+          createdAt: DateTime(2026),
+          ownerId: 'owner1',
+        );
+        final blockedRoom = ChatRoom(
+          id: 'blocked-dm',
+          orgId: 'org1',
+          name: 'Staff & Blocked',
+          type: ChatRoomType.direct,
+          participants: const ['staff1', 'blocked1'],
+          createdAt: DateTime(2026),
+          isArchived: false,
+        );
+        final visibleRoom = ChatRoom(
+          id: 'visible-dm',
+          orgId: 'org1',
+          name: 'Staff & Visible',
+          type: ChatRoomType.direct,
+          participants: const ['staff1', 'visible1'],
+          createdAt: DateTime(2026),
+          isArchived: false,
+        );
+        when(mockFs.getChatRooms('org1'))
+            .thenAnswer((_) => Stream.value([blockedRoom, visibleRoom]));
+        container = ProviderContainer(overrides: [
+          firestoreServiceProvider.overrideWithValue(mockFs),
+          currentUserProvider.overrideWith((ref) => staffUser),
+          organizationProvider.overrideWith((ref) => testOrg),
+        ]);
+
+        final result = await container.read(chatRoomsProvider.future);
+
+        expect(result.map((room) => room.id), ['visible-dm']);
+      });
+
       test('staff user: only sees DMs they are in', () async {
         final staffUser = AppUser(
           id: 'staff1',

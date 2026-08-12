@@ -87,9 +87,18 @@ final chatRoomsProvider = StreamProvider<List<ChatRoom>>((ref) {
   if (orgId == null) return Stream.value([]);
   final appUser = ref.watch(currentUserProvider).valueOrNull;
   final ps = ref.read(permissionServiceProvider);
-  return ref.watch(firestoreServiceProvider).getChatRooms(orgId).map((rooms) {
-    if (appUser == null) return rooms;
-    return rooms.where((room) => ps.canViewChatRoom(appUser, room)).toList();
+  if (appUser == null) return Stream.value([]);
+  return ref
+      .watch(firestoreServiceProvider)
+      .getVisibleChatRooms(orgId, appUser)
+      .map((rooms) {
+    return rooms.where((room) {
+      if (!ps.canViewChatRoom(appUser, room)) return false;
+      if (room.type != ChatRoomType.direct) return true;
+      return !room.participants.any(
+        (id) => id != appUser.id && appUser.blockedUserIds.contains(id),
+      );
+    }).toList();
   });
 });
 
@@ -106,7 +115,14 @@ final messagesProvider =
     StreamProvider.family<List<Message>, String>((ref, roomId) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getMessages(orgId, roomId);
+  final blockedUserIds =
+      ref.watch(currentUserProvider).valueOrNull?.blockedUserIds.toSet() ??
+          const <String>{};
+  return ref.watch(firestoreServiceProvider).getMessages(orgId, roomId).map(
+        (messages) => messages
+            .where((message) => !blockedUserIds.contains(message.senderId))
+            .toList(),
+      );
 });
 
 /// Policy, scope-filtered by user role. superAdmin+ sees all.
@@ -244,11 +260,14 @@ final typingUsersProvider =
 /// Stream of unread message count for a given room, scoped to the current user.
 final unreadCountProvider = StreamProvider.family<int, String>((ref, roomId) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
-  final userId = ref.watch(currentUserProvider).valueOrNull?.id;
-  if (orgId == null || userId == null) return Stream.value(0);
-  return ref
-      .read(firestoreServiceProvider)
-      .unreadCountStream(orgId, roomId, userId);
+  final currentUser = ref.watch(currentUserProvider).valueOrNull;
+  if (orgId == null || currentUser == null) return Stream.value(0);
+  return ref.read(firestoreServiceProvider).unreadCountStream(
+        orgId,
+        roomId,
+        currentUser.id,
+        blockedUserIds: currentUser.blockedUserIds.toSet(),
+      );
 });
 
 final pendingInviteCountProvider = Provider<int>((ref) {

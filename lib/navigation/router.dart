@@ -26,7 +26,6 @@ import '../screens/announcements_screen.dart';
 import '../screens/schedule_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/settings_screen.dart';
-import '../screens/org_creation_screen.dart';
 import '../screens/accept_invitation_screen.dart';
 import '../screens/admin/user_management_screen.dart';
 import '../screens/admin/user_detail_screen.dart';
@@ -326,15 +325,11 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/create-league',
-      pageBuilder: (context, state) => _shellTransitionPage(
-        state,
-        const OrgCreationScreen(),
-        motion: _ShellPageMotion.sharedAxisForward,
-      ),
+      redirect: (context, state) => '/login',
     ),
     GoRoute(
       path: '/create-org',
-      redirect: (context, state) => '/create-league',
+      redirect: (context, state) => '/login',
     ),
     GoRoute(
       path: '/accept-invite',

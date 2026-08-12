@@ -2,6 +2,7 @@ import '../models/app_user.dart';
 import '../models/announcement.dart';
 import '../models/chat_room.dart';
 import '../models/invitation.dart';
+import '../models/message.dart';
 import '../models/team.dart';
 import 'firestore_service.dart';
 import 'permission_service.dart';
@@ -199,6 +200,33 @@ class AuthorizedFirestoreService {
       AppUser actor, AppUser target, Map<String, dynamic> data) async {
     await _assertCanUpdateUserFields(actor, target, data);
     return _fs.updateUserFields(target.id, data);
+  }
+
+  Future<void> updateOwnSafetySettings(
+    AppUser actor,
+    Map<String, dynamic> data,
+  ) {
+    const allowedFields = {
+      'blockedUserIds',
+      'hasAcceptedCommunityGuidelines',
+    };
+    if (!actor.isActive ||
+        data.keys.any((key) => !allowedFields.contains(key))) {
+      _deny('updateOwnSafetySettings', actor);
+    }
+    final blockedIds = data['blockedUserIds'];
+    if (blockedIds != null &&
+        (blockedIds is! List ||
+            blockedIds.whereType<String>().length != blockedIds.length ||
+            blockedIds.length > 1000 ||
+            blockedIds.contains(actor.id))) {
+      _deny('updateOwnSafetySettings invalid blocked users', actor);
+    }
+    final accepted = data['hasAcceptedCommunityGuidelines'];
+    if (accepted != null && (accepted is! bool || accepted != true)) {
+      _deny('updateOwnSafetySettings invalid guideline acceptance', actor);
+    }
+    return _fs.updateOwnSafetySettings(actor.id, data);
   }
 
   Future<void> _assertCanUpdateUserFields(
@@ -450,6 +478,39 @@ class AuthorizedFirestoreService {
       _deny('deleteMessage', actor);
     }
     return _fs.deleteMessage(orgId, roomId, messageId);
+  }
+
+  Future<void> reportMessage(
+    AppUser actor,
+    String orgId,
+    String roomId,
+    Message message, {
+    required String reason,
+    String? details,
+  }) {
+    const allowedReasons = {
+      'Harassment or bullying',
+      'Hateful or abusive content',
+      'Sexual or inappropriate content',
+      'Spam or misleading content',
+      'Safety concern',
+      'Other',
+    };
+    if (!actor.isActive ||
+        actor.orgId != orgId ||
+        actor.id == message.senderId ||
+        !allowedReasons.contains(reason) ||
+        (details?.length ?? 0) > 500) {
+      _deny('reportMessage', actor);
+    }
+    return _fs.reportMessage(
+      orgId,
+      roomId,
+      message,
+      actor,
+      reason: reason,
+      details: details,
+    );
   }
 
   // -------------------------------------------------------------------------

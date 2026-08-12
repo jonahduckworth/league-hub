@@ -30,7 +30,12 @@ void main() {
 
       testWidgets('displays logo', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
-        expect(find.byIcon(Icons.sports_hockey_outlined), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Image && widget.semanticLabel == 'League Hub',
+          ),
+          findsOneWidget,
+        );
       });
 
       testWidgets('displays app title', (WidgetTester tester) async {
@@ -255,17 +260,11 @@ void main() {
     });
 
     group('Navigation Links', () {
-      testWidgets('create league button is present',
+      testWidgets('does not offer public league creation',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
-        expect(find.text('Create League'), findsOneWidget);
-      });
-
-      testWidgets('create league button is tappable',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
-
-        expect(find.byType(AuthSecondaryButton), findsOneWidget);
+        expect(find.text('Create League'), findsNothing);
+        expect(find.byType(AuthSecondaryButton), findsNothing);
       });
 
       testWidgets('accept invitation button is present',
@@ -366,7 +365,12 @@ void main() {
         await tester.pumpWidget(createTestWidget());
 
         // Logo container should be present
-        expect(find.byIcon(Icons.sports_hockey_outlined), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Image && widget.semanticLabel == 'League Hub',
+          ),
+          findsOneWidget,
+        );
       });
 
       testWidgets('text fields have input decorations',
@@ -380,7 +384,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
 
         expect(find.byType(GlassSubmitButton), findsOneWidget);
-        expect(find.byType(AuthSecondaryButton), findsOneWidget);
+        expect(find.byType(AuthTextLink), findsNWidgets(2));
         expect(find.byType(TextButton), findsWidgets);
       });
     });
@@ -440,7 +444,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
 
         expect(find.byType(GlassSubmitButton), findsOneWidget);
-        expect(find.byType(AuthSecondaryButton), findsOneWidget);
+        expect(find.byType(AuthTextLink), findsNWidgets(2));
       });
 
       testWidgets('icons are present for visual context',
@@ -449,7 +453,12 @@ void main() {
 
         expect(find.byIcon(Icons.email_outlined), findsOneWidget);
         expect(find.byIcon(Icons.lock_outlined), findsOneWidget);
-        expect(find.byIcon(Icons.sports_hockey_outlined), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Image && widget.semanticLabel == 'League Hub',
+          ),
+          findsOneWidget,
+        );
       });
 
       testWidgets('text fields have labels', (WidgetTester tester) async {

@@ -15,6 +15,8 @@ class AppUser {
   final List<String> teamIds;
   final DateTime createdAt;
   final bool isActive;
+  final List<String> blockedUserIds;
+  final bool hasAcceptedCommunityGuidelines;
 
   AppUser({
     required this.id,
@@ -31,6 +33,8 @@ class AppUser {
     required this.teamIds,
     required this.createdAt,
     required this.isActive,
+    this.blockedUserIds = const [],
+    this.hasAcceptedCommunityGuidelines = false,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
@@ -51,6 +55,11 @@ class AppUser {
         teamIds: List<String>.from(json['teamIds'] as List? ?? []),
         createdAt: DateTime.parse(json['createdAt'] as String),
         isActive: json['isActive'] as bool? ?? true,
+        blockedUserIds: (json['blockedUserIds'] as List? ?? const [])
+            .whereType<String>()
+            .toList(),
+        hasAcceptedCommunityGuidelines:
+            json['hasAcceptedCommunityGuidelines'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() {
@@ -66,6 +75,8 @@ class AppUser {
       'teamIds': teamIds,
       'createdAt': createdAt.toIso8601String(),
       'isActive': isActive,
+      'blockedUserIds': blockedUserIds,
+      'hasAcceptedCommunityGuidelines': hasAcceptedCommunityGuidelines,
     };
 
     final normalizedTitle = _optionalString(title);

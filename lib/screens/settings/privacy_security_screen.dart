@@ -1,6 +1,9 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../core/theme.dart';
 import '../../core/design_system.dart';
 import '../../core/league_branding.dart';
 import '../../core/utils.dart';
@@ -46,9 +49,170 @@ class PrivacySecurityScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          _SettingsSection(
+            title: 'DATA & PRIVACY',
+            children: [
+              _SecurityTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Privacy Policy',
+                subtitle: 'How League Hub handles your information',
+                onTap: () => _openExternalLink(
+                  context,
+                  Uri.parse('https://leaguehub.ca/privacy'),
+                ),
+              ),
+              const Divider(height: 1, color: AppGlassColors.border),
+              _SecurityTile(
+                icon: Icons.gavel_outlined,
+                title: 'Terms & Community Guidelines',
+                subtitle: 'Rules for safe and respectful communication',
+                onTap: () => _openExternalLink(
+                  context,
+                  Uri.parse('https://leaguehub.ca/terms'),
+                ),
+              ),
+              const Divider(height: 1, color: AppGlassColors.border),
+              _SecurityTile(
+                icon: Icons.support_agent_outlined,
+                title: 'Support',
+                subtitle: 'Get help with your account or organization',
+                onTap: () => _openExternalLink(
+                  context,
+                  Uri.parse('https://leaguehub.ca/support'),
+                ),
+              ),
+              const Divider(height: 1, color: AppGlassColors.border),
+              _SecurityTile(
+                icon: Icons.delete_outline,
+                title: 'Delete Account',
+                subtitle: 'Permanently remove your League Hub account',
+                titleColor: AppColors.danger,
+                iconColor: AppColors.danger,
+                onTap: () => _confirmDeleteAccount(context),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _openExternalLink(BuildContext context, Uri uri) async {
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        context.mounted) {
+      AppUtils.showErrorSnackBar(context, 'Unable to open ${uri.host}');
+    }
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final passwordController = TextEditingController();
+    var deleting = false;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Delete your account?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This permanently removes your sign-in and personal profile. '
+                'Messages and organization records may be retained without your active account where needed for league operations.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                enabled: !deleting,
+                obscureText: true,
+                autofillHints: const [AutofillHints.password],
+                decoration: const InputDecoration(
+                  labelText: 'Current password',
+                  hintText: 'Confirm your identity',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: deleting ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: deleting
+                  ? null
+                  : () async {
+                      final password = passwordController.text;
+                      if (password.isEmpty) {
+                        AppUtils.showErrorSnackBar(
+                          context,
+                          'Enter your current password',
+                        );
+                        return;
+                      }
+                      setState(() => deleting = true);
+                      try {
+                        final user = FirebaseAuth.instance.currentUser;
+                        final email = user?.email;
+                        if (user == null || email == null) {
+                          throw FirebaseAuthException(
+                            code: 'no-current-user',
+                            message: 'No signed-in account was found.',
+                          );
+                        }
+                        await user.reauthenticateWithCredential(
+                          EmailAuthProvider.credential(
+                            email: email,
+                            password: password,
+                          ),
+                        );
+                        await FirebaseFunctions.instanceFor(
+                          region: 'us-central1',
+                        ).httpsCallable('deleteOwnAccount').call<void>();
+                        await FirebaseAuth.instance.signOut();
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      } on FirebaseAuthException catch (error) {
+                        setState(() => deleting = false);
+                        if (context.mounted) {
+                          AppUtils.showErrorSnackBar(
+                            context,
+                            error.code == 'wrong-password' ||
+                                    error.code == 'invalid-credential'
+                                ? 'That password is incorrect'
+                                : error.message ??
+                                    'Unable to verify your account',
+                          );
+                        }
+                      } on FirebaseFunctionsException catch (error) {
+                        setState(() => deleting = false);
+                        if (context.mounted) {
+                          AppUtils.showErrorSnackBar(
+                            context,
+                            error.message ?? 'Unable to delete your account',
+                          );
+                        }
+                      }
+                    },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.danger,
+              ),
+              child: deleting
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Delete Account'),
+            ),
+          ],
+        ),
+      ),
+    );
+    passwordController.dispose();
   }
 
   void _showChangePasswordDialog(BuildContext context) {
@@ -196,23 +360,27 @@ class _SecurityTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final Color? titleColor;
+  final Color? iconColor;
 
   const _SecurityTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.titleColor,
+    this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Icon(icon, color: AppGlassColors.aqua, size: 22),
+      leading: Icon(icon, color: iconColor ?? AppGlassColors.aqua, size: 22),
       title: Text(
         title,
-        style: const TextStyle(
-          color: AppGlassColors.ink,
+        style: TextStyle(
+          color: titleColor ?? AppGlassColors.ink,
           fontSize: 15,
           fontWeight: FontWeight.w600,
         ),

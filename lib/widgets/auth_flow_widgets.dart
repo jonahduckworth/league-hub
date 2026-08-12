@@ -60,10 +60,20 @@ class AuthHeroHeader extends StatelessWidget {
           height: 96,
           radius: 26,
           child: Center(
-            child: Icon(
-              icon,
-              size: 42,
-              color: AppGlassColors.ink,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Image.asset(
+                'assets/brand/league-hub-app-icon-1024.png',
+                width: 68,
+                height: 68,
+                fit: BoxFit.contain,
+                semanticLabel: 'League Hub',
+                errorBuilder: (_, __, ___) => Icon(
+                  icon,
+                  size: 42,
+                  color: AppGlassColors.ink,
+                ),
+              ),
             ),
           ),
         ),

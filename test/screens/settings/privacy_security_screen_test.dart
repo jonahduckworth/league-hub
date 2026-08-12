@@ -45,7 +45,7 @@ void main() {
       expect(find.text('Privacy & Security'), findsOneWidget);
       expect(find.text('ACCOUNT SECURITY'), findsOneWidget);
       expect(find.text('SESSIONS'), findsNothing);
-      expect(find.text('DATA & PRIVACY'), findsNothing);
+      expect(find.text('DATA & PRIVACY'), findsOneWidget);
     });
 
     testWidgets('shows Change Password option', (tester) async {
@@ -75,7 +75,8 @@ void main() {
       expect(find.text('Change Email'), findsNothing);
     });
 
-    testWidgets('hides unbuilt or destructive actions', (tester) async {
+    testWidgets('shows privacy, support, and account deletion actions',
+        (tester) async {
       await tester.pumpWidget(_buildTestWidget(
         overrides: [
           currentUserProvider.overrideWith((ref) async => _testUser()),
@@ -87,7 +88,29 @@ void main() {
       expect(find.text('Active Sessions'), findsNothing);
       expect(find.text('Sign Out All Devices'), findsNothing);
       expect(find.text('Export My Data'), findsNothing);
-      expect(find.text('Delete Account'), findsNothing);
+      expect(find.text('Privacy Policy'), findsOneWidget);
+      expect(find.text('Terms & Community Guidelines'), findsOneWidget);
+      expect(find.text('Support'), findsOneWidget);
+      expect(find.text('Delete Account'), findsOneWidget);
+    });
+
+    testWidgets('requires confirmation and a password before deletion',
+        (tester) async {
+      await tester.pumpWidget(_buildTestWidget(
+        overrides: [
+          currentUserProvider.overrideWith((ref) async => _testUser()),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Delete Account'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete your account?'), findsOneWidget);
+      expect(find.text('Current password'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(
+          find.widgetWithText(FilledButton, 'Delete Account'), findsOneWidget);
     });
 
     testWidgets('tapping Change Password opens dialog', (tester) async {

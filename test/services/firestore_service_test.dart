@@ -6,6 +6,7 @@ import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/league.dart';
+import 'package:league_hub/models/message.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/models/team.dart';
 import 'package:league_hub/models/schedule_event.dart';
@@ -545,6 +546,78 @@ void main() {
       expect(rooms[0].name, 'Room A');
     });
 
+    test('getVisibleChatRooms merges, deduplicates, and sorts scoped rooms',
+        () async {
+      final viewer = AppUser(
+        id: 'viewer',
+        email: 'viewer@example.com',
+        displayName: 'Viewer',
+        role: UserRole.staff,
+        orgId: orgId,
+        leagueIds: const ['league-1'],
+        hubIds: const ['hub-1'],
+        teamIds: const ['team-1'],
+        createdAt: DateTime(2026),
+        isActive: true,
+      );
+      Future<void> seedRoom(String id, Map<String, dynamic> data) =>
+          fakeFirestore
+              .collection(AppConstants.orgsCollection)
+              .doc(orgId)
+              .collection(AppConstants.chatRoomsCollection)
+              .doc(id)
+              .set({
+            'orgId': orgId,
+            'name': id,
+            'type': 'league',
+            'leagueId': null,
+            'hubId': null,
+            'teamId': null,
+            'participants': <String>[],
+            'isArchived': false,
+            'createdAt': DateTime(2026).toIso8601String(),
+            'lastMessageAt': DateTime(2026).toIso8601String(),
+            ...data,
+          });
+      await seedRoom('unscoped', {});
+      await seedRoom('league', {'leagueId': 'league-1'});
+      await seedRoom('hub-team', {
+        'leagueId': 'league-1',
+        'hubId': 'hub-1',
+        'teamId': 'team-1',
+        'lastMessageAt': DateTime(2026, 2).toIso8601String(),
+      });
+      await seedRoom('private', {
+        'leagueId': 'league-2',
+        'hubId': 'hub-2',
+        'teamId': 'team-2',
+      });
+
+      final rooms = await svc.getVisibleChatRooms(orgId, viewer).first;
+
+      expect(rooms.map((room) => room.id), [
+        'hub-team',
+        'unscoped',
+        'league',
+      ]);
+    });
+
+    test('getVisibleChatRooms supports staff with no assignments', () async {
+      final viewer = AppUser(
+        id: 'viewer',
+        email: 'viewer@example.com',
+        displayName: 'Viewer',
+        role: UserRole.staff,
+        orgId: orgId,
+        hubIds: const [],
+        teamIds: const [],
+        createdAt: DateTime(2026),
+        isActive: true,
+      );
+      final rooms = await svc.getVisibleChatRooms(orgId, viewer).first;
+      expect(rooms, isEmpty);
+    });
+
     test('getChatRoom streams single room', () async {
       final roomId =
           await svc.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
@@ -626,7 +699,8 @@ void main() {
       expect(messages[1].text, 'Second');
     });
 
-    test('sendMessage creates message and updates room atomically', () async {
+    test('sendMessage creates a message for trusted preview processing',
+        () async {
       await svc.sendMessage(orgId, roomId,
           senderId: 'sender-1', senderName: 'Alice', text: 'Hello world!');
 
@@ -634,11 +708,130 @@ void main() {
       expect(messages, hasLength(1));
       expect(messages.first.text, 'Hello world!');
       expect(messages.first.senderId, 'sender-1');
+      final raw = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.chatRoomsCollection)
+          .doc(roomId)
+          .collection(AppConstants.messagesCollection)
+          .doc(messages.first.id)
+          .get();
+      expect(raw.data(), containsPair('previewText', 'Hello world!'));
+    });
 
-      final rooms = await svc.getChatRooms(orgId).first;
-      final room = rooms.firstWhere((r) => r.id == roomId);
-      expect(room.lastMessage, 'Hello world!');
-      expect(room.lastMessageBy, 'Alice');
+    test('sendMessage rejects blank and oversized text before storage',
+        () async {
+      await expectLater(
+        svc.sendMessage(orgId, roomId,
+            senderId: 'sender-1', senderName: 'Alice', text: '   '),
+        throwsArgumentError,
+      );
+      await expectLater(
+        svc.sendMessage(orgId, roomId,
+            senderId: 'sender-1', senderName: 'Alice', text: 'a' * 4001),
+        throwsArgumentError,
+      );
+
+      expect(await svc.getMessages(orgId, roomId).first, isEmpty);
+    });
+
+    test('sendMediaMessage validates rule-bound fields before storage',
+        () async {
+      for (final call in <Future<void> Function()>[
+        () => svc.sendMediaMessage(orgId, roomId,
+            senderId: 'sender-1',
+            senderName: 'Alice',
+            mediaUrl: '',
+            mediaType: 'image/jpeg'),
+        () => svc.sendMediaMessage(orgId, roomId,
+            senderId: 'sender-1',
+            senderName: 'Alice',
+            mediaUrl: 'https://example.com/photo.jpg',
+            mediaType: 'x' * 121),
+        () => svc.sendMediaMessage(orgId, roomId,
+            senderId: 'sender-1',
+            senderName: 'Alice',
+            mediaUrl: 'https://example.com/photo.jpg',
+            mediaType: 'image/jpeg',
+            caption: '   '),
+        () => svc.sendMediaMessage(orgId, roomId,
+            senderId: 'sender-1',
+            senderName: 'Alice',
+            mediaUrl: 'https://example.com/photo.jpg',
+            mediaType: 'image/jpeg',
+            caption: 'a' * 4001),
+      ]) {
+        await expectLater(call(), throwsArgumentError);
+      }
+
+      expect(await svc.getMessages(orgId, roomId).first, isEmpty);
+    });
+
+    test('unread count excludes messages from blocked senders', () async {
+      await svc.sendMessage(orgId, roomId,
+          senderId: 'blocked-user', senderName: 'Blocked', text: 'Hidden');
+      await svc.sendMessage(orgId, roomId,
+          senderId: 'visible-user', senderName: 'Visible', text: 'Shown');
+
+      final unread = await svc.unreadCountStream(
+        orgId,
+        roomId,
+        'reader',
+        blockedUserIds: {'blocked-user'},
+      ).first;
+
+      expect(unread, 1);
+    });
+
+    test('persists guideline acceptance and blocked users', () async {
+      final user = makeUser('reader');
+      await svc.updateUser(user);
+
+      await svc.updateOwnSafetySettings(user.id, {
+        'hasAcceptedCommunityGuidelines': true,
+        'blockedUserIds': ['blocked-user'],
+      });
+
+      final stored = await svc.getUser(user.id);
+      expect(stored!.hasAcceptedCommunityGuidelines, isTrue);
+      expect(stored.blockedUserIds, ['blocked-user']);
+    });
+
+    test('reportMessage persists the moderation payload', () async {
+      final reporter = makeUser('reporter');
+      final message = Message(
+        id: 'message-1',
+        chatRoomId: roomId,
+        senderId: 'reported-user',
+        senderName: 'Reported User',
+        text: 'Unsafe content',
+        createdAt: DateTime(2026),
+        readBy: const [],
+      );
+
+      await svc.reportMessage(
+        orgId,
+        roomId,
+        message,
+        reporter,
+        reason: 'Safety concern',
+        details: 'Message report: please review',
+      );
+
+      final snapshot = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('messageReports')
+          .doc('${roomId}_message-1_reporter')
+          .get();
+      expect(snapshot.data(), containsPair('reporterId', 'reporter'));
+      expect(snapshot.data(), containsPair('reportedUserId', 'reported-user'));
+      expect(snapshot.data(), containsPair('reason', 'Safety concern'));
+      expect(
+        snapshot.data(),
+        containsPair('details', 'Message report: please review'),
+      );
+      expect(snapshot.data(), containsPair('status', 'open'));
     });
   });
 

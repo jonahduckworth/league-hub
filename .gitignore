@@ -56,3 +56,10 @@ node_modules/
 **/out/
 **/.turbo/
 **/*.tsbuildinfo
+
+# Firebase CLI cache
+.firebase/
+
+# Store screenshot source captures and duplicate Play exports are reproducible.
+store_assets/screenshots/raw/
+store_assets/screenshots/google-play/

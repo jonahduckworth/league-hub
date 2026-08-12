@@ -12,7 +12,11 @@ String? routeRedirectForAuthState({
   final isOnCreateLeague =
       location == '/create-league' || location == '/create-org';
   final isOnAcceptInvite = location == '/accept-invite';
-  final isOnAuthRoute = isOnLogin || isOnCreateLeague || isOnAcceptInvite;
+  final isOnAuthRoute = isOnLogin || isOnAcceptInvite;
+
+  // League onboarding is intentionally managed by League Hub. Keep the
+  // retired self-service URLs closed even when reached from an old link.
+  if (isOnCreateLeague) return isLoggedIn ? '/' : '/login';
 
   if (!isLoggedIn && !isOnAuthRoute) return '/login';
   if (isLoggedIn && isOnLogin) return '/';
