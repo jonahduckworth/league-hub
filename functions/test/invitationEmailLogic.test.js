@@ -2,10 +2,10 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   buildInvitationEmail,
+  classifyInvitationDeliveryFailure,
   invitationIdempotencyKey,
   normalizeInvitationRecipient,
   normalizeInvitationToken,
-  requireSuccessfulInvitationDelivery,
 } = require("../lib/invitationEmailLogic");
 
 test("normalizes valid invitation recipients and rejects malformed addresses", () => {
@@ -48,10 +48,66 @@ test("uses a stable bounded idempotency key per invitation", () => {
   assert.match(first, /^league-hub-invite-[a-f0-9]{40}$/);
 });
 
-test("delivery guard accepts success and throws retryable failures", () => {
-  assert.doesNotThrow(() => requireSuccessfulInvitationDelivery(202, "ok"));
-  assert.throws(
-    () => requireSuccessfulInvitationDelivery(503, "temporary outage"),
-    /Invitation email delivery failed \(503\)/,
+test("classifies permanent Resend request failures without retrying", () => {
+  for (const [status, name] of [
+    [400, "validation_error"],
+    [401, "missing_api_key"],
+    [403, "invalid_api_key"],
+    [422, "invalid_from_address"],
+    [451, "security_error"],
+  ]) {
+    assert.deepEqual(
+      classifyInvitationDeliveryFailure(status, JSON.stringify({name})),
+      {retryable: false, deliveryStatus: "failed", code: name},
+    );
+  }
+});
+
+test("classifies rate limits, provider outages, and network errors for retry", () => {
+  assert.deepEqual(classifyInvitationDeliveryFailure(429, JSON.stringify({
+    name: "rate_limit_exceeded",
+  })), {
+    retryable: true,
+    deliveryStatus: "retrying",
+    code: "rate_limit_exceeded",
+  });
+  assert.deepEqual(classifyInvitationDeliveryFailure(503, "unavailable"), {
+    retryable: true,
+    deliveryStatus: "retrying",
+    code: "http_503",
+  });
+  assert.deepEqual(classifyInvitationDeliveryFailure(null), {
+    retryable: true,
+    deliveryStatus: "retrying",
+    code: "network_error",
+  });
+});
+
+test("retries only the concurrent idempotency conflict", () => {
+  assert.deepEqual(classifyInvitationDeliveryFailure(409, JSON.stringify({
+    name: "concurrent_idempotent_requests",
+  })), {
+    retryable: true,
+    deliveryStatus: "retrying",
+    code: "concurrent_idempotent_requests",
+  });
+  assert.deepEqual(classifyInvitationDeliveryFailure(409, JSON.stringify({
+    name: "invalid_idempotent_request",
+  })), {
+    retryable: false,
+    deliveryStatus: "failed",
+    code: "invalid_idempotent_request",
+  });
+});
+
+test("stores a bounded fallback code instead of untrusted provider text", () => {
+  const failure = classifyInvitationDeliveryFailure(
+    400,
+    JSON.stringify({name: "unsafe value", message: "secret details"}),
   );
+  assert.deepEqual(failure, {
+    retryable: false,
+    deliveryStatus: "failed",
+    code: "http_400",
+  });
 });

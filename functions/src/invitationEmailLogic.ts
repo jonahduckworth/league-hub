@@ -14,6 +14,12 @@ export type InvitationEmail = {
   html: string;
 };
 
+export type InvitationDeliveryFailure = {
+  retryable: boolean;
+  deliveryStatus: "retrying" | "failed";
+  code: string;
+};
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -95,12 +101,35 @@ export function buildInvitationEmail(input: InvitationEmailInput): InvitationEma
   return {subject, text, html};
 }
 
-export function requireSuccessfulInvitationDelivery(
-  status: number,
-  responseBody: string,
-): void {
-  if (status >= 200 && status < 300) return;
-  throw new Error(
-    `Invitation email delivery failed (${status}): ${responseBody.slice(0, 200)}`,
-  );
+function resendErrorName(responseBody: string): string | null {
+  try {
+    const parsed = JSON.parse(responseBody) as {name?: unknown};
+    if (typeof parsed.name !== "string") return null;
+    const name = parsed.name.trim().toLowerCase();
+    return /^[a-z0-9_]{1,64}$/.test(name) ? name : null;
+  } catch {
+    return null;
+  }
+}
+
+export function classifyInvitationDeliveryFailure(
+  status: number | null,
+  responseBody = "",
+): InvitationDeliveryFailure {
+  if (status === null) {
+    return {
+      retryable: true,
+      deliveryStatus: "retrying",
+      code: "network_error",
+    };
+  }
+
+  const providerCode = resendErrorName(responseBody);
+  const retryable = status === 429 || status >= 500 ||
+    (status === 409 && providerCode === "concurrent_idempotent_requests");
+  return {
+    retryable,
+    deliveryStatus: retryable ? "retrying" : "failed",
+    code: providerCode ?? `http_${status}`,
+  };
 }

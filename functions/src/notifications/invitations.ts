@@ -5,10 +5,10 @@ import {onDocumentCreated as onFirestoreCreated} from "firebase-functions/v2/fir
 import { db, sendNotification } from "../helpers";
 import {
   buildInvitationEmail,
+  classifyInvitationDeliveryFailure,
   invitationIdempotencyKey,
   normalizeInvitationRecipient,
   normalizeInvitationToken,
-  requireSuccessfulInvitationDelivery,
 } from "../invitationEmailLogic";
 
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
@@ -275,8 +275,10 @@ export const onInvitationEmailCreated = onFirestoreCreated(
         }),
       });
     } catch (error) {
+      const failure = classifyInvitationDeliveryFailure(null);
       await invitationRef.set({
-        emailDeliveryStatus: "retrying",
+        emailDeliveryStatus: failure.deliveryStatus,
+        emailDeliveryError: failure.code,
         emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, {merge: true});
       logger.error("Invitation email request failed", {
@@ -289,8 +291,13 @@ export const onInvitationEmailCreated = onFirestoreCreated(
 
     if (!response.ok) {
       const responseBody = await response.text();
+      const failure = classifyInvitationDeliveryFailure(
+        response.status,
+        responseBody,
+      );
       await invitationRef.set({
-        emailDeliveryStatus: "retrying",
+        emailDeliveryStatus: failure.deliveryStatus,
+        emailDeliveryError: failure.code,
         emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, {merge: true});
       logger.error("Invitation email delivery failed", {
@@ -299,7 +306,12 @@ export const onInvitationEmailCreated = onFirestoreCreated(
         orgId: event.params.orgId,
         invitationId: event.params.invitationId,
       });
-      requireSuccessfulInvitationDelivery(response.status, responseBody);
+      if (failure.retryable) {
+        throw new Error(
+          `Retryable invitation email delivery failure (${failure.code})`,
+        );
+      }
+      return;
     }
 
     const result = await response.json() as {id?: unknown};
