@@ -361,7 +361,16 @@ service cloud.firestore {
         )
         && (
           !('hasAcceptedCommunityGuidelines' in request.resource.data)
-          || request.resource.data.hasAcceptedCommunityGuidelines is bool
+          || (
+            request.resource.data.hasAcceptedCommunityGuidelines is bool
+            && (
+              (
+                'hasAcceptedCommunityGuidelines' in resource.data
+                && resource.data.hasAcceptedCommunityGuidelines != true
+              )
+              || request.resource.data.hasAcceptedCommunityGuidelines == true
+            )
+          )
         );
     }
 
@@ -618,6 +627,7 @@ service cloud.firestore {
         && request.resource.data.chatRoomId == roomId
         && request.resource.data.senderId == request.auth.uid
         && request.resource.data.senderName == currentUser().displayName
+        && currentUser().hasAcceptedCommunityGuidelines == true
         && (
           request.resource.data.text == null
           || (

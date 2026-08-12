@@ -141,6 +141,22 @@ void main() {
         expect(user.phone, isNull);
         expect(user.address, isNull);
       });
+
+      test('ignores malformed blocked user IDs instead of breaking the profile',
+          () {
+        final user = AppUser.fromJson({
+          'id': 'user1',
+          'email': 'user@example.com',
+          'displayName': 'John',
+          'role': 'staff',
+          'hubIds': [],
+          'teamIds': [],
+          'createdAt': testDateStr,
+          'blockedUserIds': ['blocked-user', 7, null],
+        });
+
+        expect(user.blockedUserIds, ['blocked-user']);
+      });
     });
 
     group('toJson', () {

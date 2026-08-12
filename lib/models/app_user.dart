@@ -55,8 +55,9 @@ class AppUser {
         teamIds: List<String>.from(json['teamIds'] as List? ?? []),
         createdAt: DateTime.parse(json['createdAt'] as String),
         isActive: json['isActive'] as bool? ?? true,
-        blockedUserIds:
-            List<String>.from(json['blockedUserIds'] as List? ?? const []),
+        blockedUserIds: (json['blockedUserIds'] as List? ?? const [])
+            .whereType<String>()
+            .toList(),
         hasAcceptedCommunityGuidelines:
             json['hasAcceptedCommunityGuidelines'] as bool? ?? false,
       );

@@ -16,6 +16,12 @@ import 'package:league_hub/services/permission_service.dart';
 // Mockito's when() / verify() machinery works under sound null safety.
 class MockFirestoreService extends Mock implements FirestoreService {
   @override
+  Future<void> updateOwnSafetySettings(String uid, Map<String, dynamic> data) =>
+      (super.noSuchMethod(
+          Invocation.method(#updateOwnSafetySettings, [uid, data]),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
   Future<void> updateOrganization(String orgId, Map<String, dynamic> data) =>
       (super.noSuchMethod(Invocation.method(#updateOrganization, [orgId, data]),
           returnValue: Future<void>.value()) as Future<void>);
@@ -1105,6 +1111,46 @@ void main() {
           }),
           throwsA(isA<PermissionDeniedException>()),
         );
+        verifyZeroInteractions(mockFs);
+      });
+    });
+
+    group('updateOwnSafetySettings', () {
+      test('active user can accept guidelines and block another user',
+          () async {
+        final actor = makeUser(id: 'u1', role: UserRole.staff);
+        final data = {
+          'hasAcceptedCommunityGuidelines': true,
+          'blockedUserIds': ['u2'],
+        };
+        when(mockFs.updateOwnSafetySettings('u1', data))
+            .thenAnswer((_) async {});
+
+        await afs.updateOwnSafetySettings(actor, data);
+
+        verify(mockFs.updateOwnSafetySettings('u1', data)).called(1);
+      });
+
+      test('rejects invalid fields, block lists, and revoked acceptance',
+          () async {
+        final actor = makeUser(id: 'u1', role: UserRole.staff);
+        for (final data in <Map<String, dynamic>>[
+          {'role': 'superAdmin'},
+          {
+            'blockedUserIds': ['u1']
+          },
+          {
+            'blockedUserIds': [7]
+          },
+          {'blockedUserIds': List<String>.filled(1001, 'u2')},
+          {'hasAcceptedCommunityGuidelines': false},
+          {'hasAcceptedCommunityGuidelines': 'yes'},
+        ]) {
+          expect(
+            () => afs.updateOwnSafetySettings(actor, data),
+            throwsA(isA<PermissionDeniedException>()),
+          );
+        }
         verifyZeroInteractions(mockFs);
       });
     });

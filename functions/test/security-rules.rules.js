@@ -45,6 +45,7 @@ function user(overrides = {}) {
     teamIds: [],
     createdAt: "2026-01-01T00:00:00.000Z",
     isActive: true,
+    hasAcceptedCommunityGuidelines: true,
     ...overrides,
   };
 }
@@ -301,7 +302,10 @@ test("admin cannot mutate a direct-message room as managed content", async () =>
 
 test("users can manage only their own chat safety settings", async () => {
   await seedFirestore([
-    ["users/member", user({ id: "member" })],
+    ["users/member", user({
+      id: "member",
+      hasAcceptedCommunityGuidelines: false,
+    })],
     ["users/other", user({ id: "other" })],
   ]);
   const db = testEnv.authenticatedContext("member").firestore();
@@ -309,6 +313,9 @@ test("users can manage only their own chat safety settings", async () => {
   await assertSucceeds(updateDoc(doc(db, "users/member"), {
     blockedUserIds: ["other"],
     hasAcceptedCommunityGuidelines: true,
+  }));
+  await assertFails(updateDoc(doc(db, "users/member"), {
+    hasAcceptedCommunityGuidelines: false,
   }));
   await assertFails(updateDoc(doc(db, "users/member"), {
     blockedUserIds: ["member"],
@@ -487,6 +494,48 @@ test("staff can send constrained messages only to readable rooms", async () => {
     memberDb,
     "organizations/org-1/chatRooms/direct-room/messages/blocked",
   ), validMessage("direct-room", "member", "Member")));
+});
+
+test("posting requires accepted community guidelines", async () => {
+  await seedFirestore([
+    ["users/member", user({
+      id: "member",
+      displayName: "Member",
+      leagueIds: ["league-1"],
+      hasAcceptedCommunityGuidelines: false,
+    })],
+    ["organizations/org-1/chatRooms/league-room", {
+      id: "league-room",
+      orgId: "org-1",
+      type: "league",
+      leagueId: "league-1",
+      hubId: null,
+      teamId: null,
+      participants: [],
+      name: "League room",
+      isArchived: false,
+    }],
+  ]);
+  const db = testEnv.authenticatedContext("member").firestore();
+  const messageRef = doc(
+    db,
+    "organizations/org-1/chatRooms/league-room/messages/message-1",
+  );
+  const message = {
+    chatRoomId: "league-room",
+    senderId: "member",
+    senderName: "Member",
+    text: "Hello",
+    previewText: "Hello",
+    createdAt: serverTimestamp(),
+    readBy: ["member"],
+  };
+
+  await assertFails(setDoc(messageRef, message));
+  await assertSucceeds(updateDoc(doc(db, "users/member"), {
+    hasAcceptedCommunityGuidelines: true,
+  }));
+  await assertSucceeds(setDoc(messageRef, message));
 });
 
 test("malformed team rooms cannot fall through to league visibility", async () => {

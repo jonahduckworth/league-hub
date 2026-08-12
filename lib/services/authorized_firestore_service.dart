@@ -218,8 +218,13 @@ class AuthorizedFirestoreService {
     if (blockedIds != null &&
         (blockedIds is! List ||
             blockedIds.whereType<String>().length != blockedIds.length ||
+            blockedIds.length > 1000 ||
             blockedIds.contains(actor.id))) {
       _deny('updateOwnSafetySettings invalid blocked users', actor);
+    }
+    final accepted = data['hasAcceptedCommunityGuidelines'];
+    if (accepted != null && (accepted is! bool || accepted != true)) {
+      _deny('updateOwnSafetySettings invalid guideline acceptance', actor);
     }
     return _fs.updateOwnSafetySettings(actor.id, data);
   }
