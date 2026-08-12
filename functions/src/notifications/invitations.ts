@@ -302,7 +302,7 @@ export const onInvitationEmailCreated = onFirestoreCreated(
       }, {merge: true});
       logger.error("Invitation email delivery failed", {
         status: response.status,
-        response: responseBody.slice(0, 500),
+        code: failure.code,
         orgId: event.params.orgId,
         invitationId: event.params.invitationId,
       });
