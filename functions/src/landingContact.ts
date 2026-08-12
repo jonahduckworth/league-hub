@@ -104,21 +104,28 @@ export const submitLandingContact = onRequest(
     }
 
     const message = landingContactEmail(parsed.contact);
-    const resendResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY.value()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: sender,
-        to: [destination],
-        reply_to: parsed.contact.email,
-        subject: message.subject,
-        text: message.text,
-        html: message.html,
-      }),
-    });
+    let resendResponse: Response;
+    try {
+      resendResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${RESEND_API_KEY.value()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: sender,
+          to: [destination],
+          reply_to: parsed.contact.email,
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
+        }),
+      });
+    } catch (error) {
+      logger.error("League Hub contact email request failed", {error});
+      response.status(502).json({error: "Message delivery failed."});
+      return;
+    }
 
     if (!resendResponse.ok) {
       const failure = await resendResponse.text();
@@ -130,8 +137,10 @@ export const submitLandingContact = onRequest(
       return;
     }
 
-    logger.info("League Hub contact inquiry delivered", {
+    const resendResult = await resendResponse.json() as {id?: unknown};
+    logger.info("League Hub contact inquiry accepted by Resend", {
       inquiryType: parsed.contact.inquiryType,
+      resendId: typeof resendResult.id === "string" ? resendResult.id : "missing",
     });
     response.status(200).json({ok: true});
   },
