@@ -209,14 +209,15 @@ export default function Home() {
             <li><span>03</span><div><strong>Launch with confidence</strong><p>Roll out one branded, dependable home for your organization.</p></div></li>
           </ul>
         </div>
-        <div className="admin-preview" aria-label="League Hub admin workspace preview">
-          <div className="admin-topbar"><span className="admin-brand-dot" /><strong>League Hub Admin</strong><span>Structure</span><span>People</span><span>Schedule</span></div>
-          <div className="admin-body">
+        <div className="admin-preview" role="img" aria-label="League Hub admin workspace preview">
+          <div aria-hidden="true">
+            <div className="admin-topbar"><span className="admin-brand-dot" /><strong>League Hub Admin</strong><span>Structure</span><span>People</span><span>Schedule</span></div>
+            <div className="admin-body">
             <div className="admin-sidebar">
               <span className="active" /><span /><span /><span /><span />
             </div>
             <div className="admin-content">
-              <div className="admin-content-heading"><div><small>ORGANIZATION</small><strong>League structure</strong></div><button>+ Add</button></div>
+              <div className="admin-content-heading"><div><small>ORGANIZATION</small><strong>League structure</strong></div><span className="admin-add">+ Add</span></div>
               <div className="structure-card structure-league"><span>L</span><div><small>LEAGUE</small><strong>Premier Hockey League</strong></div><b>18 hubs</b></div>
               <div className="structure-line" />
               <div className="structure-row">
@@ -225,6 +226,7 @@ export default function Home() {
               </div>
               <div className="people-pills"><span>JD</span><span>KM</span><span>AR</span><span>+84 connected people</span></div>
             </div>
+          </div>
           </div>
         </div>
       </section>

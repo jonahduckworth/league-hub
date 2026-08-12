@@ -820,7 +820,7 @@ summary:focus-visible {
 .admin-content-heading small,
 .structure-card small { display: block; color: #6b7e90; font-size: 7px; font-weight: 800; letter-spacing: 0.12em; }
 .admin-content-heading strong { display: block; margin-top: 5px; font-size: 20px; }
-.admin-content-heading button { padding: 9px 13px; border: 0; border-radius: 9px; background: #0c6ed7; color: #fff; font-size: 9px; font-weight: 750; }
+.admin-add { padding: 9px 13px; border-radius: 9px; background: #0c6ed7; color: #fff; font-size: 9px; font-weight: 750; }
 .structure-card { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 10px; padding: 15px; border: 1px solid #dbe4ec; border-radius: 13px; background: #fff; }
 .structure-card > span { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #e6f2fc; color: #1768a9; font-size: 10px; font-weight: 850; }
 .structure-card strong { display: block; margin-top: 4px; font-size: 11px; }

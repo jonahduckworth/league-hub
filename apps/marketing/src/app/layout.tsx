@@ -6,6 +6,13 @@ export const metadata: Metadata = {
   title: "League Hub | Your league, connected",
   description:
     "Schedules, chats, announcements, policies, contacts, and league operations in one clean mobile app.",
+  alternates: {
+    canonical: "/",
+  },
+  icons: {
+    icon: [{ url: "/league-hub-icon.png", type: "image/png" }],
+    apple: "/league-hub-icon.png",
+  },
   openGraph: {
     title: "League Hub | Your league, connected",
     description:
@@ -15,7 +22,7 @@ export const metadata: Metadata = {
     siteName: "League Hub",
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "League Hub | Your league, connected",
     description:
       "One trusted place for every game, update, conversation, and league resource.",
