@@ -38,3 +38,4 @@ export {
   adminUpdateScheduleIntegration,
 } from "./admin";
 export { syncRampSchedules } from "./schedule/rampSync";
+export { submitLandingContact } from "./landingContact";
