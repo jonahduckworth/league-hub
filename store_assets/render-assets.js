@@ -73,6 +73,7 @@ async function renderFeatureGraphic() {
     </svg>`);
   await sharp(svg)
     .composite([{ input: mark, left: 76, top: 125 }])
+    .removeAlpha()
     .png({ compressionLevel: 9 })
     .toFile(featureOutput);
 }

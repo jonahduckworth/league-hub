@@ -58,6 +58,7 @@ async function renderScreenshot(fileName, headline, supportingText) {
 
   const output = await sharp(background)
     .composite([{ input: device, left: 61, top: 254 }])
+    .removeAlpha()
     .png({ compressionLevel: 9 })
     .toBuffer();
 
