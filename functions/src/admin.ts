@@ -19,6 +19,7 @@ import {
   normalizeStringArray,
   teamMemberRecordsMatchOrg,
 } from "./adminLogic";
+import {normalizeInvitationRecipient} from "./invitationEmailLogic";
 import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
 
 type DocumentData = FirebaseFirestore.DocumentData;
@@ -592,7 +593,10 @@ export const adminSyncSchedule = onCall({
 
 export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminCreateInvitation", async (actor, data, orgId) => {
-    const email = requiredString(data.email, "email").toLowerCase();
+    const email = normalizeInvitationRecipient(data.email);
+    if (!email) {
+      throw new HttpsError("invalid-argument", "Enter a valid email address.");
+    }
     const role = requiredString(data.role, "role") as UserRole;
     if (!assignableRoles(actor.role).includes(role)) {
       throw new HttpsError("permission-denied", "You cannot invite users with that role.");
@@ -616,6 +620,7 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
       createdAt: now(),
       status: "pending",
       token,
+      emailDeliveryStatus: "pending",
     };
     await db.batch()
       .set(invitationRef, invitationData)

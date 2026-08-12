@@ -1,5 +1,18 @@
-import { onDocumentCreated as onFirestoreCreated } from "firebase-functions/v2/firestore";
+import * as admin from "firebase-admin";
+import {logger} from "firebase-functions";
+import {defineSecret} from "firebase-functions/params";
+import {onDocumentCreated as onFirestoreCreated} from "firebase-functions/v2/firestore";
 import { db, sendNotification } from "../helpers";
+import {
+  buildInvitationEmail,
+  invitationIdempotencyKey,
+  normalizeInvitationRecipient,
+  normalizeInvitationToken,
+  requireSuccessfulInvitationDelivery,
+} from "../invitationEmailLogic";
+
+const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
+const invitationSender = "League Hub <notifications@jdbuilds.ca>";
 
 function stringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -174,6 +187,133 @@ export const onInvitationCreated = onFirestoreCreated(
         );
       }
     }
+  },
+);
+
+/**
+ * Delivers a durable transactional email for every new invitation.
+ * Kept separate from push delivery so an email retry cannot duplicate pushes.
+ */
+export const onInvitationEmailCreated = onFirestoreCreated(
+  {
+    document: "organizations/{orgId}/invitations/{invitationId}",
+    region: "us-central1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    secrets: [RESEND_API_KEY],
+    retry: true,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+
+    const invitationRef = snapshot.ref;
+    const currentSnapshot = await invitationRef.get();
+    const invitation = currentSnapshot.data();
+    if (!invitation || invitation.status !== "pending") return;
+    if (invitation.emailDeliveryStatus === "delivered") return;
+
+    const recipient = normalizeInvitationRecipient(invitation.email);
+    if (!recipient) {
+      await invitationRef.set({
+        emailDeliveryStatus: "failed",
+        emailDeliveryError: "invalid-email",
+        emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      logger.error("Invitation email has an invalid recipient", {
+        orgId: event.params.orgId,
+        invitationId: event.params.invitationId,
+      });
+      return;
+    }
+
+    const token = normalizeInvitationToken(invitation.token);
+    if (!token) {
+      await invitationRef.set({
+        emailDeliveryStatus: "failed",
+        emailDeliveryError: "invalid-token",
+        emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      logger.error("Invitation email has an invalid token", {
+        orgId: event.params.orgId,
+        invitationId: event.params.invitationId,
+      });
+      return;
+    }
+
+    const organizationSnapshot = await db.collection("organizations")
+      .doc(event.params.orgId)
+      .get();
+    const organizationName = stringValue(organizationSnapshot.data()?.name) ||
+      "your organization";
+    const message = buildInvitationEmail({
+      recipientName: stringValue(invitation.displayName) || null,
+      organizationName,
+      invitedByName: stringValue(invitation.invitedByName),
+      role: stringValue(invitation.role),
+      token,
+    });
+
+    let response: Response;
+    try {
+      response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${RESEND_API_KEY.value()}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": invitationIdempotencyKey(
+            event.params.orgId,
+            event.params.invitationId,
+          ),
+        },
+        body: JSON.stringify({
+          from: invitationSender,
+          to: [recipient],
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
+        }),
+      });
+    } catch (error) {
+      await invitationRef.set({
+        emailDeliveryStatus: "retrying",
+        emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      logger.error("Invitation email request failed", {
+        error,
+        orgId: event.params.orgId,
+        invitationId: event.params.invitationId,
+      });
+      throw error;
+    }
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      await invitationRef.set({
+        emailDeliveryStatus: "retrying",
+        emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      logger.error("Invitation email delivery failed", {
+        status: response.status,
+        response: responseBody.slice(0, 500),
+        orgId: event.params.orgId,
+        invitationId: event.params.invitationId,
+      });
+      requireSuccessfulInvitationDelivery(response.status, responseBody);
+    }
+
+    const result = await response.json() as {id?: unknown};
+    await invitationRef.set({
+      emailDeliveryStatus: "delivered",
+      emailDeliveredAt: admin.firestore.FieldValue.serverTimestamp(),
+      emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      emailDeliveryError: admin.firestore.FieldValue.delete(),
+      emailProviderId: typeof result.id === "string" ? result.id : null,
+    }, {merge: true});
+    logger.info("Invitation email delivered", {
+      orgId: event.params.orgId,
+      invitationId: event.params.invitationId,
+    });
   },
 );
 
