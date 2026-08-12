@@ -30,7 +30,14 @@ void main() {
 
       testWidgets('displays logo', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
-        expect(find.byIcon(Icons.sports_hockey_outlined), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Image &&
+                widget.semanticLabel == 'League Hub',
+          ),
+          findsOneWidget,
+        );
       });
 
       testWidgets('displays app title', (WidgetTester tester) async {
@@ -366,7 +373,13 @@ void main() {
         await tester.pumpWidget(createTestWidget());
 
         // Logo container should be present
-        expect(find.byIcon(Icons.sports_hockey_outlined), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Image && widget.semanticLabel == 'League Hub',
+          ),
+          findsOneWidget,
+        );
       });
 
       testWidgets('text fields have input decorations',
@@ -449,7 +462,13 @@ void main() {
 
         expect(find.byIcon(Icons.email_outlined), findsOneWidget);
         expect(find.byIcon(Icons.lock_outlined), findsOneWidget);
-        expect(find.byIcon(Icons.sports_hockey_outlined), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Image && widget.semanticLabel == 'League Hub',
+          ),
+          findsOneWidget,
+        );
       });
 
       testWidgets('text fields have labels', (WidgetTester tester) async {

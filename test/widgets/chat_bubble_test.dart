@@ -169,6 +169,49 @@ void main() {
       expect(find.byType(ChatBubble), findsOneWidget);
     });
 
+    testWidgets('offers separate reporting and blocking actions for others',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatBubble(
+              message: makeMessage(senderName: 'Bob'),
+              isSelf: false,
+              onReportMessage: () {},
+              onReportUser: () {},
+              onBlockUser: () {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Report message'), findsOneWidget);
+      expect(find.text('Report user'), findsOneWidget);
+      expect(find.text('Block Bob'), findsOneWidget);
+    });
+
+    testWidgets('does not expose safety actions for own message',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatBubble(
+              message: makeMessage(),
+              isSelf: true,
+              onReportMessage: () {},
+              onReportUser: () {},
+              onBlockUser: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(Icons.more_horiz), findsNothing);
+    });
+
     testWidgets('shows formatted time', (tester) async {
       await tester.pumpWidget(
         MaterialApp(

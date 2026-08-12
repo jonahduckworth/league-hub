@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 280" role="img" aria-labelledby="title desc">
+  <title id="title">League Hub</title>
+  <desc id="desc">League Hub LH mark and wordmark.</desc>
+  <rect width="280" height="280" rx="62" fill="#06182c"/>
+  <path fill="#f8fbff" d="M61 67h32v115h58v31H61z"/>
+  <path fill="#f8fbff" d="M163 67h32v52h31V67h32v146h-32v-63h-31v63h-32z"/>
+  <path fill="#64e0dc" d="M137 182h14v-16l44-47v31l-44 47h-14z"/>
+  <text x="344" y="184" fill="#06182c" font-family="Inter, Arial, sans-serif" font-size="116" font-weight="760" letter-spacing="-4">League Hub</text>
+</svg>

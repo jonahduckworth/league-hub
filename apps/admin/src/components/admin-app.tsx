@@ -49,6 +49,7 @@ import { collection, doc, getDoc } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
 import { auth, db, demoMode, firebaseProjectId, hasFirebaseConfig, storage } from "@/lib/firebase";
 import { formatAdminActionError } from "@/lib/action-errors";
 import { callAdmin, type CallableName } from "@/lib/callables";
@@ -255,8 +256,8 @@ export function AdminApp() {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col overflow-hidden bg-navy text-white lg:flex">
         <div className="border-b border-white/10 px-6 py-6">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-2xl bg-teal text-white shadow-[0_14px_30px_-14px_rgba(45,212,191,0.65)]">
-              <ShieldCheck className="size-5" aria-hidden />
+            <span className="grid size-11 place-items-center overflow-hidden rounded-xl bg-navy ring-1 ring-white/15">
+              <Image src="/league-hub-icon.png" width={44} height={44} alt="" priority />
             </span>
             <div>
               <div className="text-base font-extrabold tracking-[-0.02em]">League Hub</div>
@@ -488,8 +489,8 @@ function LoginPanel({
       <div className="relative mx-auto grid min-h-[calc(100vh-2.5rem)] max-w-6xl overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-lift sm:min-h-[calc(100vh-4rem)] lg:grid-cols-[1.08fr_0.92fr]">
         <section className="hidden flex-col justify-between bg-hero-glow p-12 text-white lg:flex">
           <div className="flex items-center gap-3">
-            <span className="grid size-12 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur-sm">
-              <ShieldCheck className="size-6" aria-hidden />
+            <span className="grid size-12 place-items-center overflow-hidden rounded-[14px] bg-navy ring-1 ring-white/15">
+              <Image src="/league-hub-icon.png" width={48} height={48} alt="" priority />
             </span>
             <div>
               <p className="text-lg font-extrabold tracking-[-0.02em]">League Hub</p>
@@ -524,8 +525,8 @@ function LoginPanel({
           <form className="mx-auto w-full max-w-md" onSubmit={submit}>
             <div className="mb-9">
               <div className="mb-8 flex items-center gap-3 lg:hidden">
-                <span className="grid size-11 place-items-center rounded-2xl bg-navy text-white">
-                  <ShieldCheck className="size-5" aria-hidden />
+                <span className="grid size-11 place-items-center overflow-hidden rounded-xl bg-navy">
+                  <Image src="/league-hub-icon.png" width={44} height={44} alt="" priority />
                 </span>
                 <div>
                   <p className="font-extrabold text-ink">League Hub</p>

@@ -11,6 +11,9 @@ class ChatBubble extends StatelessWidget {
   final bool isSelf;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onReportMessage;
+  final VoidCallback? onReportUser;
+  final VoidCallback? onBlockUser;
 
   const ChatBubble({
     super.key,
@@ -18,10 +21,13 @@ class ChatBubble extends StatelessWidget {
     required this.isSelf,
     this.onEdit,
     this.onDelete,
+    this.onReportMessage,
+    this.onReportUser,
+    this.onBlockUser,
   });
 
   void _showActions(BuildContext context) {
-    if (!isSelf || message.deleted) return;
+    if (message.deleted) return;
     showModalBottomSheet(
       context: context,
       sheetAnimationStyle: AppMotion.overlayStyle(context),
@@ -76,6 +82,60 @@ class ChatBubble extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(ctx);
                       onDelete!();
+                    },
+                  ),
+                if (!isSelf && onReportMessage != null)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.flag_outlined,
+                      color: AppGlassColors.gold,
+                    ),
+                    title: const Text(
+                      'Report message',
+                      style: TextStyle(
+                        color: AppGlassColors.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      onReportMessage!();
+                    },
+                  ),
+                if (!isSelf && onReportUser != null)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.person_off_outlined,
+                      color: AppGlassColors.gold,
+                    ),
+                    title: const Text(
+                      'Report user',
+                      style: TextStyle(
+                        color: AppGlassColors.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      onReportUser!();
+                    },
+                  ),
+                if (!isSelf && onBlockUser != null)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.block,
+                      color: AppGlassColors.rose,
+                    ),
+                    title: Text(
+                      'Block ${message.senderName}',
+                      style: const TextStyle(
+                        color: AppGlassColors.rose,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      onBlockUser!();
                     },
                   ),
               ],
@@ -226,6 +286,26 @@ class ChatBubble extends StatelessWidget {
                           color: message.readBy.length > 1
                               ? AppGlassColors.aqua
                               : AppGlassColors.inkMuted,
+                        ),
+                      ] else if (!isDeleted &&
+                          (onReportMessage != null ||
+                              onReportUser != null ||
+                              onBlockUser != null)) ...[
+                        const SizedBox(width: 4),
+                        Semantics(
+                          button: true,
+                          label: 'Message actions for ${message.senderName}',
+                          child: GestureDetector(
+                            onTap: () => _showActions(context),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.more_horiz,
+                                size: 18,
+                                color: AppGlassColors.inkMuted,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ],

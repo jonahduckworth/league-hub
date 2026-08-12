@@ -9,6 +9,7 @@ const {
 const {
   doc,
   setDoc,
+  serverTimestamp,
   updateDoc,
   writeBatch,
 } = require("firebase/firestore");
@@ -289,5 +290,72 @@ test("admin cannot mutate a direct-message room as managed content", async () =>
   await assertFails(updateDoc(
     doc(db, "organizations/org-1/chatRooms/dm-1"),
     { name: "Admin renamed" },
+  ));
+});
+
+test("users can manage only their own chat safety settings", async () => {
+  await seedFirestore([
+    ["users/member", user({ id: "member" })],
+    ["users/other", user({ id: "other" })],
+  ]);
+  const db = testEnv.authenticatedContext("member").firestore();
+
+  await assertSucceeds(updateDoc(doc(db, "users/member"), {
+    blockedUserIds: ["other"],
+    hasAcceptedCommunityGuidelines: true,
+  }));
+  await assertFails(updateDoc(doc(db, "users/member"), {
+    blockedUserIds: ["member"],
+  }));
+  await assertFails(updateDoc(doc(db, "users/other"), {
+    blockedUserIds: ["member"],
+  }));
+});
+
+test("message reports must reference a readable real message", async () => {
+  const room = {
+    id: "room-1",
+    orgId: "org-1",
+    type: "league",
+    participants: ["member", "other"],
+    name: "Team room",
+  };
+  const message = {
+    chatRoomId: "room-1",
+    senderId: "other",
+    senderName: "Other",
+    text: "Message",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    readBy: ["other"],
+  };
+  await seedFirestore([
+    ["users/member", user({ id: "member" })],
+    ["users/other", user({ id: "other" })],
+    ["organizations/org-1/chatRooms/room-1", room],
+    ["organizations/org-1/chatRooms/room-1/messages/message-1", message],
+  ]);
+  const db = testEnv.authenticatedContext("member").firestore();
+  const baseReport = {
+    orgId: "org-1",
+    roomId: "room-1",
+    messageId: "message-1",
+    reporterId: "member",
+    reportedUserId: "other",
+    reason: "Harassment or bullying",
+    status: "open",
+    createdAt: serverTimestamp(),
+  };
+
+  await assertSucceeds(setDoc(
+    doc(db, "organizations/org-1/messageReports/report-1"),
+    baseReport,
+  ));
+  await assertFails(setDoc(
+    doc(db, "organizations/org-1/messageReports/report-2"),
+    { ...baseReport, messageId: "missing" },
+  ));
+  await assertFails(setDoc(
+    doc(db, "organizations/org-1/messageReports/report-3"),
+    { ...baseReport, reportedUserId: "forged" },
   ));
 });

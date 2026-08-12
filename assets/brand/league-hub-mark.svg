@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">League Hub LH mark</title>
+  <desc id="desc">A clean white LH monogram joined by an aqua connection on a deep navy background.</desc>
+  <rect width="1024" height="1024" fill="#06182c"/>
+  <path fill="#f8fbff" d="M224 246h116v420h212v112H224z"/>
+  <path fill="#f8fbff" d="M596 246h116v190h112V246h116v532H824V548H712v230H596z"/>
+  <path fill="#64e0dc" d="M500 666h52v-58l160-172v112L552 720h-52z"/>
+</svg>

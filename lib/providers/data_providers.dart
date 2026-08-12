@@ -106,7 +106,14 @@ final messagesProvider =
     StreamProvider.family<List<Message>, String>((ref, roomId) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).getMessages(orgId, roomId);
+  final blockedUserIds =
+      ref.watch(currentUserProvider).valueOrNull?.blockedUserIds.toSet() ??
+          const <String>{};
+  return ref.watch(firestoreServiceProvider).getMessages(orgId, roomId).map(
+        (messages) => messages
+            .where((message) => !blockedUserIds.contains(message.senderId))
+            .toList(),
+      );
 });
 
 /// Policy, scope-filtered by user role. superAdmin+ sees all.

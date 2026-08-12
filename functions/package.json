@@ -8,6 +8,7 @@
     "test:rules": "cd .. && firebase emulators:exec --config firebase.rules-test.json --project demo-league-hub-rules --only firestore,storage \"node --test functions/test/security-rules.rules.js\"",
     "migrate:jphl-structure": "node scripts/reconcile-jphl-structure.js",
     "seed:schedule-emulator": "node scripts/seed-schedule-emulator.js",
+    "seed:store-review": "node scripts/seed-store-review-org.js",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",

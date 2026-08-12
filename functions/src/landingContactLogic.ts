@@ -1,4 +1,4 @@
-export const inquiryTypes = ["pricing", "demo", "general"] as const;
+export const inquiryTypes = ["pricing", "demo", "general", "account_deletion"] as const;
 
 export type InquiryType = (typeof inquiryTypes)[number];
 
@@ -141,6 +141,7 @@ export function inquiryTypeLabel(type: InquiryType): string {
     case "pricing": return "Pricing";
     case "demo": return "Product demo";
     case "general": return "General question";
+    case "account_deletion": return "Account deletion";
   }
 }
 

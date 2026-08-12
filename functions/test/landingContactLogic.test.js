@@ -29,6 +29,18 @@ test("parses and normalizes a valid landing inquiry", () => {
   assert.equal(result.contact.organization, "North Valley Hockey");
 });
 
+test("accepts a complete account deletion request", () => {
+  const result = parseLandingContact({
+    ...valid,
+    inquiryType: "account_deletion",
+    name: "Account deletion request",
+    message: "Please delete the League Hub account associated with this email address.",
+  }, now);
+  assert.equal(result.ok, true);
+  assert.equal(result.contact.inquiryType, "account_deletion");
+  assert.match(landingContactEmail(result.contact).subject, /Account deletion/);
+});
+
 test("rejects invalid fields, oversized content, and suspicious timing", () => {
   assert.equal(parseLandingContact({...valid, email: "nope"}, now).ok, false);
   assert.equal(parseLandingContact({...valid, name: "x"}, now).ok, false);

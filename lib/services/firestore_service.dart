@@ -261,6 +261,12 @@ class FirestoreService {
   Future<void> updateUserFields(String uid, Map<String, dynamic> data) =>
       _db.collection(AppConstants.usersCollection).doc(uid).update(data);
 
+  Future<void> updateOwnSafetySettings(
+    String uid,
+    Map<String, dynamic> data,
+  ) =>
+      _db.collection(AppConstants.usersCollection).doc(uid).update(data);
+
   Future<void> deactivateUser(String uid) =>
       updateUserFields(uid, {'isActive': false});
 
@@ -573,6 +579,32 @@ class FirestoreService {
       'mediaUrl': null,
       'deleted': true,
       'deletedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> reportMessage(
+    String orgId,
+    String roomId,
+    Message message,
+    AppUser reporter, {
+    required String reason,
+    String? details,
+  }) async {
+    final reportRef = _db
+        .collection(AppConstants.orgsCollection)
+        .doc(orgId)
+        .collection('messageReports')
+        .doc('${roomId}_${message.id}_${reporter.id}');
+    await reportRef.set({
+      'orgId': orgId,
+      'roomId': roomId,
+      'messageId': message.id,
+      'reporterId': reporter.id,
+      'reportedUserId': message.senderId,
+      'reason': reason,
+      if (details?.trim().isNotEmpty ?? false) 'details': details!.trim(),
+      'status': 'open',
+      'createdAt': FieldValue.serverTimestamp(),
     });
   }
 

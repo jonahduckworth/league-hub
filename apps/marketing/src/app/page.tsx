@@ -297,6 +297,9 @@ export default function Home() {
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <a href="#contact">Contact</a>
+          <a href="/support">Support</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
           <a href="https://admin.leaguehub.ca">Admin sign in</a>
         </div>
         <p>© {new Date().getFullYear()} League Hub. Built by <a href="https://jdbuilds.ca">JD Builds</a>.</p>
