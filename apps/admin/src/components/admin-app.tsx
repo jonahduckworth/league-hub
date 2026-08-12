@@ -68,6 +68,7 @@ import type {
   AppUser,
   HealthCheck,
   Hub,
+  Invitation,
   League,
   Policy,
   ScheduleEvent,
@@ -75,7 +76,7 @@ import type {
   Team,
   UserRole
 } from "@/lib/types";
-import { Badge, Button, Card, Field, Input, Select, Textarea } from "./ui";
+import { Badge, Button, Card, Field, Input, Select, Textarea, type BadgeTone } from "./ui";
 
 type SectionId = "overview" | "people" | "structure" | "schedule" | "announcements" | "policies";
 
@@ -1554,6 +1555,21 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
   const filteredInvites = pendingInvitations.filter((invite) => matchesQuery([invite.displayName, invite.email, roleLabel(invite.role)], query));
   const selectedUser = selectedUserId ? data.users.find((user) => user.id === selectedUserId) ?? null : null;
   const selectedInvite = selectedInviteId ? pendingInvitations.find((invite) => invite.id === selectedInviteId) ?? null : null;
+  const inviteDeliveryLabel = (invite: Invitation) => {
+    switch (invite.emailDeliveryStatus) {
+      case "delivered": return "Email sent";
+      case "retrying": return "Email retrying";
+      case "failed": return "Email failed";
+      default: return "Email queued";
+    }
+  };
+  const inviteDeliveryTone = (invite: Invitation): BadgeTone => {
+    switch (invite.emailDeliveryStatus) {
+      case "delivered": return "good";
+      case "failed": return "danger";
+      default: return "warning";
+    }
+  };
   const manageable = selectedUser ? canManageUser(currentUser, selectedUser) : false;
   const filters: Array<WorkspaceFilterItem<PeopleView>> = [
     { id: "all", label: "All Members", count: data.users.length, icon: Users },
@@ -1625,7 +1641,7 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
                         </span>
                         <ChevronRight className="mt-1 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
                       </span>
-                      <span className="mt-3 flex flex-wrap gap-2"><Badge tone="warning">Pending</Badge><Badge tone="info">{roleLabel(invite.role)}</Badge></span>
+                      <span className="mt-3 flex flex-wrap gap-2"><Badge tone="warning">Pending</Badge><Badge tone="info">{roleLabel(invite.role)}</Badge><Badge tone={inviteDeliveryTone(invite)}>{inviteDeliveryLabel(invite)}</Badge></span>
                     </span>
                   </span>
                   <span className="mt-4 grid grid-cols-3 gap-2 border-t border-line/70 pt-4">
@@ -1741,6 +1757,8 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
                 <InfoRow label="Role" value={roleLabel(selectedInvite.role)} />
                 <InfoRow label="Created" value={dateLabel(selectedInvite.createdAt)} />
                 <InfoRow label="Status" value={<Badge tone="warning">Pending</Badge>} />
+                <InfoRow label="Delivery" value={<Badge tone={inviteDeliveryTone(selectedInvite)}>{inviteDeliveryLabel(selectedInvite)}</Badge>} />
+                {selectedInvite.emailDeliveryStatus === "delivered" && <InfoRow label="Email sent" value={dateLabel(selectedInvite.emailDeliveredAt)} />}
               </div>
             </DrawerSection>
             <DrawerSection title="Scope">

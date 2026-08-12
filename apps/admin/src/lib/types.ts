@@ -97,6 +97,8 @@ export type Invitation = {
   createdAt?: unknown;
   status: InvitationStatus;
   token?: string;
+  emailDeliveryStatus?: "pending" | "retrying" | "delivered" | "failed";
+  emailDeliveredAt?: unknown;
 };
 
 export type Announcement = {
