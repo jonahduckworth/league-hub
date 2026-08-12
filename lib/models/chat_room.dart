@@ -14,6 +14,7 @@ class ChatRoom {
   final String? lastMessage;
   final DateTime? lastMessageAt;
   final String? lastMessageBy;
+  final String? lastMessageSenderId;
   final String? roomIconName;
   final String? roomImageUrl;
   final Map<String, String> participantNames;
@@ -32,6 +33,7 @@ class ChatRoom {
     this.lastMessage,
     this.lastMessageAt,
     this.lastMessageBy,
+    this.lastMessageSenderId,
     this.roomIconName,
     this.roomImageUrl,
     this.participantNames = const {},
@@ -56,6 +58,7 @@ class ChatRoom {
             ? DateTime.parse(json['lastMessageAt'] as String)
             : null,
         lastMessageBy: json['lastMessageBy'] as String?,
+        lastMessageSenderId: json['lastMessageSenderId'] as String?,
         roomIconName: json['roomIconName'] as String?,
         roomImageUrl: json['roomImageUrl'] as String?,
         participantNames:
@@ -76,6 +79,7 @@ class ChatRoom {
         'lastMessage': lastMessage,
         'lastMessageAt': lastMessageAt?.toIso8601String(),
         'lastMessageBy': lastMessageBy,
+        'lastMessageSenderId': lastMessageSenderId,
         'roomIconName': roomIconName,
         'roomImageUrl': roomImageUrl,
         'participantNames': participantNames,

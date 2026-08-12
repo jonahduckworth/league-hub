@@ -220,8 +220,7 @@ void main() {
     });
 
     group('Flow 3: Create league → auto-create chat room → post message', () {
-      test(
-          'Create league, auto-create chat rooms, send message, verify lastMessage updated',
+      test('Create league, auto-create chat rooms, and send a message',
           () async {
         final orgId = 'org3';
         final userId = 'user3';
@@ -270,12 +269,10 @@ void main() {
           text: 'Hello everyone!',
         );
 
-        // Verify lastMessage updated
-        final updatedRoom = await fs.getChatRoom(orgId, room.id).first;
-        expect(updatedRoom, isNotNull);
-        expect(updatedRoom!.lastMessage, 'Hello everyone!');
-        expect(updatedRoom.lastMessageBy, 'User');
-        expect(updatedRoom.lastMessageAt, isNotNull);
+        // Room preview metadata is updated by the trusted Cloud Function in
+        // production. The local service test verifies only message creation.
+        final messages = await fs.getMessages(orgId, room.id).first;
+        expect(messages.single.text, 'Hello everyone!');
       });
     });
 

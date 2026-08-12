@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/organization.dart';
@@ -355,6 +356,7 @@ class FirestoreService {
   /// Stream of all non-archived chat rooms for [orgId], sorted by most recent message.
   Stream<List<ChatRoom>> getChatRooms(String orgId) {
     return _chatRoomsRef(orgId)
+        .where('orgId', isEqualTo: orgId)
         .where('isArchived', isEqualTo: false)
         .snapshots()
         .map((snap) {
@@ -372,6 +374,123 @@ class FirestoreService {
       });
       return rooms;
     });
+  }
+
+  /// Streams only room metadata the viewer is authorized to read. Direct
+  /// messages and scoped rooms use separate constrained queries so Firestore
+  /// rules remain the privacy boundary rather than client-side filtering.
+  Stream<List<ChatRoom>> getVisibleChatRooms(String orgId, AppUser viewer) {
+    if (viewer.role == UserRole.platformOwner ||
+        viewer.role == UserRole.superAdmin) {
+      return getChatRooms(orgId);
+    }
+
+    final queries = <Query>[
+      _chatRoomsRef(orgId)
+          .where('orgId', isEqualTo: orgId)
+          .where('isArchived', isEqualTo: false)
+          .where('type', isEqualTo: 'direct')
+          .where('participants', arrayContains: viewer.id),
+      _chatRoomsRef(orgId)
+          .where('orgId', isEqualTo: orgId)
+          .where('isArchived', isEqualTo: false)
+          .where('type', whereIn: const ['league', 'event'])
+          .where('hubId', isNull: true)
+          .where('teamId', isNull: true)
+          .where('leagueId', isNull: true),
+    ];
+
+    void addBatchedQueries(
+      List<String> ids,
+      Query Function(List<String> ids) createQuery,
+    ) {
+      final unique = ids.toSet().toList();
+      for (var start = 0; start < unique.length; start += 10) {
+        queries.add(createQuery(
+          unique.sublist(start, min(start + 10, unique.length)),
+        ));
+      }
+    }
+
+    addBatchedQueries(
+      viewer.hubIds,
+      (ids) => _chatRoomsRef(orgId)
+          .where('orgId', isEqualTo: orgId)
+          .where('isArchived', isEqualTo: false)
+          .where('type', whereIn: const ['league', 'event']).where('hubId',
+              whereIn: ids),
+    );
+    addBatchedQueries(
+      viewer.teamIds,
+      (ids) => _chatRoomsRef(orgId)
+          .where('orgId', isEqualTo: orgId)
+          .where('isArchived', isEqualTo: false)
+          .where('type', whereIn: const ['league', 'event']).where('teamId',
+              whereIn: ids),
+    );
+    addBatchedQueries(
+      viewer.leagueIds,
+      (ids) => _chatRoomsRef(orgId)
+          .where('orgId', isEqualTo: orgId)
+          .where('isArchived', isEqualTo: false)
+          .where('type', whereIn: const ['league', 'event'])
+          .where('hubId', isNull: true)
+          .where('teamId', isNull: true)
+          .where('leagueId', whereIn: ids),
+    );
+
+    return _combineRoomQueries(queries);
+  }
+
+  Stream<List<ChatRoom>> _combineRoomQueries(List<Query> queries) {
+    late StreamController<List<ChatRoom>> controller;
+    final latest = List<List<ChatRoom>?>.filled(queries.length, null);
+    final subscriptions = <StreamSubscription<QuerySnapshot>>[];
+
+    void emit() {
+      if (latest.any((rooms) => rooms == null)) return;
+      final roomsById = <String, ChatRoom>{};
+      for (final rooms in latest) {
+        for (final room in rooms!) {
+          roomsById[room.id] = room;
+        }
+      }
+      final rooms = roomsById.values.toList()
+        ..sort((a, b) {
+          if (a.lastMessageAt == null && b.lastMessageAt == null) return 0;
+          if (a.lastMessageAt == null) return 1;
+          if (b.lastMessageAt == null) return -1;
+          return b.lastMessageAt!.compareTo(a.lastMessageAt!);
+        });
+      controller.add(rooms);
+    }
+
+    controller = StreamController<List<ChatRoom>>(
+      onListen: () {
+        for (var index = 0; index < queries.length; index++) {
+          subscriptions.add(queries[index].snapshots().listen(
+            (snapshot) {
+              latest[index] = snapshot.docs
+                  .map((document) => ChatRoom.fromJson({
+                        'id': document.id,
+                        ..._convertTimestamps(
+                          document.data() as Map<String, dynamic>,
+                        ),
+                      }))
+                  .toList();
+              emit();
+            },
+            onError: controller.addError,
+          ));
+        }
+      },
+      onCancel: () async {
+        for (final subscription in subscriptions) {
+          await subscription.cancel();
+        }
+      },
+    );
+    return controller.stream;
   }
 
   /// Stream of a single chat room document.
@@ -439,7 +558,8 @@ class FirestoreService {
             .toList());
   }
 
-  /// Sends a message and updates the room's last-message preview atomically.
+  /// Sends a message. A trusted message-created function updates the room
+  /// preview, so clients never need write access to room metadata.
   Future<void> sendMessage(
     String orgId,
     String roomId, {
@@ -447,26 +567,26 @@ class FirestoreService {
     required String senderName,
     required String text,
   }) async {
-    final batch = _db.batch();
-
+    if (text.trim().isEmpty) {
+      throw ArgumentError.value(text, 'text', 'Message cannot be empty');
+    }
+    if (text.length > 4000) {
+      throw ArgumentError.value(
+        text,
+        'text',
+        'Message cannot exceed 4000 characters',
+      );
+    }
     final msgRef = _messagesRef(orgId, roomId).doc();
-    batch.set(msgRef, {
+    await msgRef.set({
       'chatRoomId': roomId,
       'senderId': senderId,
       'senderName': senderName,
       'text': text,
+      'previewText': text,
       'createdAt': FieldValue.serverTimestamp(),
       'readBy': [senderId],
     });
-
-    final roomRef = _chatRoomsRef(orgId).doc(roomId);
-    batch.update(roomRef, {
-      'lastMessage': text,
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'lastMessageBy': senderName,
-    });
-
-    await batch.commit();
   }
 
   // --- Read Receipts ---
@@ -496,7 +616,12 @@ class FirestoreService {
   }
 
   /// Returns a stream of the count of unread messages in [roomId] for [userId].
-  Stream<int> unreadCountStream(String orgId, String roomId, String userId) {
+  Stream<int> unreadCountStream(
+    String orgId,
+    String roomId,
+    String userId, {
+    Set<String> blockedUserIds = const {},
+  }) {
     return _messagesRef(orgId, roomId)
         .orderBy('createdAt', descending: true)
         .limit(100)
@@ -504,6 +629,9 @@ class FirestoreService {
         .map((snap) {
       int unread = 0;
       for (final doc in snap.docs) {
+        final senderId =
+            (doc.data() as Map<String, dynamic>)['senderId'] as String?;
+        if (senderId != null && blockedUserIds.contains(senderId)) continue;
         final readBy = List<String>.from(
             (doc.data() as Map<String, dynamic>)['readBy'] as List? ?? []);
         if (!readBy.contains(userId)) unread++;
@@ -620,10 +748,34 @@ class FirestoreService {
     required String mediaType,
     String? caption,
   }) async {
-    final batch = _db.batch();
-
+    if (mediaUrl.isEmpty || mediaUrl.length > 2048) {
+      throw ArgumentError.value(
+        mediaUrl,
+        'mediaUrl',
+        'Media URL must contain 1 to 2048 characters',
+      );
+    }
+    if (mediaType.isEmpty || mediaType.length > 120) {
+      throw ArgumentError.value(
+        mediaType,
+        'mediaType',
+        'Media type must contain 1 to 120 characters',
+      );
+    }
+    if (caption != null && (caption.trim().isEmpty || caption.length > 4000)) {
+      throw ArgumentError.value(
+        caption,
+        'caption',
+        'Caption must contain 1 to 4000 characters',
+      );
+    }
+    final preview = mediaType.startsWith('image')
+        ? '📷 Photo'
+        : mediaType.startsWith('video')
+            ? '🎥 Video'
+            : '📎 File';
     final msgRef = _messagesRef(orgId, roomId).doc();
-    batch.set(msgRef, {
+    await msgRef.set({
       'chatRoomId': roomId,
       'senderId': senderId,
       'senderName': senderName,
@@ -632,22 +784,8 @@ class FirestoreService {
       'mediaType': mediaType,
       'createdAt': FieldValue.serverTimestamp(),
       'readBy': [senderId],
+      'previewText': caption ?? preview,
     });
-
-    final preview = mediaType.startsWith('image')
-        ? '📷 Photo'
-        : mediaType.startsWith('video')
-            ? '🎥 Video'
-            : '📎 File';
-
-    final roomRef = _chatRoomsRef(orgId).doc(roomId);
-    batch.update(roomRef, {
-      'lastMessage': caption ?? preview,
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'lastMessageBy': senderName,
-    });
-
-    await batch.commit();
   }
 
   // --- Policy ---

@@ -160,7 +160,7 @@ async function main() {
   await orgRef.set({
     id: ORG_ID,
     name: "League Hub Review League",
-    ownerId: reviewerId,
+    ownerId: "review_platform_owner",
     logoUrl: null,
     primaryColor: "#06182C",
     secondaryColor: "#0B4D7A",
@@ -211,12 +211,13 @@ async function main() {
   });
 
   const users = [
+    ["review_platform_owner", "League Hub Review Owner", "Platform Owner", "owner@review.leaguehub.ca"],
     ["review_coach", "Jamie Chen", "Head Coach", "coach@review.leaguehub.ca"],
     ["review_manager", "Morgan Lee", "League Manager", "manager@review.leaguehub.ca"],
     ["review_trainer", "Taylor Brooks", "Athletic Therapist", "trainer@review.leaguehub.ca"],
   ];
   for (const [id, displayName, title, email] of users) {
-    await db.collection("users").doc(id).set({id, email, displayName, title, role: id === "review_manager" ? "managerAdmin" : "staff", orgId: ORG_ID, hubIds: [HUB_ID], leagueIds: [LEAGUE_ID], teamIds: [TEAM_ID], createdAt: nowIso, isActive: true, blockedUserIds: [], hasAcceptedCommunityGuidelines: true, purpose: "app-store-review"});
+    await db.collection("users").doc(id).set({id, email, displayName, title, role: id === "review_platform_owner" ? "platformOwner" : id === "review_manager" ? "managerAdmin" : "staff", orgId: ORG_ID, hubIds: [HUB_ID], leagueIds: [LEAGUE_ID], teamIds: [TEAM_ID], createdAt: nowIso, isActive: true, blockedUserIds: [], hasAcceptedCommunityGuidelines: true, purpose: "app-store-review"});
   }
   await northHubRef.collection("teams").doc(TEAM_ID).update({memberIds: [reviewerId, ...users.map(([id]) => id)]});
 
@@ -238,7 +239,8 @@ async function main() {
   for (const [id, name, type, teamId, lastMessage, lastMessageBy, days] of rooms) {
     const activity = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
     const roomRef = orgRef.collection("chatRooms").doc(id);
-    await roomRef.set({id, orgId: ORG_ID, name, type, leagueId: LEAGUE_ID, hubId: HUB_ID, teamId, participants: [], createdAt: nowIso, isArchived: false, lastMessage, lastMessageAt: activity, lastMessageBy, roomIconName: type === "event" ? "event" : "groups", roomImageUrl: logo, participantNames: {}});
+    const lastMessageSenderId = lastMessageBy === "Jamie Chen" ? "review_coach" : "review_manager";
+    await roomRef.set({id, orgId: ORG_ID, name, type, leagueId: LEAGUE_ID, hubId: HUB_ID, teamId, participants: [], createdAt: nowIso, isArchived: false, lastMessage, lastMessageAt: activity, lastMessageBy, lastMessageSenderId, roomIconName: type === "event" ? "event" : "groups", roomImageUrl: logo, participantNames: {}});
     const messages = [
       ["Morgan Lee", "review_manager", "Welcome! This review space shows how a league keeps everyone connected."],
       ["Jamie Chen", "review_coach", lastMessage],

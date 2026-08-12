@@ -11,7 +11,7 @@ const endpoint =
 type FormState = "idle" | "sending" | "success" | "error";
 
 export function ContactForm() {
-  const [startedAt, setStartedAt] = useState(0);
+  const [startedAt] = useState(() => Date.now() - 2_000);
   const [state, setState] = useState<FormState>("idle");
   const [error, setError] = useState("");
 
@@ -22,6 +22,9 @@ export function ContactForm() {
 
     const form = event.currentTarget;
     const values = new FormData(form);
+    const requestStartedAt = Date.now() - startedAt > 55 * 60 * 1000
+      ? Date.now() - 2_000
+      : startedAt;
     const payload: ContactPayload = {
       inquiryType: values.get("inquiryType") as InquiryType,
       name: String(values.get("name") ?? ""),
@@ -31,7 +34,7 @@ export function ContactForm() {
       teamCount: String(values.get("teamCount") ?? ""),
       message: String(values.get("message") ?? ""),
       website: String(values.get("website") ?? ""),
-      startedAt,
+      startedAt: requestStartedAt,
     };
 
     try {
@@ -72,9 +75,6 @@ export function ContactForm() {
   return (
     <form
       className="contact-form"
-      onFocusCapture={() => {
-        if (startedAt === 0) setStartedAt(Date.now());
-      }}
       onSubmit={submit}
     >
       <div className="field field-wide">

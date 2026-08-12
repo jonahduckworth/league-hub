@@ -188,9 +188,34 @@ String chatRoomDisplayName(
   return room.name;
 }
 
-String? chatRoomPreviewText(ChatRoom room, {AppUser? currentUser}) {
+bool chatRoomLastMessageIsBlocked(
+  ChatRoom room,
+  AppUser? currentUser,
+  List<AppUser> users,
+) {
+  if (currentUser == null || currentUser.blockedUserIds.isEmpty) return false;
+  final senderId = room.lastMessageSenderId;
+  if (senderId != null) return currentUser.blockedUserIds.contains(senderId);
+  if (room.type == ChatRoomType.direct) {
+    return room.participants.any(
+      (id) => id != currentUser.id && currentUser.blockedUserIds.contains(id),
+    );
+  }
+  final blockedNames = users
+      .where((user) => currentUser.blockedUserIds.contains(user.id))
+      .map((user) => user.displayName)
+      .toSet();
+  return blockedNames.contains(room.lastMessageBy);
+}
+
+String? chatRoomPreviewText(
+  ChatRoom room, {
+  AppUser? currentUser,
+  bool lastMessageIsBlocked = false,
+}) {
   final hasMessage = room.lastMessage != null && room.lastMessage!.isNotEmpty;
   if (!hasMessage) return null;
+  if (lastMessageIsBlocked) return 'Blocked message hidden';
   if (room.lastMessageBy != null) {
     if (room.type == ChatRoomType.direct &&
         room.lastMessageBy == currentUser?.displayName) {
@@ -774,7 +799,13 @@ class _ChatRoomTile extends ConsumerWidget {
     final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
     final displayName = chatRoomDisplayName(room, currentUser, users);
     final peer = directMessagePeer(room, currentUser, users);
-    final preview = chatRoomPreviewText(room, currentUser: currentUser);
+    final lastMessageIsBlocked =
+        chatRoomLastMessageIsBlocked(room, currentUser, users);
+    final preview = chatRoomPreviewText(
+      room,
+      currentUser: currentUser,
+      lastMessageIsBlocked: lastMessageIsBlocked,
+    );
     final hasMessage = preview != null;
     final unreadCount =
         ref.watch(unreadCountProvider(room.id)).valueOrNull ?? 0;

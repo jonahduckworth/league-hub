@@ -1,6 +1,12 @@
 import * as admin from "firebase-admin";
 import {CallableOptions, HttpsError, onCall} from "firebase-functions/v2/https";
-import {accountAvatarPath, accountDeletionUserMatches} from "./accountDeletionLogic";
+import {
+  accountAvatarPath,
+  accountDeletionBlockedByOwnership,
+  accountDeletionUserMatches,
+  hasRecentAuthentication,
+  isMissingAuthUserError,
+} from "./accountDeletionLogic";
 import {db} from "./helpers";
 
 const runtime: CallableOptions = {
@@ -40,6 +46,12 @@ async function removeOrganizationIdentity(userId: string, orgId: string): Promis
           isArchived: true,
           roomImageUrl: null,
         } : {}),
+      });
+    }
+    if (roomData.lastMessageSenderId === userId) {
+      writer.update(room.ref, {
+        lastMessageSenderId: "deleted-account",
+        lastMessageBy: "Deleted Account",
       });
     }
 
@@ -105,6 +117,16 @@ async function removeOrganizationIdentity(userId: string, orgId: string): Promis
     writer.update(report.ref, {reportedUserId: "deleted-account"});
   }
 
+  const blockers = await db.collection("users")
+    .where("orgId", "==", orgId)
+    .where("blockedUserIds", "array-contains", userId)
+    .get();
+  for (const blocker of blockers.docs) {
+    writer.update(blocker.ref, {
+      blockedUserIds: admin.firestore.FieldValue.arrayRemove(userId),
+    });
+  }
+
   await writer.close();
 }
 
@@ -113,12 +135,34 @@ export const deleteOwnAccount = onCall(runtime, async (request) => {
   if (!userId) {
     throw new HttpsError("unauthenticated", "Sign in before deleting your account.");
   }
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!hasRecentAuthentication(request.auth?.token.auth_time, nowSeconds)) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Sign in again before deleting your account.",
+    );
+  }
 
   const userRef = db.collection("users").doc(userId);
   const snapshot = await userRef.get();
   const profile = snapshot.data();
   if (!accountDeletionUserMatches(userId, profile)) {
     throw new HttpsError("failed-precondition", "Your League Hub profile could not be verified.");
+  }
+
+  const orgId = typeof profile!.orgId === "string" ? profile!.orgId : null;
+  if (orgId) {
+    const orgSnapshot = await db.collection("organizations").doc(orgId).get();
+    if (accountDeletionBlockedByOwnership(
+      userId,
+      profile!,
+      orgSnapshot.data()?.ownerId,
+    )) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Transfer league ownership before deleting this account.",
+      );
+    }
   }
 
   const avatarPath = accountAvatarPath(userId, profile!);
@@ -131,10 +175,18 @@ export const deleteOwnAccount = onCall(runtime, async (request) => {
     }
   }
 
-  if (typeof profile!.orgId === "string" && profile!.orgId.length > 0) {
-    await removeOrganizationIdentity(userId, profile!.orgId);
+  if (orgId) {
+    await removeOrganizationIdentity(userId, orgId);
+  }
+  // Delete Auth first so a transient Auth failure leaves the intact profile
+  // available for a safe retry. If the following profile delete fails, the
+  // inaccessible orphaned profile can be removed through administrative
+  // cleanup without leaving an authenticated, partially deleted account.
+  try {
+    await admin.auth().deleteUser(userId);
+  } catch (error) {
+    if (!isMissingAuthUserError(error)) throw error;
   }
   await userRef.delete();
-  await admin.auth().deleteUser(userId);
   return {ok: true};
 });

@@ -552,6 +552,7 @@ service cloud.firestore {
               ||
               (
                 (!('hubId' in room) || room.hubId == null)
+                && (!('teamId' in room) || room.teamId == null)
                 && (
                   !('leagueId' in room)
                   || room.leagueId == null
@@ -568,10 +569,80 @@ service cloud.firestore {
         && roomIsReadable(get(roomPath(orgId, roomId)).data);
     }
 
-    function messageCreateIsOwnMessage(roomId) {
-      return request.resource.data.chatRoomId == roomId
+    function directRecipientAllowsSender(room) {
+      return room.type != 'direct'
+        || (
+          room.participants.size() == 2
+          && (
+            (
+              room.participants[0] == request.auth.uid
+              && exists(userPath(room.participants[1]))
+              && (
+                !('blockedUserIds' in get(userPath(room.participants[1])).data)
+                || !(request.auth.uid in get(userPath(room.participants[1])).data.blockedUserIds)
+              )
+            )
+            || (
+              room.participants[1] == request.auth.uid
+              && exists(userPath(room.participants[0]))
+              && (
+                !('blockedUserIds' in get(userPath(room.participants[0])).data)
+                || !(request.auth.uid in get(userPath(room.participants[0])).data.blockedUserIds)
+              )
+            )
+          )
+        );
+    }
+
+    function messageCreateIsOwnMessage(orgId, roomId) {
+      return request.resource.data.keys().hasAll([
+          'chatRoomId',
+          'senderId',
+          'senderName',
+          'text',
+          'previewText',
+          'createdAt',
+          'readBy'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'chatRoomId',
+          'senderId',
+          'senderName',
+          'text',
+          'previewText',
+          'mediaUrl',
+          'mediaType',
+          'createdAt',
+          'readBy'
+        ])
+        && request.resource.data.chatRoomId == roomId
         && request.resource.data.senderId == request.auth.uid
-        && request.resource.data.senderName == currentUser().displayName;
+        && request.resource.data.senderName == currentUser().displayName
+        && (
+          request.resource.data.text == null
+          || (
+            request.resource.data.text is string
+            && request.resource.data.text.size() <= 4000
+          )
+        )
+        && request.resource.data.previewText is string
+        && request.resource.data.previewText.size() > 0
+        && request.resource.data.previewText.size() <= 4000
+        && (
+          request.resource.data.previewText == request.resource.data.text
+          || (
+            request.resource.data.text == null
+            && request.resource.data.mediaUrl is string
+            && request.resource.data.mediaUrl.size() <= 2048
+            && request.resource.data.mediaType is string
+            && request.resource.data.mediaType.size() <= 120
+          )
+        )
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.readBy is list
+        && request.resource.data.readBy.size() == 1
+        && request.resource.data.readBy[0] == request.auth.uid
+        && directRecipientAllowsSender(get(roomPath(orgId, roomId)).data);
     }
 
     function messageReadReceiptOnly() {
@@ -656,9 +727,7 @@ service cloud.firestore {
       }
 
       match /chatRooms/{roomId} {
-        // Room metadata is readable inside the org because current list screens
-        // query the full room collection before client-side filtering.
-        allow get, list: if sameOrg(orgId);
+        allow get, list: if roomIsReadable(resource.data);
         allow create: if (
           validDirectRoomCreate(orgId, request.resource.data)
           || (
@@ -670,17 +739,24 @@ service cloud.firestore {
           )
         );
         allow update: if canManageContent(orgId)
-          && resource.data.type in ['league', 'event']
-          && request.resource.data.type in ['league', 'event']
-          && canManageScopedTarget(resource.data)
-          && canManageScopedTarget(request.resource.data)
-          && scopedTargetExists(orgId, request.resource.data);
+            && resource.data.type in ['league', 'event']
+            && request.resource.data.type in ['league', 'event']
+            && canManageScopedTarget(resource.data)
+            && canManageScopedTarget(request.resource.data)
+            && scopedTargetExists(orgId, request.resource.data)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'lastMessage',
+              'lastMessageAt',
+              'lastMessageBy',
+              'lastMessageSenderId',
+              'lastMessageId'
+            ]);
         allow delete: if false;
 
         match /messages/{messageId} {
           allow get, list: if canReadRoom(orgId, roomId);
           allow create: if canReadRoom(orgId, roomId)
-            && messageCreateIsOwnMessage(roomId);
+            && messageCreateIsOwnMessage(orgId, roomId);
           allow update: if canReadRoom(orgId, roomId)
             && (
               messageReadReceiptOnly()

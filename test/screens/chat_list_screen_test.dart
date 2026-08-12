@@ -217,10 +217,68 @@ void main() {
       );
 
       expect(chatRoomPreviewText(room), 'Coach: Ready to go');
+      expect(
+        chatRoomPreviewText(room, lastMessageIsBlocked: true),
+        'Blocked message hidden',
+      );
     });
 
     test('returns null preview when there is no last message', () {
       expect(chatRoomPreviewText(leagueRoom), isNull);
+    });
+
+    test('detects blocked last-message senders without exposing preview text',
+        () {
+      final currentUser = AppUser(
+        id: 'current',
+        email: 'current@example.com',
+        displayName: 'Current User',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: const [],
+        teamIds: const [],
+        blockedUserIds: const ['blocked'],
+        createdAt: DateTime(2026),
+        isActive: true,
+      );
+      final blockedUser = AppUser(
+        id: 'blocked',
+        email: 'blocked@example.com',
+        displayName: 'Blocked User',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: const [],
+        teamIds: const [],
+        createdAt: DateTime(2026),
+        isActive: true,
+      );
+      final room = ChatRoom(
+        id: 'room',
+        orgId: 'org-1',
+        name: 'Team Chat',
+        type: ChatRoomType.league,
+        participants: const [],
+        createdAt: DateTime(2026),
+        isArchived: false,
+        lastMessage: 'This must stay private',
+        lastMessageBy: 'Blocked User',
+        lastMessageSenderId: 'blocked',
+      );
+
+      final blocked = chatRoomLastMessageIsBlocked(
+        room,
+        currentUser,
+        [blockedUser],
+      );
+      expect(blocked, isTrue);
+      expect(
+        chatRoomPreviewText(
+          room,
+          currentUser: currentUser,
+          lastMessageIsBlocked: blocked,
+        ),
+        'Blocked message hidden',
+      );
     });
 
     test('formats unread badge count and timestamp color', () {

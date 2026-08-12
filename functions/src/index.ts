@@ -6,7 +6,10 @@
  */
 
 export { onAnnouncementCreated } from "./notifications/announcements";
-export { onMessageCreated } from "./notifications/messages";
+export {
+  onMessageCreated,
+  onMessagePreviewCreated,
+} from "./notifications/messages";
 export { onPolicyCreated } from "./notifications/policies";
 export { onTeamUpdated } from "./notifications/teams";
 export {

@@ -1,6 +1,12 @@
 import {logger} from "firebase-functions";
+import * as admin from "firebase-admin";
 import {defineSecret} from "firebase-functions/params";
 import {onDocumentCreated as onFirestoreCreated} from "firebase-functions/v2/firestore";
+import {db} from "./helpers";
+import {
+  messageReportIdempotencyKey,
+  requireSuccessfulMessageReportDelivery,
+} from "./messageReportsLogic";
 
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 const destination = "jonah@jdbuilds.ca";
@@ -22,6 +28,7 @@ export const onMessageReportCreated = onFirestoreCreated(
     timeoutSeconds: 30,
     memory: "256MiB",
     secrets: [RESEND_API_KEY],
+    retry: true,
   },
   async (event) => {
     const data = event.data?.data();
@@ -48,6 +55,10 @@ export const onMessageReportCreated = onFirestoreCreated(
       headers: {
         "Authorization": `Bearer ${RESEND_API_KEY.value()}`,
         "Content-Type": "application/json",
+        "Idempotency-Key": messageReportIdempotencyKey(
+          event.params.orgId,
+          event.params.reportId,
+        ),
       },
       body: JSON.stringify({
         from: sender,
@@ -60,13 +71,30 @@ export const onMessageReportCreated = onFirestoreCreated(
       }),
     });
     if (!response.ok) {
+      const responseBody = await response.text();
       logger.error("League Hub safety report email failed", {
         status: response.status,
-        response: (await response.text()).slice(0, 500),
+        response: responseBody.slice(0, 500),
         reportId: event.params.reportId,
       });
-      return;
+      await db.collection("organizations")
+        .doc(event.params.orgId)
+        .collection("messageReports")
+        .doc(event.params.reportId)
+        .set({
+          deliveryStatus: "retrying",
+          lastDeliveryErrorAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+      requireSuccessfulMessageReportDelivery(response.status, responseBody);
     }
+    await db.collection("organizations")
+      .doc(event.params.orgId)
+      .collection("messageReports")
+      .doc(event.params.reportId)
+      .set({
+        deliveryStatus: "delivered",
+        deliveredAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
     logger.info("League Hub safety report delivered", {
       reportId: event.params.reportId,
     });

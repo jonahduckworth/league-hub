@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
 const bool useFirebaseEmulators =
@@ -10,6 +11,7 @@ const String firebaseEmulatorHost = String.fromEnvironment(
   'FIREBASE_EMULATOR_HOST',
   defaultValue: '127.0.0.1',
 );
+const int firebaseFunctionsEmulatorPort = 5001;
 
 Future<void> configureFirebaseEmulators() async {
   if (!useFirebaseEmulators) return;
@@ -26,6 +28,10 @@ Future<void> configureFirebaseEmulators() async {
   await auth.useAuthEmulator(firebaseEmulatorHost, 9099);
   FirebaseFirestore.instance.useFirestoreEmulator(firebaseEmulatorHost, 8081);
   await FirebaseStorage.instance.useStorageEmulator(firebaseEmulatorHost, 9199);
+  FirebaseFunctions.instanceFor(region: 'us-central1').useFunctionsEmulator(
+    firebaseEmulatorHost,
+    firebaseFunctionsEmulatorPort,
+  );
 
   // iOS Keychain can retain a production Firebase session after the app is
   // uninstalled. Validate any cached user against the emulator so an invalid
@@ -41,6 +47,6 @@ Future<void> configureFirebaseEmulators() async {
 
   debugPrint(
     'Firebase emulator mode enabled at $firebaseEmulatorHost '
-    '(Auth 9099, Firestore 8081, Storage 9199).',
+    '(Auth 9099, Firestore 8081, Storage 9199, Functions 5001).',
   );
 }

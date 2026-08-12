@@ -10,7 +10,7 @@ const endpoint =
 type FormState = "idle" | "sending" | "success" | "error";
 
 export function DeletionRequestForm() {
-  const [startedAt, setStartedAt] = useState(0);
+  const [startedAt] = useState(() => Date.now() - 2_000);
   const [state, setState] = useState<FormState>("idle");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -19,6 +19,9 @@ export function DeletionRequestForm() {
     const values = new FormData(event.currentTarget);
     const email = String(values.get("email") ?? "");
     const organization = String(values.get("organization") ?? "");
+    const requestStartedAt = Date.now() - startedAt > 55 * 60 * 1000
+      ? Date.now() - 2_000
+      : startedAt;
 
     try {
       const response = await fetch(endpoint, {
@@ -34,7 +37,7 @@ export function DeletionRequestForm() {
           message:
             "Please delete the League Hub account associated with this email address. I understand League Hub may contact me to verify ownership before deletion.",
           website: "",
-          startedAt,
+          startedAt: requestStartedAt,
         }),
       });
       if (!response.ok) throw new Error("request failed");
@@ -59,9 +62,6 @@ export function DeletionRequestForm() {
   return (
     <form
       className="deletion-form"
-      onFocusCapture={() => {
-        if (startedAt === 0) setStartedAt(Date.now());
-      }}
       onSubmit={submit}
     >
       <div className="field">

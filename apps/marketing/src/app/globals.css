@@ -993,7 +993,7 @@ footer > p a { color: #256f91; }
   align-items: center;
   justify-content: space-between;
   padding: 0 max(24px, calc((100vw - 1040px) / 2));
-  background: var(--navy);
+  background: var(--navy-950);
   color: #fff;
 }
 .legal-back { color: rgba(255,255,255,.72); font-size: 13px; font-weight: 700; }

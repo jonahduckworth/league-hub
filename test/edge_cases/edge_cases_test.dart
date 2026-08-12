@@ -212,7 +212,7 @@ void main() {
       expect(users, isEmpty);
     });
 
-    test('6. sendMessage with empty text: still stored', () async {
+    test('6. sendMessage with empty text: rejected before storage', () async {
       final orgId = 'org6';
       final userId = 'user6';
       // ignore: unused_local_variable
@@ -234,19 +234,23 @@ void main() {
       final actualRoomId =
           await fs.createChatRoom(orgId, 'Test Room', ChatRoomType.league);
 
-      // Send message with empty text
-      await fs.sendMessage(
-        orgId,
-        actualRoomId,
-        senderId: userId,
-        senderName: 'User',
-        text: '',
+      await expectLater(
+        fs.sendMessage(
+          orgId,
+          actualRoomId,
+          senderId: userId,
+          senderName: 'User',
+          text: '',
+        ),
+        throwsArgumentError,
       );
 
-      // Verify room's lastMessage is empty string
+      final messages = await fs.getMessages(orgId, actualRoomId).first;
+      expect(messages, isEmpty);
+
       final room = await fs.getChatRoom(orgId, actualRoomId).first;
       expect(room, isNotNull);
-      expect(room!.lastMessage, '');
+      expect(room!.lastMessage, isNull);
     });
 
     test('7. DM room lookup with sorted participant order: order-independent',

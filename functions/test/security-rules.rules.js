@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const assert = require("node:assert/strict");
 const { after, before, beforeEach, test } = require("node:test");
 const {
   assertFails,
@@ -8,6 +9,11 @@ const {
 } = require("@firebase/rules-unit-testing");
 const {
   doc,
+  getDoc,
+  getDocs,
+  collection,
+  query,
+  where,
   setDoc,
   serverTimestamp,
   updateDoc,
@@ -358,4 +364,241 @@ test("message reports must reference a readable real message", async () => {
     doc(db, "organizations/org-1/messageReports/report-3"),
     { ...baseReport, reportedUserId: "forged" },
   ));
+});
+
+test("direct room metadata is private to participants", async () => {
+  const dm = {
+    id: "dm-1",
+    orgId: "org-1",
+    type: "direct",
+    participants: ["member", "peer"],
+    participantNames: {member: "Member", peer: "Peer"},
+    name: "Member & Peer",
+    isArchived: false,
+    lastMessage: "Private preview",
+  };
+  await seedFirestore([
+    ["users/member", user({id: "member", displayName: "Member"})],
+    ["users/peer", user({id: "peer", displayName: "Peer"})],
+    ["users/outsider", user({id: "outsider", displayName: "Outsider"})],
+    ["organizations/org-1/chatRooms/dm-1", dm],
+  ]);
+
+  const participantDb = testEnv.authenticatedContext("member").firestore();
+  const outsiderDb = testEnv.authenticatedContext("outsider").firestore();
+  await assertSucceeds(getDoc(doc(
+    participantDb,
+    "organizations/org-1/chatRooms/dm-1",
+  )));
+  await assertFails(getDoc(doc(
+    outsiderDb,
+    "organizations/org-1/chatRooms/dm-1",
+  )));
+  await assertSucceeds(getDocs(query(
+    collection(participantDb, "organizations/org-1/chatRooms"),
+    where("orgId", "==", "org-1"),
+    where("type", "==", "direct"),
+    where("isArchived", "==", false),
+    where("participants", "array-contains", "member"),
+  )));
+  await assertFails(getDocs(query(
+    collection(outsiderDb, "organizations/org-1/chatRooms"),
+    where("orgId", "==", "org-1"),
+    where("type", "==", "direct"),
+    where("isArchived", "==", false),
+  )));
+});
+
+test("staff can send constrained messages only to readable rooms", async () => {
+  const leagueRoom = {
+    id: "league-room",
+    orgId: "org-1",
+    type: "league",
+    leagueId: "league-1",
+    hubId: null,
+    teamId: null,
+    participants: [],
+    name: "League room",
+    isArchived: false,
+  };
+  const directRoom = {
+    id: "direct-room",
+    orgId: "org-1",
+    type: "direct",
+    participants: ["member", "peer"],
+    name: "Member & Peer",
+    isArchived: false,
+  };
+  await seedFirestore([
+    ["users/member", user({
+      id: "member",
+      displayName: "Member",
+      leagueIds: ["league-1"],
+      blockedUserIds: [],
+    })],
+    ["users/peer", user({
+      id: "peer",
+      displayName: "Peer",
+      leagueIds: ["league-1"],
+      blockedUserIds: [],
+    })],
+    ["users/outsider", user({id: "outsider", displayName: "Outsider"})],
+    ["organizations/org-1/chatRooms/league-room", leagueRoom],
+    ["organizations/org-1/chatRooms/direct-room", directRoom],
+  ]);
+  const memberDb = testEnv.authenticatedContext("member").firestore();
+  const peerDb = testEnv.authenticatedContext("peer").firestore();
+  const validMessage = (roomId, senderId, senderName, text = "Hello") => ({
+    chatRoomId: roomId,
+    senderId,
+    senderName,
+    text,
+    previewText: text,
+    createdAt: serverTimestamp(),
+    readBy: [senderId],
+  });
+
+  await assertSucceeds(setDoc(doc(
+    memberDb,
+    "organizations/org-1/chatRooms/league-room/messages/message-1",
+  ), validMessage("league-room", "member", "Member")));
+  await assertSucceeds(setDoc(doc(
+    memberDb,
+    "organizations/org-1/chatRooms/direct-room/messages/message-1",
+  ), validMessage("direct-room", "member", "Member")));
+  await assertSucceeds(setDoc(doc(
+    peerDb,
+    "organizations/org-1/chatRooms/direct-room/messages/message-2",
+  ), validMessage("direct-room", "peer", "Peer")));
+  await assertFails(setDoc(doc(
+    memberDb,
+    "organizations/org-1/chatRooms/direct-room/messages/forged",
+  ), {
+    ...validMessage("direct-room", "member", "Member"),
+    previewText: "Different private preview",
+  }));
+  await assertFails(setDoc(doc(
+    memberDb,
+    "organizations/org-1/chatRooms/direct-room/messages/oversized",
+  ), validMessage("direct-room", "member", "Member", "x".repeat(4001))));
+
+  await updateDoc(doc(peerDb, "users/peer"), {blockedUserIds: ["member"]});
+  await assertFails(setDoc(doc(
+    memberDb,
+    "organizations/org-1/chatRooms/direct-room/messages/blocked",
+  ), validMessage("direct-room", "member", "Member")));
+});
+
+test("malformed team rooms cannot fall through to league visibility", async () => {
+  await seedFirestore([
+    ["users/member", user({
+      id: "member",
+      displayName: "Member",
+      leagueIds: ["league-1"],
+      teamIds: [],
+    })],
+    ["organizations/org-1/chatRooms/malformed", {
+      id: "malformed",
+      orgId: "org-1",
+      type: "league",
+      leagueId: "league-1",
+      hubId: null,
+      teamId: "private-team",
+      participants: [],
+      name: "Private team room",
+      isArchived: false,
+      lastMessage: "Private",
+    }],
+  ]);
+  const db = testEnv.authenticatedContext("member").firestore();
+  await assertFails(getDoc(doc(
+    db,
+    "organizations/org-1/chatRooms/malformed",
+  )));
+});
+
+test("scoped room list query shapes return only readable metadata", async () => {
+  const room = (id, overrides) => ({
+    id,
+    orgId: "org-1",
+    type: "league",
+    leagueId: null,
+    hubId: null,
+    teamId: null,
+    participants: [],
+    name: id,
+    isArchived: false,
+    ...overrides,
+  });
+  await seedFirestore([
+    ["users/member", user({
+      id: "member",
+      displayName: "Member",
+      leagueIds: ["league-1"],
+      hubIds: ["hub-1"],
+      teamIds: ["team-1"],
+    })],
+    ["organizations/org-1/chatRooms/unscoped", room("unscoped", {})],
+    ["organizations/org-1/chatRooms/league", room("league", {
+      leagueId: "league-1",
+    })],
+    ["organizations/org-1/chatRooms/hub", room("hub", {
+      leagueId: "league-1",
+      hubId: "hub-1",
+    })],
+    ["organizations/org-1/chatRooms/team", room("team", {
+      leagueId: "league-1",
+      hubId: "hub-1",
+      teamId: "team-1",
+    })],
+    ["organizations/org-1/chatRooms/private", room("private", {
+      leagueId: "league-2",
+      hubId: "hub-2",
+      teamId: "team-2",
+    })],
+  ]);
+  const rooms = collection(
+    testEnv.authenticatedContext("member").firestore(),
+    "organizations/org-1/chatRooms",
+  );
+  const base = [
+    where("orgId", "==", "org-1"),
+    where("isArchived", "==", false),
+    where("type", "in", ["league", "event"]),
+  ];
+  const snapshots = await Promise.all([
+    assertSucceeds(getDocs(query(
+      rooms,
+      ...base,
+      where("hubId", "==", null),
+      where("teamId", "==", null),
+      where("leagueId", "==", null),
+    ))),
+    assertSucceeds(getDocs(query(
+      rooms,
+      ...base,
+      where("hubId", "==", null),
+      where("teamId", "==", null),
+      where("leagueId", "in", ["league-1"]),
+    ))),
+    assertSucceeds(getDocs(query(
+      rooms,
+      ...base,
+      where("hubId", "in", ["hub-1"]),
+    ))),
+    assertSucceeds(getDocs(query(
+      rooms,
+      ...base,
+      where("teamId", "in", ["team-1"]),
+    ))),
+  ]);
+  assert.deepEqual(
+    snapshots.map((snapshot) => snapshot.docs.map((item) => item.id)),
+    [["unscoped"], ["league"], ["hub", "team"], ["team"]],
+  );
+  await assertFails(getDocs(query(
+    rooms,
+    ...base,
+    where("hubId", "in", ["hub-2"]),
+  )));
 });

@@ -11,7 +11,6 @@ describe("DeletionRequestForm", () => {
     );
     render(<DeletionRequestForm />);
 
-    fireEvent.focus(screen.getByLabelText("League Hub account email"));
     fireEvent.change(screen.getByLabelText("League Hub account email"), {
       target: { value: "reviewer@example.com" },
     });
@@ -23,6 +22,7 @@ describe("DeletionRequestForm", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(body.inquiryType).toBe("account_deletion");
+    expect(body.startedAt).toBeGreaterThan(0);
     expect(await screen.findByText("Request received")).toBeInTheDocument();
   });
 });
