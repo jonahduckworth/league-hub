@@ -95,6 +95,7 @@ export type Invitation = {
   invitedBy: string;
   invitedByName: string;
   createdAt?: unknown;
+  expiresAt?: unknown;
   status: InvitationStatus;
   token?: string;
   emailDeliveryStatus?: "pending" | "retrying" | "delivered" | "failed";

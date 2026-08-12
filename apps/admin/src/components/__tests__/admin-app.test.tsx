@@ -234,6 +234,7 @@ describe("AdminApp operations shell", () => {
     const drawer = await screen.findByRole("dialog", { name: "coach@example.com" });
     expect(within(drawer).getByText("Delivery")).toBeTruthy();
     expect(within(drawer).getByText("Email sent", { selector: "span" })).toBeTruthy();
+    expect(within(drawer).getByText("Expires")).toBeTruthy();
   });
 
   it("renders announcement and policy workspaces as filterable, actionable card libraries", async () => {

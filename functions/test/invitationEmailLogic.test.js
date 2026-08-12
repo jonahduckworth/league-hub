@@ -3,6 +3,7 @@ const test = require("node:test");
 const {
   buildInvitationEmail,
   classifyInvitationDeliveryFailure,
+  invitationExpiresAt,
   invitationIdempotencyKey,
   normalizeInvitationRecipient,
   normalizeInvitationToken,
@@ -22,23 +23,32 @@ test("accepts only canonical invitation tokens", () => {
 });
 
 test("builds a complete escaped invitation email with acceptance steps", () => {
+  const createdAt = new Date("2026-08-12T12:00:00.000Z");
   const email = buildInvitationEmail({
     recipientName: "Chris <Coach>",
     organizationName: "JPHL & Partners",
     invitedByName: "Jonah <Owner>",
     role: "managerAdmin",
     token: "abc123<unsafe>",
+    expiresAt: invitationExpiresAt(createdAt),
   });
 
   assert.equal(email.subject, "You're invited to join JPHL & Partners on League Hub");
   assert.match(email.text, /join JPHL & Partners as Manager/);
   assert.match(email.text, /abc123<unsafe>/);
   assert.match(email.text, /choose Accept Invitation/);
-  assert.match(email.text, /expires after 7 days/);
+  assert.match(email.text, /expires on August 19, 2026 \(UTC\)/);
   assert.doesNotMatch(email.html, /Chris <Coach>/);
   assert.match(email.html, /Chris &lt;Coach&gt;/);
   assert.match(email.html, /JPHL &amp; Partners/);
   assert.match(email.html, /abc123&lt;unsafe&gt;/);
+});
+
+test("derives the authoritative invitation expiry exactly seven days later", () => {
+  assert.equal(
+    invitationExpiresAt(new Date("2026-08-12T12:00:00.000Z")).toISOString(),
+    "2026-08-19T12:00:00.000Z",
+  );
 });
 
 test("uses a stable bounded idempotency key per invitation", () => {

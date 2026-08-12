@@ -1756,6 +1756,7 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
                 <InfoRow label="Email" value={selectedInvite.email} />
                 <InfoRow label="Role" value={roleLabel(selectedInvite.role)} />
                 <InfoRow label="Created" value={dateLabel(selectedInvite.createdAt)} />
+                <InfoRow label="Expires" value={dateLabel(selectedInvite.expiresAt)} />
                 <InfoRow label="Status" value={<Badge tone="warning">Pending</Badge>} />
                 <InfoRow label="Delivery" value={<Badge tone={inviteDeliveryTone(selectedInvite)}>{inviteDeliveryLabel(selectedInvite)}</Badge>} />
                 {selectedInvite.emailDeliveryStatus === "delivered" && <InfoRow label="Email sent" value={dateLabel(selectedInvite.emailDeliveredAt)} />}

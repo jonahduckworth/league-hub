@@ -21,6 +21,21 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
     }
 
+    function invitationIsUnexpired(data) {
+      return 'expiresAt' in data
+        && data.expiresAt is timestamp
+        && request.time <= data.expiresAt;
+    }
+
+    function validOptionalInvitationExpiry(data) {
+      return !('expiresAt' in data)
+        || (
+          data.expiresAt is timestamp
+          && request.time < data.expiresAt
+          && data.expiresAt <= request.time + duration.value(7, 'd')
+        );
+    }
+
     function roomPath(orgId, roomId) {
       return /databases/$(database)/documents/organizations/$(orgId)/chatRooms/$(roomId);
     }
@@ -270,6 +285,7 @@ service cloud.firestore {
 
     function invitationMatchesNewUser(invite) {
       return invite.status == 'pending'
+        && invitationIsUnexpired(invite)
         && invite.email == request.auth.token.email
         && invite.role == request.resource.data.role
         && invite.leagueIds == request.resource.data.leagueIds
@@ -684,7 +700,8 @@ service cloud.firestore {
 
     match /invitationLookups/{token} {
       allow get: if resource.data.status == 'pending'
-        && resource.data.token == token;
+        && resource.data.token == token
+        && invitationIsUnexpired(resource.data);
       allow list: if false;
       allow create: if signedIn()
         && request.resource.data.token == token
@@ -692,12 +709,14 @@ service cloud.firestore {
         && request.resource.data.orgId is string
         && request.resource.data.invitationId is string
         && request.resource.data.email is string
+        && validOptionalInvitationExpiry(request.resource.data)
         && canManageContent(request.resource.data.orgId);
       allow update: if (
         canManageContent(resource.data.orgId)
       ) || (
         signedIn()
         && resource.data.status == 'pending'
+        && invitationIsUnexpired(resource.data)
         && resource.data.email == request.auth.token.email
         && lookupStatusOnly()
         && request.resource.data.status == 'accepted'
@@ -892,11 +911,16 @@ service cloud.firestore {
 
       match /invitations/{invitationId} {
         allow get: if canManageContent(orgId)
-          || (resource.data.status == 'pending' && resource.data.token is string);
+          || (
+            resource.data.status == 'pending'
+            && resource.data.token is string
+            && invitationIsUnexpired(resource.data)
+          );
         allow list: if canManageContent(orgId);
         allow create: if canManageContent(orgId)
           && request.resource.data.invitedBy == request.auth.uid
           && canCreateInvitationForRole(orgId, request.resource.data.role)
+          && validOptionalInvitationExpiry(request.resource.data)
           && validManagerInvitationScope(request.resource.data);
         allow update: if (
             canManageContent(orgId)
@@ -908,6 +932,7 @@ service cloud.firestore {
           || (
             signedIn()
             && resource.data.status == 'pending'
+            && invitationIsUnexpired(resource.data)
             && resource.data.email == request.auth.token.email
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
             && request.resource.data.status == 'accepted'

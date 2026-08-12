@@ -19,7 +19,10 @@ import {
   normalizeStringArray,
   teamMemberRecordsMatchOrg,
 } from "./adminLogic";
-import {normalizeInvitationRecipient} from "./invitationEmailLogic";
+import {
+  invitationExpiresAt,
+  normalizeInvitationRecipient,
+} from "./invitationEmailLogic";
 import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
 
 type DocumentData = FirebaseFirestore.DocumentData;
@@ -607,6 +610,10 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
     const hubIds = normalizeStringArray(data.hubIds);
     const teamIds = normalizeStringArray(data.teamIds);
     const leagueIds = await validateAssignments(orgId, hubIds, teamIds);
+    const createdAt = admin.firestore.Timestamp.now();
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      invitationExpiresAt(createdAt.toDate()),
+    );
     const invitationData = {
       orgId,
       email,
@@ -617,7 +624,8 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
       teamIds,
       invitedBy: actor.id,
       invitedByName: actor.displayName ?? actor.email ?? "Admin",
-      createdAt: now(),
+      createdAt,
+      expiresAt,
       status: "pending",
       token,
       emailDeliveryStatus: "pending",
@@ -630,7 +638,8 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
         invitationId: invitationRef.id,
         email,
         status: "pending",
-        createdAt: new Date().toISOString(),
+        createdAt,
+        expiresAt,
       })
       .commit();
     return { invitationId: invitationRef.id, token };

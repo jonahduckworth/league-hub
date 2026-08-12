@@ -123,6 +123,7 @@ class _AcceptInvitationScreenState
         invite.orgId,
         invite.id,
         invitedAt: invite.createdAt,
+        expiresAt: invite.expiresAt,
       );
 
       ref.invalidate(currentUserProvider);

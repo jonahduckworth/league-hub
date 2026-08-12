@@ -6,6 +6,7 @@ import { db, sendNotification } from "../helpers";
 import {
   buildInvitationEmail,
   classifyInvitationDeliveryFailure,
+  invitationExpiresAt,
   invitationIdempotencyKey,
   normalizeInvitationRecipient,
   normalizeInvitationToken,
@@ -40,20 +41,24 @@ async function ensureInvitationLookup(
   orgId: string,
   invitationId: string,
   data: FirebaseFirestore.DocumentData,
+  expiresAt: admin.firestore.Timestamp,
 ): Promise<void> {
   const lookupRef = db.collection("invitationLookups").doc(token);
   await db.runTransaction(async (transaction) => {
     const lookupDoc = await transaction.get(lookupRef);
-    if (lookupDoc.exists) return;
-
-    transaction.set(lookupRef, {
-      token,
-      orgId,
-      invitationId,
-      email: data.email || "",
-      status: data.status || "pending",
-      createdAt: toIsoString(data.createdAt),
-    });
+    if (lookupDoc.exists) {
+      transaction.set(lookupRef, {expiresAt}, {merge: true});
+    } else {
+      transaction.set(lookupRef, {
+        token,
+        orgId,
+        invitationId,
+        email: data.email || "",
+        status: data.status || "pending",
+        createdAt: toIsoString(data.createdAt),
+        expiresAt,
+      });
+    }
   });
 }
 
@@ -127,9 +132,14 @@ export const onInvitationCreated = onFirestoreCreated(
     const inviteeEmail = (data.email as string) || "";
     const inviteeName = (data.displayName as string) || inviteeEmail;
     const invitedByName = (data.invitedByName as string) || "Someone";
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      invitationExpiresAt(snapshot.createTime.toDate()),
+    );
+
+    await snapshot.ref.set({expiresAt}, {merge: true});
 
     if (token) {
-      await ensureInvitationLookup(token, orgId, invitationId, data);
+      await ensureInvitationLookup(token, orgId, invitationId, data, expiresAt);
     }
 
     // Notify admins in the org about the new invitation.
@@ -208,6 +218,10 @@ export const onInvitationEmailCreated = onFirestoreCreated(
     if (!snapshot) return;
 
     const invitationRef = snapshot.ref;
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      invitationExpiresAt(snapshot.createTime.toDate()),
+    );
+    await invitationRef.set({expiresAt}, {merge: true});
     const currentSnapshot = await invitationRef.get();
     const invitation = currentSnapshot.data();
     if (!invitation || invitation.status !== "pending") return;
@@ -241,6 +255,14 @@ export const onInvitationEmailCreated = onFirestoreCreated(
       return;
     }
 
+    await ensureInvitationLookup(
+      token,
+      event.params.orgId,
+      event.params.invitationId,
+      invitation,
+      expiresAt,
+    );
+
     const organizationSnapshot = await db.collection("organizations")
       .doc(event.params.orgId)
       .get();
@@ -252,6 +274,7 @@ export const onInvitationEmailCreated = onFirestoreCreated(
       invitedByName: stringValue(invitation.invitedByName),
       role: stringValue(invitation.role),
       token,
+      expiresAt: expiresAt.toDate(),
     });
 
     let response: Response;

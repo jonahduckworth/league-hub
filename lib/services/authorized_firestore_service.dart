@@ -688,8 +688,8 @@ class AuthorizedFirestoreService {
 
   /// Validates and accepts an invitation, checking expiry.
   Future<void> acceptInvitation(String orgId, String inviteId,
-      {required DateTime invitedAt, int expiryDays = 7}) {
-    final expiry = invitedAt.add(Duration(days: expiryDays));
+      {required DateTime invitedAt, DateTime? expiresAt, int expiryDays = 7}) {
+    final expiry = expiresAt ?? invitedAt.add(Duration(days: expiryDays));
     if (DateTime.now().isAfter(expiry)) {
       throw StateError('Invitation has expired');
     }
