@@ -12,6 +12,7 @@ class AppConstants {
   static const String messagesCollection = 'messages';
   static const String policiesCollection = 'policies';
   static const String announcementsCollection = 'announcements';
+  static const String scheduleEventsCollection = 'scheduleEvents';
   static const String invitationLookupsCollection = 'invitationLookups';
 
   // Routes
@@ -21,5 +22,6 @@ class AppConstants {
   static const String chatConversationRoute = '/chat/:roomId';
   static const String policyRoute = '/policy';
   static const String announcementsRoute = '/announcements';
+  static const String scheduleRoute = '/schedule';
   static const String settingsRoute = '/settings';
 }

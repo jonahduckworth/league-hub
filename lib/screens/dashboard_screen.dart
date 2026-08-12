@@ -2,23 +2,29 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../models/league.dart';
+import '../models/schedule_event.dart';
+import '../models/schedule_team_logos.dart';
 import '../models/weather_snapshot.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../providers/weather_provider.dart';
 import '../services/weather_service.dart';
 import '../widgets/app_glass.dart';
+import '../widgets/app_motion.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
-import '../widgets/app_motion.dart';
-import '../widgets/glass_bottom_nav.dart';
+import '../widgets/dashboard_empty_schedule_state.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/profile_summary_card.dart';
+import '../widgets/schedule_game_card.dart';
+import '../widgets/schedule_team_logo.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -28,24 +34,40 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  static const double _bottomNavBottomInset = 12;
-  static const double _quickLinksHeight = 52;
-  static const double _quickLinksContentGap = 12;
-  static const double _quickLinksNavGap = 40;
-
   String? _selectedLeagueId;
+
+  Future<void> _refreshHome() async {
+    ref.invalidate(currentUserProvider);
+    ref.invalidate(organizationProvider);
+
+    await Future.wait([
+      _waitForDashboardRefresh(ref.read(currentUserProvider.future)),
+      _waitForDashboardRefresh(ref.read(organizationProvider.future)),
+    ]);
+
+    ref.invalidate(leaguesProvider);
+    ref.invalidate(scheduleEventsProvider);
+    ref.invalidate(scheduleTeamLogosProvider);
+    ref.invalidate(currentWeatherProvider);
+
+    await Future.wait([
+      _waitForDashboardRefresh(ref.read(leaguesProvider.future)),
+      _waitForDashboardRefresh(ref.read(scheduleEventsProvider.future)),
+      _waitForDashboardRefresh(ref.read(scheduleTeamLogosProvider.future)),
+      _waitForDashboardRefresh(ref.read(currentWeatherProvider.future)),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final quickLinksBottomOffset = MediaQuery.viewPaddingOf(context).bottom +
-        leagueHubGlassBottomNavBarHeight +
-        _bottomNavBottomInset +
-        _quickLinksNavGap;
-    final bottomContentPadding =
-        quickLinksBottomOffset + _quickLinksHeight + _quickLinksContentGap;
+    final bottomContentPadding = appShellBottomPadding(context);
     final leaguesAsync = ref.watch(leaguesProvider);
     final org = ref.watch(organizationProvider).valueOrNull;
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final visibleUpcoming = ref.watch(upcomingScheduleEventsProvider);
+    final scheduleTeamLogos =
+        ref.watch(scheduleTeamLogosProvider).valueOrNull ??
+            const ScheduleTeamLogos();
 
     final leagues = leaguesAsync.valueOrNull ?? [];
     final showLeagueFilter = leagues.length > 1;
@@ -55,6 +77,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       context,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
+    final filteredUpcoming = visibleUpcoming
+        .where((event) =>
+            _selectedLeagueId == null ||
+            event.leagueIds.contains(_selectedLeagueId))
+        .toList();
+    final nextGame = filteredUpcoming.firstOrNull;
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -71,55 +99,64 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               onSelected: (id) => setState(() => _selectedLeagueId = id),
             )
           : null,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                topContentPadding,
-                16,
-                bottomContentPadding,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AppMotionReveal(
-                    child: _HomeProfileCard(
-                      user: currentUser,
-                      onProfileTap: () => context.go('/profile'),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const AppMotionReveal(
-                    index: 1,
-                    child: _SectionHeading(
-                      icon: Icons.grid_view_rounded,
-                      label: 'Quick Access',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  AppMotionReveal(
-                    index: 2,
-                    child: _buildHomeGrid(context),
-                  ),
-                ],
-              ),
-            ),
+      child: RefreshIndicator(
+        key: const ValueKey('home-refresh-indicator'),
+        onRefresh: _refreshHome,
+        color: AppGlassColors.aqua,
+        backgroundColor: AppGlassColors.pageMid,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
           ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: quickLinksBottomOffset,
-            child: AppMotionReveal(
-              index: 3,
-              child: _QuickLinksRow(
-                league: headerLeague,
-                fallbackLabel: headerLabel,
-              ),
-            ),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            topContentPadding,
+            16,
+            bottomContentPadding,
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppMotionReveal(
+                child: _HomeProfileCard(
+                  user: currentUser,
+                  onProfileTap: () => context.go('/profile'),
+                ),
+              ),
+              const SizedBox(height: 18),
+              AppMotionReveal(
+                index: 1,
+                child: _NextGameCard(
+                  event: nextGame,
+                  upcomingCount: filteredUpcoming.length,
+                  teamLogos: scheduleTeamLogos,
+                  onTap: () => context.go('/schedule'),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const AppMotionReveal(
+                index: 2,
+                child: _SectionHeading(
+                  icon: Icons.grid_view_rounded,
+                  label: 'Quick Access',
+                ),
+              ),
+              const SizedBox(height: 12),
+              AppMotionReveal(
+                index: 3,
+                child: _buildHomeGrid(context),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppMotionReveal(
+                index: 4,
+                child: _QuickLinksRow(
+                  league: headerLeague,
+                  fallbackLabel: headerLabel,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -147,11 +184,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           children: [
             Expanded(
               child: _CompactHomeTile(
-                icon: Icons.contacts_outlined,
-                label: 'Contacts',
-                subtitle: 'People and roles',
+                icon: Icons.mark_unread_chat_alt_outlined,
+                label: 'Chats',
+                subtitle: 'Chats & announcements',
                 accentColor: AppGlassColors.rose,
-                onTap: () => context.go('/contacts'),
+                onTap: () => context.go('/chat'),
               ),
             ),
             const SizedBox(width: 12),
@@ -167,6 +204,312 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ],
         ),
       ],
+    );
+  }
+}
+
+Future<void> _waitForDashboardRefresh<T>(Future<T> operation) async {
+  try {
+    await operation;
+  } catch (_) {
+    // Each provider retains and presents its own error state. The refresh
+    // gesture should always settle cleanly even when one source is offline.
+  }
+}
+
+class _NextGameCard extends StatelessWidget {
+  static const _ink = Color(0xFF061D3A);
+  static const _mutedInk = Color(0xFF34516F);
+
+  final ScheduleEvent? event;
+  final int upcomingCount;
+  final ScheduleTeamLogos teamLogos;
+  final VoidCallback onTap;
+
+  const _NextGameCard({
+    required this.event,
+    required this.upcomingCount,
+    required this.teamLogos,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final game = event;
+    if (game != null) {
+      final dateLabel = DateFormat('EEE, MMM d').format(game.scheduleDate);
+      final details = [game.division, game.location]
+          .whereType<String>()
+          .where((value) => value.trim().isNotEmpty)
+          .join('  •  ');
+      final semanticLabel = 'Next game, ${game.cleanFirstTeamName} versus '
+          '${game.cleanSecondTeamName}, $dateLabel at '
+          '${scheduleTimeLabel(game)}';
+
+      return Semantics(
+        button: true,
+        label: semanticLabel,
+        child: AppGlassSurface(
+          key: const ValueKey('next-game-card'),
+          onTap: onTap,
+          radius: AppRadius.card,
+          padding: EdgeInsets.zero,
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: _DashboardCardArtwork(
+                  imageKey: ValueKey('next-game-active-background'),
+                  frameKey: ValueKey('next-game-active-frame'),
+                  overlayKey: ValueKey('next-game-active-overlay'),
+                  assetPath: 'assets/dashboard/upcoming_games_active.jpg',
+                  alignment: Alignment.centerRight,
+                  borderColor: Color(0x803A5875),
+                ),
+              ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 190),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.event_available_outlined,
+                            color: _ink,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Next Game',
+                            style: TextStyle(
+                              color: _ink,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (upcomingCount > 1)
+                            Text(
+                              'View all $upcomingCount',
+                              style: const TextStyle(
+                                color: _mutedInk,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.arrow_forward_rounded,
+                            color: _mutedInk,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '$dateLabel  •  ${scheduleTimeLabel(game)}',
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _NextGameTeamRow(
+                        name: game.cleanFirstTeamName,
+                        logoUrl: teamLogos.logoFor(
+                          teamId: game.firstTeamId,
+                          teamName: game.firstTeamName,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _NextGameTeamRow(
+                        name: game.cleanSecondTeamName,
+                        logoUrl: teamLogos.logoFor(
+                          teamId: game.secondTeamId,
+                          teamName: game.secondTeamName,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            color: _mutedInk,
+                            size: 15,
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              details.isEmpty ? 'Game details' : details,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _mutedInk,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final accessibilityLayout =
+        DashboardEmptyScheduleState.shouldUseAccessibilityLayout(context);
+    return Semantics(
+      button: true,
+      label: 'No upcoming games. Open schedule.',
+      child: AppGlassSurface(
+        key: const ValueKey('next-game-card'),
+        onTap: onTap,
+        radius: AppRadius.card,
+        padding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: _DashboardCardArtwork(
+                imageKey: const ValueKey('next-game-empty-background'),
+                frameKey: const ValueKey('next-game-empty-frame'),
+                overlayKey: const ValueKey('next-game-empty-overlay'),
+                assetPath: 'assets/dashboard/upcoming_games_empty.jpg',
+                alignment: Alignment.centerRight,
+                borderColor: const Color(0x803A5875),
+                overlay: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: accessibilityLayout
+                      ? const [
+                          Color(0xEBFFFFFF),
+                          Color(0xD6FFFFFF),
+                          Color(0xA8FFFFFF),
+                        ]
+                      : const [
+                          Color(0xCCFFFFFF),
+                          Color(0x66FFFFFF),
+                          Color(0x00FFFFFF),
+                        ],
+                  stops: accessibilityLayout
+                      ? const [0, 0.62, 1]
+                      : const [0, 0.48, 0.78],
+                ),
+              ),
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 190),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: DashboardEmptyScheduleState(
+                  accessibilityLayout: accessibilityLayout,
+                  titleColor: _ink,
+                  bodyColor: _mutedInk,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NextGameTeamRow extends StatelessWidget {
+  final String name;
+  final String? logoUrl;
+
+  const _NextGameTeamRow({
+    required this.name,
+    required this.logoUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ScheduleTeamLogo(
+          teamName: name,
+          imageUrl: logoUrl,
+          size: 30,
+          fallbackTextColor: _NextGameCard._ink,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _NextGameCard._ink,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardCardArtwork extends StatelessWidget {
+  final Key imageKey;
+  final Key frameKey;
+  final Key? overlayKey;
+  final String assetPath;
+  final AlignmentGeometry alignment;
+  final Gradient? overlay;
+  final Color borderColor;
+  final double borderRadius;
+
+  const _DashboardCardArtwork({
+    required this.imageKey,
+    required this.frameKey,
+    required this.assetPath,
+    required this.alignment,
+    required this.borderColor,
+    this.overlayKey,
+    this.overlay,
+    this.borderRadius = AppRadius.card,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            assetPath,
+            key: imageKey,
+            fit: BoxFit.cover,
+            alignment: alignment,
+            filterQuality: FilterQuality.medium,
+          ),
+          if (overlay != null)
+            DecoratedBox(
+              key: overlayKey,
+              decoration: BoxDecoration(gradient: overlay),
+            ),
+          DecoratedBox(
+            key: frameKey,
+            decoration: BoxDecoration(
+              border: Border.all(color: borderColor),
+              borderRadius: BorderRadius.circular(borderRadius),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -350,12 +693,13 @@ class _CompactHomeTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             subtitle,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppGlassColors.inkMuted,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
+              height: 1.15,
             ),
           ),
         ],
@@ -759,9 +1103,28 @@ class _HomeProfileCard extends StatelessWidget {
       user: user!,
       showEmail: false,
       compact: true,
+      minHeight: 112,
       actionIcon: Icons.chevron_right,
       actionTooltip: 'Open profile',
       onTap: onProfileTap,
+      background: const _DashboardCardArtwork(
+        imageKey: ValueKey('home-profile-background'),
+        frameKey: ValueKey('home-profile-frame'),
+        assetPath: 'assets/dashboard/profile_hockey_arena.jpg',
+        alignment: Alignment.centerRight,
+        borderColor: Color(0x70FFFFFF),
+        borderRadius: 21,
+        overlay: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Color(0xD9071428),
+            Color(0xA6081C35),
+            Color(0x33020A14),
+          ],
+          stops: [0, 0.58, 1],
+        ),
+      ),
     );
   }
 }
@@ -789,29 +1152,89 @@ class _GreetingRow extends StatelessWidget {
             ? Icons.wb_sunny
             : Icons.nightlight_outlined;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Flexible(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: AppHeaderPill(
-              text: greeting,
-              icon: icon,
-              iconSize: 18,
-              showIconBubble: false,
-              padding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
-              textStyle: _homePillTextStyle(),
+    return SizedBox(
+      key: const ValueKey('home-greeting-row'),
+      height: 40,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: AppGlassColors.ink.withValues(alpha: 0.9),
+                  size: 18,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Flexible(
+                  child: Text(
+                    greeting,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _homePillTextStyle(),
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: AppSpacing.sm),
+          _BorderlessLeagueMark(
+            imageUrl: leagueLogoUrl,
+            label: leagueLabel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BorderlessLeagueMark extends StatelessWidget {
+  final String? imageUrl;
+  final String label;
+
+  const _BorderlessLeagueMark({
+    required this.imageUrl,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    return Semantics(
+      image: hasImage,
+      label: '$label logo',
+      child: SizedBox(
+        key: const ValueKey('home-header-league-mark'),
+        width: 40,
+        height: 40,
+        child: hasImage
+            ? Padding(
+                padding: const EdgeInsets.all(AppSpacing.xxs),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl!,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => _fallback(),
+                  errorWidget: (_, __, ___) => _fallback(),
+                ),
+              )
+            : _fallback(),
+      ),
+    );
+  }
+
+  Widget _fallback() {
+    return Center(
+      child: Text(
+        AppUtils.getInitials(label),
+        style: const TextStyle(
+          color: AppGlassColors.ink,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
         ),
-        const SizedBox(width: 10),
-        AppHeaderLogoMark(
-          imageUrl: leagueLogoUrl,
-          label: leagueLabel,
-          size: 40,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -822,25 +1245,55 @@ class _ProfileHeaderPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppGlassSurface(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       radius: 21,
-      child: Row(
+      child: Stack(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
-              shape: BoxShape.circle,
+          const Positioned.fill(
+            child: _DashboardCardArtwork(
+              imageKey: ValueKey('home-profile-background'),
+              frameKey: ValueKey('home-profile-frame'),
+              assetPath: 'assets/dashboard/profile_hockey_arena.jpg',
+              alignment: Alignment.centerRight,
+              borderColor: Color(0x70FFFFFF),
+              borderRadius: 21,
+              overlay: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0xD9071428),
+                  Color(0xA6081C35),
+                  Color(0x33020A14),
+                ],
+                stops: [0, 0.58, 1],
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Loading profile...',
-              style: TextStyle(
-                color: AppGlassColors.inkSecondary,
-                fontWeight: FontWeight.w700,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 112),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Loading profile...',
+                      style: TextStyle(
+                        color: AppGlassColors.inkSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

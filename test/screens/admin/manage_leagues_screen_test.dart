@@ -35,6 +35,31 @@ void main() {
       isActive: true,
     );
 
+    final platformOwner = AppUser(
+      id: 'owner-1',
+      email: 'owner@example.com',
+      displayName: 'Owner',
+      role: UserRole.platformOwner,
+      orgId: 'org-1',
+      hubIds: const [],
+      teamIds: const [],
+      createdAt: DateTime(2024),
+      isActive: true,
+    );
+
+    final manager = AppUser(
+      id: 'manager-1',
+      email: 'manager@example.com',
+      displayName: 'Manager',
+      role: UserRole.managerAdmin,
+      orgId: 'org-1',
+      hubIds: const ['hub-1'],
+      leagueIds: const ['league-1'],
+      teamIds: const [],
+      createdAt: DateTime(2024),
+      isActive: true,
+    );
+
     final testLeagues = [
       League(
         id: 'league-1',
@@ -131,8 +156,9 @@ void main() {
       );
     }
 
-    Widget createManageWidget({List<League>? leagues}) {
+    Widget createManageWidget({List<League>? leagues, AppUser? user}) {
       return wrap(
+        user: user,
         leagues: leagues,
         child: const ManageLeaguesScreen(),
       );
@@ -160,8 +186,9 @@ void main() {
       );
     }
 
-    Widget createLeagueDetailWidget() {
+    Widget createLeagueDetailWidget({AppUser? user}) {
       return wrap(
+        user: user,
         child: LeagueDetailScreen(
           leagueId: testLeagues.first.id,
           initialLeague: testLeagues.first,
@@ -169,8 +196,9 @@ void main() {
       );
     }
 
-    Widget createHubDetailWidget() {
+    Widget createHubDetailWidget({AppUser? user}) {
       return wrap(
+        user: user,
         child: HubDetailScreen(
           leagueId: testLeagues.first.id,
           hubId: testHubs.first.id,
@@ -195,9 +223,16 @@ void main() {
         expect(find.byIcon(Icons.chevron_right), findsWidgets);
       });
 
-      testWidgets('uses a header add action instead of a low add button',
+      testWidgets('only Platform Owner sees the add-league action',
           (WidgetTester tester) async {
         await tester.pumpWidget(createManageWidget());
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(Icons.add), findsNothing);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(createManageWidget(user: platformOwner));
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.add), findsOneWidget);
@@ -211,9 +246,19 @@ void main() {
 
         expect(find.text('No leagues yet'), findsOneWidget);
         expect(
-          find.text('Use + in the header to add your first league.'),
+          find.text('A Platform Owner must add the first league.'),
           findsOneWidget,
         );
+      });
+
+      testWidgets('manager sees only assigned leagues',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createManageWidget(user: manager));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Spring League'), findsOneWidget);
+        expect(find.text('Fall League'), findsNothing);
+        expect(find.byIcon(Icons.add), findsNothing);
       });
     });
 
@@ -231,6 +276,18 @@ void main() {
         expect(find.text('Calgary Hub'), findsOneWidget);
         expect(find.text('Edmonton Hub'), findsOneWidget);
         expect(find.byType(ExpansionTile), findsNothing);
+      });
+
+      testWidgets('manager sees assigned hubs without league actions',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createLeagueDetailWidget(user: manager));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Calgary Hub'), findsOneWidget);
+        expect(find.text('Edmonton Hub'), findsNothing);
+        expect(find.text('Edit League'), findsNothing);
+        expect(find.text('Add Hub'), findsNothing);
+        expect(find.text('Delete League'), findsNothing);
       });
     });
 
@@ -250,6 +307,16 @@ void main() {
         expect(find.text('U11 · AA'), findsOneWidget);
         expect(find.text('U13 · AA'), findsOneWidget);
         expect(find.byType(ExpansionTile), findsNothing);
+      });
+
+      testWidgets('manager can operate assigned hub without deleting it',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createHubDetailWidget(user: manager));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Edit Hub'), findsOneWidget);
+        expect(find.text('Add Team'), findsOneWidget);
+        expect(find.text('Delete Hub'), findsNothing);
       });
     });
 

@@ -197,9 +197,20 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
     }
   }
 
-  bool _canManage(AppUser? user) {
+  bool _canEdit(AppUser? user, Policy policy) {
     if (user == null) return false;
-    return PermissionService.isAtLeast(user.role, UserRole.managerAdmin);
+    final permissions = const PermissionService();
+    return permissions.canEditPolicy(user, uploadedBy: policy.uploadedBy) &&
+        permissions.canUploadPolicyToScope(
+          user,
+          leagueId: policy.leagueId,
+          hubId: policy.hubId,
+          teamId: policy.teamId,
+        );
+  }
+
+  bool _canDelete(AppUser? user) {
+    return user != null && const PermissionService().canDeletePolicy(user);
   }
 
   Future<void> _uploadNewVersion(Policy policy) async {
@@ -281,7 +292,15 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
       };
 
       await authorizedFirestore.addPolicyVersion(
-          currentUser, orgId, policy.id, versionEntry);
+        currentUser,
+        orgId,
+        policy.id,
+        versionEntry,
+        uploadedBy: policy.uploadedBy,
+        leagueId: policy.leagueId,
+        hubId: policy.hubId,
+        teamId: policy.teamId,
+      );
 
       if (mounted) {
         AppUtils.showSuccessSnackBar(context, 'New version uploaded.');
@@ -390,7 +409,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
         leadingLabel: headerLeague?.name ?? 'League Hub',
         showBackButton: true,
         actions: [
-          if (_canManage(currentUser) && policy != null)
+          if (policy != null && _canDelete(currentUser))
             AppHeaderIconButton(
               icon: Icons.delete_outline,
               color: AppGlassColors.rose,
@@ -524,7 +543,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
                           title: policy.name,
                         ),
               ),
-              if (_canManage(currentUser)) ...[
+              if (_canEdit(currentUser, policy)) ...[
                 const SizedBox(height: 10),
                 _PolicyActionButton(
                   icon: Icons.upload_file,

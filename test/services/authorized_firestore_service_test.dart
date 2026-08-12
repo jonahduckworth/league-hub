@@ -74,6 +74,27 @@ class MockFirestoreService extends Mock implements FirestoreService {
           returnValue: Future<void>.value()) as Future<void>);
 
   @override
+  Future<void> updateTeamRosterAssignment(
+          String orgId,
+          String leagueId,
+          String hubId,
+          String teamId,
+          List<String> memberIds,
+          String userId,
+          Map<String, dynamic> userFields) =>
+      (super.noSuchMethod(
+          Invocation.method(#updateTeamRosterAssignment, [
+            orgId,
+            leagueId,
+            hubId,
+            teamId,
+            memberIds,
+            userId,
+            userFields,
+          ]),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
   Future<void> sendMediaMessage(String orgId, String roomId,
           {required String senderId,
           required String senderName,
@@ -156,6 +177,32 @@ class MockFirestoreService extends Mock implements FirestoreService {
       (super.noSuchMethod(
           Invocation.method(#updateChatRoomFields, [orgId, roomId, data]),
           returnValue: Future<void>.value()) as Future<void>);
+
+  @override
+  Stream<ChatRoom?> getChatRoom(String orgId, String roomId) =>
+      (super.noSuchMethod(Invocation.method(#getChatRoom, [orgId, roomId]),
+          returnValue: const Stream<ChatRoom?>.empty()) as Stream<ChatRoom?>);
+
+  @override
+  Future<List<Team>> getAllTeamsFlat(String orgId) => (super.noSuchMethod(
+      Invocation.method(#getAllTeamsFlat, [orgId]),
+      returnValue: Future<List<Team>>.value(const [])) as Future<List<Team>>);
+
+  @override
+  Future<ChatRoom> getOrCreateDMRoom(
+          String orgId, String uid1, String uid2, String name1, String name2) =>
+      (super.noSuchMethod(
+          Invocation.method(
+              #getOrCreateDMRoom, [orgId, uid1, uid2, name1, name2]),
+          returnValue: Future<ChatRoom>.value(ChatRoom(
+            id: 'dm-room',
+            orgId: orgId,
+            name: '$name1 & $name2',
+            type: ChatRoomType.direct,
+            participants: [uid1, uid2],
+            createdAt: DateTime(2024),
+            isArchived: false,
+          ))) as Future<ChatRoom>);
 
   @override
   Future<void> sendMessage(String orgId, String roomId,
@@ -408,6 +455,16 @@ void main() {
 
         verify(mockFs.updateOrganization('org1', data)).called(1);
       });
+
+      test('rejects organization ownership changes', () async {
+        final superAdmin = makeUser(role: UserRole.superAdmin);
+        expect(
+          () => afs
+              .updateOrganization(superAdmin, 'org1', {'ownerId': 'attacker'}),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
+      });
     });
 
     // =========================================================================
@@ -427,15 +484,15 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when superAdmin creates league', () async {
+      test('rejects superAdmin league creation', () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final league = makeLeague();
 
-        when(mockFs.createLeague('org1', league)).thenAnswer((_) async {});
-
-        await afs.createLeague(superAdmin, 'org1', league);
-
-        verify(mockFs.createLeague('org1', league)).called(1);
+        expect(
+          () => afs.createLeague(superAdmin, 'org1', league),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
       });
 
       test('calls FirestoreService when platformOwner creates league',
@@ -570,32 +627,27 @@ void main() {
         verify(mockFs.createHub('org1', 'l1', hub)).called(1);
       });
 
-      test(
-          'calls FirestoreService when managerAdmin with hub assignment creates hub',
-          () async {
+      test('rejects managerAdmin hub creation even with assignments', () async {
         final managerAdmin =
             makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
         final hub = makeHub();
 
-        when(mockFs.createHub('org1', 'l1', hub)).thenAnswer((_) async {});
-
-        await afs.createHub(managerAdmin, 'org1', 'l1', hub);
-
-        verify(mockFs.createHub('org1', 'l1', hub)).called(1);
+        expect(
+          () => afs.createHub(managerAdmin, 'org1', 'l1', hub),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
       });
 
-      // managerAdmin can always create hubs per current PermissionService logic
-      test(
-          'calls FirestoreService when managerAdmin without hub assignment creates hub',
-          () async {
+      test('rejects managerAdmin hub creation without assignments', () async {
         final managerAdmin = makeUser(role: UserRole.managerAdmin, hubIds: []);
         final hub = makeHub();
 
-        when(mockFs.createHub('org1', 'l1', hub)).thenAnswer((_) async {});
-
-        await afs.createHub(managerAdmin, 'org1', 'l1', hub);
-
-        verify(mockFs.createHub('org1', 'l1', hub)).called(1);
+        expect(
+          () => afs.createHub(managerAdmin, 'org1', 'l1', hub),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
       });
     });
 
@@ -698,7 +750,7 @@ void main() {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
-          () => afs.createTeam(staff, 'org1', 'l1', 'h1', {}),
+          () => afs.createTeam(staff, 'org1', 'l1', 'h1', makeTeam()),
           throwsA(isA<PermissionDeniedException>()),
         );
 
@@ -739,7 +791,7 @@ void main() {
             makeUser(role: UserRole.managerAdmin, hubIds: ['h2']);
 
         expect(
-          () => afs.createTeam(managerAdmin, 'org1', 'l1', 'h1', {}),
+          () => afs.createTeam(managerAdmin, 'org1', 'l1', 'h1', makeTeam()),
           throwsA(isA<PermissionDeniedException>()),
         );
 
@@ -935,13 +987,125 @@ void main() {
       test('calls FirestoreService when superAdmin updates user', () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
         final target = makeUser(id: 'u2', role: UserRole.staff);
-        final data = {'displayName': 'Updated Name'};
+        final data = {'title': 'Updated title'};
 
         when(mockFs.updateUserFields('u2', data)).thenAnswer((_) async => {});
 
         await afs.updateUserFields(superAdmin, target, data);
 
         verify(mockFs.updateUserFields('u2', data)).called(1);
+      });
+
+      test('managerAdmin updates only Staff fully inside assigned scope',
+          () async {
+        final manager = makeUser(
+          id: 'manager',
+          role: UserRole.managerAdmin,
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+          teamIds: ['t1'],
+        );
+        final target = makeUser(
+          id: 'staff',
+          role: UserRole.staff,
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+        );
+        final data = {
+          'role': 'staff',
+          'hubIds': ['h1'],
+          'leagueIds': ['l1'],
+          'teamIds': ['t1'],
+        };
+        when(mockFs.getAllTeamsFlat('org1'))
+            .thenAnswer((_) async => [makeTeam(id: 't1', hubId: 'h1')]);
+        when(mockFs.updateUserFields('staff', data)).thenAnswer((_) async {});
+
+        await afs.updateUserFields(manager, target, data);
+
+        verify(mockFs.updateUserFields('staff', data)).called(1);
+      });
+
+      test('managerAdmin cannot assign Staff to an unassigned team', () async {
+        final manager = makeUser(
+          id: 'manager',
+          role: UserRole.managerAdmin,
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+          teamIds: ['t1'],
+        );
+        final target = makeUser(
+          id: 'staff',
+          role: UserRole.staff,
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+        );
+
+        expect(
+          () => afs.updateUserFields(manager, target, {
+            'role': 'staff',
+            'hubIds': ['h1'],
+            'leagueIds': ['l1'],
+            'teamIds': ['t2'],
+          }),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
+      });
+
+      test('managerAdmin cannot pair a Staff team with the wrong hub',
+          () async {
+        final manager = makeUser(
+          id: 'manager',
+          role: UserRole.managerAdmin,
+          hubIds: ['h1', 'h2'],
+          leagueIds: ['l1'],
+          teamIds: ['t2'],
+        );
+        final target = makeUser(
+          id: 'staff',
+          role: UserRole.staff,
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+        );
+        when(mockFs.getAllTeamsFlat('org1'))
+            .thenAnswer((_) async => [makeTeam(id: 't2', hubId: 'h2')]);
+
+        expect(
+          () => afs.updateUserFields(manager, target, {
+            'role': 'staff',
+            'hubIds': ['h1'],
+            'leagueIds': ['l1'],
+            'teamIds': ['t2'],
+          }),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+      });
+
+      test('managerAdmin cannot move Staff outside assigned hubs', () async {
+        final manager = makeUser(
+          id: 'manager',
+          role: UserRole.managerAdmin,
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+        );
+        final target = makeUser(
+          id: 'staff',
+          role: UserRole.staff,
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+        );
+
+        expect(
+          () => afs.updateUserFields(manager, target, {
+            'role': 'staff',
+            'hubIds': ['h2'],
+            'leagueIds': ['l1'],
+            'teamIds': const <String>[],
+          }),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
       });
     });
 
@@ -964,9 +1128,35 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
+      test('staff can create a direct message with one active peer', () async {
+        final staff = makeUser(id: 'staff', role: UserRole.staff);
+        final peer = makeUser(id: 'peer', role: UserRole.staff);
+        final room = ChatRoom(
+          id: 'dm-room',
+          orgId: 'org1',
+          name: 'User staff & User peer',
+          type: ChatRoomType.direct,
+          participants: ['staff', 'peer'],
+          createdAt: DateTime(2024),
+          isArchived: false,
+        );
+        when(mockFs.getOrCreateDMRoom(
+          'org1',
+          'staff',
+          'peer',
+          'User staff',
+          'User peer',
+        )).thenAnswer((_) async => room);
+
+        final result = await afs.getOrCreateDirectMessage(staff, peer, 'org1');
+
+        expect(result.id, 'dm-room');
+      });
+
       test('calls FirestoreService when managerAdmin creates chat room',
           () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin);
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
 
         when(mockFs.createChatRoom('org1', 'Room 1', ChatRoomType.league,
             leagueId: 'l1',
@@ -1020,8 +1210,21 @@ void main() {
       });
 
       test('calls FirestoreService when managerAdmin archives room', () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin);
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, leagueIds: const ['l1']);
+        final room = ChatRoom(
+          id: 'room1',
+          orgId: 'org1',
+          name: 'League room',
+          type: ChatRoomType.league,
+          leagueId: 'l1',
+          participants: const [],
+          createdAt: DateTime(2024),
+          isArchived: false,
+        );
 
+        when(mockFs.getChatRoom('org1', 'room1'))
+            .thenAnswer((_) => Stream.value(room));
         when(mockFs.archiveChatRoom('org1', 'room1'))
             .thenAnswer((_) async => {});
 
@@ -1046,19 +1249,56 @@ void main() {
       });
 
       test('calls FirestoreService when managerAdmin updates room', () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin);
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, leagueIds: const ['l1']);
+        final room = ChatRoom(
+          id: 'room1',
+          orgId: 'org1',
+          name: 'League room',
+          type: ChatRoomType.league,
+          leagueId: 'l1',
+          participants: const [],
+          createdAt: DateTime(2024),
+          isArchived: false,
+        );
         final data = {
           'name': 'Updated',
           'roomIconName': 'trophy',
           'roomImageUrl': null,
         };
 
+        when(mockFs.getChatRoom('org1', 'room1'))
+            .thenAnswer((_) => Stream.value(room));
         when(mockFs.updateChatRoomFields('org1', 'room1', data))
             .thenAnswer((_) async => {});
 
         await afs.updateChatRoomFields(managerAdmin, 'org1', 'room1', data);
 
         verify(mockFs.updateChatRoomFields('org1', 'room1', data)).called(1);
+      });
+
+      test('managerAdmin cannot update a room outside assigned scope',
+          () async {
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, leagueIds: const ['l1']);
+        final room = ChatRoom(
+          id: 'room1',
+          orgId: 'org1',
+          name: 'Other league',
+          type: ChatRoomType.league,
+          leagueId: 'l2',
+          participants: const [],
+          createdAt: DateTime(2024),
+          isArchived: false,
+        );
+        when(mockFs.getChatRoom('org1', 'room1'))
+            .thenAnswer((_) => Stream.value(room));
+
+        expect(
+          () => afs.updateChatRoomFields(
+              managerAdmin, 'org1', 'room1', {'name': 'Nope'}),
+          throwsA(isA<PermissionDeniedException>()),
+        );
       });
     });
 
@@ -1164,7 +1404,8 @@ void main() {
       });
 
       test('calls FirestoreService when managerAdmin creates policy', () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin);
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
         final policyData = {'title': 'Policy', 'leagueId': 'l1'};
 
         when(mockFs.createPolicy('org1', policyData, policyId: null))
@@ -1285,7 +1526,14 @@ void main() {
         final staff = makeUser(role: UserRole.staff);
 
         expect(
-          () => afs.addPolicyVersion(staff, 'org1', 'doc1', {}),
+          () => afs.addPolicyVersion(
+            staff,
+            'org1',
+            'doc1',
+            {},
+            uploadedBy: 'u1',
+            leagueId: 'l1',
+          ),
           throwsA(isA<PermissionDeniedException>()),
         );
 
@@ -1293,13 +1541,21 @@ void main() {
       });
 
       test('calls FirestoreService when managerAdmin adds version', () async {
-        final managerAdmin = makeUser(role: UserRole.managerAdmin);
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
         final versionData = {'url': 'https://...', 'fileSize': 1024};
 
         when(mockFs.addPolicyVersion('org1', 'doc1', versionData))
             .thenAnswer((_) async => {});
 
-        await afs.addPolicyVersion(managerAdmin, 'org1', 'doc1', versionData);
+        await afs.addPolicyVersion(
+          managerAdmin,
+          'org1',
+          'doc1',
+          versionData,
+          uploadedBy: managerAdmin.id,
+          leagueId: 'l1',
+        );
 
         verify(mockFs.addPolicyVersion('org1', 'doc1', versionData)).called(1);
       });
@@ -1654,6 +1910,70 @@ void main() {
         verify(mockFs.createInvitation('org1', invitation)).called(1);
       });
 
+      test('managerAdmin cannot invite another manager', () async {
+        final managerAdmin =
+            makeUser(role: UserRole.managerAdmin, hubIds: ['h1']);
+        final invitation = makeInvitation(role: 'managerAdmin', hubIds: ['h1']);
+
+        expect(
+          () => afs.createInvitation(managerAdmin, 'org1', invitation),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
+      });
+
+      test('managerAdmin can invite Staff to an assigned team', () async {
+        final managerAdmin = makeUser(
+          role: UserRole.managerAdmin,
+          hubIds: ['h1'],
+          teamIds: ['t1'],
+        );
+        final invitation = makeInvitation(hubIds: ['h1'], teamIds: ['t1']);
+        when(mockFs.getAllTeamsFlat('org1'))
+            .thenAnswer((_) async => [makeTeam(id: 't1', hubId: 'h1')]);
+        when(mockFs.createInvitation('org1', invitation))
+            .thenAnswer((_) async => 'token');
+
+        final result =
+            await afs.createInvitation(managerAdmin, 'org1', invitation);
+
+        expect(result, equals('token'));
+        verify(mockFs.createInvitation('org1', invitation)).called(1);
+      });
+
+      test('managerAdmin cannot invite Staff to an unassigned team', () async {
+        final managerAdmin = makeUser(
+          role: UserRole.managerAdmin,
+          hubIds: ['h1'],
+          teamIds: ['t1'],
+        );
+        final invitation = makeInvitation(hubIds: ['h1'], teamIds: ['t2']);
+
+        expect(
+          () => afs.createInvitation(managerAdmin, 'org1', invitation),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
+      });
+
+      test('managerAdmin cannot pair a selected team with the wrong hub',
+          () async {
+        final managerAdmin = makeUser(
+          role: UserRole.managerAdmin,
+          hubIds: ['h1', 'h2'],
+          teamIds: ['t2'],
+        );
+        final invitation = makeInvitation(hubIds: ['h1'], teamIds: ['t2']);
+        when(mockFs.getAllTeamsFlat('org1'))
+            .thenAnswer((_) async => [makeTeam(id: 't2', hubId: 'h2')]);
+
+        expect(
+          () => afs.createInvitation(managerAdmin, 'org1', invitation),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyNever(mockFs.createInvitation('org1', invitation));
+      });
+
       test(
           'throws PermissionDeniedException when managerAdmin tries to invite to hub they don\'t own',
           () async {
@@ -1836,8 +2156,12 @@ void main() {
       });
 
       test('managerAdmin can update team in own hub', () async {
-        final ma =
-            makeUser(id: 'ma', role: UserRole.managerAdmin, hubIds: ['h1']);
+        final ma = makeUser(
+          id: 'ma',
+          role: UserRole.managerAdmin,
+          hubIds: ['h1'],
+          teamIds: ['t1'],
+        );
         when(mockFs
                 .updateTeamFields('org1', 'l1', 'h1', 't1', {'memberIds': []}))
             .thenAnswer((_) async {});
@@ -1860,6 +2184,91 @@ void main() {
         final staff = makeUser(id: 's', role: UserRole.staff);
         expect(
           () => afs.updateTeamFields(staff, 'org1', 'l1', 'h1', 't1', {}),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+      });
+
+      test(
+          'manager atomically adds a Staff user from another assigned hub when parent scope is included',
+          () async {
+        final manager = makeUser(
+          id: 'manager',
+          role: UserRole.managerAdmin,
+          hubIds: ['h1', 'h2'],
+          leagueIds: ['l1'],
+          teamIds: ['t2'],
+        );
+        final target = makeUser(
+          id: 'staff',
+          role: UserRole.staff,
+          hubIds: ['h1'],
+          leagueIds: ['l1'],
+        );
+        final userFields = {
+          'role': 'staff',
+          'hubIds': ['h1', 'h2'],
+          'leagueIds': ['l1'],
+          'teamIds': ['t2'],
+        };
+        when(mockFs.getAllTeamsFlat('org1'))
+            .thenAnswer((_) async => [makeTeam(id: 't2', hubId: 'h2')]);
+        when(mockFs.updateTeamRosterAssignment(
+          'org1',
+          'l1',
+          'h2',
+          't2',
+          ['staff'],
+          'staff',
+          userFields,
+        )).thenAnswer((_) async {});
+
+        await afs.updateTeamRosterAssignment(
+          manager,
+          target,
+          'org1',
+          'l1',
+          'h2',
+          't2',
+          ['staff'],
+          userFields,
+        );
+
+        verify(mockFs.updateTeamRosterAssignment(
+          'org1',
+          'l1',
+          'h2',
+          't2',
+          ['staff'],
+          'staff',
+          userFields,
+        )).called(1);
+      });
+
+      test('atomic roster update rejects a target from another organization',
+          () async {
+        final admin = makeUser(id: 'admin', role: UserRole.superAdmin);
+        final external = makeUser(
+          id: 'external',
+          role: UserRole.staff,
+          orgId: 'org2',
+        );
+
+        expect(
+          () => afs.updateTeamRosterAssignment(
+            admin,
+            external,
+            'org1',
+            'l1',
+            'h1',
+            't1',
+            ['external'],
+            {
+              'role': 'staff',
+              'hubIds': ['h1'],
+              'leagueIds': ['l1'],
+              'teamIds': ['t1'],
+            },
+          ),
           throwsA(isA<PermissionDeniedException>()),
         );
       });

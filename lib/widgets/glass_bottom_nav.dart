@@ -34,16 +34,16 @@ class LeagueHubGlassBottomNav extends StatelessWidget {
           iconSize: 26,
         ),
         const GlassNavBarItem(
-          icon: Icons.campaign_outlined,
-          activeIcon: Icons.campaign_rounded,
-          label: 'Announcements',
+          icon: Icons.calendar_month_outlined,
+          activeIcon: Icons.calendar_month_rounded,
+          label: 'Schedule',
           iconSize: 25,
         ),
         const GlassNavBarItem(
-          icon: Icons.forum_outlined,
-          activeIcon: Icons.forum_rounded,
-          label: 'Chats',
-          iconSize: 25,
+          icon: Icons.contacts_outlined,
+          activeIcon: Icons.contacts_rounded,
+          label: 'Contacts',
+          iconSize: 24,
         ),
         overrideLastItem ??
             const GlassNavBarItem(
@@ -136,7 +136,7 @@ class _LiquidGlassBottomBarState extends State<_LiquidGlassBottomBar>
         child: Align(
           alignment: Alignment.bottomCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 384),
+            constraints: const BoxConstraints(maxWidth: 440),
             child: SizedBox(
               height: leagueHubGlassBottomNavBarHeight,
               child: DecoratedBox(
@@ -224,7 +224,7 @@ class _LiquidGlassBottomBarState extends State<_LiquidGlassBottomBar>
         const verticalPadding = 4.0;
         const horizontalInset = 8.0;
         final pillWidth =
-            (itemWidth - horizontalInset * 2).clamp(64.0, 118.0).toDouble();
+            (itemWidth - horizontalInset * 2).clamp(48.0, 100.0).toDouble();
         const pillHeight =
             leagueHubGlassBottomNavBarHeight - verticalPadding * 2;
 
@@ -404,31 +404,35 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: 2),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: AnimatedDefaultTextStyle(
-                  duration: AppMotion.accessible(
-                    context,
-                    AppMotion.standard,
-                  ),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: textColor,
-                    letterSpacing: 0,
-                  ),
-                  child: AnimatedSwitcher(
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: AnimatedDefaultTextStyle(
                     duration: AppMotion.accessible(
                       context,
                       AppMotion.standard,
                     ),
-                    switchInCurve: AppMotion.enter,
-                    switchOutCurve: AppMotion.exit,
-                    child: Text(
-                      label,
-                      key: ValueKey<String>(label),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: textColor,
+                      letterSpacing: 0,
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: AppMotion.accessible(
+                        context,
+                        AppMotion.standard,
+                      ),
+                      switchInCurve: AppMotion.enter,
+                      switchOutCurve: AppMotion.exit,
+                      child: Text(
+                        label,
+                        key: ValueKey<String>(label),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ),

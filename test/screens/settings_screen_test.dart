@@ -274,6 +274,7 @@ void main() {
               .label,
           'Spring League',
         );
+        expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
       });
 
       testWidgets('does not display profile summary tile',
@@ -300,7 +301,7 @@ void main() {
         isActive: true,
       );
 
-      testWidgets('sees User Management but not other org tiles',
+      testWidgets('sees assigned structure and User Management',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(user: managerAdmin));
 
@@ -310,8 +311,8 @@ void main() {
         // Should see User Management
         expect(find.text('User Management'), findsOneWidget);
 
-        // Should NOT see other administration tiles
-        expect(find.text('Manage Leagues & Hubs'), findsNothing);
+        // Assigned structure is available, but role policy remains Admin-only.
+        expect(find.text('Manage Leagues & Hubs'), findsOneWidget);
         expect(find.text('Roles & Permissions'), findsNothing);
         expect(find.text('Branding & Appearance'), findsNothing);
       });

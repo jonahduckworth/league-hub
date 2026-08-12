@@ -6,12 +6,19 @@ import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/models/policy.dart';
 import 'package:league_hub/models/organization.dart';
+import 'package:league_hub/models/schedule_event.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/services/firestore_service.dart';
 
 // Manual mock with proper null-safe return values via noSuchMethod overrides.
 class MockFirestoreService extends Mock implements FirestoreService {
+  @override
+  Stream<List<ScheduleEvent>> getScheduleEvents(String orgId) =>
+      (super.noSuchMethod(Invocation.method(#getScheduleEvents, [orgId]),
+              returnValue: Stream<List<ScheduleEvent>>.value([]))
+          as Stream<List<ScheduleEvent>>);
+
   @override
   Stream<List<ChatRoom>> getChatRooms(String orgId) => (super.noSuchMethod(
       Invocation.method(#getChatRooms, [orgId]),
@@ -43,6 +50,61 @@ void main() {
 
     tearDown(() {
       resetMockitoState();
+    });
+
+    group('scheduleEventsProvider filtering', () {
+      test('staff receives only assigned team games', () async {
+        final staffUser = AppUser(
+          id: 'staff1',
+          email: 'staff@example.com',
+          displayName: 'Staff',
+          role: UserRole.staff,
+          orgId: 'org1',
+          hubIds: const [],
+          leagueIds: const ['l1'],
+          teamIds: const ['team-1'],
+          createdAt: DateTime(2024),
+          isActive: true,
+        );
+        final testOrg = Organization(
+          id: 'org1',
+          name: 'Test Org',
+          primaryColor: '#1A3A5C',
+          secondaryColor: '#2E75B6',
+          accentColor: '#4DA3FF',
+          createdAt: DateTime(2024),
+          ownerId: 'owner1',
+        );
+        ScheduleEvent game(String id, String teamId) => ScheduleEvent(
+              id: id,
+              orgId: 'org1',
+              sourceUid: '$id@rampinteractive.com',
+              teamIds: [teamId],
+              hubIds: const ['hub-1'],
+              leagueIds: const ['l1'],
+              title: 'Wolves HC vs Rockies',
+              firstTeamName: 'Wolves HC',
+              secondTeamName: 'Rockies',
+              startsAt: DateTime(2026, 9, 1),
+              endsAt: DateTime(2026, 9, 1, 2),
+              timezone: 'America/Edmonton',
+              status: ScheduleEventStatus.scheduled,
+              isActive: true,
+            );
+        when(mockFs.getScheduleEvents('org1')).thenAnswer(
+          (_) =>
+              Stream.value([game('mine', 'team-1'), game('other', 'team-2')]),
+        );
+        container = ProviderContainer(overrides: [
+          firestoreServiceProvider.overrideWithValue(mockFs),
+          currentUserProvider.overrideWith((ref) => staffUser),
+          organizationProvider.overrideWith((ref) => testOrg),
+        ]);
+
+        final result = await container.read(scheduleEventsProvider.future);
+
+        expect(result.map((event) => event.id), ['mine']);
+      });
     });
 
     group('chatRoomsProvider filtering', () {

@@ -5,7 +5,7 @@ import 'package:league_hub/widgets/app_shell_header.dart';
 
 void main() {
   group('AppShellHeader', () {
-    testWidgets('wraps destination header controls in glass surfaces',
+    testWidgets('keeps destination title and league mark borderless',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -21,12 +21,26 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppGlassSurface), findsNWidgets(3));
+      expect(find.byType(AppGlassSurface), findsOneWidget);
       expect(find.byType(AppHeaderLogoMark), findsOneWidget);
       expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
       expect(find.byIcon(Icons.campaign_outlined), findsOneWidget);
       expect(find.text('Announcements'), findsOneWidget);
       expect(find.text('SL'), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.text('Announcements'),
+          matching: find.byType(AppGlassSurface),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.ancestor(
+          of: find.byType(AppHeaderLogoMark),
+          matching: find.byType(AppGlassSurface),
+        ),
+        findsNothing,
+      );
       expect(
         tester.getTopLeft(find.byType(AppHeaderLogoMark)).dx,
         greaterThan(tester.getTopLeft(find.text('Announcements')).dx),
@@ -55,7 +69,7 @@ void main() {
       expect(backSurface.radius, 20);
 
       final titleText = tester.widget<Text>(find.text('Announcements'));
-      expect(titleText.style?.fontSize, 14);
+      expect(titleText.style?.fontSize, 15);
       expect(find.byType(AnimatedSize), findsNothing);
       expect(find.byType(AnimatedSwitcher), findsNothing);
     });
@@ -76,6 +90,33 @@ void main() {
 
       expect(find.text('Custom header'), findsOneWidget);
       expect(find.byType(AppGlassSurface), findsNothing);
+    });
+
+    testWidgets('keeps the borderless header stable at maximum text size',
+        (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        const MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(3.2)),
+          child: MaterialApp(
+            home: Scaffold(
+              body: AppShellHeader(
+                title: 'Events and tournament announcements',
+                leadingIcon: Icons.campaign_outlined,
+                leadingLabel: 'Junior Prospects Hockey League',
+                showBackButton: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Events and tournament announcements'), findsOneWidget);
+      expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

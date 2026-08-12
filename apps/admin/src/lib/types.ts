@@ -29,6 +29,18 @@ export type Organization = {
   accentColor?: string;
   ownerId?: string;
   createdAt?: unknown;
+  scheduleIntegration?: ScheduleIntegration | null;
+};
+
+export type ScheduleIntegration = {
+  provider: "ramp";
+  enabled: boolean;
+  autoDiscoverSeason: boolean;
+  baseUrl: string;
+  associationId: string;
+  seasonId: string;
+  timezone: string;
+  divisionIds: Record<string, string>;
 };
 
 export type League = {
@@ -77,6 +89,7 @@ export type Invitation = {
   email: string;
   displayName?: string | null;
   role: UserRole;
+  leagueIds: string[];
   hubIds: string[];
   teamIds: string[];
   invitedBy: string;
@@ -162,6 +175,51 @@ export type NotificationEvent = {
   createdAt?: unknown;
 };
 
+export type ScheduleEvent = {
+  id: string;
+  sourceUid: string;
+  sourceSeasonId?: string;
+  teamIds: string[];
+  hubIds: string[];
+  leagueIds: string[];
+  division?: string | null;
+  title: string;
+  firstTeamName: string;
+  secondTeamName: string;
+  startsAt: unknown;
+  endsAt: unknown;
+  timezone: string;
+  localDate?: string | null;
+  localStartTime?: string | null;
+  localEndTime?: string | null;
+  location?: string | null;
+  status: "scheduled" | "final" | "removed";
+  firstScore?: number | null;
+  secondScore?: number | null;
+  isActive: boolean;
+};
+
+export type ScheduleSyncState = {
+  status: "ok" | "warning" | "error" | "running";
+  message: string;
+  sourceSeasonId?: string;
+  seasonDiscoveryStatus?: "disabled" | "matched" | "warning";
+  seasonDiscoveryMessage?: string;
+  discoveredSeasonId?: string;
+  seasonAutoUpdated?: boolean;
+  lastAttemptAt?: unknown;
+  lastSuccessAt?: unknown;
+  teamFeedsTotal?: number;
+  teamFeedsSucceeded?: number;
+  teamFeedsFailed?: number;
+  eventCount?: number;
+  added?: number;
+  updated?: number;
+  replaced?: number;
+  removed?: number;
+  removalsSkipped?: boolean;
+};
+
 export type AdminMetrics = {
   users: number;
   activeUsers: number;
@@ -188,6 +246,8 @@ export type AdminData = {
   chatRooms: ChatRoom[];
   auditLogs: AuditLog[];
   notificationEvents: NotificationEvent[];
+  scheduleEvents: ScheduleEvent[];
+  scheduleSync?: ScheduleSyncState;
 };
 
 export type HealthCheck = {

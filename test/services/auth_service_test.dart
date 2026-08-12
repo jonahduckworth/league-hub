@@ -146,7 +146,7 @@ void main() {
       expect(rawDoc.data()!['acceptedInvitationId'], 'inv-1');
     });
 
-    test('derives leagueIds from hubIds when hubs exist', () async {
+    test('uses the invitation leagueIds authorized by the backend', () async {
       const orgId = 'league-org';
 
       // Seed org, league, and hub in Firestore.
@@ -191,6 +191,7 @@ void main() {
         email: 'frank@example.com',
         displayName: 'Frank',
         role: 'staff',
+        leagueIds: ['lg1'],
         hubIds: ['hub-x'],
         teamIds: [],
         invitedBy: 'admin',

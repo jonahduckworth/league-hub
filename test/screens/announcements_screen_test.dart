@@ -334,13 +334,21 @@ void main() {
       List<Announcement>? announcements,
       List<League>? leagues,
       AuthorizedFirestoreService? authorizedFirestoreService,
+      bool returnToCommunication = false,
     }) {
       final router = GoRouter(
         initialLocation: '/',
         routes: [
           GoRoute(
             path: '/',
-            builder: (context, state) => const AnnouncementsScreen(),
+            builder: (context, state) => AnnouncementsScreen(
+              returnToCommunication: returnToCommunication,
+            ),
+          ),
+          GoRoute(
+            path: '/chat',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Communication Route')),
           ),
           GoRoute(
             path: '/announcements/create',
@@ -1231,6 +1239,20 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Announcement Route ann-1'), findsOneWidget);
+      });
+
+      testWidgets('communication feed provides a direct return path',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createRoutedTestWidget(returnToCommunication: true),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Communication Route'), findsOneWidget);
       });
     });
 

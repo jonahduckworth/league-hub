@@ -217,11 +217,12 @@ void main() {
   // MANAGER ROUTES
   // =========================================================================
 
-  group('Manager routes (/settings/users)', () {
+  group('Manager routes', () {
     const managerRoutes = [
       '/settings/users',
       '/settings/users/invite',
       '/settings/users/invitations',
+      '/settings/leagues',
     ];
 
     group('platformOwner can access', () {
@@ -264,7 +265,6 @@ void main() {
   group('Admin routes', () {
     const adminRoutes = [
       '/settings/roles',
-      '/settings/leagues',
     ];
 
     group('platformOwner can access', () {
@@ -779,8 +779,8 @@ void main() {
 
       final staffDenied = [
         '/settings/users',
-        '/settings/roles',
         '/settings/leagues',
+        '/settings/roles',
         '/policy/upload',
         '/announcements/create',
         '/announcements/ann123/edit',
@@ -810,6 +810,7 @@ void main() {
         '/settings/privacy',
         '/settings/app-icon',
         '/settings/users',
+        '/settings/leagues',
         '/policy/upload',
         '/announcements/create',
         '/chat/room123',
@@ -817,11 +818,16 @@ void main() {
         '/announcements/ann123',
         '/announcements/ann123/edit',
         '/settings/users/user123',
+        '/settings/leagues/league-1',
+        '/settings/leagues/league-1/hubs/hub-1/edit',
+        '/settings/leagues/league-1/hubs/hub-1/teams/new',
       ];
 
       final managerDenied = [
         '/settings/roles',
-        '/settings/leagues',
+        '/settings/leagues/new',
+        '/settings/leagues/league-1/edit',
+        '/settings/leagues/league-1/hubs/new',
       ];
 
       for (final route in managerAccessible) {

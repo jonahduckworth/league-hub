@@ -2,6 +2,7 @@ import '../models/app_user.dart';
 import '../models/announcement.dart';
 import '../models/chat_room.dart';
 import '../models/invitation.dart';
+import '../models/team.dart';
 import 'firestore_service.dart';
 import 'permission_service.dart';
 
@@ -50,7 +51,17 @@ class AuthorizedFirestoreService {
 
   Future<void> updateOrganization(
       AppUser actor, String orgId, Map<String, dynamic> data) {
-    if (!_ps.canEditAppIcon(actor)) _deny('updateOrganization', actor);
+    if (!_ps.canUpdateOrganization(actor)) _deny('updateOrganization', actor);
+    const allowedFields = {
+      'name',
+      'logoUrl',
+      'primaryColor',
+      'secondaryColor',
+      'accentColor',
+    };
+    if (data.keys.any((key) => !allowedFields.contains(key))) {
+      _deny('updateOrganization immutable fields', actor);
+    }
     return _fs.updateOrganization(orgId, data);
   }
 
@@ -65,7 +76,7 @@ class AuthorizedFirestoreService {
 
   Future<void> updateLeagueFields(
       AppUser actor, String orgId, String leagueId, Map<String, dynamic> data) {
-    if (!_ps.canCreateLeague(actor)) _deny('updateLeagueFields', actor);
+    if (!_ps.canUpdateLeague(actor)) _deny('updateLeagueFields', actor);
     return _fs.updateLeagueFields(orgId, leagueId, data);
   }
 
@@ -103,7 +114,7 @@ class AuthorizedFirestoreService {
 
   Future<void> updateHubFields(AppUser actor, String orgId, String leagueId,
       String hubId, Map<String, dynamic> data) {
-    if (!_ps.canCreateHub(actor, leagueId: leagueId)) {
+    if (!_ps.canUpdateHub(actor, hubId: hubId)) {
       _deny('updateHubFields', actor);
     }
     return _fs.updateHubFields(orgId, leagueId, hubId, data);
@@ -131,9 +142,12 @@ class AuthorizedFirestoreService {
   // -------------------------------------------------------------------------
 
   Future<void> createTeam(
-      AppUser actor, String orgId, String leagueId, String hubId, team) {
+      AppUser actor, String orgId, String leagueId, String hubId, Team team) {
     if (!_ps.canCreateTeam(actor, hubId: hubId)) {
       _deny('createTeam', actor);
+    }
+    if (actor.role == UserRole.managerAdmin && team.memberIds.isNotEmpty) {
+      _deny('createTeam roster', actor);
     }
     return _fs.createTeam(orgId, leagueId, hubId, team);
   }
@@ -148,10 +162,19 @@ class AuthorizedFirestoreService {
 
   Future<void> updateTeamFields(AppUser actor, String orgId, String leagueId,
       String hubId, String teamId, Map<String, dynamic> data) {
+    _assertCanUpdateTeamFields(actor, hubId, teamId, data);
+    return _fs.updateTeamFields(orgId, leagueId, hubId, teamId, data);
+  }
+
+  void _assertCanUpdateTeamFields(
+      AppUser actor, String hubId, String teamId, Map<String, dynamic> data) {
     if (!_ps.canCreateTeam(actor, hubId: hubId)) {
       _deny('updateTeamFields', actor);
     }
-    return _fs.updateTeamFields(orgId, leagueId, hubId, teamId, data);
+    if (data.containsKey('memberIds') &&
+        !_ps.canManageTeamRoster(actor, hubId: hubId, teamId: teamId)) {
+      _deny('updateTeamFields roster', actor);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -173,11 +196,95 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> updateUserFields(
-      AppUser actor, AppUser target, Map<String, dynamic> data) {
+      AppUser actor, AppUser target, Map<String, dynamic> data) async {
+    await _assertCanUpdateUserFields(actor, target, data);
+    return _fs.updateUserFields(target.id, data);
+  }
+
+  Future<void> _assertCanUpdateUserFields(
+      AppUser actor, AppUser target, Map<String, dynamic> data) async {
     if (!_ps.canManageUser(actor, target)) {
       _deny('updateUserFields', actor);
     }
-    return _fs.updateUserFields(target.id, data);
+    const allowedFields = {
+      'role',
+      'hubIds',
+      'leagueIds',
+      'teamIds',
+      'title',
+      'phone',
+      'address',
+      'isActive',
+    };
+    if (data.keys.any((key) => !allowedFields.contains(key))) {
+      _deny('updateUserFields immutable fields', actor);
+    }
+    if (actor.role == UserRole.managerAdmin) {
+      if (data.containsKey('role') && data['role'] != target.role.name) {
+        _deny('updateUserFields outside manager scope', actor);
+      }
+      final hubIds = data['hubIds'];
+      if (hubIds is! List ||
+          hubIds.isEmpty ||
+          hubIds.whereType<String>().length != hubIds.length ||
+          hubIds.any((hubId) => !actor.hubIds.contains(hubId))) {
+        _deny('updateUserFields outside assigned hubs', actor);
+      }
+      final leagueIds = data['leagueIds'];
+      if (leagueIds is! List ||
+          leagueIds.whereType<String>().length != leagueIds.length ||
+          leagueIds.any((leagueId) => !actor.leagueIds.contains(leagueId))) {
+        _deny('updateUserFields outside assigned leagues', actor);
+      }
+      final teamIds = data['teamIds'];
+      if (teamIds is! List ||
+          teamIds.whereType<String>().length != teamIds.length ||
+          teamIds.any((teamId) => !actor.teamIds.contains(teamId))) {
+        _deny('updateUserFields outside assigned teams', actor);
+      }
+      final selectedHubIds = hubIds.whereType<String>().toSet();
+      final selectedTeamIds = teamIds.whereType<String>().toSet();
+      if (selectedTeamIds.isNotEmpty) {
+        final teams =
+            await _fs.getAllTeamsFlat(target.orgId ?? actor.orgId ?? '');
+        final validTeamIds = teams
+            .where((team) => selectedHubIds.contains(team.hubId))
+            .map((team) => team.id)
+            .toSet();
+        if (selectedTeamIds.difference(validTeamIds).isNotEmpty) {
+          _deny('updateUserFields team outside selected hubs', actor);
+        }
+      }
+    }
+  }
+
+  /// Atomically updates both sides of a roster assignment after applying the
+  /// same role and nested-scope checks as the individual write methods.
+  Future<void> updateTeamRosterAssignment(
+    AppUser actor,
+    AppUser target,
+    String orgId,
+    String leagueId,
+    String hubId,
+    String teamId,
+    List<String> memberIds,
+    Map<String, dynamic> userFields,
+  ) async {
+    if (target.orgId != orgId) {
+      _deny('updateTeamRosterAssignment cross-organization target', actor);
+    }
+    final teamFields = <String, dynamic>{'memberIds': memberIds};
+    _assertCanUpdateTeamFields(actor, hubId, teamId, teamFields);
+    await _assertCanUpdateUserFields(actor, target, userFields);
+    return _fs.updateTeamRosterAssignment(
+      orgId,
+      leagueId,
+      hubId,
+      teamId,
+      memberIds,
+      target.id,
+      userFields,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -197,7 +304,11 @@ class AuthorizedFirestoreService {
     String? roomImageUrl,
   }) {
     if (type == ChatRoomType.direct) {
-      if (!_ps.canCreateChatRoom(actor)) _deny('createChatRoom', actor);
+      if (!_ps.canCreateDirectMessage(actor) ||
+          participants.length != 2 ||
+          !participants.contains(actor.id)) {
+        _deny('createChatRoom', actor);
+      }
     } else if (!_ps.canCreateChatRoomInScope(
       actor,
       leagueId: leagueId,
@@ -215,8 +326,34 @@ class AuthorizedFirestoreService {
         roomImageUrl: roomImageUrl);
   }
 
-  Future<void> archiveChatRoom(AppUser actor, String orgId, String roomId) {
+  Future<ChatRoom> getOrCreateDirectMessage(
+    AppUser actor,
+    AppUser otherUser,
+    String orgId,
+  ) {
+    if (!_ps.canCreateDirectMessage(actor) ||
+        !otherUser.isActive ||
+        actor.id == otherUser.id ||
+        actor.orgId != otherUser.orgId ||
+        actor.orgId != orgId) {
+      _deny('createDirectMessage', actor);
+    }
+    return _fs.getOrCreateDMRoom(
+      orgId,
+      actor.id,
+      otherUser.id,
+      actor.displayName,
+      otherUser.displayName,
+    );
+  }
+
+  Future<void> archiveChatRoom(
+      AppUser actor, String orgId, String roomId) async {
     if (!_ps.canArchiveChatRoom(actor)) _deny('archiveChatRoom', actor);
+    final room = await _fs.getChatRoom(orgId, roomId).first;
+    if (room == null || !_ps.canManageChatRoom(actor, room)) {
+      _deny('archiveChatRoom scope', actor);
+    }
     return _fs.archiveChatRoom(orgId, roomId);
   }
 
@@ -225,8 +362,12 @@ class AuthorizedFirestoreService {
     String orgId,
     String roomId,
     Map<String, dynamic> data,
-  ) {
+  ) async {
     if (!_ps.canUpdateChatRoom(actor)) _deny('updateChatRoomFields', actor);
+    final room = await _fs.getChatRoom(orgId, roomId).first;
+    if (room == null || !_ps.canManageChatRoom(actor, room)) {
+      _deny('updateChatRoomFields scope', actor);
+    }
     return _fs.updateChatRoomFields(orgId, roomId, data);
   }
 
@@ -344,8 +485,24 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> addPolicyVersion(
-      AppUser actor, String orgId, String policyId, Map<String, dynamic> data) {
-    if (!_ps.canUploadPolicy(actor)) _deny('addPolicyVersion', actor);
+    AppUser actor,
+    String orgId,
+    String policyId,
+    Map<String, dynamic> data, {
+    required String uploadedBy,
+    required String? leagueId,
+    String? hubId,
+    String? teamId,
+  }) {
+    if (!_ps.canEditPolicy(actor, uploadedBy: uploadedBy) ||
+        !_ps.canUploadPolicyToScope(
+          actor,
+          leagueId: leagueId,
+          hubId: hubId,
+          teamId: teamId,
+        )) {
+      _deny('addPolicyVersion', actor);
+    }
     return _fs.addPolicyVersion(orgId, policyId, data);
   }
 
@@ -371,6 +528,9 @@ class AuthorizedFirestoreService {
     )) {
       _deny('createAnnouncement', actor);
     }
+    if (data['isPinned'] == true && !_ps.canTogglePin(actor)) {
+      _deny('createAnnouncement pin', actor);
+    }
     return _fs.createAnnouncement(orgId, data);
   }
 
@@ -391,7 +551,11 @@ class AuthorizedFirestoreService {
         )) {
       _deny('updateAnnouncement', actor);
     }
-    return _fs.updateAnnouncement(orgId, announcementId, data);
+    final safeData = Map<String, dynamic>.from(data);
+    if (safeData.containsKey('isPinned') && !_ps.canTogglePin(actor)) {
+      safeData.remove('isPinned');
+    }
+    return _fs.updateAnnouncement(orgId, announcementId, safeData);
   }
 
   Future<void> deleteAnnouncement(
@@ -413,14 +577,49 @@ class AuthorizedFirestoreService {
   // -------------------------------------------------------------------------
 
   Future<String> createInvitation(
-      AppUser actor, String orgId, Invitation invitation) {
+      AppUser actor, String orgId, Invitation invitation) async {
     if (!_ps.canCreateInvitation(actor)) {
       _deny('createInvitation', actor);
+    }
+    UserRole? invitedRole;
+    for (final role in UserRole.values) {
+      if (role.name == invitation.role) {
+        invitedRole = role;
+        break;
+      }
+    }
+    if (invitedRole == null ||
+        !_ps.invitableRoles(actor).contains(invitedRole)) {
+      _deny('createInvitation (${invitation.role})', actor);
+    }
+    if (actor.role == UserRole.managerAdmin && invitation.hubIds.isEmpty) {
+      _deny('createInvitation (assigned hub required)', actor);
     }
     // Verify hub-level scope for managerAdmin.
     for (final hubId in invitation.hubIds) {
       if (!_ps.canInviteToHub(actor, hubId)) {
         _deny('createInvitation (hub $hubId)', actor);
+      }
+    }
+    for (final leagueId in invitation.leagueIds) {
+      if (!_ps.canInviteToLeague(actor, leagueId)) {
+        _deny('createInvitation (league $leagueId)', actor);
+      }
+    }
+    for (final teamId in invitation.teamIds) {
+      if (!_ps.canInviteToTeam(actor, teamId)) {
+        _deny('createInvitation (team $teamId)', actor);
+      }
+    }
+    if (actor.role == UserRole.managerAdmin && invitation.teamIds.isNotEmpty) {
+      final selectedHubIds = invitation.hubIds.toSet();
+      final teams = await _fs.getAllTeamsFlat(orgId);
+      final validTeamIds = teams
+          .where((team) => selectedHubIds.contains(team.hubId))
+          .map((team) => team.id)
+          .toSet();
+      if (invitation.teamIds.any((teamId) => !validTeamIds.contains(teamId))) {
+        _deny('createInvitation team outside selected hubs', actor);
       }
     }
     return _fs.createInvitation(orgId, invitation);

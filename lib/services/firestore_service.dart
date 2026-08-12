@@ -11,6 +11,8 @@ import '../models/message.dart';
 import '../models/policy.dart';
 import '../models/announcement.dart';
 import '../models/invitation.dart';
+import '../models/schedule_event.dart';
+import '../models/schedule_team_logos.dart';
 import '../core/constants.dart';
 
 class FirestoreService {
@@ -41,6 +43,11 @@ class FirestoreService {
 
   CollectionReference _teamsRef(String orgId, String leagueId, String hubId) =>
       _hubsRef(orgId, leagueId).doc(hubId).collection('teams');
+
+  CollectionReference _scheduleEventsRef(String orgId) => _db
+      .collection(AppConstants.orgsCollection)
+      .doc(orgId)
+      .collection(AppConstants.scheduleEventsCollection);
 
   /// Recursively converts Firestore Timestamp objects to ISO strings so models
   /// can parse them without importing cloud_firestore.
@@ -163,6 +170,31 @@ class FirestoreService {
       _teamsRef(orgId, leagueId, hubId)
           .doc(teamId)
           .set(data, SetOptions(merge: true));
+
+  /// Keeps the nested team roster and the user's assignment fields in sync.
+  /// Both documents commit together, so a rejected user-scope update cannot
+  /// leave a one-sided roster membership behind.
+  Future<void> updateTeamRosterAssignment(
+    String orgId,
+    String leagueId,
+    String hubId,
+    String teamId,
+    List<String> memberIds,
+    String userId,
+    Map<String, dynamic> userFields,
+  ) async {
+    final batch = _db.batch();
+    batch.set(
+      _teamsRef(orgId, leagueId, hubId).doc(teamId),
+      {'memberIds': memberIds},
+      SetOptions(merge: true),
+    );
+    batch.update(
+      _db.collection(AppConstants.usersCollection).doc(userId),
+      userFields,
+    );
+    await batch.commit();
+  }
 
   // --- ID generators (for creating documents with known IDs) ---
 
@@ -679,6 +711,75 @@ class FirestoreService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
+  }
+
+  // --- Schedule ---
+
+  Stream<List<ScheduleEvent>> getScheduleEvents(String orgId) {
+    return _scheduleEventsRef(orgId)
+        .orderBy('startsAt')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((document) => ScheduleEvent.fromJson({
+                  'id': document.id,
+                  'orgId': orgId,
+                  ..._convertTimestamps(
+                    document.data() as Map<String, dynamic>,
+                  ),
+                }))
+            .where((event) => event.isActive)
+            .toList());
+  }
+
+  Future<ScheduleTeamLogos> getScheduleTeamLogos(String orgId) async {
+    String? logoUrl(Object? value) {
+      if (value is! String) return null;
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    final byTeamId = <String, String>{};
+    final byClubName = <String, String>{};
+    final leagues = await _leaguesRef(orgId).get();
+    final hubGroups = await Future.wait(leagues.docs.map((league) async {
+      final data = league.data() as Map<String, dynamic>;
+      return (
+        leagueId: league.id,
+        leagueLogo: logoUrl(data['logoUrl']),
+        hubs: (await _hubsRef(orgId, league.id).get()).docs,
+      );
+    }));
+    final teamGroups = await Future.wait([
+      for (final group in hubGroups)
+        for (final hub in group.hubs)
+          () async {
+            final hubData = hub.data() as Map<String, dynamic>;
+            return (
+              hub: hub,
+              hubData: hubData,
+              hubLogo: logoUrl(hubData['logoUrl']) ?? group.leagueLogo,
+              teams:
+                  (await _teamsRef(orgId, group.leagueId, hub.id).get()).docs,
+            );
+          }(),
+    ]);
+    for (final group in teamGroups) {
+      final hubName = group.hubData['name'];
+      if (group.hubLogo != null && hubName is String) {
+        byClubName[normalizeScheduleClubName(hubName)] = group.hubLogo!;
+      }
+      for (final team in group.teams) {
+        final teamData = team.data() as Map<String, dynamic>;
+        final effectiveLogo = logoUrl(teamData['logoUrl']) ?? group.hubLogo;
+        if (effectiveLogo == null) continue;
+        byTeamId[team.id] = effectiveLogo;
+        final teamName = teamData['name'];
+        if (teamName is String) {
+          byClubName[normalizeScheduleClubName(teamName)] = effectiveLogo;
+        }
+      }
+    }
+    return ScheduleTeamLogos(byTeamId: byTeamId, byClubName: byClubName);
   }
 
   // --- Announcements ---

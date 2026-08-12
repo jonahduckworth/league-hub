@@ -3,6 +3,7 @@
 import {
   Activity,
   Building2,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -55,7 +56,7 @@ import { useAdminData } from "@/lib/firestore";
 import { assignableRoles, canAccessAdmin, canManageUser, roleLabel } from "@/lib/admin-access";
 import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
-import { bytesLabel, dateLabel, timeAgo } from "@/lib/format";
+import { bytesLabel, dateLabel, dateTimeLabel, timeAgo, toDate } from "@/lib/format";
 import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES } from "@/lib/policy-upload";
 import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
 import { demoUser } from "@/lib/demo-data";
@@ -68,12 +69,14 @@ import type {
   Hub,
   League,
   Policy,
+  ScheduleEvent,
+  ScheduleIntegration,
   Team,
   UserRole
 } from "@/lib/types";
 import { Badge, Button, Card, Field, Input, Select, Textarea } from "./ui";
 
-type SectionId = "overview" | "people" | "structure" | "announcements" | "policies";
+type SectionId = "overview" | "people" | "structure" | "schedule" | "announcements" | "policies";
 
 const navItems: Array<{
   id: SectionId;
@@ -85,9 +88,12 @@ const navItems: Array<{
   { id: "overview", label: "Overview", mobileLabel: "Home", description: "Operations at a glance", icon: LayoutDashboard },
   { id: "people", label: "People", mobileLabel: "People", description: "Members and access", icon: Users },
   { id: "structure", label: "Structure", mobileLabel: "Structure", description: "Leagues, hubs, and teams", icon: Building2 },
+  { id: "schedule", label: "Schedule", mobileLabel: "Games", description: "RAMP games and sync health", icon: CalendarDays },
   { id: "announcements", label: "Announcements", mobileLabel: "News", description: "League communications", icon: Megaphone },
   { id: "policies", label: "Policies", mobileLabel: "Policies", description: "Documents and versions", icon: FileText }
 ];
+
+const mobileNavItems = navItems.filter((item) => item.id !== "overview");
 
 type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -328,9 +334,14 @@ export function AdminApp() {
         <header data-admin-shell-header className="sticky top-0 z-30 border-b border-line/80 bg-white/90 backdrop-blur-xl">
           <div className="flex min-h-[72px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-navy text-white lg:hidden">
+              <button
+                type="button"
+                aria-label="Overview"
+                onClick={() => navigateToSection("overview")}
+                className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-navy text-white transition-colors hover:bg-[#243449] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20 lg:hidden"
+              >
                 <ShieldCheck className="size-5" aria-hidden />
-              </span>
+              </button>
               <div className="min-w-0">
                 <h1 className="truncate text-lg font-extrabold tracking-[-0.02em] text-ink sm:text-xl">{activeNavItem.label}</h1>
                 <p className="truncate text-xs font-semibold text-muted">{organizationLabel}</p>
@@ -394,7 +405,7 @@ export function AdminApp() {
           className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-[22px] border border-white/10 bg-navy/95 p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-lift backdrop-blur-xl lg:hidden"
           aria-label="Admin sections"
         >
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const selected = section === item.id;
             return (
@@ -423,6 +434,8 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
       return <PeopleSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "structure":
       return <StructureSection data={data} currentUser={currentUser} runAction={runAction} />;
+    case "schedule":
+      return <ScheduleSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "announcements":
       return <AnnouncementsSection data={data} runAction={runAction} />;
     case "policies":
@@ -1241,6 +1254,287 @@ function DrawerEditActions({
 }
 
 type PeopleView = "all" | "managers" | "staff" | "invites";
+
+function ScheduleSection({ data, currentUser, runAction }: { data: AdminData; currentUser: AppUser; runAction: ActionRunner }) {
+  const integration = data.selectedOrg?.scheduleIntegration;
+  const canManage = currentUser.role === "platformOwner" || currentUser.role === "superAdmin";
+  const [view, setView] = useState<"upcoming" | "results">("upcoming");
+  const [loadedAt] = useState(() => Date.now());
+  const [syncing, setSyncing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [settings, setSettings] = useState<ScheduleIntegration>(() => scheduleIntegrationSettings(integration));
+
+  useEffect(() => {
+    setSettings(scheduleIntegrationSettings(integration));
+  }, [data.selectedOrg?.id, integration]);
+
+  const upcoming = data.scheduleEvents
+    .filter((event) => event.status === "scheduled" && (toDate(event.startsAt)?.getTime() ?? 0) > loadedAt)
+    .sort((first, second) => (toDate(first.startsAt)?.getTime() ?? 0) - (toDate(second.startsAt)?.getTime() ?? 0));
+  const results = data.scheduleEvents
+    .filter((event) => event.status === "final")
+    .sort((first, second) => (toDate(second.startsAt)?.getTime() ?? 0) - (toDate(first.startsAt)?.getTime() ?? 0));
+  const visibleEvents = view === "upcoming" ? upcoming : results;
+  const sync = data.scheduleSync;
+  const syncTone = sync?.status === "ok"
+    ? "good"
+    : sync?.status === "warning" || sync?.status === "running"
+      ? "warning"
+      : sync?.status === "error"
+        ? "danger"
+        : "neutral";
+
+  async function syncNow() {
+    setSyncing(true);
+    try {
+      await runAction("adminSyncSchedule");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function saveIntegration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await runAction("adminUpdateScheduleIntegration", { integration: settings });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-5">
+      <section className="relative overflow-hidden rounded-[24px] bg-navy p-5 text-white shadow-[0_24px_60px_-36px_rgba(16,24,40,0.75)] sm:p-6 lg:p-7">
+        <div className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-teal/20 blur-3xl" aria-hidden />
+        <div className="relative grid gap-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
+              <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-[#5eead4] ring-1 ring-white/15 sm:size-14">
+                <CalendarDays className="size-6" aria-hidden />
+              </span>
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#8ff3e7]">Game operations</p>
+                <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.035em] sm:text-3xl">RAMP schedule</h2>
+                <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-white/65 sm:text-base">
+                  League games are imported into League Hub every six hours. Missing or unexpectedly replaced RAMP records are reconciled safely.
+                </p>
+              </div>
+            </div>
+            {canManage && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="shrink-0 border-white/15 bg-white/10 text-white hover:bg-white/15"
+                disabled={syncing || !integration?.enabled}
+                onClick={syncNow}
+              >
+                <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
+                {syncing ? "Syncing…" : "Sync now"}
+              </Button>
+            )}
+          </div>
+          <dl className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+            {[
+              { label: "Upcoming", value: upcoming.length },
+              { label: "Final results", value: results.length },
+              { label: "Team feeds", value: sync?.teamFeedsTotal ?? 0 },
+              { label: "Recreated matched", value: sync?.replaced ?? 0 }
+            ].map((metric) => (
+              <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3">
+                <dt className="text-[10px] font-extrabold uppercase tracking-[0.13em] text-white/50">{metric.label}</dt>
+                <dd className="mt-1 text-xl font-extrabold tracking-[-0.025em] text-white sm:text-2xl">{metric.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+        <Card className="min-w-0 p-4 sm:p-5 lg:p-6">
+          <div className="flex flex-col gap-4 border-b border-line/80 pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-xl font-extrabold tracking-[-0.025em] text-ink">Games in League Hub</h3>
+              <p className="mt-1 text-sm font-medium text-muted">Members see these games natively in the app.</p>
+            </div>
+            <div className="inline-flex rounded-xl border border-line bg-[#f8fafc] p-1" role="group" aria-label="Schedule view">
+              {(["upcoming", "results"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  aria-pressed={view === item}
+                  onClick={() => setView(item)}
+                  className={`min-h-11 cursor-pointer rounded-lg px-4 text-sm font-bold capitalize transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15 ${view === item ? "bg-navy text-white shadow-sm" : "text-muted hover:text-ink"}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3">
+            {visibleEvents.slice(0, 100).map((event) => <AdminScheduleGame key={event.id} event={event} />)}
+            {visibleEvents.length === 0 && (
+              <WorkspaceEmptyState
+                icon={view === "upcoming" ? CalendarDays : Trophy}
+                title={view === "upcoming" ? "No upcoming games published" : "No final results yet"}
+                description="The next healthy RAMP sync will add games here automatically."
+              />
+            )}
+          </div>
+        </Card>
+
+        <div className="grid content-start gap-5">
+          <Card className="p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Import health</p>
+                <h3 className="mt-2 text-lg font-extrabold text-ink">Latest sync</h3>
+              </div>
+              <Badge tone={syncTone}>{sync?.status ?? (integration ? "Waiting" : "Not configured")}</Badge>
+            </div>
+            <p className="mt-4 text-sm font-medium leading-6 text-muted">
+              {sync?.message ?? (integration ? "The first schedule sync has not run yet." : "Configure the official JPHL schedule source to begin importing games.")}
+            </p>
+            <dl className="mt-5 grid gap-3 border-t border-line/80 pt-5">
+              <InfoRow label="Last success" value={dateTimeLabel(sync?.lastSuccessAt)} />
+              <InfoRow label="Season synced" value={sync?.sourceSeasonId ?? integration?.seasonId ?? "—"} />
+              <InfoRow label="Season discovery" value={sync?.seasonDiscoveryStatus ?? (integration?.autoDiscoverSeason ? "Waiting" : "Manual")} />
+              <InfoRow label="Feeds succeeded" value={`${sync?.teamFeedsSucceeded ?? 0} / ${sync?.teamFeedsTotal ?? 0}`} />
+              <InfoRow label="Games received" value={String(sync?.eventCount ?? 0)} />
+              <InfoRow label="Missing preserved" value={sync?.removalsSkipped ? "Yes — safety guard active" : "No"} />
+            </dl>
+          </Card>
+
+          {canManage && (
+            <details className="rounded-2xl border border-line/80 bg-panel shadow-card">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-extrabold text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15">
+                RAMP source settings
+                <ChevronDown className="size-4 text-muted" aria-hidden />
+              </summary>
+              <form className="grid gap-4 border-t border-line/80 p-5" onSubmit={saveIntegration}>
+                <Field label="Season ID" hint="RAMP SID">
+                  <Input required value={settings.seasonId} onChange={(event) => setSettings((current) => ({ ...current, seasonId: event.target.value }))} />
+                </Field>
+                <p className="-mt-2 text-xs font-medium leading-5 text-muted">
+                  This is the fallback season and the value used for historical imports. With discovery off, League Hub reads the season-wide archive so older team IDs are not required.
+                </p>
+                <Field label="Association ID">
+                  <Input required value={settings.associationId} onChange={(event) => setSettings((current) => ({ ...current, associationId: event.target.value }))} />
+                </Field>
+                <Field label="Timezone">
+                  <Input required value={settings.timezone} onChange={(event) => setSettings((current) => ({ ...current, timezone: event.target.value }))} />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  {["14U", "15U", "17U", "18U"].map((ageGroup) => (
+                    <Field key={ageGroup} label={`${ageGroup} division`}>
+                      <Input
+                        required
+                        aria-label={`${ageGroup} division ID`}
+                        value={settings.divisionIds[ageGroup] ?? ""}
+                        onChange={(event) => setSettings((current) => ({
+                          ...current,
+                          divisionIds: { ...current.divisionIds, [ageGroup]: event.target.value }
+                        }))}
+                      />
+                    </Field>
+                  ))}
+                </div>
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold text-ink">
+                  <input
+                    type="checkbox"
+                    checked={settings.enabled}
+                    onChange={(event) => setSettings((current) => ({ ...current, enabled: event.target.checked }))}
+                    className="size-4 accent-teal"
+                  />
+                  Automatic schedule sync enabled
+                </label>
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold text-ink">
+                  <input
+                    type="checkbox"
+                    checked={settings.autoDiscoverSeason}
+                    onChange={(event) => setSettings((current) => ({ ...current, autoDiscoverSeason: event.target.checked }))}
+                    className="size-4 accent-teal"
+                  />
+                  Automatically discover new JPHL seasons
+                </label>
+                <p className="-mt-2 text-xs font-medium leading-5 text-muted">
+                  League Hub switches only when the public JPHL directory matches every configured team. Otherwise it keeps the last known routes and shows a warning.
+                </p>
+                <Button type="submit" disabled={saving}>
+                  <Save className="size-4" aria-hidden />
+                  {saving ? "Saving…" : "Save source settings"}
+                </Button>
+              </form>
+            </details>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function defaultScheduleIntegration(): ScheduleIntegration {
+  return {
+    provider: "ramp",
+    enabled: true,
+    autoDiscoverSeason: true,
+    baseUrl: "https://juniorprospectshockeyleague.com",
+    associationId: "2888",
+    seasonId: "12322",
+    timezone: "America/Edmonton",
+    divisionIds: { "14U": "16624", "15U": "16623", "17U": "23859", "18U": "16622" }
+  };
+}
+
+function scheduleIntegrationSettings(integration?: ScheduleIntegration | null): ScheduleIntegration {
+  if (!integration) return defaultScheduleIntegration();
+  return {
+    ...integration,
+    // Existing organization documents predate this setting. Treat a missing
+    // value as enabled so the admin UI agrees with the sync function default.
+    autoDiscoverSeason: integration.autoDiscoverSeason !== false
+  };
+}
+
+function AdminScheduleGame({ event }: { event: ScheduleEvent }) {
+  const final = event.status === "final";
+  const date = event.localDate
+    ? new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${event.localDate}T12:00:00Z`))
+    : dateLabel(event.startsAt);
+  const time = event.localStartTime ? scheduleClockLabel(event.localStartTime) : dateTimeLabel(event.startsAt);
+  return (
+    <article className="grid gap-4 rounded-2xl border border-line/80 bg-[#fbfcfd] p-4 transition-[border-color,box-shadow] hover:border-[#b8c4d2] hover:shadow-soft sm:grid-cols-[116px_minmax(0,1fr)_auto] sm:items-center">
+      <div>
+        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-teal">{final ? "Final" : date}</p>
+        <p className="mt-1 text-sm font-bold text-ink">{final ? date : time}</p>
+        <p className="mt-1 text-xs font-semibold text-muted">{event.division ?? "Game"}</p>
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-center gap-3">
+          <p className="min-w-0 flex-1 truncate text-sm font-extrabold text-ink">{cleanScheduleTeamName(event.firstTeamName)}</p>
+          {final && <span className="text-lg font-extrabold text-ink">{event.firstScore ?? "–"}</span>}
+        </div>
+        <div className="mt-2 flex items-center gap-3">
+          <p className="min-w-0 flex-1 truncate text-sm font-extrabold text-ink">{cleanScheduleTeamName(event.secondTeamName)}</p>
+          {final && <span className="text-lg font-extrabold text-ink">{event.secondScore ?? "–"}</span>}
+        </div>
+        {event.location && <p className="mt-2 truncate text-xs font-medium text-muted"><MapPin className="mr-1 inline size-3.5" aria-hidden />{event.location}</p>}
+      </div>
+      <Badge tone={final ? "neutral" : "info"}>{final ? "Complete" : "Scheduled"}</Badge>
+    </article>
+  );
+}
+
+function cleanScheduleTeamName(value: string) {
+  return value.replace(/^\d{2}U\s+(?:AAA|AA|A)\s+-\s+/, "").trim();
+}
+
+function scheduleClockLabel(value: string) {
+  const [hour, minute] = value.split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: "UTC" })
+    .format(new Date(Date.UTC(2000, 0, 1, hour, minute)));
+}
 
 function PeopleSection({ data, currentUser, runAction }: { data: AdminData; currentUser: AppUser; runAction: ActionRunner }) {
   const [query, setQuery] = useState("");

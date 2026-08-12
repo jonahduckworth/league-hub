@@ -40,6 +40,156 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    function roomData(orgId, roomId) {
+      return firestore.get(
+        /databases/(default)/documents/organizations/$(orgId)/chatRooms/$(roomId)
+      ).data;
+    }
+
+    function roomExists(orgId, roomId) {
+      return firestore.exists(
+        /databases/(default)/documents/organizations/$(orgId)/chatRooms/$(roomId)
+      );
+    }
+
+    function hasAssignedLeague(leagueId) {
+      return 'leagueIds' in userDoc() && leagueId in userDoc().leagueIds;
+    }
+
+    function hasAssignedHub(hubId) {
+      return 'hubIds' in userDoc() && hubId in userDoc().hubIds;
+    }
+
+    function hasAssignedTeam(teamId) {
+      return 'teamIds' in userDoc() && teamId in userDoc().teamIds;
+    }
+
+    function canReadRoom(orgId, roomId) {
+      let room = roomData(orgId, roomId);
+      return sameOrg(orgId)
+        && roomExists(orgId, roomId)
+        && (
+          isSuperAdmin()
+          || (room.type == 'direct' && request.auth.uid in room.participants)
+          || (
+            room.type in ['league', 'event']
+            && (
+              (
+                'teamId' in room
+                && room.teamId != null
+                && (
+                  hasAssignedTeam(room.teamId)
+                  || (
+                    'hubId' in room
+                    && room.hubId != null
+                    && hasAssignedHub(room.hubId)
+                  )
+                )
+              )
+              || (
+                'hubId' in room
+                && room.hubId != null
+                && (!('teamId' in room) || room.teamId == null)
+                && hasAssignedHub(room.hubId)
+              )
+              || (
+                (!('hubId' in room) || room.hubId == null)
+                && (
+                  !('leagueId' in room)
+                  || room.leagueId == null
+                  || hasAssignedLeague(room.leagueId)
+                )
+              )
+            )
+          )
+        );
+    }
+
+    function policyData(orgId, policyId) {
+      return firestore.get(
+        /databases/(default)/documents/organizations/$(orgId)/policies/$(policyId)
+      ).data;
+    }
+
+    function policyExists(orgId, policyId) {
+      return firestore.exists(
+        /databases/(default)/documents/organizations/$(orgId)/policies/$(policyId)
+      );
+    }
+
+    function canReadPolicy(orgId, policyId) {
+      let policy = policyData(orgId, policyId);
+      return sameOrg(orgId)
+        && policyExists(orgId, policyId)
+        && (
+          isSuperAdmin()
+          || (
+            'teamId' in policy
+            && policy.teamId != null
+            && (
+              hasAssignedTeam(policy.teamId)
+              || (
+                'hubId' in policy
+                && policy.hubId != null
+                && hasAssignedHub(policy.hubId)
+              )
+            )
+          )
+          || (
+            'hubId' in policy
+            && policy.hubId != null
+            && (!('teamId' in policy) || policy.teamId == null)
+            && hasAssignedHub(policy.hubId)
+          )
+          || (
+            'leagueId' in policy
+            && policy.leagueId != null
+            && (!('hubId' in policy) || policy.hubId == null)
+            && hasAssignedLeague(policy.leagueId)
+          )
+          || (!('leagueId' in policy) || policy.leagueId == null)
+        );
+    }
+
+    function canManagePolicyFile(orgId, policyId) {
+      let policy = policyData(orgId, policyId);
+      return sameOrg(orgId)
+        && policyExists(orgId, policyId)
+        && (
+          isSuperAdmin()
+          || (
+            userDoc().role == 'managerAdmin'
+            && policy.uploadedBy == request.auth.uid
+            && (
+              (
+                'teamId' in policy
+                && policy.teamId != null
+                && (
+                  hasAssignedTeam(policy.teamId)
+                  || (
+                    'hubId' in policy
+                    && policy.hubId != null
+                    && hasAssignedHub(policy.hubId)
+                  )
+                )
+              )
+              || (
+                'hubId' in policy
+                && policy.hubId != null
+                && (!('teamId' in policy) || policy.teamId == null)
+                && hasAssignedHub(policy.hubId)
+              )
+              || (
+                'leagueId' in policy
+                && policy.leagueId != null
+                && (!('hubId' in policy) || policy.hubId == null)
+                && hasAssignedLeague(policy.leagueId)
+              )
+            )
+          )
+        );
+    }
+
     match /orgs/{orgId}/avatars/{fileName} {
       allow read: if sameOrg(orgId);
       allow write: if sameOrg(orgId)
@@ -48,15 +198,15 @@ service firebase.storage {
     }
 
     match /orgs/{orgId}/chat/{roomId}/room-images/{userId}/{fileName} {
-      allow read: if signedIn();
-      allow write: if signedIn()
+      allow read: if canReadRoom(orgId, roomId);
+      allow write: if canReadRoom(orgId, roomId)
         && request.auth.uid == userId
         && isImageUpload(10 * 1024 * 1024);
     }
 
     match /orgs/{orgId}/chat/{roomId}/attachments/{userId}/{fileName} {
-      allow read: if signedIn();
-      allow write: if signedIn()
+      allow read: if canReadRoom(orgId, roomId);
+      allow write: if canReadRoom(orgId, roomId)
         && request.auth.uid == userId
         && request.resource != null
         && request.resource.size <= 25 * 1024 * 1024;
@@ -71,8 +221,8 @@ service firebase.storage {
     }
 
     match /orgs/{orgId}/chat/{roomId}/{fileName} {
-      allow read: if sameOrg(orgId);
-      allow write: if sameOrg(orgId)
+      allow read: if canReadRoom(orgId, roomId);
+      allow write: if canReadRoom(orgId, roomId)
         && request.resource != null
         && request.resource.size <= 25 * 1024 * 1024;
     }
@@ -85,9 +235,8 @@ service firebase.storage {
     }
 
     match /organizations/{orgId}/policies/{policyId}/{fileName} {
-      allow read: if sameOrg(orgId);
-      allow write: if sameOrg(orgId)
-        && isManagerAdmin()
+      allow read: if canReadPolicy(orgId, policyId);
+      allow write: if canManagePolicyFile(orgId, policyId)
         && request.resource != null
         && request.resource.size <= 50 * 1024 * 1024;
       allow delete: if sameOrg(orgId) && isSuperAdmin();

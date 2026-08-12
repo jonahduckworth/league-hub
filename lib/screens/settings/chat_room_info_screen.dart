@@ -58,8 +58,7 @@ class ChatRoomInfoScreen extends ConsumerWidget {
     final displayName = chatRoomDisplayName(room, currentUser, allUsers);
 
     final canManageRoom = currentUser != null &&
-        room.type != ChatRoomType.direct &&
-        const PermissionService().canUpdateChatRoom(currentUser);
+        const PermissionService().canManageChatRoom(currentUser, room);
 
     return AppShellScaffold(
       header: AppShellHeader(

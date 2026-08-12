@@ -4,11 +4,14 @@ const {
   assignableRoles,
   canAccessOrg,
   canCreateLeague,
+  canManageInvitationRole,
   canManageTarget,
+  isManagedChatRoomType,
   isValidAnnouncementTarget,
   isValidPolicyCategory,
   normalizeStringArray,
   outranks,
+  teamMemberRecordsMatchOrg,
 } = require("../lib/adminLogic");
 
 test("platform owners and super admins can access the admin org scope correctly", () => {
@@ -86,4 +89,31 @@ test("admin user management follows self, org, and hierarchy restrictions", () =
 test("normalizes string arrays for hub and team assignment inputs", () => {
   assert.deepEqual(normalizeStringArray([" a ", "a", "", 3, "b"]), ["a", "b"]);
   assert.deepEqual(normalizeStringArray(null), []);
+});
+
+test("invitation expiration follows the same role hierarchy as creation", () => {
+  assert.equal(canManageInvitationRole("platformOwner", "superAdmin"), true);
+  assert.equal(canManageInvitationRole("superAdmin", "managerAdmin"), true);
+  assert.equal(canManageInvitationRole("superAdmin", "staff"), true);
+  assert.equal(canManageInvitationRole("superAdmin", "superAdmin"), false);
+  assert.equal(canManageInvitationRole("superAdmin", "platformOwner"), false);
+  assert.equal(canManageInvitationRole("superAdmin", "unknown"), false);
+});
+
+test("admin chat callables accept managed rooms but reject direct messages", () => {
+  assert.equal(isManagedChatRoomType("league"), true);
+  assert.equal(isManagedChatRoomType("event"), true);
+  assert.equal(isManagedChatRoomType("direct"), false);
+  assert.equal(isManagedChatRoomType(undefined), false);
+});
+
+test("team member records must all exist in the target organization", () => {
+  const records = [
+    { id: "u1", orgId: "org-1" },
+    { id: "u2", orgId: "org-1" },
+    { id: "external", orgId: "org-2" },
+  ];
+  assert.equal(teamMemberRecordsMatchOrg(["u1", "u2"], "org-1", records), true);
+  assert.equal(teamMemberRecordsMatchOrg(["u1", "missing"], "org-1", records), false);
+  assert.equal(teamMemberRecordsMatchOrg(["u1", "external"], "org-1", records), false);
 });

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:league_hub/core/design_system.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/weather_snapshot.dart';
 import 'package:league_hub/models/organization.dart';
+import 'package:league_hub/models/schedule_event.dart';
+import 'package:league_hub/models/schedule_team_logos.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/providers/weather_provider.dart';
@@ -14,6 +17,7 @@ import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/league_filter.dart';
+import 'package:league_hub/widgets/schedule_team_logo.dart';
 
 void main() {
   group('DashboardScreen', () {
@@ -78,6 +82,7 @@ void main() {
       int teamCount = 12,
       int memberCount = 45,
       WeatherSnapshot? weather,
+      List<ScheduleEvent> scheduleEvents = const [],
     }) {
       return ProviderScope(
         overrides: [
@@ -101,6 +106,17 @@ void main() {
           ),
           unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
           currentWeatherProvider.overrideWith((ref) => weather ?? testWeather),
+          scheduleEventsProvider.overrideWith(
+            (ref) => Stream.value(scheduleEvents),
+          ),
+          scheduleTeamLogosProvider.overrideWith(
+            (ref) => const ScheduleTeamLogos(
+              byTeamId: {
+                'wolves': 'https://example.com/wolves.png',
+                'rockies': 'https://example.com/rockies.png',
+              },
+            ),
+          ),
         ],
         child: MaterialApp(
           home: DashboardScreen(),
@@ -121,6 +137,7 @@ void main() {
       int hubCount = 3,
       int teamCount = 12,
       int memberCount = 45,
+      List<ScheduleEvent> scheduleEvents = const [],
     }) {
       final router = GoRouter(
         initialLocation: '/',
@@ -128,6 +145,11 @@ void main() {
           GoRoute(
             path: '/',
             builder: (context, state) => const DashboardScreen(),
+          ),
+          GoRoute(
+            path: '/schedule',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Schedule Route')),
           ),
           GoRoute(
             path: '/settings/notifications',
@@ -184,6 +206,17 @@ void main() {
           activeUserCountProvider.overrideWith((ref) => memberCount),
           unreadCountProvider.overrideWith((ref, roomId) => Stream.value(0)),
           currentWeatherProvider.overrideWith((ref) => testWeather),
+          scheduleEventsProvider.overrideWith(
+            (ref) => Stream.value(scheduleEvents),
+          ),
+          scheduleTeamLogosProvider.overrideWith(
+            (ref) => const ScheduleTeamLogos(
+              byTeamId: {
+                'wolves': 'https://example.com/wolves.png',
+                'rockies': 'https://example.com/rockies.png',
+              },
+            ),
+          ),
         ],
         child: MaterialApp.router(
           routerConfig: router,
@@ -196,6 +229,108 @@ void main() {
     }
 
     group('Main Content', () {
+      testWidgets('shows team logos with the next game',
+          (WidgetTester tester) async {
+        final startsAt = DateTime.now().add(const Duration(days: 2));
+        final game = ScheduleEvent(
+          id: 'next-game',
+          orgId: 'org-1',
+          sourceUid: 'next-game@rampinteractive.com',
+          firstTeamId: 'wolves',
+          secondTeamId: 'rockies',
+          teamIds: const ['wolves', 'rockies'],
+          hubIds: const ['hub-wolves', 'hub-rockies'],
+          leagueIds: const ['league-1'],
+          division: '17U AAA',
+          title: 'Wolves HC vs Calgary Rockies',
+          firstTeamName: '17U AAA - Wolves HC',
+          secondTeamName: '17U AAA - Calgary Rockies',
+          startsAt: startsAt,
+          endsAt: startsAt.add(const Duration(hours: 2)),
+          timezone: 'America/Edmonton',
+          location: 'Winsport Arena',
+          status: ScheduleEventStatus.scheduled,
+          isActive: true,
+        );
+
+        await tester.pumpWidget(createTestWidget(scheduleEvents: [game]));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Wolves HC'), findsOneWidget);
+        expect(find.text('Calgary Rockies'), findsOneWidget);
+        expect(find.byType(ScheduleTeamLogo), findsNWidgets(2));
+        expect(
+          tester
+              .widgetList<ScheduleTeamLogo>(find.byType(ScheduleTeamLogo))
+              .every(
+                (logo) => logo.fallbackTextColor == const Color(0xFF061D3A),
+              ),
+          isTrue,
+        );
+        expect(find.text('Next Game'), findsOneWidget);
+        expect(find.text('17U AAA  •  Winsport Arena'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('next-game-active-background')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-active-frame')),
+          findsOneWidget,
+        );
+        final activeFrame = tester.widget<DecoratedBox>(
+          find.byKey(const ValueKey('next-game-active-frame')),
+        );
+        expect(
+          (activeFrame.decoration as BoxDecoration).border,
+          isNotNull,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-active-overlay')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-empty-background')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('shows a helpful empty schedule state',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+
+        expect(find.text('No upcoming games'), findsOneWidget);
+        expect(
+          find.text(
+            'New games will appear here when the schedule is published.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-empty-background')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-empty-frame')),
+          findsOneWidget,
+        );
+        final emptyFrame = tester.widget<DecoratedBox>(
+          find.byKey(const ValueKey('next-game-empty-frame')),
+        );
+        expect(
+          (emptyFrame.decoration as BoxDecoration).border,
+          isNotNull,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-empty-overlay')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('next-game-active-background')),
+          findsNothing,
+        );
+      });
+
       testWidgets('does not render the old stats card grid',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
@@ -217,6 +352,29 @@ void main() {
         expect(find.text('Quick Access'), findsOneWidget);
         expect(find.text('Test User'), findsOneWidget);
         expect(
+          find.byKey(const ValueKey('home-profile-background')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('home-profile-frame')),
+          findsOneWidget,
+        );
+        final profileFrame = tester.widget<DecoratedBox>(
+          find.byKey(const ValueKey('home-profile-frame')),
+        );
+        expect(
+          (profileFrame.decoration as BoxDecoration).border,
+          isNotNull,
+        );
+        final profileSurface = find
+            .ancestor(
+              of: find.byKey(const ValueKey('home-profile-background')),
+              matching: find.byType(AppGlassSurface),
+            )
+            .last;
+        expect(
+            tester.getSize(profileSurface).height, greaterThanOrEqualTo(112));
+        expect(
           find.descendant(
             of: find.byType(SingleChildScrollView),
             matching: find.text('Test User'),
@@ -225,7 +383,8 @@ void main() {
         );
         expect(find.text('Policy'), findsOneWidget);
         expect(find.text('Weather'), findsOneWidget);
-        expect(find.text('Contacts'), findsOneWidget);
+        expect(find.text('Chats'), findsOneWidget);
+        expect(find.text('Chats & announcements'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
       });
 
@@ -267,10 +426,13 @@ void main() {
         expect(find.text('user@example.com'), findsNothing);
         expect(find.byIcon(Icons.chevron_right), findsOneWidget);
         expect(find.byType(TextField), findsNothing);
-        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('home-header-league-mark')),
+          findsOneWidget,
+        );
       });
 
-      testWidgets('aligns the league mark with the greeting row',
+      testWidgets('uses a borderless greeting and league mark',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -279,18 +441,17 @@ void main() {
         final greetingFinder = find.textContaining(
           RegExp(r'Good (morning|afternoon|evening)'),
         );
-        final logoFinder = find.byType(AppHeaderLogoMark);
-        final greetingSurface = find
-            .ancestor(
-              of: greetingFinder,
-              matching: find.byType(AppGlassSurface),
-            )
-            .first;
+        final logoFinder =
+            find.byKey(const ValueKey('home-header-league-mark'));
 
         expect(greetingFinder, findsOneWidget);
         expect(logoFinder, findsOneWidget);
         expect(
-          tester.getSize(greetingSurface).height,
+          tester
+              .getSize(
+                find.byKey(const ValueKey('home-greeting-row')),
+              )
+              .height,
           closeTo(tester.getSize(logoFinder).height, 1),
         );
         expect(tester.getCenter(logoFinder).dy,
@@ -299,6 +460,35 @@ void main() {
           tester.getTopRight(logoFinder).dx,
           greaterThan(tester.getTopRight(greetingFinder).dx),
         );
+        expect(
+          find.ancestor(
+            of: greetingFinder,
+            matching: find.byType(AppGlassSurface),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.ancestor(
+            of: logoFinder,
+            matching: find.byType(AppGlassSurface),
+          ),
+          findsNothing,
+        );
+      });
+
+      testWidgets('keeps the profile close to the borderless header',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
+        await tester.pumpAndSettle();
+
+        final greetingBottom = tester
+            .getBottomLeft(find.byKey(const ValueKey('home-greeting-row')))
+            .dy;
+        final profileTop = tester
+            .getTopLeft(find.byKey(const ValueKey('home-profile-frame')))
+            .dy;
+
+        expect(profileTop - greetingBottom, closeTo(AppSpacing.xxs, 1));
       });
 
       testWidgets('uses a compact header without org welcome copy',
@@ -340,7 +530,7 @@ void main() {
         expect(find.byType(TextField), findsNothing);
       });
 
-      testWidgets('places quick access below the profile row',
+      testWidgets('places next game between the profile and quick access',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
         await tester.pump();
@@ -353,6 +543,16 @@ void main() {
             )
             .first;
         final headerBottom = tester.getBottomLeft(profileSurface).dy;
+        final nextGameTop = tester
+            .getTopLeft(
+              find
+                  .ancestor(
+                    of: find.text('No upcoming games'),
+                    matching: find.byType(AppGlassSurface),
+                  )
+                  .last,
+            )
+            .dy;
         final policySurface = find
             .ancestor(
               of: find.text('Policy'),
@@ -361,11 +561,49 @@ void main() {
             .last;
         final contentTop = tester.getTopLeft(policySurface).dy;
 
-        expect(contentTop, greaterThan(headerBottom));
-        expect(contentTop - headerBottom, lessThanOrEqualTo(96));
+        expect(nextGameTop, greaterThan(headerBottom));
+        expect(contentTop, greaterThan(nextGameTop));
       });
 
-      testWidgets('matches quick access heading to the greeting pill',
+      testWidgets('keeps empty and active next game cards the same height',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+        final emptyHeight =
+            tester.getSize(find.byKey(const ValueKey('next-game-card'))).height;
+
+        final startsAt = DateTime.now().add(const Duration(days: 2));
+        final game = ScheduleEvent(
+          id: 'next-game',
+          orgId: 'org-1',
+          sourceUid: 'next-game@rampinteractive.com',
+          firstTeamId: 'wolves',
+          secondTeamId: 'rockies',
+          teamIds: const ['wolves', 'rockies'],
+          hubIds: const ['hub-wolves', 'hub-rockies'],
+          leagueIds: const ['league-1'],
+          division: '17U AAA',
+          title: 'Wolves HC vs Calgary Rockies',
+          firstTeamName: '17U AAA - Wolves HC',
+          secondTeamName: '17U AAA - Calgary Rockies',
+          startsAt: startsAt,
+          endsAt: startsAt.add(const Duration(hours: 2)),
+          timezone: 'America/Edmonton',
+          location: 'Winsport Arena',
+          status: ScheduleEventStatus.scheduled,
+          isActive: true,
+        );
+
+        await tester.pumpWidget(createTestWidget(scheduleEvents: [game]));
+        await tester.pumpAndSettle();
+        final activeHeight =
+            tester.getSize(find.byKey(const ValueKey('next-game-card'))).height;
+
+        expect(activeHeight, closeTo(emptyHeight, 1));
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('matches quick access heading to the greeting text',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -406,7 +644,7 @@ void main() {
         expect(find.byType(ShaderMask), findsOneWidget);
       });
 
-      testWidgets('home grid shows policy, weather, contacts, and settings',
+      testWidgets('home grid shows policy, weather, chats, and settings',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
@@ -415,7 +653,8 @@ void main() {
         expect(find.text('Policy'), findsOneWidget);
         expect(find.text('Policies'), findsNothing);
         expect(find.text('Weather'), findsOneWidget);
-        expect(find.text('Contacts'), findsOneWidget);
+        expect(find.text('Chats'), findsOneWidget);
+        expect(find.text('Chats & announcements'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('18°'), findsOneWidget);
       });
@@ -493,11 +732,11 @@ void main() {
             of: find.byType(SingleChildScrollView),
             matching: find.byTooltip('League Website'),
           ),
-          findsNothing,
+          findsOneWidget,
         );
       });
 
-      testWidgets('positions quick links above the bottom nav area',
+      testWidgets('keeps quick links at the bottom of the scrollable page',
           (WidgetTester tester) async {
         await tester.binding.setSurfaceSize(const Size(390, 844));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -506,10 +745,24 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        final websiteBottom =
-            tester.getBottomLeft(find.byTooltip('League Website')).dy;
+        final websiteFinder = find.byTooltip('League Website');
+        final settingsSurface = find
+            .ancestor(
+              of: find.text('Settings'),
+              matching: find.byType(AppGlassSurface),
+            )
+            .last;
+        final websiteTop = tester.getTopLeft(websiteFinder).dy;
+        final settingsBottom = tester.getBottomLeft(settingsSurface).dy;
 
-        expect(websiteBottom, closeTo(844 - 64 - 12 - 40, 1));
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -100),
+        );
+        await tester.pumpAndSettle();
+
+        expect(websiteTop, greaterThan(settingsBottom));
+        expect(tester.getTopLeft(websiteFinder).dy, lessThan(websiteTop));
       });
 
       testWidgets('policy tile navigates to policy',
@@ -523,15 +776,15 @@ void main() {
         expect(find.text('Policy Route'), findsOneWidget);
       });
 
-      testWidgets('contacts tile navigates to contacts',
-          (WidgetTester tester) async {
+      testWidgets('chats tile navigates to chat', (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Contacts'));
+        await tester.ensureVisible(find.text('Chats'));
+        await tester.tap(find.text('Chats'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Contacts Route'), findsOneWidget);
+        expect(find.text('Chat Route'), findsOneWidget);
       });
 
       testWidgets('settings tile navigates to settings',
@@ -539,6 +792,7 @@ void main() {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
+        await tester.ensureVisible(find.text('Settings'));
         await tester.tap(find.text('Settings'));
         await tester.pumpAndSettle();
 
@@ -680,6 +934,89 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(SingleChildScrollView), findsOneWidget);
+      });
+
+      testWidgets('pull to refresh reloads every visible home data source',
+          (WidgetTester tester) async {
+        var userLoads = 0;
+        var organizationLoads = 0;
+        var leagueLoads = 0;
+        var scheduleLoads = 0;
+        var logoLoads = 0;
+        var weatherLoads = 0;
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentUserProvider.overrideWith((ref) {
+                userLoads += 1;
+                return testUser;
+              }),
+              organizationProvider.overrideWith((ref) {
+                organizationLoads += 1;
+                return testOrg;
+              }),
+              leaguesProvider.overrideWith((ref) {
+                leagueLoads += 1;
+                return Stream.value(testLeagues);
+              }),
+              scheduleEventsProvider.overrideWith((ref) {
+                scheduleLoads += 1;
+                return Stream.value(const []);
+              }),
+              scheduleTeamLogosProvider.overrideWith((ref) {
+                logoLoads += 1;
+                return const ScheduleTeamLogos();
+              }),
+              currentWeatherProvider.overrideWith((ref) {
+                weatherLoads += 1;
+                return testWeather;
+              }),
+              unreadCountProvider.overrideWith(
+                (ref, roomId) => Stream.value(0),
+              ),
+            ],
+            child: MaterialApp(
+              home: const DashboardScreen(),
+              theme: ThemeData(
+                useMaterial3: true,
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final initialLoads = [
+          userLoads,
+          organizationLoads,
+          leagueLoads,
+          scheduleLoads,
+          logoLoads,
+          weatherLoads,
+        ];
+        final refreshFinder =
+            find.byKey(const ValueKey('home-refresh-indicator'));
+        final scrollView = tester.widget<SingleChildScrollView>(
+          find.byType(SingleChildScrollView),
+        );
+
+        expect(refreshFinder, findsOneWidget);
+        expect(scrollView.physics, isA<AlwaysScrollableScrollPhysics>());
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, 300),
+        );
+        await tester.pumpAndSettle();
+
+        expect(userLoads, greaterThan(initialLoads[0]));
+        expect(organizationLoads, greaterThan(initialLoads[1]));
+        expect(leagueLoads, greaterThan(initialLoads[2]));
+        expect(scheduleLoads, greaterThan(initialLoads[3]));
+        expect(logoLoads, greaterThan(initialLoads[4]));
+        expect(weatherLoads, greaterThan(initialLoads[5]));
       });
 
       testWidgets('league filter stays outside the home content',

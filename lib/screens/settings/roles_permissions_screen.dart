@@ -12,16 +12,32 @@ class RolesPermissionsScreen extends ConsumerWidget {
 
   static const _roles = [
     _RoleDefinition(
+      role: UserRole.platformOwner,
+      title: 'Platform Owner',
+      description:
+          'Controls organizations and league creation across the platform.',
+      permissions: [
+        'Manage and delete organizations',
+        'Create new leagues',
+        'Invite and manage Admins',
+        'Work across organizations',
+        'All Admin permissions',
+      ],
+      icon: Icons.workspace_premium_outlined,
+      accent: AppGlassColors.rose,
+    ),
+    _RoleDefinition(
       role: UserRole.superAdmin,
       title: 'Admin',
       description:
-          'Manage leagues, hubs, teams, users, and content across the organization.',
+          'Runs one organization, including its existing leagues, people, and content.',
       permissions: [
-        'Manage leagues, hubs, and teams',
-        'Manage users and invitations',
+        'Update or delete existing leagues',
+        'Create and manage hubs and teams',
+        'Manage Managers and Staff',
+        'Invite Managers and Staff',
         'Create and manage announcements',
         'Manage policies and chat rooms',
-        'All Manager permissions',
       ],
       icon: Icons.admin_panel_settings_outlined,
       accent: AppGlassColors.gold,
@@ -32,11 +48,11 @@ class RolesPermissionsScreen extends ConsumerWidget {
       description:
           'Manage assigned hubs and teams with scoped access to league operations.',
       permissions: [
-        'Manage assigned hubs and teams',
+        'Update assigned hubs and manage their teams',
+        'Invite and manage Staff in assigned hubs',
         'Create scoped announcements',
-        'Upload and manage scoped policies',
-        'Manage chat rooms in assigned hubs',
-        'View members in assigned hubs',
+        'Upload and edit own scoped policies',
+        'Create and manage scoped chat rooms',
       ],
       icon: Icons.manage_accounts_outlined,
       accent: AppGlassColors.aqua,
@@ -50,6 +66,7 @@ class RolesPermissionsScreen extends ConsumerWidget {
         'View announcements',
         'View and download policies',
         'Participate in chat rooms',
+        'Start direct messages',
         'View team rosters',
         'Update own profile',
       ],

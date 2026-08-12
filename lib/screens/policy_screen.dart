@@ -70,7 +70,6 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
         leadingIcon: Icons.folder_copy_outlined,
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',
-        showBackButton: true,
         title: 'Policy',
       ),
       stickyContent: Column(

@@ -34,4 +34,7 @@ export {
   adminUpdateChatRoom,
   adminArchiveChatRoom,
   adminDeleteMessage,
+  adminSyncSchedule,
+  adminUpdateScheduleIntegration,
 } from "./admin";
+export { syncRampSchedules } from "./schedule/rampSync";

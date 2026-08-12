@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/league_branding.dart';
 import '../../core/picked_file.dart';
+import '../../core/scope_defaults.dart';
 import '../../core/theme.dart';
 import '../../core/utils.dart';
+import '../../models/app_user.dart';
 import '../../models/chat_room.dart';
 import '../../models/league.dart';
 import '../../models/hub.dart';
@@ -32,8 +34,8 @@ class ManageLeaguesScreen extends ConsumerWidget {
     final leaguesAsync = ref.watch(leaguesProvider);
     final org = ref.watch(organizationProvider).valueOrNull;
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
-    final leagues = leaguesAsync.valueOrNull ?? [];
-    final headerLeague = resolveHeaderLeague(leagues, null);
+    final allLeagues = leaguesAsync.valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(allLeagues, null);
     final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
     final canManage = currentUser != null &&
@@ -65,8 +67,10 @@ class ManageLeaguesScreen extends ConsumerWidget {
           message: 'Check your connection and try again.',
           onRetry: () => ref.invalidate(leaguesProvider),
         ),
-        data: (leagues) {
+        data: (allLeagues) {
+          final leagues = manageableLeaguesForUser(currentUser, allLeagues);
           if (leagues.isEmpty) {
+            final isManager = currentUser?.role == UserRole.managerAdmin;
             return ListView(
               padding: EdgeInsets.fromLTRB(
                 16,
@@ -74,12 +78,16 @@ class ManageLeaguesScreen extends ConsumerWidget {
                 16,
                 bottomContentPadding,
               ),
-              children: const [
-                SizedBox(height: 120),
+              children: [
+                const SizedBox(height: 120),
                 EmptyState(
                   icon: Icons.emoji_events_outlined,
-                  title: 'No leagues yet',
-                  subtitle: 'Use + in the header to add your first league.',
+                  title: isManager ? 'No assigned leagues' : 'No leagues yet',
+                  subtitle: canManage
+                      ? 'Use + in the header to add your first league.'
+                      : isManager
+                          ? 'Ask an administrator to assign you to a league.'
+                          : 'A Platform Owner must add the first league.',
                 ),
               ],
             );
@@ -533,8 +541,17 @@ class LeagueDetailScreen extends ConsumerWidget {
       return const _LoadErrorScaffold(message: 'League not found.');
     }
 
-    final canManage = currentUser != null &&
-        const PermissionService().canCreateLeague(currentUser);
+    final permissions = const PermissionService();
+    final canUpdateLeague =
+        currentUser != null && permissions.canUpdateLeague(currentUser);
+    final canCreateHub = currentUser != null &&
+        permissions.canCreateHub(currentUser, leagueId: league.id);
+    final canDeleteLeague =
+        currentUser != null && permissions.canDeleteLeague(currentUser);
+    int visibleHubCount(List<Hub> hubs) =>
+        currentUser?.role == UserRole.managerAdmin
+            ? hubs.where((hub) => currentUser!.hubIds.contains(hub.id)).length
+            : hubs.length;
     final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
@@ -547,7 +564,7 @@ class LeagueDetailScreen extends ConsumerWidget {
         showBackButton: true,
         backFallbackLocation: '/settings/leagues',
         actions: [
-          if (canManage)
+          if (canCreateHub)
             AppHeaderIconButton(
               icon: Icons.add_location_alt_outlined,
               tooltip: 'Add Hub',
@@ -580,45 +597,49 @@ class LeagueDetailScreen extends ConsumerWidget {
             subtitle: league.abbreviation,
             metrics: [
               hubsAsync.maybeWhen(
-                data: (hubs) => _countLabel(hubs.length, 'hub'),
+                data: (hubs) => _countLabel(visibleHubCount(hubs), 'hub'),
                 orElse: () => 'Hubs',
               ),
             ],
           ),
           const SizedBox(height: 14),
-          if (canManage && org != null) ...[
+          if ((canUpdateLeague || canCreateHub || canDeleteLeague) &&
+              org != null) ...[
             _StructureListCard(
               children: [
-                _StructureListAction(
-                  icon: Icons.edit_outlined,
-                  title: 'Edit League',
-                  subtitle: 'Name, logo, abbreviation, and links',
-                  onTap: () => context.push(
-                    '/settings/leagues/${league.id}/edit',
-                    extra: league,
+                if (canUpdateLeague)
+                  _StructureListAction(
+                    icon: Icons.edit_outlined,
+                    title: 'Edit League',
+                    subtitle: 'Name, logo, abbreviation, and links',
+                    onTap: () => context.push(
+                      '/settings/leagues/${league.id}/edit',
+                      extra: league,
+                    ),
                   ),
-                ),
-                _StructureListAction(
-                  icon: Icons.add_location_alt_outlined,
-                  title: 'Add Hub',
-                  subtitle: 'Create a new hub inside this league',
-                  onTap: () => context.push(
-                    '/settings/leagues/${league.id}/hubs/new',
-                    extra: league,
+                if (canCreateHub)
+                  _StructureListAction(
+                    icon: Icons.add_location_alt_outlined,
+                    title: 'Add Hub',
+                    subtitle: 'Create a new hub inside this league',
+                    onTap: () => context.push(
+                      '/settings/leagues/${league.id}/hubs/new',
+                      extra: league,
+                    ),
                   ),
-                ),
-                _StructureListAction(
-                  icon: Icons.delete_outline,
-                  title: 'Delete League',
-                  subtitle: 'Remove the league, hubs, and teams',
-                  color: AppGlassColors.rose,
-                  onTap: () => _confirmDeleteLeague(
-                    context,
-                    ref,
-                    org.id,
-                    league,
+                if (canDeleteLeague)
+                  _StructureListAction(
+                    icon: Icons.delete_outline,
+                    title: 'Delete League',
+                    subtitle: 'Remove the league, hubs, and teams',
+                    color: AppGlassColors.rose,
+                    onTap: () => _confirmDeleteLeague(
+                      context,
+                      ref,
+                      org.id,
+                      league,
+                    ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -626,7 +647,7 @@ class LeagueDetailScreen extends ConsumerWidget {
           _StructureSectionHeader(
             title: 'Hubs',
             trailing: hubsAsync.maybeWhen(
-              data: (hubs) => _countLabel(hubs.length, 'hub'),
+              data: (hubs) => _countLabel(visibleHubCount(hubs), 'hub'),
               orElse: () => null,
             ),
           ),
@@ -639,7 +660,12 @@ class LeagueDetailScreen extends ConsumerWidget {
               message: '$e',
               color: AppGlassColors.rose,
             ),
-            data: (hubs) {
+            data: (allHubs) {
+              final hubs = currentUser?.role == UserRole.managerAdmin
+                  ? allHubs
+                      .where((hub) => currentUser!.hubIds.contains(hub.id))
+                      .toList()
+                  : allHubs;
               if (hubs.isEmpty) {
                 return const _GlassMessageCard(
                   icon: Icons.location_off_outlined,
@@ -1109,8 +1135,13 @@ class HubDetailScreen extends ConsumerWidget {
       return const _LoadErrorScaffold(message: 'Hub not found.');
     }
 
-    final canManage = currentUser != null &&
-        const PermissionService().canCreateTeam(currentUser, hubId: hub.id);
+    final permissions = const PermissionService();
+    final canEditHub = currentUser != null &&
+        permissions.canUpdateHub(currentUser, hubId: hub.id);
+    final canCreateTeam = currentUser != null &&
+        permissions.canCreateTeam(currentUser, hubId: hub.id);
+    final canDeleteHub =
+        currentUser != null && permissions.canDeleteHub(currentUser);
     final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
@@ -1123,7 +1154,7 @@ class HubDetailScreen extends ConsumerWidget {
         showBackButton: true,
         backFallbackLocation: '/settings/leagues/${league.id}',
         actions: [
-          if (canManage)
+          if (canCreateTeam)
             AppHeaderIconButton(
               icon: Icons.group_add_outlined,
               tooltip: 'Add Team',
@@ -1161,40 +1192,43 @@ class HubDetailScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          if (canManage && org != null) ...[
+          if ((canEditHub || canCreateTeam || canDeleteHub) && org != null) ...[
             _StructureListCard(
               children: [
-                _StructureListAction(
-                  icon: Icons.edit_outlined,
-                  title: 'Edit Hub',
-                  subtitle: 'Name, location, and logo',
-                  onTap: () => context.push(
-                    '/settings/leagues/${league.id}/hubs/${hub.id}/edit',
-                    extra: (league: league, hub: hub),
+                if (canEditHub)
+                  _StructureListAction(
+                    icon: Icons.edit_outlined,
+                    title: 'Edit Hub',
+                    subtitle: 'Name, location, and logo',
+                    onTap: () => context.push(
+                      '/settings/leagues/${league.id}/hubs/${hub.id}/edit',
+                      extra: (league: league, hub: hub),
+                    ),
                   ),
-                ),
-                _StructureListAction(
-                  icon: Icons.group_add_outlined,
-                  title: 'Add Team',
-                  subtitle: 'Create a team inside this hub',
-                  onTap: () => context.push(
-                    '/settings/leagues/${league.id}/hubs/${hub.id}/teams/new',
-                    extra: (league: league, hub: hub),
+                if (canCreateTeam)
+                  _StructureListAction(
+                    icon: Icons.group_add_outlined,
+                    title: 'Add Team',
+                    subtitle: 'Create a team inside this hub',
+                    onTap: () => context.push(
+                      '/settings/leagues/${league.id}/hubs/${hub.id}/teams/new',
+                      extra: (league: league, hub: hub),
+                    ),
                   ),
-                ),
-                _StructureListAction(
-                  icon: Icons.delete_outline,
-                  title: 'Delete Hub',
-                  subtitle: 'Remove this hub and its teams',
-                  color: AppGlassColors.rose,
-                  onTap: () => _confirmDeleteHub(
-                    context,
-                    ref,
-                    org.id,
-                    league.id,
-                    hub,
+                if (canDeleteHub)
+                  _StructureListAction(
+                    icon: Icons.delete_outline,
+                    title: 'Delete Hub',
+                    subtitle: 'Remove this hub and its teams',
+                    color: AppGlassColors.rose,
+                    onTap: () => _confirmDeleteHub(
+                      context,
+                      ref,
+                      org.id,
+                      league.id,
+                      hub,
+                    ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 18),

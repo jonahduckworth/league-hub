@@ -23,6 +23,7 @@ import '../screens/chat_conversation_screen.dart';
 import '../screens/new_chat_screen.dart';
 import '../screens/policy_screen.dart';
 import '../screens/announcements_screen.dart';
+import '../screens/schedule_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/org_creation_screen.dart';
@@ -376,7 +377,7 @@ final router = GoRouter(
               path: '/chat',
               pageBuilder: (context, state) => _shellTransitionPage(
                 state,
-                const ChatListScreen(),
+                const ChatListScreen(includePinnedAnnouncements: true),
                 animatePrimary: false,
               ),
               routes: [
@@ -453,7 +454,10 @@ final router = GoRouter(
               path: '/announcements',
               pageBuilder: (context, state) => _shellTransitionPage(
                 state,
-                const AnnouncementsScreen(),
+                AnnouncementsScreen(
+                  returnToCommunication: state.extra ==
+                      AnnouncementNavigationSource.communicationHub,
+                ),
                 animatePrimary: false,
               ),
               routes: [
@@ -717,6 +721,18 @@ final router = GoRouter(
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/schedule',
+              pageBuilder: (context, state) => _shellTransitionPage(
+                state,
+                const ScheduleScreen(),
+                animatePrimary: false,
+              ),
             ),
           ],
         ),
@@ -1062,8 +1078,8 @@ class _MainScaffold extends StatelessWidget {
 
     final branchIndex = switch (index) {
       0 => 0,
-      1 => 3,
-      2 => 1,
+      1 => 7,
+      2 => 6,
       3 => 5,
       _ => 0,
     };

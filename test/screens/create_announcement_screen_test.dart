@@ -368,18 +368,25 @@ void main() {
 
     group('Pin Toggle', () {
       testWidgets('displays pin toggle', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
+        await tester.pumpWidget(createTestWidget(user: superAdminUser));
         await tester.pumpAndSettle();
         expect(find.text('Pin this announcement'), findsOneWidget);
       });
 
       testWidgets('displays pin help text', (WidgetTester tester) async {
-        await tester.pumpWidget(createTestWidget());
+        await tester.pumpWidget(createTestWidget(user: superAdminUser));
         await tester.pumpAndSettle();
         expect(
           find.text('Pinned posts appear at the top'),
           findsOneWidget,
         );
+      });
+
+      testWidgets('hides pin controls from managerAdmin',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(user: managerAdminUser));
+        await tester.pumpAndSettle();
+        expect(find.text('Pin this announcement'), findsNothing);
       });
     });
 

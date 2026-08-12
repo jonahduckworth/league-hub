@@ -9,13 +9,17 @@ import {
   assignableRoles,
   canAccessOrg,
   canCreateLeague,
+  canManageInvitationRole,
   canManageTarget,
   isAdminRole,
+  isManagedChatRoomType,
   isValidAnnouncementTarget,
   isValidPolicyCategory,
   isUserRole,
   normalizeStringArray,
+  teamMemberRecordsMatchOrg,
 } from "./adminLogic";
+import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
 
 type DocumentData = FirebaseFirestore.DocumentData;
 type FieldValue = FirebaseFirestore.FieldValue;
@@ -168,6 +172,15 @@ function assertOrgAccess(actor: Actor, orgId: string): void {
   }
 }
 
+function assertScheduleAdmin(actor: Actor): void {
+  if (actor.role !== "platformOwner" && actor.role !== "superAdmin") {
+    throw new HttpsError(
+      "permission-denied",
+      "Only platform owners and super admins can configure or refresh the schedule integration.",
+    );
+  }
+}
+
 function docData(snapshot: FirebaseFirestore.DocumentSnapshot): DocumentData {
   return snapshot.data() ?? {};
 }
@@ -240,6 +253,38 @@ async function getStructure(orgId: string) {
   }
 
   return { leagues, hubs, teams };
+}
+
+async function validateAssignments(
+  orgId: string,
+  hubIds: string[],
+  teamIds: string[],
+): Promise<string[]> {
+  const structure = await getStructure(orgId);
+  const hubById = new Map(structure.hubs.map((hub) => [hub.id as string, hub]));
+  const teamById = new Map(structure.teams.map((team) => [team.id as string, team]));
+
+  for (const hubId of hubIds) {
+    if (!hubById.has(hubId)) {
+      throw new HttpsError("invalid-argument", `Hub ${hubId} is not in this organization.`);
+    }
+  }
+  for (const teamId of teamIds) {
+    const team = teamById.get(teamId);
+    if (!team) {
+      throw new HttpsError("invalid-argument", `Team ${teamId} is not in this organization.`);
+    }
+    if (!hubIds.includes(team.hubId as string)) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Team ${teamId} must be assigned with its parent hub.`,
+      );
+    }
+  }
+
+  return [...new Set(hubIds
+    .map((hubId) => hubById.get(hubId)?.leagueId as string | undefined)
+    .filter((leagueId): leagueId is string => Boolean(leagueId)))];
 }
 
 async function ensureLeagueRoom(orgId: string, leagueId: string, league: RequestRecord): Promise<void> {
@@ -322,7 +367,8 @@ async function deleteCollection(query: FirebaseFirestore.Query): Promise<number>
   return deleted;
 }
 
-async function syncTeamMemberships(
+async function addTeamMembershipMutations(
+  batch: FirebaseFirestore.WriteBatch,
   orgId: string,
   teamId: string,
   beforeIds: string[],
@@ -333,15 +379,33 @@ async function syncTeamMemberships(
   const added = [...after].filter((id) => !before.has(id));
   const removed = [...before].filter((id) => !after.has(id));
 
-  const batch = db.batch();
   for (const userId of added) {
-    batch.set(usersRef().doc(userId), { teamIds: arrayUnion(teamId), orgId }, { merge: true });
+    batch.update(usersRef().doc(userId), { teamIds: arrayUnion(teamId) });
   }
-  for (const userId of removed) {
-    batch.set(usersRef().doc(userId), { teamIds: arrayRemove(teamId) }, { merge: true });
+  if (removed.length > 0) {
+    const removedSnaps = await db.getAll(...removed.map((userId) => usersRef().doc(userId)));
+    for (const snap of removedSnaps) {
+      if (snap.exists && snap.data()?.orgId === orgId) {
+        batch.update(snap.ref, { teamIds: arrayRemove(teamId) });
+      }
+    }
   }
-  if (added.length > 0 || removed.length > 0) {
-    await batch.commit();
+}
+
+async function assertTeamMembersBelongToOrg(
+  orgId: string,
+  memberIds: string[],
+): Promise<void> {
+  if (memberIds.length === 0) return;
+  const snaps = await db.getAll(...memberIds.map((userId) => usersRef().doc(userId)));
+  const records = snaps
+    .filter((snap) => snap.exists)
+    .map((snap) => ({ id: snap.id, orgId: snap.data()?.orgId }));
+  if (!teamMemberRecordsMatchOrg(memberIds, orgId, records)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Every team member must be an existing user in this organization.",
+    );
   }
 }
 
@@ -455,6 +519,77 @@ export const adminGetOverview = onCall(adminRuntime, async (request) => {
   });
 });
 
+export const adminUpdateScheduleIntegration = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminUpdateScheduleIntegration", async (actor, data, orgId) => {
+    assertScheduleAdmin(actor);
+    const integration = objectValue(data.integration, "integration");
+    const baseUrl = optionalString(integration.baseUrl) ??
+      "https://juniorprospectshockeyleague.com";
+    let parsedBaseUrl: URL;
+    try {
+      parsedBaseUrl = new URL(baseUrl);
+    } catch {
+      throw new HttpsError("invalid-argument", "integration.baseUrl must be a valid URL.");
+    }
+    if (parsedBaseUrl.protocol !== "https:" ||
+        parsedBaseUrl.hostname !== "juniorprospectshockeyleague.com") {
+      throw new HttpsError(
+        "invalid-argument",
+        "The schedule source must use the official JPHL HTTPS website.",
+      );
+    }
+    const timezone = requiredString(integration.timezone, "integration.timezone");
+    try {
+      new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format();
+    } catch {
+      throw new HttpsError("invalid-argument", "integration.timezone is not valid.");
+    }
+    const rawDivisionIds = objectValue(integration.divisionIds, "integration.divisionIds");
+    const divisionIds: Record<string, string> = {};
+    for (const [ageGroup, value] of Object.entries(rawDivisionIds)) {
+      divisionIds[ageGroup.trim()] = requiredString(value, `integration.divisionIds.${ageGroup}`);
+    }
+    if (Object.keys(divisionIds).length === 0) {
+      throw new HttpsError("invalid-argument", "At least one RAMP division ID is required.");
+    }
+
+    const existingOrganization = await orgRef(orgId).get();
+    const existingIntegration = existingOrganization.data()?.scheduleIntegration;
+    const requestedSeasonId = requiredString(integration.seasonId, "integration.seasonId");
+    const legacySourceSeasonId = optionalString(existingIntegration?.legacySourceSeasonId) ??
+      optionalString(existingIntegration?.seasonId) ?? requestedSeasonId;
+    const scheduleIntegration = {
+      provider: "ramp",
+      enabled: optionalBoolean(integration.enabled) ?? true,
+      autoDiscoverSeason: optionalBoolean(integration.autoDiscoverSeason) ?? true,
+      baseUrl: parsedBaseUrl.origin,
+      associationId: requiredString(integration.associationId, "integration.associationId"),
+      seasonId: requestedSeasonId,
+      legacySourceSeasonId,
+      timezone,
+      divisionIds,
+    };
+    await orgRef(orgId).set({
+      scheduleIntegration: {
+        ...scheduleIntegration,
+        updatedAt: now(),
+        updatedBy: actor.id,
+      },
+    }, { merge: true });
+    return { scheduleIntegration };
+  });
+});
+
+export const adminSyncSchedule = onCall({
+  timeoutSeconds: 540,
+  memory: "512MiB",
+}, async (request) => {
+  return withAdmin(request, "adminSyncSchedule", async (actor, _data, orgId) => {
+    assertScheduleAdmin(actor);
+    return synchronizeOrganizationSchedule(orgId);
+  });
+});
+
 export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminCreateInvitation", async (actor, data, orgId) => {
     const email = requiredString(data.email, "email").toLowerCase();
@@ -465,13 +600,17 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
 
     const invitationRef = orgRef(orgId).collection("invitations").doc();
     const token = randomBytes(16).toString("hex");
+    const hubIds = normalizeStringArray(data.hubIds);
+    const teamIds = normalizeStringArray(data.teamIds);
+    const leagueIds = await validateAssignments(orgId, hubIds, teamIds);
     const invitationData = {
       orgId,
       email,
       displayName: optionalString(data.displayName) ?? null,
       role,
-      hubIds: normalizeStringArray(data.hubIds),
-      teamIds: normalizeStringArray(data.teamIds),
+      leagueIds,
+      hubIds,
+      teamIds,
       invitedBy: actor.id,
       invitedByName: actor.displayName ?? actor.email ?? "Admin",
       createdAt: now(),
@@ -494,11 +633,14 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
 });
 
 export const adminExpireInvitation = onCall(adminRuntime, async (request) => {
-  return withAdmin(request, "adminExpireInvitation", async (_actor, data, orgId) => {
+  return withAdmin(request, "adminExpireInvitation", async (actor, data, orgId) => {
     const invitationId = requiredString(data.invitationId, "invitationId");
     const invitationRef = orgRef(orgId).collection("invitations").doc(invitationId);
     const snap = await invitationRef.get();
     if (!snap.exists) throw new HttpsError("not-found", "Invitation was not found.");
+    if (!canManageInvitationRole(actor.role, snap.data()?.role)) {
+      throw new HttpsError("permission-denied", "You cannot manage an invitation for this role.");
+    }
     const token = optionalString(snap.data()?.token);
     const batch = db.batch();
     batch.update(invitationRef, { status: "expired" });
@@ -531,6 +673,9 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
     }
     const hubIds = data.hubIds === undefined ? undefined : normalizeStringArray(data.hubIds);
     const teamIds = data.teamIds === undefined ? undefined : normalizeStringArray(data.teamIds);
+    const nextHubIds = hubIds ?? normalizeStringArray(targetData.hubIds);
+    const nextTeamIds = teamIds ?? normalizeStringArray(targetData.teamIds);
+    const leagueIds = await validateAssignments(orgId, nextHubIds, nextTeamIds);
     if (hubIds) updates.hubIds = hubIds;
     if (teamIds) updates.teamIds = teamIds;
     const isActive = optionalBoolean(data.isActive);
@@ -545,13 +690,7 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
       }
     }
 
-    if (hubIds) {
-      const structure = await getStructure(orgId);
-      updates.leagueIds = [...new Set(structure.hubs
-        .filter((hub) => hubIds.includes(hub.id as string))
-        .map((hub) => hub.leagueId as string)
-        .filter(Boolean))];
-    }
+    if (hubIds || teamIds) updates.leagueIds = leagueIds;
 
     if (teamIds) {
       const beforeTeamIds = normalizeStringArray(targetData.teamIds);
@@ -650,6 +789,7 @@ export const adminUpsertTeam = onCall(adminRuntime, async (request) => {
     const memberIds = team.memberIds === undefined ?
       normalizeStringArray(before.data()?.memberIds) :
       normalizeStringArray(team.memberIds);
+    await assertTeamMembersBelongToOrg(orgId, memberIds);
     const payload = {
       orgId,
       leagueId,
@@ -662,8 +802,16 @@ export const adminUpsertTeam = onCall(adminRuntime, async (request) => {
       memberIds,
       ...(before.exists ? {} : { createdAt: now() }),
     };
-    await teamRef.set(payload, { merge: true });
-    await syncTeamMemberships(orgId, teamId, normalizeStringArray(before.data()?.memberIds), memberIds);
+    const batch = db.batch();
+    batch.set(teamRef, payload, { merge: true });
+    await addTeamMembershipMutations(
+      batch,
+      orgId,
+      teamId,
+      normalizeStringArray(before.data()?.memberIds),
+      memberIds,
+    );
+    await batch.commit();
     return { teamId, created: !before.exists };
   });
 });
@@ -675,8 +823,16 @@ export const adminDeleteTeam = onCall(adminRuntime, async (request) => {
     const teamId = requiredString(data.teamId, "teamId");
     const teamRef = orgRef(orgId).collection("leagues").doc(leagueId).collection("hubs").doc(hubId).collection("teams").doc(teamId);
     const before = await teamRef.get();
-    await syncTeamMemberships(orgId, teamId, normalizeStringArray(before.data()?.memberIds), []);
-    await teamRef.delete();
+    const batch = db.batch();
+    batch.delete(teamRef);
+    await addTeamMembershipMutations(
+      batch,
+      orgId,
+      teamId,
+      normalizeStringArray(before.data()?.memberIds),
+      [],
+    );
+    await batch.commit();
     return { teamId };
   });
 });
@@ -804,9 +960,14 @@ export const adminDeletePolicy = onCall(adminRuntime, async (request) => {
 export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminUpdateChatRoom", async (_actor, data, orgId) => {
     const roomId = requiredString(data.roomId, "roomId");
+    const roomRef = orgRef(orgId).collection("chatRooms").doc(roomId);
+    const roomSnap = await roomRef.get();
+    if (!roomSnap.exists) throw new HttpsError("not-found", "Chat room was not found.");
+    if (!isManagedChatRoomType(roomSnap.data()?.type)) {
+      throw new HttpsError("permission-denied", "Direct-message rooms cannot be managed by administrators.");
+    }
     const patch = allowedPatch(data.patch, "patch", [
       "name",
-      "type",
       "leagueId",
       "hubId",
       "teamId",
@@ -814,7 +975,7 @@ export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
       "roomIconName",
       "roomImageUrl",
     ]);
-    await orgRef(orgId).collection("chatRooms").doc(roomId).update(patch);
+    await roomRef.update(patch);
     return { roomId, updatedFields: Object.keys(patch) };
   });
 });
@@ -822,7 +983,13 @@ export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
 export const adminArchiveChatRoom = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminArchiveChatRoom", async (_actor, data, orgId) => {
     const roomId = requiredString(data.roomId, "roomId");
-    await orgRef(orgId).collection("chatRooms").doc(roomId).update({ isArchived: true });
+    const roomRef = orgRef(orgId).collection("chatRooms").doc(roomId);
+    const roomSnap = await roomRef.get();
+    if (!roomSnap.exists) throw new HttpsError("not-found", "Chat room was not found.");
+    if (!isManagedChatRoomType(roomSnap.data()?.type)) {
+      throw new HttpsError("permission-denied", "Direct-message rooms cannot be managed by administrators.");
+    }
+    await roomRef.update({ isArchived: true });
     return { roomId, isArchived: true };
   });
 });

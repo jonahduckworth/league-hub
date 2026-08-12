@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:league_hub/models/app_user.dart';
+import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/organization.dart';
@@ -563,12 +564,44 @@ void main() {
       ),
     ];
 
+    final pinnedAnnouncement = Announcement(
+      id: 'announcement-1',
+      orgId: 'org-1',
+      scope: AnnouncementScope.league,
+      leagueId: 'league-1',
+      title: 'Weekend schedule update',
+      body: 'Please review the revised arrival times before Saturday.',
+      authorId: 'manager-1',
+      authorName: 'Manager User',
+      authorRole: 'Manager',
+      attachments: const [],
+      isPinned: true,
+      createdAt: DateTime(2026, 8, 10),
+    );
+
+    final regularAnnouncement = Announcement(
+      id: 'announcement-2',
+      orgId: 'org-1',
+      scope: AnnouncementScope.league,
+      leagueId: 'league-1',
+      title: 'Regular update',
+      body: 'This post belongs in the full announcement feed.',
+      authorId: 'manager-1',
+      authorName: 'Manager User',
+      authorRole: 'Manager',
+      attachments: const [],
+      isPinned: false,
+      createdAt: DateTime(2026, 8, 9),
+    );
+
     Widget createTestWidget({
       AppUser? user,
       Organization? org,
       List<League>? leagues,
       List<ChatRoom>? chatRooms,
       List<AppUser>? orgUsers,
+      List<Announcement> announcements = const [],
+      bool includePinnedAnnouncements = false,
     }) {
       return ProviderScope(
         overrides: [
@@ -584,6 +617,9 @@ void main() {
           chatRoomsProvider.overrideWith(
             (ref) => Stream.value(chatRooms ?? testChatRooms),
           ),
+          announcementsProvider.overrideWith(
+            (ref) => Stream.value(announcements),
+          ),
           orgUsersProvider.overrideWith(
             (ref) => Stream.value(
               orgUsers ?? [testUser],
@@ -594,7 +630,9 @@ void main() {
           ),
         ],
         child: MaterialApp(
-          home: ChatListScreen(),
+          home: ChatListScreen(
+            includePinnedAnnouncements: includePinnedAnnouncements,
+          ),
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
@@ -614,13 +652,17 @@ void main() {
       AuthorizedFirestoreService? authorizedFirestoreService,
       FirestoreService? firestoreService,
       int unreadCount = 0,
+      List<Announcement> announcements = const [],
+      bool includePinnedAnnouncements = false,
     }) {
       final router = GoRouter(
         initialLocation: '/',
         routes: [
           GoRoute(
             path: '/',
-            builder: (context, state) => const ChatListScreen(),
+            builder: (context, state) => ChatListScreen(
+              includePinnedAnnouncements: includePinnedAnnouncements,
+            ),
           ),
           GoRoute(
             path: '/chat/new',
@@ -630,6 +672,19 @@ void main() {
             path: '/chat/:roomId',
             builder: (context, state) => Scaffold(
               body: Text('Chat Route ${state.pathParameters['roomId']}'),
+            ),
+          ),
+          GoRoute(
+            path: '/announcements',
+            builder: (context, state) =>
+                const Scaffold(body: Text('All Announcements Route')),
+          ),
+          GoRoute(
+            path: '/announcements/:announcementId',
+            builder: (context, state) => Scaffold(
+              body: Text(
+                'Announcement ${state.pathParameters['announcementId']}',
+              ),
             ),
           ),
         ],
@@ -644,6 +699,9 @@ void main() {
           ),
           chatRoomsProvider.overrideWith(
             (ref) => Stream.value(chatRooms ?? testChatRooms),
+          ),
+          announcementsProvider.overrideWith(
+            (ref) => Stream.value(announcements),
           ),
           orgUsersProvider.overrideWith(
             (ref) => Stream.value(orgUsers ?? [testUser]),
@@ -705,6 +763,49 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.search), findsNothing);
         expect(find.text('Search conversations...'), findsNothing);
+      });
+
+      testWidgets('communication mode combines pinned updates and chats',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            includePinnedAnnouncements: true,
+            announcements: [pinnedAnnouncement, regularAnnouncement],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Communication'), findsOneWidget);
+        expect(find.text('Pinned announcements'), findsOneWidget);
+        expect(find.text('Weekend schedule update'), findsOneWidget);
+        expect(find.text('Regular update'), findsNothing);
+        expect(find.text('Chats'), findsOneWidget);
+        expect(find.byKey(const ValueKey('communication-scroll-view')),
+            findsOneWidget);
+      });
+
+      testWidgets('communication announcement actions preserve full routes',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            includePinnedAnnouncements: true,
+            announcements: [pinnedAnnouncement],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Weekend schedule update'));
+        await tester.pumpAndSettle();
+        expect(find.text('Announcement announcement-1'), findsOneWidget);
+
+        final router = GoRouter.of(
+          tester.element(find.text('Announcement announcement-1')),
+        );
+        router.go('/');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('view-all-announcements')));
+        await tester.pumpAndSettle();
+        expect(find.text('All Announcements Route'), findsOneWidget);
       });
     });
 
@@ -783,13 +884,25 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('New Conversation'), findsOneWidget);
+        expect(find.text('Event Room'), findsNothing);
+        expect(find.text('Direct Message'), findsOneWidget);
+      });
+
+      testWidgets('manager sees managed event room option',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: managerUser));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+
         expect(find.text('Event Room'), findsOneWidget);
         expect(find.text('Direct Message'), findsOneWidget);
       });
 
       testWidgets('event option opens event room form',
           (WidgetTester tester) async {
-        await tester.pumpWidget(createRoutedTestWidget());
+        await tester.pumpWidget(createRoutedTestWidget(user: managerUser));
         await tester.pumpAndSettle();
 
         await tester.tap(find.byIcon(Icons.add));
@@ -825,12 +938,13 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              currentUserProvider.overrideWith((ref) => testUser),
+              currentUserProvider.overrideWith((ref) => managerUser),
               organizationProvider.overrideWith((ref) => testOrg),
               leaguesProvider.overrideWith((ref) => controller.stream),
               chatRoomsProvider
                   .overrideWith((ref) => Stream.value(testChatRooms)),
-              orgUsersProvider.overrideWith((ref) => Stream.value([testUser])),
+              orgUsersProvider
+                  .overrideWith((ref) => Stream.value([managerUser])),
               unreadCountProvider
                   .overrideWith((ref, roomId) => Stream.value(0)),
             ],
@@ -867,14 +981,15 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              currentUserProvider.overrideWith((ref) => testUser),
+              currentUserProvider.overrideWith((ref) => managerUser),
               organizationProvider.overrideWith((ref) => testOrg),
               leaguesProvider.overrideWith(
                 (ref) => Stream<List<League>>.error('boom'),
               ),
               chatRoomsProvider
                   .overrideWith((ref) => Stream.value(testChatRooms)),
-              orgUsersProvider.overrideWith((ref) => Stream.value([testUser])),
+              orgUsersProvider
+                  .overrideWith((ref) => Stream.value([managerUser])),
               unreadCountProvider
                   .overrideWith((ref, roomId) => Stream.value(0)),
             ],
@@ -1042,24 +1157,27 @@ void main() {
         final service = MockAuthorizedFirestoreService();
         when(
           service.createChatRoom(
-            testUser,
+            managerUser,
             'org-1',
             'Playoffs',
             ChatRoomType.event,
             leagueId: 'league-1',
-            participants: [testUser.id, managerUser.id],
+            participants: [managerUser.id, testUser.id],
             roomIconName: 'event',
           ),
         ).thenThrow(
           PermissionDeniedException(
             action: 'createChatRoom',
-            userId: testUser.id,
-            role: testUser.role,
+            userId: managerUser.id,
+            role: managerUser.role,
           ),
         );
 
         await tester.pumpWidget(
-          createRoutedTestWidget(authorizedFirestoreService: service),
+          createRoutedTestWidget(
+            user: managerUser,
+            authorizedFirestoreService: service,
+          ),
         );
         await tester.pumpAndSettle();
 

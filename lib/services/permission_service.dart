@@ -50,6 +50,7 @@ class PermissionService {
     '/chat',
     '/policy',
     '/announcements',
+    '/schedule',
     '/profile',
     '/profile/edit',
     '/settings',
@@ -62,12 +63,12 @@ class PermissionService {
   /// Routes that require at least managerAdmin.
   static const _managerRoutes = {
     '/settings/users',
+    '/settings/leagues',
   };
 
   /// Routes that require at least superAdmin.
   static const _adminRoutes = {
     '/settings/roles',
-    '/settings/leagues',
   };
 
   /// Routes that require at least managerAdmin to create/edit content.
@@ -118,7 +119,20 @@ class PermissionService {
       return isAtLeast(user.role, UserRole.managerAdmin);
     }
     if (normalised.startsWith('/settings/leagues/')) {
-      return isAtLeast(user.role, UserRole.superAdmin);
+      if (normalised == '/settings/leagues/new') {
+        return canCreateLeague(user);
+      }
+      if (normalised.endsWith('/hubs/new')) {
+        return isAtLeast(user.role, UserRole.superAdmin);
+      }
+      final segments = normalised
+          .split('/')
+          .where((segment) => segment.isNotEmpty)
+          .toList(growable: false);
+      if (normalised.endsWith('/edit') && segments.length == 4) {
+        return canUpdateLeague(user);
+      }
+      return isAtLeast(user.role, UserRole.managerAdmin);
     }
     // Team detail — accessible to all active users.
     if (normalised.startsWith('/teams/')) return true;
@@ -140,6 +154,9 @@ class PermissionService {
   bool canManageOrganizations(AppUser user) =>
       isActiveUser(user) && user.role == UserRole.platformOwner;
 
+  bool canUpdateOrganization(AppUser user) =>
+      isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
+
   bool canDeleteOrganization(AppUser user) =>
       isActiveUser(user) && user.role == UserRole.platformOwner;
 
@@ -148,6 +165,9 @@ class PermissionService {
   // ---------------------------------------------------------------------------
 
   bool canCreateLeague(AppUser user) =>
+      isActiveUser(user) && user.role == UserRole.platformOwner;
+
+  bool canUpdateLeague(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
 
   bool canDeleteLeague(AppUser user) =>
@@ -158,14 +178,13 @@ class PermissionService {
   // ---------------------------------------------------------------------------
 
   bool canCreateHub(AppUser user, {String? leagueId}) {
+    return isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
+  }
+
+  bool canUpdateHub(AppUser user, {required String hubId}) {
     if (!isActiveUser(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
-    // managerAdmin can only create hubs in leagues they're assigned to.
-    // Since hubs live under leagues, we check hub assignment indirectly:
-    // a managerAdmin must have at least one hub in the org to create more
-    // in the same league scope. For now, allow if they have any hub
-    // assignments (the UI should scope the league picker).
-    return user.role == UserRole.managerAdmin;
+    return user.role == UserRole.managerAdmin && user.hubIds.contains(hubId);
   }
 
   bool canDeleteHub(AppUser user) =>
@@ -180,13 +199,23 @@ class PermissionService {
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     if (user.role == UserRole.managerAdmin) {
       // Must own the hub to add teams to it.
-      return hubId == null || user.hubIds.contains(hubId);
+      return hubId != null && user.hubIds.contains(hubId);
     }
     return false;
   }
 
   bool canDeleteTeam(AppUser user, {String? hubId}) =>
       canCreateTeam(user, hubId: hubId);
+
+  bool canManageTeamRoster(
+    AppUser user, {
+    required String hubId,
+    required String teamId,
+  }) {
+    if (!canCreateTeam(user, hubId: hubId)) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    return user.teamIds.contains(teamId);
+  }
 
   // ---------------------------------------------------------------------------
   // User management
@@ -199,11 +228,17 @@ class PermissionService {
     if (!isActiveUser(actor)) return false;
     // Nobody edits themselves through user management (use profile screen).
     if (actor.id == target.id) return false;
+    if (actor.role != UserRole.platformOwner && actor.orgId != target.orgId) {
+      return false;
+    }
     // Must outrank the target.
     if (!outranks(actor.role, target.role)) return false;
     // managerAdmin can only manage users in their hubs.
     if (actor.role == UserRole.managerAdmin) {
-      return target.hubIds.any((h) => actor.hubIds.contains(h));
+      return target.role == UserRole.staff &&
+          target.hubIds.isNotEmpty &&
+          target.hubIds.every(actor.hubIds.contains) &&
+          target.teamIds.every(actor.teamIds.contains);
     }
     return true;
   }
@@ -238,11 +273,41 @@ class PermissionService {
   bool canCreateInvitation(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
 
+  List<UserRole> invitableRoles(AppUser actor) {
+    if (!isActiveUser(actor)) return const [];
+    if (actor.role == UserRole.platformOwner) {
+      return const [
+        UserRole.superAdmin,
+        UserRole.managerAdmin,
+        UserRole.staff,
+      ];
+    }
+    if (actor.role == UserRole.superAdmin) {
+      return const [UserRole.managerAdmin, UserRole.staff];
+    }
+    if (actor.role == UserRole.managerAdmin) {
+      return const [UserRole.staff];
+    }
+    return const [];
+  }
+
   /// managerAdmin can only invite into their own hubs.
   bool canInviteToHub(AppUser user, String hubId) {
     if (!canCreateInvitation(user)) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     return user.hubIds.contains(hubId);
+  }
+
+  bool canInviteToLeague(AppUser user, String leagueId) {
+    if (!canCreateInvitation(user)) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    return user.leagueIds.contains(leagueId);
+  }
+
+  bool canInviteToTeam(AppUser user, String teamId) {
+    if (!canCreateInvitation(user)) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    return user.teamIds.contains(teamId);
   }
 
   // ---------------------------------------------------------------------------
@@ -316,6 +381,27 @@ class PermissionService {
   }
 
   // ---------------------------------------------------------------------------
+  // Schedule
+  // ---------------------------------------------------------------------------
+
+  bool canViewScheduleEvent(
+    AppUser user, {
+    required List<String> teamIds,
+    required List<String> hubIds,
+    required List<String> leagueIds,
+  }) {
+    if (!isActiveUser(user)) return false;
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    if (teamIds.any(user.teamIds.contains)) return true;
+    if (hubIds.any(user.hubIds.contains)) return true;
+    // Some older user records have league assignments without team/hub IDs.
+    if (user.teamIds.isEmpty && user.hubIds.isEmpty) {
+      return leagueIds.any(user.leagueIds.contains);
+    }
+    return false;
+  }
+
+  // ---------------------------------------------------------------------------
   // Policy
   // ---------------------------------------------------------------------------
 
@@ -383,6 +469,8 @@ class PermissionService {
   bool canCreateChatRoom(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
 
+  bool canCreateDirectMessage(AppUser user) => isActiveUser(user);
+
   bool canCreateChatRoomInScope(
     AppUser user, {
     required String? leagueId,
@@ -405,6 +493,18 @@ class PermissionService {
 
   bool canUpdateChatRoom(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.managerAdmin);
+
+  bool canManageChatRoom(AppUser user, ChatRoom room) {
+    if (!canUpdateChatRoom(user) || room.type == ChatRoomType.direct) {
+      return false;
+    }
+    return canManageContentScope(
+      user,
+      leagueId: room.leagueId,
+      hubId: room.hubId,
+      teamId: room.teamId,
+    );
+  }
 
   /// All active users can send messages.
   bool canSendMessage(AppUser user) => isActiveUser(user);
@@ -454,8 +554,7 @@ class PermissionService {
   // Settings
   // ---------------------------------------------------------------------------
 
-  bool canEditAppIcon(AppUser user) =>
-      isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
+  bool canEditAppIcon(AppUser user) => isActiveUser(user);
 
   bool canManageContentScope(
     AppUser user, {
@@ -472,9 +571,7 @@ class PermissionService {
     }
     if (hubId != null) return user.hubIds.contains(hubId);
     if (leagueId == null) return false;
-    // Legacy manager records may not have leagueIds yet; keep them working
-    // until the league-membership migration backfills those assignments.
-    return user.leagueIds.isEmpty || user.leagueIds.contains(leagueId);
+    return user.leagueIds.contains(leagueId);
   }
 
   bool canViewRolesPermissions(AppUser user) =>
@@ -501,10 +598,10 @@ class PermissionService {
       'privacy',
     ];
     if (isAtLeast(user.role, UserRole.managerAdmin)) {
-      tiles.addAll(['users']);
+      tiles.addAll(['users', 'leagues']);
     }
     if (isAtLeast(user.role, UserRole.superAdmin)) {
-      tiles.addAll(['roles', 'leagues']);
+      tiles.addAll(['roles']);
     }
     return tiles;
   }

@@ -30,6 +30,7 @@ void main() {
       role: UserRole.managerAdmin,
       orgId: 'org-1',
       hubIds: ['hub-1'],
+      leagueIds: ['league-1'],
       teamIds: [],
       createdAt: DateTime(2024),
       isActive: true,
@@ -361,7 +362,7 @@ void main() {
         expect(find.byIcon(Icons.delete_outline), findsOneWidget);
       });
 
-      testWidgets('shows delete button for uploader (managerAdmin)',
+      testWidgets('hides delete button for uploader (managerAdmin)',
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(
@@ -371,7 +372,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+        expect(find.byIcon(Icons.delete_outline), findsNothing);
       });
 
       testWidgets('hides delete button for staff members',

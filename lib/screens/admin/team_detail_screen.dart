@@ -17,6 +17,26 @@ import '../../widgets/bottom_sheet_handle.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/entity_avatar.dart';
 
+/// Builds a nested assignment update for an atomic roster change.
+Map<String, dynamic> buildTeamRosterUserFields(
+  AppUser targetUser,
+  List<String> teamIds, {
+  String? addedHubId,
+  String? addedLeagueId,
+}) =>
+    {
+      'role': targetUser.role.name,
+      'hubIds': {
+        ...targetUser.hubIds,
+        if (addedHubId != null) addedHubId,
+      }.toList(),
+      'leagueIds': {
+        ...targetUser.leagueIds,
+        if (addedLeagueId != null) addedLeagueId,
+      }.toList(),
+      'teamIds': {...teamIds}.toList(),
+    };
+
 /// Displays team details, roster management, and a link to the team chat room.
 class TeamDetailScreen extends ConsumerStatefulWidget {
   final String teamId;
@@ -125,8 +145,14 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
 
   Widget _buildContent(
       BuildContext context, Team team, String? orgId, AppUser? currentUser) {
-    final canManage = currentUser != null &&
+    final canManageStructure = currentUser != null &&
         _ps.canCreateTeam(currentUser, hubId: widget.hubId);
+    final canManageRoster = currentUser != null &&
+        _ps.canManageTeamRoster(
+          currentUser,
+          hubId: widget.hubId,
+          teamId: team.id,
+        );
     final orgUsersAsync = ref.watch(orgUsersProvider);
 
     return ListView(
@@ -175,7 +201,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                       ],
                     ),
                   ),
-                  if (canManage)
+                  if (canManageStructure)
                     IconButton(
                       tooltip: 'Edit Team',
                       icon: const Icon(Icons.edit_outlined,
@@ -227,7 +253,7 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     Text('${team.memberIds.length} members',
                         style: const TextStyle(
                             fontSize: 12, color: AppGlassColors.inkMuted)),
-                    if (canManage) ...[
+                    if (canManageRoster) ...[
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () =>
@@ -273,7 +299,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                       children: members
                           .map((m) => _MemberTile(
                                 user: m,
-                                canRemove: canManage,
+                                canRemove: canManageRoster &&
+                                    _ps.canManageUser(currentUser, m),
                                 onRemove: () =>
                                     _removeMember(team, m.id, orgId ?? ''),
                               ))
@@ -292,9 +319,14 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
       BuildContext context, Team team, String orgId) async {
     final orgUsersAsync = ref.read(orgUsersProvider);
     final allUsers = orgUsersAsync.valueOrNull ?? [];
-    // Exclude users already in the team.
-    final available =
-        allUsers.where((u) => !team.memberIds.contains(u.id)).toList();
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    // Exclude existing members and users outside the actor's management scope.
+    final available = allUsers
+        .where((user) =>
+            !team.memberIds.contains(user.id) &&
+            currentUser != null &&
+            _ps.canManageUser(currentUser, user))
+        .toList();
 
     if (!mounted) return;
 
@@ -392,16 +424,24 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     try {
       final authFs = ref.read(authorizedFirestoreServiceProvider);
       final newMembers = [...team.memberIds, userId];
-      await authFs.updateTeamFields(currentUser, orgId, team.leagueId,
-          team.hubId, team.id, {'memberIds': newMembers});
-      // Also update the user's teamIds.
       final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
-      if (targetUser != null) {
-        await authFs.updateUserFields(currentUser, targetUser, {
-          'teamIds': [...targetUser.teamIds, team.id],
-        });
-      }
+      if (targetUser == null) throw StateError('User is no longer available');
+      await authFs.updateTeamRosterAssignment(
+        currentUser,
+        targetUser,
+        orgId,
+        team.leagueId,
+        team.hubId,
+        team.id,
+        newMembers,
+        buildTeamRosterUserFields(
+          targetUser,
+          [...targetUser.teamIds, team.id],
+          addedHubId: team.hubId,
+          addedLeagueId: team.leagueId,
+        ),
+      );
     } on PermissionDeniedException {
       if (mounted) {
         AppUtils.showErrorSnackBar(
@@ -420,16 +460,22 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     try {
       final authFs = ref.read(authorizedFirestoreServiceProvider);
       final newMembers = team.memberIds.where((id) => id != userId).toList();
-      await authFs.updateTeamFields(currentUser, orgId, team.leagueId,
-          team.hubId, team.id, {'memberIds': newMembers});
-      // Also update the user's teamIds.
       final allUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final targetUser = allUsers.where((u) => u.id == userId).firstOrNull;
-      if (targetUser != null) {
-        await authFs.updateUserFields(currentUser, targetUser, {
-          'teamIds': targetUser.teamIds.where((id) => id != team.id).toList(),
-        });
-      }
+      if (targetUser == null) throw StateError('User is no longer available');
+      await authFs.updateTeamRosterAssignment(
+        currentUser,
+        targetUser,
+        orgId,
+        team.leagueId,
+        team.hubId,
+        team.id,
+        newMembers,
+        buildTeamRosterUserFields(
+          targetUser,
+          targetUser.teamIds.where((id) => id != team.id).toList(),
+        ),
+      );
     } on PermissionDeniedException {
       if (mounted) {
         AppUtils.showErrorSnackBar(

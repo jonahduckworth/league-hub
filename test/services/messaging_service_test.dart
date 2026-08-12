@@ -24,6 +24,27 @@ void main() {
       expect(service, isNotNull);
     });
 
+    test('disabled service keeps all production messaging paths inert',
+        () async {
+      await fakeFirestore.collection('users').doc('local-user').set({
+        'fcmTokens': ['existing-production-token'],
+      });
+      final service = MessagingService(
+        firestore: fakeFirestore,
+        enabled: false,
+      );
+
+      await service.initialize('local-user');
+      await service.removeToken('local-user');
+      await service.subscribeToTopic('org_local_announcements');
+      await service.unsubscribeFromTopic('org_local_announcements');
+      await service.syncPreferences('local', {'announcements': true});
+
+      final user =
+          await fakeFirestore.collection('users').doc('local-user').get();
+      expect(user.data()!['fcmTokens'], ['existing-production-token']);
+    });
+
     test('removeToken removes token from Firestore user doc', () async {
       await fakeFirestore.collection('users').doc('u1').set({
         'email': 'test@example.com',

@@ -14,6 +14,8 @@ import '../models/announcement.dart';
 import '../models/organization.dart';
 import '../models/app_user.dart';
 import '../models/invitation.dart';
+import '../models/schedule_event.dart';
+import '../models/schedule_team_logos.dart';
 import 'auth_provider.dart';
 
 final firestoreServiceProvider =
@@ -161,6 +163,42 @@ final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
             ))
         .toList();
   });
+});
+
+/// Games from RAMP, scoped to the user's assigned teams, hubs, or legacy
+/// league assignment. Elevated admins can see the full organization schedule.
+final scheduleEventsProvider = StreamProvider<List<ScheduleEvent>>((ref) {
+  final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+  if (orgId == null) return Stream.value([]);
+  final appUser = ref.watch(currentUserProvider).valueOrNull;
+  final permissions = ref.read(permissionServiceProvider);
+  return ref
+      .watch(firestoreServiceProvider)
+      .getScheduleEvents(orgId)
+      .map((events) {
+    if (appUser == null) return events;
+    return events
+        .where((event) => permissions.canViewScheduleEvent(
+              appUser,
+              teamIds: event.teamIds,
+              hubIds: event.hubIds,
+              leagueIds: event.leagueIds,
+            ))
+        .toList();
+  });
+});
+
+final upcomingScheduleEventsProvider = Provider<List<ScheduleEvent>>((ref) {
+  final now = DateTime.now();
+  return (ref.watch(scheduleEventsProvider).valueOrNull ?? [])
+      .where((event) => event.isUpcomingAt(now))
+      .toList();
+});
+
+final scheduleTeamLogosProvider = FutureProvider<ScheduleTeamLogos>((ref) {
+  final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+  if (orgId == null) return const ScheduleTeamLogos();
+  return ref.watch(firestoreServiceProvider).getScheduleTeamLogos(orgId);
 });
 
 // --- User Management ---

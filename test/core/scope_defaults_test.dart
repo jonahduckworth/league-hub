@@ -56,6 +56,15 @@ void main() {
     expect(result.map((league) => league.id), ['league-2']);
   });
 
+  test('manager without league assignments fails closed', () {
+    final result = manageableLeaguesForUser(
+      user(role: UserRole.managerAdmin),
+      leagues,
+    );
+
+    expect(result, isEmpty);
+  });
+
   test('singleManageableLeagueId returns the only manageable league id', () {
     final result = singleManageableLeagueId(
       user(role: UserRole.staff, leagueIds: ['league-1']),

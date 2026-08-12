@@ -8,12 +8,14 @@ class LeagueFilter extends StatelessWidget {
   final List<League> leagues;
   final String? selectedLeagueId;
   final void Function(String?) onSelected;
+  final EdgeInsetsGeometry padding;
 
   const LeagueFilter({
     super.key,
     required this.leagues,
     required this.selectedLeagueId,
     required this.onSelected,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16),
   });
 
   @override
@@ -22,7 +24,7 @@ class LeagueFilter extends StatelessWidget {
       height: 38,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: padding,
         children: [
           _FilterPill(
             label: 'All',

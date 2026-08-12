@@ -8,6 +8,7 @@ import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/models/team.dart';
+import 'package:league_hub/models/schedule_event.dart';
 import 'package:league_hub/services/firestore_service.dart';
 import 'package:league_hub/core/constants.dart';
 
@@ -1164,6 +1165,107 @@ void main() {
       final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
       final team = teams.firstWhere((t) => t.id == 't1');
       expect(team.chatRoomId, 'chat-t1');
+    });
+
+    test('atomically updates team roster and nested user assignments',
+        () async {
+      await fakeFirestore
+          .collection(AppConstants.usersCollection)
+          .doc('u1')
+          .set(makeUser('u1').toJson());
+
+      await svc.updateTeamRosterAssignment(
+        orgId,
+        'l1',
+        'h1',
+        't1',
+        ['u1'],
+        'u1',
+        {
+          'hubIds': ['h1'],
+          'leagueIds': ['l1'],
+          'teamIds': ['t1'],
+        },
+      );
+
+      final teams = await svc.getTeams(orgId, 'l1', 'h1').first;
+      expect(teams.single.memberIds, ['u1']);
+      final user = await svc.getUser('u1');
+      expect(user?.hubIds, ['h1']);
+      expect(user?.leagueIds, ['l1']);
+      expect(user?.teamIds, ['t1']);
+    });
+  });
+
+  group('Schedule', () {
+    test('streams active games in start-time order', () async {
+      final games = fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.scheduleEventsCollection);
+      Future<void> addGame(String id, DateTime start, bool active) =>
+          games.doc(id).set({
+            'sourceUid': '$id@rampinteractive.com',
+            'sourceSeasonId': '12322',
+            'teamIds': ['team-1'],
+            'hubIds': ['hub-1'],
+            'leagueIds': ['league-1'],
+            'title': 'Wolves HC vs Rockies',
+            'firstTeamName': 'Wolves HC',
+            'secondTeamName': 'Rockies',
+            'startsAt': start,
+            'endsAt': start.add(const Duration(hours: 2)),
+            'timezone': 'America/Edmonton',
+            'status': 'scheduled',
+            'isActive': active,
+          });
+
+      await addGame('later', DateTime.utc(2026, 9, 2), true);
+      await addGame('removed', DateTime.utc(2026, 9, 1), false);
+      await addGame('earlier', DateTime.utc(2026, 8, 30), true);
+
+      final result = await svc.getScheduleEvents(orgId).first;
+
+      expect(result.map((event) => event.id), ['earlier', 'later']);
+      expect(result.first.status, ScheduleEventStatus.scheduled);
+      expect(result.first.sourceSeasonId, '12322');
+    });
+
+    test('resolves team logos with team, hub, and legacy-name fallbacks',
+        () async {
+      final league = fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('leagues')
+          .doc('league-1');
+      await league.set({'logoUrl': 'https://example.com/league.png'});
+      final hub = league.collection('hubs').doc('hub-1');
+      await hub.set({
+        'name': 'Wolves HC',
+        'logoUrl': 'https://example.com/wolves.png',
+      });
+      await hub.collection('teams').doc('wolves-17').set({
+        'name': '17U AAA - Wolves HC',
+      });
+      await hub.collection('teams').doc('wolves-18').set({
+        'name': '18U AAA - Wolves HC',
+        'logoUrl': 'https://example.com/wolves-18.png',
+      });
+
+      final logos = await svc.getScheduleTeamLogos(orgId);
+
+      expect(
+        logos.logoFor(teamId: 'wolves-17', teamName: 'ignored'),
+        'https://example.com/wolves.png',
+      );
+      expect(
+        logos.logoFor(teamId: 'wolves-18', teamName: 'ignored'),
+        'https://example.com/wolves-18.png',
+      );
+      expect(
+        logos.logoFor(teamName: 'U17 Wolves Hockey Club'),
+        'https://example.com/wolves-18.png',
+      );
     });
   });
 }

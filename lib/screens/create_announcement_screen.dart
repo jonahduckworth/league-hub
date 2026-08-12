@@ -10,6 +10,7 @@ import '../models/team.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
+import '../services/permission_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
@@ -85,6 +86,7 @@ class _CreateAnnouncementScreenState
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     final currentUser = await ref.read(currentUserProvider.future);
     if (orgId == null || currentUser == null) return;
+    final canPin = const PermissionService().canTogglePin(currentUser);
 
     setState(() => _isLoading = true);
 
@@ -100,7 +102,7 @@ class _CreateAnnouncementScreenState
         'authorId': currentUser.id,
         'authorName': currentUser.displayName,
         'authorRole': currentUser.roleLabel,
-        'isPinned': _isPinned,
+        'isPinned': canPin && _isPinned,
         'attachments': [],
       };
 
@@ -345,65 +347,68 @@ class _CreateAnnouncementScreenState
               validator: (v) =>
                   v == null || v.trim().isEmpty ? 'Body is required' : null,
             ),
-            const SizedBox(height: 20),
-            AppGlassSurface(
-              padding: const EdgeInsets.all(16),
-              radius: 22,
-              child: Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AppGlassColors.gold.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppGlassColors.gold.withValues(alpha: 0.26),
+            if (currentUser != null &&
+                const PermissionService().canTogglePin(currentUser)) ...[
+              const SizedBox(height: 20),
+              AppGlassSurface(
+                padding: const EdgeInsets.all(16),
+                radius: 22,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppGlassColors.gold.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppGlassColors.gold.withValues(alpha: 0.26),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.push_pin_outlined,
+                        color: AppGlassColors.gold,
+                        size: 20,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.push_pin_outlined,
-                      color: AppGlassColors.gold,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Pin this announcement',
-                          style: TextStyle(
-                            color: AppGlassColors.ink,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Pin this announcement',
+                            style: TextStyle(
+                              color: AppGlassColors.ink,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 3),
-                        Text(
-                          'Pinned posts appear at the top',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppGlassColors.inkMuted,
-                            fontWeight: FontWeight.w500,
+                          SizedBox(height: 3),
+                          Text(
+                            'Pinned posts appear at the top',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppGlassColors.inkMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Switch.adaptive(
-                    value: _isPinned,
-                    activeTrackColor:
-                        AppGlassColors.gold.withValues(alpha: 0.58),
-                    activeThumbColor: AppGlassColors.gold,
-                    inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
-                    inactiveThumbColor: AppGlassColors.inkMuted,
-                    onChanged: (v) => setState(() => _isPinned = v),
-                  ),
-                ],
+                    Switch.adaptive(
+                      value: _isPinned,
+                      activeTrackColor:
+                          AppGlassColors.gold.withValues(alpha: 0.58),
+                      activeThumbColor: AppGlassColors.gold,
+                      inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
+                      inactiveThumbColor: AppGlassColors.inkMuted,
+                      onChanged: (v) => setState(() => _isPinned = v),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 28),
             GlassSubmitButton(
               label: _isEditing ? 'Update Announcement' : 'Post Announcement',

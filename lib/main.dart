@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'core/scroll_behavior.dart';
 import 'core/theme.dart';
+import 'core/firebase_emulator.dart';
 import 'firebase_options.dart';
 import 'navigation/router.dart';
 import 'providers/auth_provider.dart';
@@ -27,9 +28,13 @@ void main() async {
     ),
   );
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await configureFirebaseEmulators();
 
-  // Register the top-level background handler before runApp.
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  // Firebase Messaging has no local emulator, so keep it entirely disabled
+  // when Auth and Firestore are pointed at local services.
+  if (!useFirebaseEmulators) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
   // ---------- Global error handling ----------
 
@@ -62,7 +67,10 @@ void main() async {
       child: ProviderScope(
         overrides: [
           messagingServiceProvider.overrideWithValue(
-            MessagingService(router: router),
+            MessagingService(
+              router: router,
+              enabled: !useFirebaseEmulators,
+            ),
           ),
         ],
         child: const LeagueHubApp(),

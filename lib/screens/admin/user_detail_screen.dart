@@ -10,6 +10,7 @@ import '../../models/team.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
+import '../../services/permission_service.dart';
 import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
 import '../../widgets/app_shell_scaffold.dart';
@@ -146,8 +147,20 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
           ref.read(organizationProvider).valueOrNull?.id ??
           currentUser.orgId;
       if (orgId == null) return;
-      final teamIdsList = _editableSelectedTeamIds().toList();
-      final hubIdsList = _editHubIds.toList();
+      final manageableHubs = currentUser.role == UserRole.managerAdmin
+          ? _allHubs
+              .where((hub) => currentUser.hubIds.contains(hub.id))
+              .toList()
+          : _allHubs;
+      final manageableHubIds = manageableHubs.map((hub) => hub.id).toSet();
+      final manageableTeams = _allTeams
+          .where((team) =>
+              manageableHubIds.contains(team.hubId) &&
+              (currentUser.role != UserRole.managerAdmin ||
+                  currentUser.teamIds.contains(team.id)))
+          .toList();
+      final teamIdsList = _editableSelectedTeamIds(manageableTeams).toList();
+      final hubIdsList = _editHubIds.intersection(manageableHubIds).toList();
       // Derive leagueIds from hub assignments.
       final leagueIds = await fs.deriveLeagueIdsFromHubs(orgId, hubIdsList);
       final updates = <String, dynamic>{
@@ -180,6 +193,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
         orgId,
         _user!,
         teamIdsList,
+        manageableTeams,
       );
       await authorizedSvc.updateUserFields(currentUser, _user!, updates);
       // Reload user
@@ -245,13 +259,16 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     }
   }
 
-  Set<String> _editableSelectedTeamIds() {
-    final availableIds = _teamsForSelectedHubs().map((team) => team.id).toSet();
+  Set<String> _editableSelectedTeamIds(List<Team> availableTeams) {
+    final availableIds =
+        _teamsForSelectedHubs(availableTeams).map((team) => team.id).toSet();
     return _editTeamIds.intersection(availableIds);
   }
 
-  List<Team> _teamsForSelectedHubs() {
-    return _allTeams.where((team) => _editHubIds.contains(team.hubId)).toList();
+  List<Team> _teamsForSelectedHubs(List<Team> availableTeams) {
+    return availableTeams
+        .where((team) => _editHubIds.contains(team.hubId))
+        .toList();
   }
 
   void _removeTeamsForHub(String hubId) {
@@ -270,12 +287,13 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     String orgId,
     AppUser targetUser,
     List<String> selectedTeamIds,
+    List<Team> manageableTeams,
   ) async {
     final selectedIds = selectedTeamIds.toSet();
     final touchedIds = <String>{...targetUser.teamIds, ...selectedIds};
 
     for (final team
-        in _allTeams.where((team) => touchedIds.contains(team.id))) {
+        in manageableTeams.where((team) => touchedIds.contains(team.id))) {
       final hasMember = team.memberIds.contains(targetUser.id);
       final shouldHaveMember = selectedIds.contains(team.id);
       if (hasMember == shouldHaveMember) continue;
@@ -349,12 +367,22 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     }
 
     final user = _user!;
-    final currentUserRole = ref.watch(currentUserProvider).valueOrNull?.role;
-    final canEdit = currentUserRole == UserRole.platformOwner ||
-        currentUserRole == UserRole.superAdmin;
-    final canChangeRole = canEdit &&
-        user.role != UserRole.platformOwner &&
-        user.role != UserRole.superAdmin;
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final permissions = const PermissionService();
+    final canEdit =
+        currentUser != null && permissions.canManageUser(currentUser, user);
+    final canChangeRole =
+        currentUser != null && permissions.canChangeUserRole(currentUser, user);
+    final editableHubs = currentUser?.role == UserRole.managerAdmin
+        ? _allHubs.where((hub) => currentUser!.hubIds.contains(hub.id)).toList()
+        : _allHubs;
+    final editableHubIds = editableHubs.map((hub) => hub.id).toSet();
+    final editableTeams = _allTeams
+        .where((team) =>
+            editableHubIds.contains(team.hubId) &&
+            (currentUser?.role != UserRole.managerAdmin ||
+                currentUser!.teamIds.contains(team.id)))
+        .toList();
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -414,9 +442,9 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
           const SizedBox(height: 16),
           _buildContactSection(user),
           const SizedBox(height: 16),
-          _buildHubSection(user),
+          _buildHubSection(user, editableHubs),
           const SizedBox(height: 16),
-          _buildTeamSection(user),
+          _buildTeamSection(user, editableTeams),
           const SizedBox(height: 16),
           _buildDatesSection(user),
           const SizedBox(height: 24),
@@ -583,7 +611,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     );
   }
 
-  Widget _buildHubSection(AppUser user) {
+  Widget _buildHubSection(AppUser user, List<Hub> editableHubs) {
     if (!_editing) {
       return _SectionCard(
         title: 'Hub Assignments',
@@ -606,11 +634,11 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       child: _hubsLoading
           ? const Center(
               child: CircularProgressIndicator(color: AppGlassColors.aqua))
-          : _allHubs.isEmpty
+          : editableHubs.isEmpty
               ? const Text('No hubs available',
                   style: TextStyle(color: AppGlassColors.inkMuted))
               : Column(
-                  children: _allHubs
+                  children: editableHubs
                       .map((hub) => GlassCheckTile(
                             title: hub.name,
                             subtitle: hub.location,
@@ -631,7 +659,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     );
   }
 
-  Widget _buildTeamSection(AppUser user) {
+  Widget _buildTeamSection(AppUser user, List<Team> editableTeams) {
     if (!_editing) {
       return _SectionCard(
         title: 'Team Assignments',
@@ -653,7 +681,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       );
     }
 
-    final availableTeams = _teamsForSelectedHubs();
+    final availableTeams = _teamsForSelectedHubs(editableTeams);
 
     return _SectionCard(
       title: 'Team Assignments',

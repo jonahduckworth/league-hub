@@ -70,6 +70,27 @@ export function assignableRoles(actorRole: unknown): UserRole[] {
   return [];
 }
 
+export function canManageInvitationRole(
+  actorRole: unknown,
+  invitationRole: unknown,
+): boolean {
+  return isUserRole(invitationRole) &&
+    assignableRoles(actorRole).includes(invitationRole);
+}
+
+export function isManagedChatRoomType(value: unknown): boolean {
+  return value === "league" || value === "event";
+}
+
+export function teamMemberRecordsMatchOrg(
+  memberIds: string[],
+  orgId: string,
+  records: Array<{ id: string; orgId?: unknown }>,
+): boolean {
+  const orgByUserId = new Map(records.map((record) => [record.id, record.orgId]));
+  return memberIds.every((memberId) => orgByUserId.get(memberId) === orgId);
+}
+
 export function canManageTarget(actor: ActorLike, target: TargetLike): boolean {
   if (!actor.isActive || !isAdminRole(actor.role)) return false;
   if (actor.id === target.id) return false;

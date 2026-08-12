@@ -5,7 +5,9 @@ class Invitation {
   final String orgId;
   final String email;
   final String? displayName;
-  final String role; // UserRole name: 'managerAdmin' or 'staff'
+  final String
+      role; // UserRole name invited by the actor's permitted hierarchy.
+  final List<String> leagueIds;
   final List<String> hubIds;
   final List<String> teamIds;
   final String invitedBy;
@@ -20,6 +22,7 @@ class Invitation {
     required this.email,
     this.displayName,
     required this.role,
+    this.leagueIds = const [],
     required this.hubIds,
     required this.teamIds,
     required this.invitedBy,
@@ -35,6 +38,7 @@ class Invitation {
         email: json['email'] as String,
         displayName: json['displayName'] as String?,
         role: json['role'] as String? ?? 'staff',
+        leagueIds: List<String>.from(json['leagueIds'] as List? ?? []),
         hubIds: List<String>.from(json['hubIds'] as List? ?? []),
         teamIds: List<String>.from(json['teamIds'] as List? ?? []),
         invitedBy: json['invitedBy'] as String? ?? '',
@@ -52,6 +56,7 @@ class Invitation {
         'email': email,
         'displayName': displayName,
         'role': role,
+        'leagueIds': leagueIds,
         'hubIds': hubIds,
         'teamIds': teamIds,
         'invitedBy': invitedBy,

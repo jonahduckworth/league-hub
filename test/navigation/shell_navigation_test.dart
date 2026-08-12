@@ -7,6 +7,7 @@ void main() {
       expect(shouldShowShellBottomNavigation('/'), isTrue);
       expect(shouldShowShellBottomNavigation('/chat'), isTrue);
       expect(shouldShowShellBottomNavigation('/announcements'), isTrue);
+      expect(shouldShowShellBottomNavigation('/schedule'), isTrue);
       expect(shouldShowShellBottomNavigation('/contacts'), isTrue);
       expect(shouldShowShellBottomNavigation('/policy'), isTrue);
       expect(shouldShowShellBottomNavigation('/settings'), isTrue);
@@ -24,22 +25,25 @@ void main() {
     test('uses fixed slots for primary shell pages', () {
       expect(shellBottomNavIndexFor(branchIndex: 0, location: '/'), 0);
       expect(
+        shellBottomNavIndexFor(branchIndex: 7, location: '/schedule'),
+        1,
+      );
+      expect(
+        shellBottomNavIndexFor(branchIndex: 6, location: '/contacts'),
+        2,
+      );
+      expect(shellBottomNavIndexFor(branchIndex: 5, location: '/profile'), 3);
+      expect(shellBottomNavIndexFor(branchIndex: 1, location: '/chat'), 3);
+      expect(
         shellBottomNavIndexFor(
           branchIndex: 3,
           location: '/announcements',
         ),
-        1,
+        3,
       );
-      expect(shellBottomNavIndexFor(branchIndex: 1, location: '/chat'), 2);
-      expect(shellBottomNavIndexFor(branchIndex: 5, location: '/profile'), 3);
     });
 
     test('uses the last slot for quick destinations', () {
-      expect(shellBottomNavIndexFor(branchIndex: 0, location: '/contacts'), 3);
-      expect(
-        shellBottomNavIndexFor(branchIndex: 0, location: '/contacts/user-1'),
-        3,
-      );
       expect(shellBottomNavIndexFor(branchIndex: 2, location: '/policy'), 3);
       expect(
         shellBottomNavIndexFor(branchIndex: 2, location: '/policy/policy-1'),
@@ -50,14 +54,27 @@ void main() {
         shellBottomNavIndexFor(branchIndex: 4, location: '/settings/users'),
         3,
       );
+      expect(shellBottomNavIndexFor(branchIndex: 1, location: '/chat'), 3);
+      expect(
+        shellBottomNavIndexFor(
+          branchIndex: 3,
+          location: '/announcements/announcement-1',
+        ),
+        3,
+      );
     });
   });
 
   group('shellQuickDestinationForLocation', () {
     test('detects dynamic last-slot destinations', () {
+      expect(shellQuickDestinationForLocation('/contacts'), isNull);
       expect(
-        shellQuickDestinationForLocation('/contacts'),
-        ShellQuickDestination.contacts,
+        shellQuickDestinationForLocation('/chat'),
+        ShellQuickDestination.chats,
+      );
+      expect(
+        shellQuickDestinationForLocation('/announcements/announcement-1'),
+        ShellQuickDestination.chats,
       );
       expect(
         shellQuickDestinationForLocation('/policy/upload'),
@@ -68,7 +85,10 @@ void main() {
         ShellQuickDestination.settings,
       );
       expect(shellQuickDestinationForLocation('/profile'), isNull);
-      expect(shellQuickDestinationForLocation('/announcements'), isNull);
+      expect(
+        shellQuickDestinationForLocation('/announcements'),
+        ShellQuickDestination.chats,
+      );
     });
 
     test('exposes label and route config', () {
@@ -77,18 +97,23 @@ void main() {
 
       expect(settings?.label, 'Settings');
       expect(settings?.route, '/settings');
+
+      final chats = shellQuickDestinationConfigForLocation('/chat');
+      expect(chats?.label, 'Chats');
+      expect(chats?.route, '/chat');
     });
   });
 
   group('shellBranchNavSlot', () {
     test('orders branches by the visible bottom nav slots', () {
       expect(shellBranchNavSlot(0), 0);
-      expect(shellBranchNavSlot(3), 1);
-      expect(shellBranchNavSlot(1), 2);
+      expect(shellBranchNavSlot(7), 1);
+      expect(shellBranchNavSlot(6), 2);
       expect(shellBranchNavSlot(2), 3);
       expect(shellBranchNavSlot(4), 3);
       expect(shellBranchNavSlot(5), 3);
-      expect(shellBranchNavSlot(6), 3);
+      expect(shellBranchNavSlot(1), 3);
+      expect(shellBranchNavSlot(3), 3);
     });
   });
 }

@@ -9,6 +9,7 @@ import '../models/league.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
+import '../services/permission_service.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
@@ -72,15 +73,14 @@ class AnnouncementDetailScreen extends ConsumerWidget {
       );
     }
 
+    final permissions = const PermissionService();
     final canEdit = currentUser != null &&
-        (currentUser.id == announcement.authorId ||
-            currentUser.role == UserRole.superAdmin ||
-            currentUser.role == UserRole.platformOwner);
-
-    final canDelete = currentUser != null &&
-        (currentUser.role == UserRole.superAdmin ||
-            currentUser.role == UserRole.platformOwner ||
-            currentUser.id == announcement.authorId);
+        permissions.canEditAnnouncement(
+          currentUser,
+          authorId: announcement.authorId,
+        );
+    final canDelete =
+        currentUser != null && permissions.canDeleteAnnouncement(currentUser);
 
     final headerLeague = resolveHeaderLeague(leagues, announcement.leagueId);
     final topContentPadding = appShellTopPadding(context);

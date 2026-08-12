@@ -14,6 +14,7 @@ import '../../models/team.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../services/authorized_firestore_service.dart';
+import '../../services/permission_service.dart';
 import '../../core/utils.dart';
 import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
@@ -574,6 +575,16 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
       final org = ref.read(organizationProvider).valueOrNull;
       final currentUser = await ref.read(currentUserProvider.future);
       if (org == null || currentUser == null) return;
+      if (currentUser.role == UserRole.managerAdmin &&
+          _selectedHubIds.isEmpty) {
+        if (mounted) {
+          AppUtils.showErrorSnackBar(
+            context,
+            'Select at least one of your assigned hubs.',
+          );
+        }
+        return;
+      }
 
       final invitation = Invitation(
         id: '',
@@ -583,6 +594,11 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
             ? null
             : _nameController.text.trim(),
         role: _selectedRole,
+        leagueIds: _allHubs
+            .where((hub) => _selectedHubIds.contains(hub.id))
+            .map((hub) => hub.leagueId)
+            .toSet()
+            .toList(),
         hubIds: _selectedHubIds.toList(),
         teamIds: _selectedTeamIdsForSelectedHubs().toList(),
         invitedBy: currentUser.id,
@@ -703,6 +719,20 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
   Widget build(BuildContext context) {
     final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final invitableRoles = currentUser == null
+        ? const <UserRole>[]
+        : const PermissionService().invitableRoles(currentUser);
+    final availableHubs = currentUser?.role == UserRole.managerAdmin
+        ? _allHubs.where((hub) => currentUser!.hubIds.contains(hub.id)).toList()
+        : _allHubs;
+    final availableHubIds = availableHubs.map((hub) => hub.id).toSet();
+    final availableTeams = _allTeams
+        .where((team) =>
+            availableHubIds.contains(team.hubId) &&
+            (currentUser?.role != UserRole.managerAdmin ||
+                currentUser!.teamIds.contains(team.id)))
+        .toList();
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -745,15 +775,15 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
           const SizedBox(height: 18),
           const GlassFormSectionLabel('Role'),
           const SizedBox(height: 8),
-          _buildRolePicker(),
+          _buildRolePicker(invitableRoles),
           const SizedBox(height: 18),
           const GlassFormSectionLabel('Hub Access'),
           const SizedBox(height: 8),
-          _buildHubPicker(),
+          _buildHubPicker(availableHubs),
           const SizedBox(height: 18),
           const GlassFormSectionLabel('Team Access'),
           const SizedBox(height: 8),
-          _buildTeamPicker(),
+          _buildTeamPicker(availableTeams),
           const SizedBox(height: 22),
           GlassSubmitButton(
             label: 'Send Invite',
@@ -765,7 +795,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
     );
   }
 
-  Widget _buildRolePicker() {
+  Widget _buildRolePicker(List<UserRole> roles) {
     return AppGlassSurface(
       padding: EdgeInsets.zero,
       radius: 20,
@@ -776,19 +806,16 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
             onChanged: (v) => setState(() {
               if (v != null) _selectedRole = v;
             }),
-            child: const Column(
+            child: Column(
               children: [
-                GlassRadioTile<String>(
-                  label: 'Manager',
-                  description: 'Can manage hubs, teams, and staff',
-                  value: 'managerAdmin',
-                ),
-                _GlassDivider(),
-                GlassRadioTile<String>(
-                  label: 'Staff',
-                  description: 'Can view and interact with assigned hubs',
-                  value: 'staff',
-                ),
+                for (var index = 0; index < roles.length; index++) ...[
+                  GlassRadioTile<String>(
+                    label: _roleLabel(roles[index]),
+                    description: _roleDescription(roles[index]),
+                    value: roles[index].name,
+                  ),
+                  if (index != roles.length - 1) const _GlassDivider(),
+                ],
               ],
             ),
           ),
@@ -797,7 +824,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
     );
   }
 
-  Widget _buildHubPicker() {
+  Widget _buildHubPicker(List<Hub> availableHubs) {
     if (_hubsLoading) {
       return const Center(
           child: Padding(
@@ -805,13 +832,13 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
         child: CircularProgressIndicator(color: AppGlassColors.aqua),
       ));
     }
-    if (_allHubs.isEmpty) {
+    if (availableHubs.isEmpty) {
       return const Text('No hubs available',
           style: TextStyle(color: AppGlassColors.inkMuted));
     }
 
     final hubsByLeague = <String, List<Hub>>{};
-    for (final hub in _allHubs) {
+    for (final hub in availableHubs) {
       hubsByLeague.putIfAbsent(hub.leagueId, () => []).add(hub);
     }
 
@@ -861,7 +888,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
     );
   }
 
-  Widget _buildTeamPicker() {
+  Widget _buildTeamPicker(List<Team> availableTeams) {
     if (_teamsLoading) {
       return const Center(
         child: Padding(
@@ -881,10 +908,10 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
       );
     }
 
-    final availableTeams = _allTeams
+    final selectedTeams = availableTeams
         .where((team) => _selectedHubIds.contains(team.hubId))
         .toList();
-    if (availableTeams.isEmpty) {
+    if (selectedTeams.isEmpty) {
       return const AppGlassSurface(
         padding: EdgeInsets.all(14),
         radius: 18,
@@ -900,7 +927,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
       radius: 20,
       child: Column(
         children: [
-          for (final team in availableTeams)
+          for (final team in selectedTeams)
             GlassCheckTile(
               leading: EntityAvatar(
                 name: team.name,
@@ -942,6 +969,20 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
         )
         .name;
   }
+
+  String _roleLabel(UserRole role) => switch (role) {
+        UserRole.platformOwner => 'Platform Owner',
+        UserRole.superAdmin => 'Admin',
+        UserRole.managerAdmin => 'Manager',
+        UserRole.staff => 'Staff',
+      };
+
+  String _roleDescription(UserRole role) => switch (role) {
+        UserRole.platformOwner => 'Controls the platform across organizations',
+        UserRole.superAdmin => 'Manages the organization and existing leagues',
+        UserRole.managerAdmin => 'Manages assigned hubs, teams, and staff',
+        UserRole.staff => 'Views and participates in assigned hubs and teams',
+      };
 }
 
 class _HeaderInviteButton extends StatelessWidget {

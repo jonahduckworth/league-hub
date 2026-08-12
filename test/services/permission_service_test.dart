@@ -38,6 +38,8 @@ void main() {
     ChatRoomType type = ChatRoomType.league,
     List<String> participants = const [],
     String? leagueId,
+    String? hubId,
+    String? teamId,
   }) =>
       ChatRoom(
         id: id,
@@ -45,6 +47,8 @@ void main() {
         name: 'Room',
         type: type,
         leagueId: leagueId,
+        hubId: hubId,
+        teamId: teamId,
         participants: participants,
         createdAt: DateTime(2024),
         isArchived: false,
@@ -325,6 +329,29 @@ void main() {
         expect(service.canAccessRoute(staff(), '/announcements/ann123/edit'),
             isFalse);
       });
+
+      test('league structure mutations use operation-specific roles', () {
+        expect(
+            service.canAccessRoute(owner(), '/settings/leagues/new'), isTrue);
+        expect(service.canAccessRoute(superAdmin(), '/settings/leagues/new'),
+            isFalse);
+        expect(
+            service.canAccessRoute(
+                manager(), '/settings/leagues/league-1/edit'),
+            isFalse);
+        expect(
+            service.canAccessRoute(
+                manager(), '/settings/leagues/league-1/hubs/new'),
+            isFalse);
+        expect(
+            service.canAccessRoute(
+                manager(), '/settings/leagues/league-1/hubs/hub-1/edit'),
+            isTrue);
+        expect(
+            service.canAccessRoute(
+                manager(), '/settings/leagues/league-1/hubs/hub-1/teams/new'),
+            isTrue);
+      });
     });
 
     test('trailing slash is normalised', () {
@@ -352,6 +379,13 @@ void main() {
       expect(service.canDeleteOrganization(owner()), isTrue);
       expect(service.canDeleteOrganization(superAdmin()), isFalse);
     });
+
+    test('platformOwner and superAdmin can update organization settings', () {
+      expect(service.canUpdateOrganization(owner()), isTrue);
+      expect(service.canUpdateOrganization(superAdmin()), isTrue);
+      expect(service.canUpdateOrganization(manager()), isFalse);
+      expect(service.canUpdateOrganization(staff()), isFalse);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -359,14 +393,21 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('league management', () {
-    test('platformOwner and superAdmin can create leagues', () {
+    test('only platformOwner can create leagues', () {
       expect(service.canCreateLeague(owner()), isTrue);
-      expect(service.canCreateLeague(superAdmin()), isTrue);
+      expect(service.canCreateLeague(superAdmin()), isFalse);
     });
 
     test('managerAdmin and staff cannot create leagues', () {
       expect(service.canCreateLeague(manager()), isFalse);
       expect(service.canCreateLeague(staff()), isFalse);
+    });
+
+    test('superAdmin+ can update existing leagues', () {
+      expect(service.canUpdateLeague(owner()), isTrue);
+      expect(service.canUpdateLeague(superAdmin()), isTrue);
+      expect(service.canUpdateLeague(manager()), isFalse);
+      expect(service.canUpdateLeague(staff()), isFalse);
     });
 
     test('platformOwner and superAdmin can delete leagues', () {
@@ -390,8 +431,14 @@ void main() {
       expect(service.canCreateHub(superAdmin()), isTrue);
     });
 
-    test('managerAdmin can create hubs', () {
-      expect(service.canCreateHub(manager(hubIds: ['h1'])), isTrue);
+    test('managerAdmin cannot create hubs', () {
+      expect(service.canCreateHub(manager(hubIds: ['h1'])), isFalse);
+    });
+
+    test('managerAdmin can update only assigned hubs', () {
+      final ma = manager(hubIds: ['h1']);
+      expect(service.canUpdateHub(ma, hubId: 'h1'), isTrue);
+      expect(service.canUpdateHub(ma, hubId: 'h2'), isFalse);
     });
 
     test('staff cannot create hubs', () {
@@ -423,8 +470,8 @@ void main() {
       expect(service.canCreateTeam(ma, hubId: 'h3'), isFalse);
     });
 
-    test('managerAdmin can create teams when hubId is null', () {
-      expect(service.canCreateTeam(manager(hubIds: ['h1'])), isTrue);
+    test('managerAdmin requires an explicit assigned hub', () {
+      expect(service.canCreateTeam(manager(hubIds: ['h1'])), isFalse);
     });
 
     test('staff cannot create teams', () {
@@ -436,6 +483,23 @@ void main() {
       expect(service.canDeleteTeam(ma, hubId: 'h1'), isTrue);
       expect(service.canDeleteTeam(ma, hubId: 'h99'), isFalse);
       expect(service.canDeleteTeam(staff()), isFalse);
+    });
+
+    test('manager roster access requires both hub and team assignments', () {
+      final ma = manager(hubIds: ['h1'], teamIds: ['t1']);
+      expect(
+          service.canManageTeamRoster(ma, hubId: 'h1', teamId: 't1'), isTrue);
+      expect(
+          service.canManageTeamRoster(ma, hubId: 'h1', teamId: 't2'), isFalse);
+      expect(
+          service.canManageTeamRoster(ma, hubId: 'h2', teamId: 't1'), isFalse);
+      expect(
+          service.canManageTeamRoster(
+            superAdmin(),
+            hubId: 'any-hub',
+            teamId: 'any-team',
+          ),
+          isTrue);
     });
   });
 
@@ -485,6 +549,37 @@ void main() {
         final ma = manager(hubIds: ['h1']);
         final s = makeUser(id: 'staff', role: UserRole.staff, hubIds: ['h2']);
         expect(service.canManageUser(ma, s), isFalse);
+      });
+
+      test('managerAdmin must own every hub assigned to the staff user', () {
+        final ma = manager(hubIds: ['h1']);
+        final s = makeUser(
+          id: 'staff',
+          role: UserRole.staff,
+          hubIds: ['h1', 'h2'],
+        );
+        expect(service.canManageUser(ma, s), isFalse);
+      });
+
+      test('managerAdmin must own every team assigned to the staff user', () {
+        final ma = manager(hubIds: ['h1'], teamIds: ['t1']);
+        final s = makeUser(
+          id: 'staff',
+          role: UserRole.staff,
+          hubIds: ['h1'],
+          teamIds: ['t1', 't2'],
+        );
+        expect(service.canManageUser(ma, s), isFalse);
+      });
+
+      test('organization admins cannot manage users in another org', () {
+        final otherOrgStaff = makeUser(
+          id: 'other-staff',
+          role: UserRole.staff,
+          orgId: 'org2',
+        );
+        expect(service.canManageUser(superAdmin(), otherOrgStaff), isFalse);
+        expect(service.canManageUser(owner(), otherOrgStaff), isTrue);
       });
 
       test('managerAdmin cannot manage another managerAdmin', () {
@@ -567,6 +662,29 @@ void main() {
 
     test('canInviteToHub: staff always false', () {
       expect(service.canInviteToHub(staff(), 'h1'), isFalse);
+    });
+
+    test('canInviteToTeam: managerAdmin only their teams', () {
+      final ma = manager(teamIds: ['t1']);
+      expect(service.canInviteToTeam(ma, 't1'), isTrue);
+      expect(service.canInviteToTeam(ma, 't2'), isFalse);
+      expect(service.canInviteToTeam(superAdmin(), 't_any'), isTrue);
+      expect(service.canInviteToTeam(staff(), 't1'), isFalse);
+    });
+
+    test('invitable roles follow the canonical hierarchy', () {
+      expect(service.invitableRoles(owner()), [
+        UserRole.superAdmin,
+        UserRole.managerAdmin,
+        UserRole.staff,
+      ]);
+      expect(service.invitableRoles(superAdmin()), [
+        UserRole.managerAdmin,
+        UserRole.staff,
+      ]);
+      expect(service.invitableRoles(manager()), [UserRole.staff]);
+      expect(service.invitableRoles(staff()), isEmpty);
+      expect(service.invitableRoles(owner(isActive: false)), isEmpty);
     });
   });
 
@@ -778,7 +896,7 @@ void main() {
     });
 
     test('canUploadPolicyToScope requires league and owned hub/team scope', () {
-      final ma = manager(hubIds: ['h1'], teamIds: ['t1']);
+      final ma = manager(leagueIds: ['l1'], hubIds: ['h1'], teamIds: ['t1']);
       expect(service.canUploadPolicyToScope(ma, leagueId: 'l1'), isTrue);
       expect(service.canUploadPolicyToScope(ma, leagueId: null), isFalse);
       expect(service.canUploadPolicyToScope(ma, leagueId: 'l1', hubId: 'h1'),
@@ -867,6 +985,14 @@ void main() {
       expect(service.canCreateChatRoom(staff()), isFalse);
     });
 
+    test('all active roles can create direct messages', () {
+      expect(service.canCreateDirectMessage(owner()), isTrue);
+      expect(service.canCreateDirectMessage(superAdmin()), isTrue);
+      expect(service.canCreateDirectMessage(manager()), isTrue);
+      expect(service.canCreateDirectMessage(staff()), isTrue);
+      expect(service.canCreateDirectMessage(staff(isActive: false)), isFalse);
+    });
+
     test('canArchiveChatRoom requires managerAdmin+', () {
       expect(service.canArchiveChatRoom(owner()), isTrue);
       expect(service.canArchiveChatRoom(manager()), isTrue);
@@ -878,6 +1004,44 @@ void main() {
       expect(service.canUpdateChatRoom(superAdmin()), isTrue);
       expect(service.canUpdateChatRoom(manager()), isTrue);
       expect(service.canUpdateChatRoom(staff()), isFalse);
+    });
+
+    test('managed room changes require a non-DM room in assigned scope', () {
+      final assignedManager = manager(
+        leagueIds: ['league-1'],
+        hubIds: ['hub-1'],
+        teamIds: ['team-1'],
+      );
+      expect(
+          service.canManageChatRoom(
+            assignedManager,
+            makeRoom(
+              type: ChatRoomType.event,
+              leagueId: 'league-1',
+              hubId: 'hub-1',
+              teamId: 'team-1',
+            ),
+          ),
+          isTrue);
+      expect(
+          service.canManageChatRoom(
+            assignedManager,
+            makeRoom(
+              type: ChatRoomType.event,
+              leagueId: 'league-1',
+              hubId: 'hub-2',
+            ),
+          ),
+          isFalse);
+      expect(
+          service.canManageChatRoom(
+            assignedManager,
+            makeRoom(
+              type: ChatRoomType.direct,
+              participants: ['ma', 'staff'],
+            ),
+          ),
+          isFalse);
     });
 
     test('canSendMessage any active user', () {
@@ -934,9 +1098,10 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('settings', () {
-    test('canEditAppIcon requires superAdmin+', () {
+    test('canEditAppIcon is a personal device setting', () {
       expect(service.canEditAppIcon(superAdmin()), isTrue);
-      expect(service.canEditAppIcon(manager()), isFalse);
+      expect(service.canEditAppIcon(manager()), isTrue);
+      expect(service.canEditAppIcon(staff()), isTrue);
     });
 
     test('canViewRolesPermissions requires superAdmin+', () {
@@ -948,6 +1113,75 @@ void main() {
       final user = staff();
       expect(service.canEditProfile(user, user.id), isTrue);
       expect(service.canEditProfile(user, 'other'), isFalse);
+    });
+  });
+
+  group('schedule', () {
+    test('elevated admins see the full organization schedule', () {
+      expect(
+        service.canViewScheduleEvent(
+          superAdmin(),
+          teamIds: const ['other-team'],
+          hubIds: const ['other-hub'],
+          leagueIds: const ['other-league'],
+        ),
+        isTrue,
+      );
+      expect(
+        service.canViewScheduleEvent(
+          owner(),
+          teamIds: const [],
+          hubIds: const [],
+          leagueIds: const [],
+        ),
+        isTrue,
+      );
+    });
+
+    test('staff see assigned team games but not unrelated games', () {
+      final user = staff(teamIds: const ['team-1']);
+      expect(
+        service.canViewScheduleEvent(
+          user,
+          teamIds: const ['team-1'],
+          hubIds: const ['hub-1'],
+          leagueIds: const ['league-1'],
+        ),
+        isTrue,
+      );
+      expect(
+        service.canViewScheduleEvent(
+          user,
+          teamIds: const ['team-2'],
+          hubIds: const ['hub-2'],
+          leagueIds: const ['league-1'],
+        ),
+        isFalse,
+      );
+    });
+
+    test('hub managers see games for teams in their hubs', () {
+      expect(
+        service.canViewScheduleEvent(
+          manager(hubIds: const ['hub-1']),
+          teamIds: const ['team-2'],
+          hubIds: const ['hub-1'],
+          leagueIds: const ['league-1'],
+        ),
+        isTrue,
+      );
+    });
+
+    test('inactive users cannot see schedule data', () {
+      expect(
+        service.canViewScheduleEvent(
+          staff(isActive: false, teamIds: const ['team-1']),
+          teamIds: const ['team-1'],
+          hubIds: const [],
+          leagueIds: const [],
+        ),
+        isFalse,
+      );
     });
   });
 
@@ -965,10 +1199,12 @@ void main() {
       expect(tiles, isNot(contains('leagues')));
     });
 
-    test('managerAdmin also sees users', () {
+    test('managerAdmin also sees users and assigned structure', () {
       final tiles = service.visibleSettingsTiles(manager());
       expect(
-          tiles, containsAll(['profile', 'notifications', 'privacy', 'users']));
+          tiles,
+          containsAll(
+              ['profile', 'notifications', 'privacy', 'users', 'leagues']));
       expect(tiles, isNot(contains('roles')));
       expect(tiles, isNot(contains('branding')));
     });
