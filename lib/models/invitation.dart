@@ -13,6 +13,7 @@ class Invitation {
   final String invitedBy;
   final String invitedByName;
   final DateTime createdAt;
+  final DateTime? expiresAt;
   final InvitationStatus status;
   final String token;
 
@@ -28,6 +29,7 @@ class Invitation {
     required this.invitedBy,
     required this.invitedByName,
     required this.createdAt,
+    this.expiresAt,
     required this.status,
     required this.token,
   });
@@ -44,6 +46,9 @@ class Invitation {
         invitedBy: json['invitedBy'] as String? ?? '',
         invitedByName: json['invitedByName'] as String? ?? '',
         createdAt: DateTime.parse(json['createdAt'] as String),
+        expiresAt: json['expiresAt'] == null
+            ? null
+            : DateTime.parse(json['expiresAt'] as String),
         status: InvitationStatus.values.firstWhere(
           (e) => e.name == json['status'],
           orElse: () => InvitationStatus.pending,
@@ -62,6 +67,7 @@ class Invitation {
         'invitedBy': invitedBy,
         'invitedByName': invitedByName,
         'createdAt': createdAt.toIso8601String(),
+        'expiresAt': expiresAt?.toIso8601String(),
         'status': status.name,
         'token': token,
       };

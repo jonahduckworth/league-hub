@@ -5,6 +5,8 @@ void main() {
   group('Invitation', () {
     final testDate = DateTime(2024, 10, 1, 8, 0);
     final testDateStr = testDate.toIso8601String();
+    final expiryDate = testDate.add(const Duration(days: 7));
+    final expiryDateStr = expiryDate.toIso8601String();
 
     group('fromJson', () {
       test('parses all fields correctly', () {
@@ -20,6 +22,7 @@ void main() {
           'invitedBy': 'user1',
           'invitedByName': 'Admin',
           'createdAt': testDateStr,
+          'expiresAt': expiryDateStr,
           'status': 'pending',
           'token': 'abc123',
         };
@@ -37,6 +40,7 @@ void main() {
         expect(inv.invitedBy, 'user1');
         expect(inv.invitedByName, 'Admin');
         expect(inv.createdAt, testDate);
+        expect(inv.expiresAt, expiryDate);
         expect(inv.status, InvitationStatus.pending);
         expect(inv.token, 'abc123');
       });
@@ -131,6 +135,7 @@ void main() {
         };
 
         expect(Invitation.fromJson(json).displayName, isNull);
+        expect(Invitation.fromJson(json).expiresAt, isNull);
       });
     });
 
@@ -148,6 +153,7 @@ void main() {
           invitedBy: 'admin1',
           invitedByName: 'Admin',
           createdAt: testDate,
+          expiresAt: expiryDate,
           status: InvitationStatus.accepted,
           token: 'mytoken',
         );
@@ -164,6 +170,7 @@ void main() {
         expect(json['invitedBy'], 'admin1');
         expect(json['invitedByName'], 'Admin');
         expect(json['createdAt'], testDateStr);
+        expect(json['expiresAt'], expiryDateStr);
         expect(json['status'], 'accepted');
         expect(json['token'], 'mytoken');
       });

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
@@ -1100,6 +1101,13 @@ void main() {
       final token = await svc.createInvitation(orgId, makeInvitation());
       expect(token, isNotEmpty);
       expect(token.length, 32);
+
+      final invitations = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('invitations')
+          .get();
+      expect(invitations.docs.single.data()['expiresAt'], isA<Timestamp>());
     });
 
     test('getInvitations streams ordered by createdAt desc', () async {
@@ -1124,6 +1132,7 @@ void main() {
       expect(lookup.data()!['email'], 'newuser@example.com');
       expect(lookup.data()!['status'], 'pending');
       expect(lookup.data()!['invitationId'], isNotEmpty);
+      expect(lookup.data()!['expiresAt'], isA<Timestamp>());
     });
 
     test('getInvitationByToken finds pending invitation', () async {
@@ -1132,6 +1141,7 @@ void main() {
       final invite = await svc.getInvitationByToken(token);
       expect(invite, isNotNull);
       expect(invite!.email, 'newuser@example.com');
+      expect(invite.expiresAt, isNotNull);
     });
 
     test('getInvitationByToken returns null for no match', () async {

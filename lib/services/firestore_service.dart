@@ -1043,9 +1043,12 @@ class FirestoreService {
   Future<String> createInvitation(String orgId, Invitation invitation) async {
     final ref = _invitationsRef(orgId).doc();
     final token = _generateToken();
+    final expiresAt = invitation.expiresAt ??
+        invitation.createdAt.add(const Duration(days: 7));
     final data = invitation.toJson()
       ..['token'] = token
-      ..['orgId'] = orgId;
+      ..['orgId'] = orgId
+      ..['expiresAt'] = Timestamp.fromDate(expiresAt.toUtc());
 
     final lookupData = {
       'token': token,
@@ -1054,6 +1057,7 @@ class FirestoreService {
       'email': invitation.email,
       'status': InvitationStatus.pending.name,
       'createdAt': invitation.createdAt.toIso8601String(),
+      'expiresAt': Timestamp.fromDate(expiresAt.toUtc()),
     };
 
     final batch = _db.batch();
@@ -1102,19 +1106,9 @@ class FirestoreService {
     }
 
     // Check expiry.
-    final expiry = invitation.createdAt.add(Duration(days: expiryDays));
+    final expiry = invitation.expiresAt ??
+        invitation.createdAt.add(Duration(days: expiryDays));
     if (DateTime.now().isAfter(expiry)) {
-      // Mark as expired in Firestore.
-      final batch = _db.batch();
-      batch.update(doc.reference, {'status': InvitationStatus.expired.name});
-      batch.update(lookupDoc.reference, {
-        'status': InvitationStatus.expired.name,
-      });
-      try {
-        await batch.commit();
-      } on FirebaseException catch (e) {
-        if (e.code != 'permission-denied') rethrow;
-      }
       return null;
     }
 

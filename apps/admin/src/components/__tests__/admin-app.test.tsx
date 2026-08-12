@@ -220,6 +220,23 @@ describe("AdminApp operations shell", () => {
     expect(document.activeElement).toBe(memberButton);
   });
 
+  it("shows invitation email delivery state in the people workspace", async () => {
+    window.history.replaceState(null, "", "/admin#people");
+    render(<AdminApp />);
+
+    await screen.findByRole("heading", { level: 1, name: "People" });
+    fireEvent.click(screen.getByRole("button", { name: "Pending Invites 1" }));
+
+    const invitationCard = screen.getByRole("button", { name: "Open invitation for Coach New" });
+    expect(within(invitationCard).getByText("Email sent")).toBeTruthy();
+    fireEvent.click(invitationCard);
+
+    const drawer = await screen.findByRole("dialog", { name: "coach@example.com" });
+    expect(within(drawer).getByText("Delivery")).toBeTruthy();
+    expect(within(drawer).getByText("Email sent", { selector: "span" })).toBeTruthy();
+    expect(within(drawer).getByText("Expires")).toBeTruthy();
+  });
+
   it("renders announcement and policy workspaces as filterable, actionable card libraries", async () => {
     window.history.replaceState(null, "", "/admin#announcements");
     render(<AdminApp />);

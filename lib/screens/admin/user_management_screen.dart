@@ -586,6 +586,7 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
         return;
       }
 
+      final createdAt = DateTime.now();
       final invitation = Invitation(
         id: '',
         orgId: org.id,
@@ -603,7 +604,8 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
         teamIds: _selectedTeamIdsForSelectedHubs().toList(),
         invitedBy: currentUser.id,
         invitedByName: currentUser.displayName,
-        createdAt: DateTime.now(),
+        createdAt: createdAt,
+        expiresAt: createdAt.add(const Duration(days: 7)),
         status: InvitationStatus.pending,
         token: '',
       );

@@ -6,6 +6,7 @@
     "build": "tsc",
     "test": "npm run build && node --test test/*.test.js",
     "test:rules": "cd .. && firebase emulators:exec --config firebase.rules-test.json --project demo-league-hub-rules --only firestore,storage \"node --test functions/test/security-rules.rules.js\"",
+    "backfill:invitation-expiry": "node scripts/backfill-invitation-expiry.js",
     "migrate:jphl-structure": "node scripts/reconcile-jphl-structure.js",
     "seed:schedule-emulator": "node scripts/seed-schedule-emulator.js",
     "seed:store-review": "node scripts/seed-store-review-org.js",

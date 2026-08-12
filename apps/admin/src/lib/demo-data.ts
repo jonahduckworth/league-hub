@@ -101,8 +101,11 @@ export const demoData: AdminData = {
       invitedBy: "demo-owner",
       invitedByName: "Jordan Owner",
       createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       status: "pending",
-      token: "demo-token"
+      token: "demo-token",
+      emailDeliveryStatus: "delivered",
+      emailDeliveredAt: new Date().toISOString()
     }
   ],
   leagues: [

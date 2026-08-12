@@ -14,6 +14,7 @@ export { onPolicyCreated } from "./notifications/policies";
 export { onTeamUpdated } from "./notifications/teams";
 export {
   onInvitationCreated,
+  onInvitationEmailCreated,
   onUserCreatedFromInvitation,
 } from "./notifications/invitations";
 export { onUserRoleChanged } from "./notifications/roleChanges";

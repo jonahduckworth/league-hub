@@ -1,6 +1,8 @@
 import { clsx } from "clsx";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
+export type BadgeTone = "neutral" | "good" | "warning" | "danger" | "info";
+
 export function Button({
   className,
   variant = "primary",
@@ -26,7 +28,7 @@ export function Badge({
   tone = "neutral"
 }: {
   children: React.ReactNode;
-  tone?: "neutral" | "good" | "warning" | "danger" | "info";
+  tone?: BadgeTone;
 }) {
   return (
     <span

@@ -56,8 +56,8 @@ void main() {
       final fetchedInvite = await fs.getInvitationByToken(token, expiryDays: 7);
       expect(fetchedInvite, isNull);
 
-      // Verify status updated to expired — invitation has auto-generated ID,
-      // query by token instead of hardcoded ID
+      // Expiry is authoritative even if the stored status remains pending;
+      // only trusted backend maintenance changes invitation status.
       final inviteSnap = await fakeDb
           .collection('organizations')
           .doc(orgId)
@@ -65,7 +65,8 @@ void main() {
           .where('token', isEqualTo: token)
           .get();
       expect(inviteSnap.docs, isNotEmpty);
-      expect(inviteSnap.docs.first['status'], 'expired');
+      expect(inviteSnap.docs.first['status'], 'pending');
+      expect(inviteSnap.docs.first['expiresAt'], isNotNull);
     });
 
     test('2. Duplicate invitation to same email: both stored', () async {

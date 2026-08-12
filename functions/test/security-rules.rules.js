@@ -12,6 +12,7 @@ const {
   getDoc,
   getDocs,
   collection,
+  Timestamp,
   query,
   where,
   setDoc,
@@ -85,6 +86,7 @@ after(async () => {
 });
 
 test("invitation acceptance rejects forged league assignments", async () => {
+  const expiresAt = Timestamp.fromMillis(Date.now() + 60 * 60 * 1000);
   const invite = {
     orgId: "org-1",
     email: "invitee@example.com",
@@ -95,6 +97,7 @@ test("invitation acceptance rejects forged league assignments", async () => {
     invitedBy: "admin",
     invitedByName: "Admin",
     createdAt: "2026-01-01T00:00:00.000Z",
+    expiresAt,
     status: "pending",
     token: "token",
   };
@@ -118,6 +121,122 @@ test("invitation acceptance rejects forged league assignments", async () => {
   await assertSucceeds(setDoc(
     doc(context.firestore(), "users/invitee"),
     { ...requestedUser, leagueIds: ["league-1"] },
+  ));
+});
+
+test("expired and legacy pending invitations cannot be read or redeemed", async () => {
+  const expiredInvite = {
+    orgId: "org-1",
+    email: "invitee@example.com",
+    role: "staff",
+    leagueIds: [],
+    hubIds: [],
+    teamIds: [],
+    invitedBy: "admin",
+    invitedByName: "Admin",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    expiresAt: Timestamp.fromMillis(Date.now() - 60 * 1000),
+    status: "pending",
+    token: "expired-token",
+  };
+  const legacyInvite = {
+    ...expiredInvite,
+    email: "legacy@example.com",
+    token: "legacy-token",
+  };
+  delete legacyInvite.expiresAt;
+  await seedFirestore([
+    ["organizations/org-1/invitations/expired", expiredInvite],
+    ["organizations/org-1/invitations/legacy", legacyInvite],
+    ["invitationLookups/expired-token", {
+      token: "expired-token",
+      orgId: "org-1",
+      invitationId: "expired",
+      email: "invitee@example.com",
+      status: "pending",
+      expiresAt: expiredInvite.expiresAt,
+    }],
+    ["invitationLookups/legacy-token", {
+      token: "legacy-token",
+      orgId: "org-1",
+      invitationId: "legacy",
+      email: "legacy@example.com",
+      status: "pending",
+    }],
+  ]);
+
+  const anonymousDb = testEnv.unauthenticatedContext().firestore();
+  await assertFails(getDoc(doc(anonymousDb, "invitationLookups/expired-token")));
+  await assertFails(getDoc(doc(anonymousDb, "invitationLookups/legacy-token")));
+  await assertFails(getDoc(doc(
+    anonymousDb,
+    "organizations/org-1/invitations/expired",
+  )));
+
+  const expiredDb = testEnv.authenticatedContext("expired-user", {
+    email: "invitee@example.com",
+  }).firestore();
+  await assertFails(setDoc(doc(expiredDb, "users/expired-user"), user({
+    id: "expired-user",
+    email: "invitee@example.com",
+    acceptedInvitationId: "expired",
+  })));
+
+  const legacyDb = testEnv.authenticatedContext("legacy-user", {
+    email: "legacy@example.com",
+  }).firestore();
+  await assertFails(setDoc(doc(legacyDb, "users/legacy-user"), user({
+    id: "legacy-user",
+    email: "legacy@example.com",
+    acceptedInvitationId: "legacy",
+  })));
+});
+
+test("current mobile clients may create invites for server expiry stamping", async () => {
+  await seedFirestore([
+    ["users/manager", user({
+      id: "manager",
+      role: "managerAdmin",
+      leagueIds: ["league-1"],
+      hubIds: ["hub-1"],
+    })],
+  ]);
+  const db = testEnv.authenticatedContext("manager").firestore();
+  const invitation = {
+    orgId: "org-1",
+    email: "invitee@example.com",
+    role: "staff",
+    leagueIds: ["league-1"],
+    hubIds: ["hub-1"],
+    teamIds: [],
+    invitedBy: "manager",
+    invitedByName: "Manager",
+    createdAt: "2026-08-12T00:00:00.000Z",
+    status: "pending",
+    token: "mobile-token",
+  };
+  const batch = writeBatch(db);
+  batch.set(
+    doc(db, "organizations/org-1/invitations/mobile-invite"),
+    invitation,
+  );
+  batch.set(doc(db, "invitationLookups/mobile-token"), {
+    token: "mobile-token",
+    orgId: "org-1",
+    invitationId: "mobile-invite",
+    email: "invitee@example.com",
+    status: "pending",
+    createdAt: invitation.createdAt,
+  });
+  await assertSucceeds(batch.commit());
+
+  await assertFails(setDoc(
+    doc(db, "organizations/org-1/invitations/too-long"),
+    {
+      ...invitation,
+      token: "too-long-token",
+      expiresAt: Timestamp.fromMillis(Date.now() + 8 * 24 * 60 * 60 * 1000),
+    },
   ));
 });
 

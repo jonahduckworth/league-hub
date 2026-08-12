@@ -1,5 +1,19 @@
-import { onDocumentCreated as onFirestoreCreated } from "firebase-functions/v2/firestore";
+import * as admin from "firebase-admin";
+import {logger} from "firebase-functions";
+import {defineSecret} from "firebase-functions/params";
+import {onDocumentCreated as onFirestoreCreated} from "firebase-functions/v2/firestore";
 import { db, sendNotification } from "../helpers";
+import {
+  buildInvitationEmail,
+  classifyInvitationDeliveryFailure,
+  invitationExpiresAt,
+  invitationIdempotencyKey,
+  normalizeInvitationRecipient,
+  normalizeInvitationToken,
+} from "../invitationEmailLogic";
+
+const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
+const invitationSender = "League Hub <notifications@jdbuilds.ca>";
 
 function stringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -27,20 +41,24 @@ async function ensureInvitationLookup(
   orgId: string,
   invitationId: string,
   data: FirebaseFirestore.DocumentData,
+  expiresAt: admin.firestore.Timestamp,
 ): Promise<void> {
   const lookupRef = db.collection("invitationLookups").doc(token);
   await db.runTransaction(async (transaction) => {
     const lookupDoc = await transaction.get(lookupRef);
-    if (lookupDoc.exists) return;
-
-    transaction.set(lookupRef, {
-      token,
-      orgId,
-      invitationId,
-      email: data.email || "",
-      status: data.status || "pending",
-      createdAt: toIsoString(data.createdAt),
-    });
+    if (lookupDoc.exists) {
+      transaction.set(lookupRef, {expiresAt}, {merge: true});
+    } else {
+      transaction.set(lookupRef, {
+        token,
+        orgId,
+        invitationId,
+        email: data.email || "",
+        status: data.status || "pending",
+        createdAt: toIsoString(data.createdAt),
+        expiresAt,
+      });
+    }
   });
 }
 
@@ -114,9 +132,14 @@ export const onInvitationCreated = onFirestoreCreated(
     const inviteeEmail = (data.email as string) || "";
     const inviteeName = (data.displayName as string) || inviteeEmail;
     const invitedByName = (data.invitedByName as string) || "Someone";
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      invitationExpiresAt(snapshot.createTime.toDate()),
+    );
+
+    await snapshot.ref.set({expiresAt}, {merge: true});
 
     if (token) {
-      await ensureInvitationLookup(token, orgId, invitationId, data);
+      await ensureInvitationLookup(token, orgId, invitationId, data, expiresAt);
     }
 
     // Notify admins in the org about the new invitation.
@@ -174,6 +197,158 @@ export const onInvitationCreated = onFirestoreCreated(
         );
       }
     }
+  },
+);
+
+/**
+ * Delivers a durable transactional email for every new invitation.
+ * Kept separate from push delivery so an email retry cannot duplicate pushes.
+ */
+export const onInvitationEmailCreated = onFirestoreCreated(
+  {
+    document: "organizations/{orgId}/invitations/{invitationId}",
+    region: "us-central1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    secrets: [RESEND_API_KEY],
+    retry: true,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+
+    const invitationRef = snapshot.ref;
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      invitationExpiresAt(snapshot.createTime.toDate()),
+    );
+    await invitationRef.set({expiresAt}, {merge: true});
+    const currentSnapshot = await invitationRef.get();
+    const invitation = currentSnapshot.data();
+    if (!invitation || invitation.status !== "pending") return;
+    if (invitation.emailDeliveryStatus === "delivered") return;
+
+    const recipient = normalizeInvitationRecipient(invitation.email);
+    if (!recipient) {
+      await invitationRef.set({
+        emailDeliveryStatus: "failed",
+        emailDeliveryError: "invalid-email",
+        emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      logger.error("Invitation email has an invalid recipient", {
+        orgId: event.params.orgId,
+        invitationId: event.params.invitationId,
+      });
+      return;
+    }
+
+    const token = normalizeInvitationToken(invitation.token);
+    if (!token) {
+      await invitationRef.set({
+        emailDeliveryStatus: "failed",
+        emailDeliveryError: "invalid-token",
+        emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      logger.error("Invitation email has an invalid token", {
+        orgId: event.params.orgId,
+        invitationId: event.params.invitationId,
+      });
+      return;
+    }
+
+    await ensureInvitationLookup(
+      token,
+      event.params.orgId,
+      event.params.invitationId,
+      invitation,
+      expiresAt,
+    );
+
+    const organizationSnapshot = await db.collection("organizations")
+      .doc(event.params.orgId)
+      .get();
+    const organizationName = stringValue(organizationSnapshot.data()?.name) ||
+      "your organization";
+    const message = buildInvitationEmail({
+      recipientName: stringValue(invitation.displayName) || null,
+      organizationName,
+      invitedByName: stringValue(invitation.invitedByName),
+      role: stringValue(invitation.role),
+      token,
+      expiresAt: expiresAt.toDate(),
+    });
+
+    let response: Response;
+    try {
+      response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${RESEND_API_KEY.value()}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": invitationIdempotencyKey(
+            event.params.orgId,
+            event.params.invitationId,
+          ),
+        },
+        body: JSON.stringify({
+          from: invitationSender,
+          to: [recipient],
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
+        }),
+      });
+    } catch (error) {
+      const failure = classifyInvitationDeliveryFailure(null);
+      await invitationRef.set({
+        emailDeliveryStatus: failure.deliveryStatus,
+        emailDeliveryError: failure.code,
+        emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      logger.error("Invitation email request failed", {
+        error,
+        orgId: event.params.orgId,
+        invitationId: event.params.invitationId,
+      });
+      throw error;
+    }
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      const failure = classifyInvitationDeliveryFailure(
+        response.status,
+        responseBody,
+      );
+      await invitationRef.set({
+        emailDeliveryStatus: failure.deliveryStatus,
+        emailDeliveryError: failure.code,
+        emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      logger.error("Invitation email delivery failed", {
+        status: response.status,
+        code: failure.code,
+        orgId: event.params.orgId,
+        invitationId: event.params.invitationId,
+      });
+      if (failure.retryable) {
+        throw new Error(
+          `Retryable invitation email delivery failure (${failure.code})`,
+        );
+      }
+      return;
+    }
+
+    const result = await response.json() as {id?: unknown};
+    await invitationRef.set({
+      emailDeliveryStatus: "delivered",
+      emailDeliveredAt: admin.firestore.FieldValue.serverTimestamp(),
+      emailDeliveryAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      emailDeliveryError: admin.firestore.FieldValue.delete(),
+      emailProviderId: typeof result.id === "string" ? result.id : null,
+    }, {merge: true});
+    logger.info("Invitation email delivered", {
+      orgId: event.params.orgId,
+      invitationId: event.params.invitationId,
+    });
   },
 );
 
