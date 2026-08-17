@@ -25,7 +25,9 @@ const {
   uploadBytes,
 } = require("firebase/storage");
 
-const projectId = `league-hub-rules-${process.pid}`;
+// Storage rules read Firestore documents through the emulator's configured
+// project, so the test SDK must use the same demo project as firebase.rules-test.json.
+const projectId = "demo-league-hub-rules";
 let testEnv;
 
 function emulatorAddress(name, fallbackPort) {
@@ -423,8 +425,40 @@ test("manager cannot overwrite another manager's out-of-scope policy file", asyn
   await assertFails(uploadBytes(ref(storage, objectPath), new Uint8Array([2])));
 });
 
+test("admin policy upload requires a reserved policy document", async () => {
+  await seedFirestore([
+    ["users/admin", user({id: "admin", role: "superAdmin"})],
+    ["organizations/org-1/policies/reserved-policy", {
+      id: "reserved-policy",
+      orgId: "org-1",
+      leagueId: null,
+      hubId: null,
+      teamId: null,
+      uploadedBy: "admin",
+      uploadedByName: "Admin",
+      category: "Policy",
+      fileUrl: "",
+      fileType: "application/pdf",
+      fileSize: 3,
+      uploadStatus: "uploading",
+      versions: [],
+    }],
+  ]);
+  const storage = testEnv.authenticatedContext("admin").storage();
+
+  await assertSucceeds(uploadBytes(
+    ref(storage, "organizations/org-1/policies/reserved-policy/policy.pdf"),
+    new Uint8Array([1, 2, 3]),
+  ));
+  await assertFails(uploadBytes(
+    ref(storage, "organizations/org-1/policies/missing-policy/policy.pdf"),
+    new Uint8Array([1, 2, 3]),
+  ));
+});
+
 test("policy writes allow organization, hub, and team targets but reject league-only scope", async () => {
   await seedFirestore([
+    ["users/owner", user({id: "owner", role: "platformOwner", orgId: null})],
     ["users/admin", user({id: "admin", role: "superAdmin"})],
     ["users/manager", user({
       id: "manager",
@@ -467,12 +501,21 @@ test("policy writes allow organization, hub, and team targets but reject league-
     ...target,
   });
   const adminDb = testEnv.authenticatedContext("admin").firestore();
+  const ownerDb = testEnv.authenticatedContext("owner").firestore();
   const managerDb = testEnv.authenticatedContext("manager").firestore();
   const staffDb = testEnv.authenticatedContext("staff").firestore();
 
   await assertSucceeds(setDoc(
     doc(adminDb, "organizations/org-1/policies/org-wide"),
     policy("org-wide", "admin", {leagueId: null, hubId: null, teamId: null}),
+  ));
+  await assertSucceeds(setDoc(
+    doc(ownerDb, "organizations/org-1/policies/owner-org-wide"),
+    policy("owner-org-wide", "owner", {leagueId: null, hubId: null, teamId: null}),
+  ));
+  await assertFails(setDoc(
+    doc(ownerDb, "organizations/org-1/policies/owner-league-only"),
+    policy("owner-league-only", "owner", {leagueId: "league-1", hubId: null, teamId: null}),
   ));
   await assertFails(setDoc(
     doc(managerDb, "organizations/org-1/policies/manager-org-wide"),

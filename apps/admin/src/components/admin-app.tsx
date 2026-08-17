@@ -58,7 +58,7 @@ import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignment
 import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, dateTimeLabel, timeAgo, toDate } from "@/lib/format";
-import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES } from "@/lib/policy-upload";
+import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES, runReservedPolicyUpload } from "@/lib/policy-upload";
 import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
 import { structureLogoStoragePath, validateStructureLogoFile } from "@/lib/structure-logo";
 import { demoUser } from "@/lib/demo-data";
@@ -3379,23 +3379,36 @@ function PolicyCreateDrawer({
     const fileRef = storageRef(storage, policyStoragePath(selectedOrgId, policyId, policyFile.name));
 
     try {
-      await uploadBytes(fileRef, policyFile, {
-        contentType: policyFile.type || "application/octet-stream"
+      await runReservedPolicyUpload({
+        reserve: async () => {
+          const result = await runAction("adminCreatePolicy", {
+            policyId,
+            name: policyName,
+            fileType: policyFile.type || "application/octet-stream",
+            fileSize: policyFile.size,
+            category: policyCategory
+          });
+          if (!result.ok) throw new Error(result.error);
+        },
+        upload: async () => {
+          await uploadBytes(fileRef, policyFile, {
+            contentType: policyFile.type || "application/octet-stream"
+          });
+          return getDownloadURL(fileRef);
+        },
+        finalize: async (fileUrl) => {
+          const result = await runAction("adminFinalizePolicyUpload", {
+            policyId,
+            fileUrl,
+            fileSize: policyFile.size
+          });
+          if (!result.ok) throw new Error(result.error);
+        },
+        cleanupFile: () => deleteObject(fileRef),
+        cleanupPolicy: async () => {
+          await runAction("adminDeletePolicy", { policyId });
+        }
       });
-      const fileUrl = await getDownloadURL(fileRef);
-      const result = await runAction("adminCreatePolicy", {
-        policyId,
-        name: policyName,
-        fileUrl,
-        fileType: policyFile.type || "application/octet-stream",
-        fileSize: policyFile.size,
-        category: policyCategory
-      });
-
-      if (!result.ok) {
-        await deleteObject(fileRef).catch(() => undefined);
-        return;
-      }
 
       setPolicyName("");
       setPolicyCategory(POLICY_CATEGORIES[0]);

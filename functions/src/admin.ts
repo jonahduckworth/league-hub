@@ -943,17 +943,51 @@ export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
       hubId: null,
       teamId: null,
       name: requiredString(data.name, "name"),
-      fileUrl: requiredString(data.fileUrl, "fileUrl"),
+      fileUrl: "",
       fileType: requiredString(data.fileType, "fileType"),
       fileSize: typeof data.fileSize === "number" ? data.fileSize : 0,
       category,
       uploadedBy: actor.id,
       uploadedByName: actor.displayName ?? actor.email ?? "Admin",
       versions: [],
+      uploadStatus: "uploading",
       createdAt: now(),
       updatedAt: now(),
     });
     return { policyId: ref.id };
+  });
+});
+
+export const adminFinalizePolicyUpload = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminFinalizePolicyUpload", async (actor, data, orgId) => {
+    const policyId = requiredString(data.policyId, "policyId");
+    const fileUrl = requiredString(data.fileUrl, "fileUrl");
+    const policyRef = orgRef(orgId).collection("policies").doc(policyId);
+    await db.runTransaction(async (transaction) => {
+      const snap = await transaction.get(policyRef);
+      if (!snap.exists) throw new HttpsError("not-found", "Policy was not found.");
+      const policy = snap.data() ?? {};
+      if (policy.uploadStatus !== "uploading" || policy.fileUrl) {
+        throw new HttpsError("failed-precondition", "Policy upload is not awaiting a file.");
+      }
+      const versionEntry = {
+        url: fileUrl,
+        fileUrl,
+        version: 1,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: policy.uploadedBy ?? actor.id,
+        uploadedByName: policy.uploadedByName ?? actor.displayName ?? actor.email ?? "Admin",
+        fileSize: typeof data.fileSize === "number" ? data.fileSize : policy.fileSize ?? 0,
+      };
+      transaction.update(policyRef, {
+        fileUrl,
+        fileSize: versionEntry.fileSize,
+        versions: [versionEntry],
+        uploadStatus: "ready",
+        updatedAt: now(),
+      });
+    });
+    return { policyId };
   });
 });
 

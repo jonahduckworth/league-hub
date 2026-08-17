@@ -402,6 +402,25 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Upload New Version'), findsOneWidget);
+        expect(find.textContaining('Uploading as Admin User'), findsOneWidget);
+        expect(find.textContaining('admin@example.com'), findsOneWidget);
+      });
+
+      test('uploader identity falls back to email when display name is empty',
+          () {
+        final user = AppUser(
+          id: 'admin-2',
+          email: 'fallback@example.com',
+          displayName: '',
+          role: UserRole.superAdmin,
+          orgId: 'org-1',
+          hubIds: const [],
+          teamIds: const [],
+          createdAt: DateTime(2024),
+          isActive: true,
+        );
+
+        expect(policyUploaderLabel(user), 'fallback@example.com');
       });
 
       testWidgets('shows upload new version button for uploader',

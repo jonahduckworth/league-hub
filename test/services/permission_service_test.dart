@@ -925,9 +925,12 @@ void main() {
 
     test('canUploadPolicyToScope standardizes organization, hub, and team', () {
       final ma = manager(leagueIds: ['l1'], hubIds: ['h1'], teamIds: ['t1']);
+      expect(service.canUploadPolicyToScope(owner(), leagueId: null), isTrue);
       expect(service.canUploadPolicyToScope(ma, leagueId: null), isFalse);
       expect(
           service.canUploadPolicyToScope(superAdmin(), leagueId: null), isTrue);
+      expect(service.canUploadPolicyToScope(staff(), leagueId: null), isFalse);
+      expect(service.canUploadPolicyToScope(owner(), leagueId: 'l1'), isFalse);
       expect(service.canUploadPolicyToScope(ma, leagueId: 'l1'), isFalse);
       expect(service.canUploadPolicyToScope(superAdmin(), leagueId: 'l1'),
           isFalse);
