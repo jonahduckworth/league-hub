@@ -424,8 +424,21 @@ service cloud.firestore {
             && (
               (
                 currentUser().role == 'superAdmin'
-                && userData.role in ['managerAdmin', 'staff']
-                && request.resource.data.role in ['managerAdmin', 'staff']
+                && (
+                  (
+                    userData.role in ['managerAdmin', 'staff']
+                    && request.resource.data.role in ['managerAdmin', 'staff']
+                  )
+                  || (
+                    userData.role == 'superAdmin'
+                    && request.resource.data.role == 'superAdmin'
+                    && request.resource.data.diff(userData).affectedKeys().hasOnly([
+                      'hubIds',
+                      'leagueIds',
+                      'teamIds'
+                    ])
+                  )
+                )
               )
               || (
                 currentUser().role == 'managerAdmin'

@@ -250,6 +250,28 @@ test("admin cannot move a managed user into another organization", async () => {
   await assertSucceeds(updateDoc(doc(db, "users/staff"), { title: "Coach" }));
 });
 
+test("admins can update peer admin assignments but not role, status, or profile", async () => {
+  await seedFirestore([
+    ["users/admin", user({ id: "admin", role: "superAdmin" })],
+    ["users/peer", user({ id: "peer", role: "superAdmin" })],
+    ["users/owner", user({ id: "owner", role: "platformOwner" })],
+  ]);
+  const db = testEnv.authenticatedContext("admin").firestore();
+  await assertSucceeds(updateDoc(doc(db, "users/peer"), {
+    leagueIds: ["league-1"],
+    hubIds: ["hub-1"],
+    teamIds: ["team-1"],
+  }));
+  await assertFails(updateDoc(doc(db, "users/peer"), { role: "managerAdmin" }));
+  await assertFails(updateDoc(doc(db, "users/peer"), { isActive: false }));
+  await assertFails(updateDoc(doc(db, "users/peer"), { title: "Commissioner" }));
+  await assertFails(updateDoc(doc(db, "users/owner"), {
+    leagueIds: ["league-1"],
+    hubIds: ["hub-1"],
+    teamIds: ["team-1"],
+  }));
+});
+
 test("admin cannot replace organization owner and bootstrap a platform owner", async () => {
   const organization = {
     id: "org-1",

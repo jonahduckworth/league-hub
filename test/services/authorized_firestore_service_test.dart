@@ -1002,6 +1002,39 @@ void main() {
         verify(mockFs.updateUserFields('u2', data)).called(1);
       });
 
+      test('allows superAdmin to update same-org peer admin assignments',
+          () async {
+        final actor = makeUser(id: 'admin', role: UserRole.superAdmin);
+        final target = makeUser(id: 'peer', role: UserRole.superAdmin);
+        final data = {
+          'hubIds': ['h1'],
+          'leagueIds': ['l1'],
+          'teamIds': ['t1'],
+        };
+        when(mockFs.updateUserFields('peer', data)).thenAnswer((_) async {});
+
+        await afs.updateUserFields(actor, target, data);
+
+        verify(mockFs.updateUserFields('peer', data)).called(1);
+      });
+
+      test('rejects peer admin role, profile, and status changes', () async {
+        final actor = makeUser(id: 'admin', role: UserRole.superAdmin);
+        final target = makeUser(id: 'peer', role: UserRole.superAdmin);
+
+        for (final data in [
+          {'role': 'managerAdmin'},
+          {'title': 'Commissioner'},
+          {'isActive': false},
+        ]) {
+          expect(
+            () => afs.updateUserFields(actor, target, data),
+            throwsA(isA<PermissionDeniedException>()),
+          );
+        }
+        verifyZeroInteractions(mockFs);
+      });
+
       test('managerAdmin updates only Staff fully inside assigned scope',
           () async {
         final manager = makeUser(

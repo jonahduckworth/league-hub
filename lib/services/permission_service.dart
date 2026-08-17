@@ -243,6 +243,18 @@ class PermissionService {
     return true;
   }
 
+  bool canManageUserAssignments(AppUser actor, AppUser target) {
+    if (!isActiveUser(actor)) return false;
+    if (actor.id == target.id || target.role == UserRole.platformOwner) {
+      return false;
+    }
+    if (actor.role == UserRole.platformOwner) return true;
+    if (actor.role == UserRole.superAdmin) {
+      return actor.orgId != null && actor.orgId == target.orgId;
+    }
+    return canManageUser(actor, target);
+  }
+
   bool canDeactivateUser(AppUser actor, AppUser target) =>
       canManageUser(actor, target);
 

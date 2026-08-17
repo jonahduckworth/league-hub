@@ -6,9 +6,11 @@ const {
   canCreateLeague,
   canManageInvitationRole,
   canManageTarget,
+  canManageTargetAssignments,
   isManagedChatRoomType,
   isValidAnnouncementTarget,
   isValidPolicyCategory,
+  nullableStringPatch,
   normalizeStringArray,
   outranks,
   teamMemberRecordsMatchOrg,
@@ -86,9 +88,69 @@ test("admin user management follows self, org, and hierarchy restrictions", () =
   );
 });
 
+test("peer admins can manage assignments without gaining full user control", () => {
+  const actor = {
+    id: "admin",
+    role: "superAdmin",
+    orgId: "org-1",
+    isActive: true,
+  };
+  assert.equal(
+    canManageTargetAssignments(actor, {
+      id: "peer",
+      role: "superAdmin",
+      orgId: "org-1",
+    }),
+    true,
+  );
+  assert.equal(
+    canManageTarget(actor, {
+      id: "peer",
+      role: "superAdmin",
+      orgId: "org-1",
+    }),
+    false,
+  );
+  assert.equal(
+    canManageTargetAssignments(actor, {
+      id: "other-org",
+      role: "superAdmin",
+      orgId: "org-2",
+    }),
+    false,
+  );
+  assert.equal(
+    canManageTargetAssignments(actor, {
+      id: "owner",
+      role: "platformOwner",
+      orgId: "org-1",
+    }),
+    false,
+  );
+});
+
 test("normalizes string arrays for hub and team assignment inputs", () => {
   assert.deepEqual(normalizeStringArray([" a ", "a", "", 3, "b"]), ["a", "b"]);
   assert.deepEqual(normalizeStringArray(null), []);
+});
+
+test("structure updates preserve omitted optional fields and allow explicit clearing", () => {
+  assert.deepEqual(
+    nullableStringPatch({ name: "Wolves" }, ["logoUrl", "websiteUrl"], true),
+    {},
+  );
+  assert.deepEqual(
+    nullableStringPatch({ logoUrl: "  https://example.com/logo.png  " }, ["logoUrl"], true),
+    { logoUrl: "https://example.com/logo.png" },
+  );
+  assert.deepEqual(
+    nullableStringPatch({ logoUrl: null }, ["logoUrl"], true),
+    { logoUrl: null },
+  );
+  assert.deepEqual(
+    nullableStringPatch({}, ["logoUrl", "websiteUrl"], false),
+    { logoUrl: null, websiteUrl: null },
+  );
 });
 
 test("invitation expiration follows the same role hierarchy as creation", () => {

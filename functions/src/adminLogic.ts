@@ -100,9 +100,38 @@ export function canManageTarget(actor: ActorLike, target: TargetLike): boolean {
   return actor.orgId != null && actor.orgId === target.orgId;
 }
 
+export function canManageTargetAssignments(
+  actor: ActorLike,
+  target: TargetLike,
+): boolean {
+  if (!actor.isActive || !isAdminRole(actor.role)) return false;
+  if (actor.id === target.id) return false;
+  if (target.role === "platformOwner") return false;
+  if (actor.role === "platformOwner") return true;
+  return actor.orgId != null &&
+    actor.orgId === target.orgId &&
+    isUserRole(target.role);
+}
+
 export function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.filter((item): item is string => {
     return typeof item === "string" && item.trim().length > 0;
   }).map((item) => item.trim()))];
+}
+
+export function nullableStringPatch(
+  source: Record<string, unknown>,
+  fields: string[],
+  existing: boolean,
+): Record<string, string | null> {
+  const patch: Record<string, string | null> = {};
+  for (const field of fields) {
+    if (existing && !(field in source)) continue;
+    const value = source[field];
+    patch[field] = typeof value === "string" && value.trim().length > 0
+      ? value.trim()
+      : null;
+  }
+  return patch;
 }
