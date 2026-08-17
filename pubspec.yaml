@@ -1,7 +1,7 @@
 name: league_hub
 description: "League Hub - Manage your sports leagues, hubs, and teams."
 publish_to: 'none'
-version: 1.0.0+9
+version: 1.0.0+10
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -33,6 +33,7 @@ dependencies:
   open_filex: ^4.7.0
   liquid_glass_widgets: ^0.12.2
   geolocator: ^14.0.2
+  pdfrx: ^2.4.7
 
 dev_dependencies:
   flutter_test:
