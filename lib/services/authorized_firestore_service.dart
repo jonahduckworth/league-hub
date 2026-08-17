@@ -231,7 +231,9 @@ class AuthorizedFirestoreService {
 
   Future<void> _assertCanUpdateUserFields(
       AppUser actor, AppUser target, Map<String, dynamic> data) async {
-    if (!_ps.canManageUser(actor, target)) {
+    final canManageFully = _ps.canManageUser(actor, target);
+    final canManageAssignments = _ps.canManageUserAssignments(actor, target);
+    if (!canManageFully && !canManageAssignments) {
       _deny('updateUserFields', actor);
     }
     const allowedFields = {
@@ -246,6 +248,11 @@ class AuthorizedFirestoreService {
     };
     if (data.keys.any((key) => !allowedFields.contains(key))) {
       _deny('updateUserFields immutable fields', actor);
+    }
+    const assignmentFields = {'hubIds', 'leagueIds', 'teamIds'};
+    if (!canManageFully &&
+        data.keys.any((key) => !assignmentFields.contains(key))) {
+      _deny('updateUserFields peer admin non-assignment fields', actor);
     }
     if (actor.role == UserRole.managerAdmin) {
       if (data.containsKey('role') && data['role'] != target.role.name) {

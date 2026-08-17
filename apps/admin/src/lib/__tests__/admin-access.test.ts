@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignableRoles, canAccessAdmin, canManageUser, roleLabel } from "../admin-access";
+import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignments, roleLabel } from "../admin-access";
 import type { AppUser } from "../types";
 
 const baseUser: AppUser = {
@@ -35,6 +35,17 @@ describe("admin access helpers", () => {
     expect(canManageUser(actor, { ...baseUser, id: "admin", role: "superAdmin" })).toBe(false);
     expect(canManageUser(actor, { ...baseUser, id: "peer", role: "superAdmin" })).toBe(false);
     expect(canManageUser(actor, { ...baseUser, id: "staff-2", role: "staff", orgId: "org-2" })).toBe(false);
+  });
+
+  it("allows same-org peer admins to edit assignments without full control", () => {
+    const actor = { ...baseUser, id: "admin", role: "superAdmin" as const };
+    const peer = { ...baseUser, id: "peer", role: "superAdmin" as const };
+
+    expect(canManageUser(actor, peer)).toBe(false);
+    expect(canManageUserAssignments(actor, peer)).toBe(true);
+    expect(canManageUserAssignments(actor, { ...peer, orgId: "org-2" })).toBe(false);
+    expect(canManageUserAssignments(actor, { ...peer, role: "platformOwner" })).toBe(false);
+    expect(canManageUserAssignments(actor, actor)).toBe(false);
   });
 
   it("renders human role labels", () => {

@@ -11,11 +11,13 @@ import {
   canCreateLeague,
   canManageInvitationRole,
   canManageTarget,
+  canManageTargetAssignments,
   isAdminRole,
   isManagedChatRoomType,
   isValidAnnouncementTarget,
   isValidPolicyCategory,
   isUserRole,
+  nullableStringPatch,
   normalizeStringArray,
   teamMemberRecordsMatchOrg,
 } from "./adminLogic";
@@ -673,8 +675,19 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
     const targetSnap = await targetRef.get();
     if (!targetSnap.exists) throw new HttpsError("not-found", "User was not found.");
     const targetData = docData(targetSnap);
-    if (!canManageTarget(actor, { id: targetSnap.id, orgId: targetData.orgId, role: targetData.role })) {
+    const target = { id: targetSnap.id, orgId: targetData.orgId, role: targetData.role };
+    const canManageFully = canManageTarget(actor, target);
+    const canManageAssignments = canManageTargetAssignments(actor, target);
+    if (!canManageFully && !canManageAssignments) {
       throw new HttpsError("permission-denied", "You cannot manage this user.");
+    }
+
+    if (!canManageFully &&
+        (data.role !== undefined || data.isActive !== undefined || data.profilePatch !== undefined)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only a platform owner can change another admin's role, status, or profile.",
+      );
     }
 
     const updates: DocumentData = {};
@@ -729,12 +742,14 @@ export const adminUpsertLeague = onCall(adminRuntime, async (request) => {
       orgId,
       name: requiredString(league.name, "league.name"),
       abbreviation: requiredString(league.abbreviation, "league.abbreviation"),
-      description: optionalString(league.description) ?? null,
-      logoUrl: optionalString(league.logoUrl) ?? null,
-      iconName: optionalString(league.iconName) ?? null,
-      websiteUrl: optionalString(league.websiteUrl) ?? null,
-      instagramUrl: optionalString(league.instagramUrl) ?? null,
-      xUrl: optionalString(league.xUrl) ?? null,
+      ...nullableStringPatch(league, [
+        "description",
+        "logoUrl",
+        "iconName",
+        "websiteUrl",
+        "instagramUrl",
+        "xUrl",
+      ], exists),
       ...(exists ? {} : { createdAt: now() }),
     };
     await leagueRef.set(payload, { merge: true });
@@ -769,9 +784,7 @@ export const adminUpsertHub = onCall(adminRuntime, async (request) => {
       orgId,
       leagueId,
       name: requiredString(hub.name, "hub.name"),
-      location: optionalString(hub.location) ?? null,
-      logoUrl: optionalString(hub.logoUrl) ?? null,
-      iconName: optionalString(hub.iconName) ?? null,
+      ...nullableStringPatch(hub, ["location", "logoUrl", "iconName"], exists),
       ...(exists ? {} : { createdAt: now() }),
     };
     await hubRef.set(payload, { merge: true });
@@ -809,10 +822,12 @@ export const adminUpsertTeam = onCall(adminRuntime, async (request) => {
       leagueId,
       hubId,
       name: requiredString(team.name, "team.name"),
-      ageGroup: optionalString(team.ageGroup) ?? null,
-      division: optionalString(team.division) ?? null,
-      logoUrl: optionalString(team.logoUrl) ?? null,
-      iconName: optionalString(team.iconName) ?? null,
+      ...nullableStringPatch(team, [
+        "ageGroup",
+        "division",
+        "logoUrl",
+        "iconName",
+      ], before.exists),
       memberIds,
       ...(before.exists ? {} : { createdAt: now() }),
     };

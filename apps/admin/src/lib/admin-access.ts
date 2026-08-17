@@ -43,3 +43,10 @@ export function canManageUser(actor: AppUser, target: AppUser): boolean {
   if (actor.role === "platformOwner") return true;
   return actor.orgId != null && actor.orgId === target.orgId;
 }
+
+export function canManageUserAssignments(actor: AppUser, target: AppUser): boolean {
+  if (!canAccessAdmin(actor)) return false;
+  if (actor.id === target.id || target.role === "platformOwner") return false;
+  if (actor.role === "platformOwner") return true;
+  return actor.orgId != null && actor.orgId === target.orgId;
+}

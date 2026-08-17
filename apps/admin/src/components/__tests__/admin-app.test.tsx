@@ -220,6 +220,34 @@ describe("AdminApp operations shell", () => {
     expect(document.activeElement).toBe(memberButton);
   });
 
+  it("lets admins edit peer assignments while preserving peer role and status safety", async () => {
+    const originalRole = demoUser.role;
+    demoUser.role = "superAdmin";
+    window.history.replaceState(null, "", "/admin#people");
+
+    try {
+      render(<AdminApp />);
+      await screen.findByRole("heading", { level: 1, name: "People" });
+      fireEvent.click(screen.getByRole("button", { name: "Open Avery Admin member details" }));
+
+      const drawer = await screen.findByRole("dialog", { name: "Avery Admin" });
+      expect(within(drawer).getByText(/Admins automatically have organization-wide access/)).toBeTruthy();
+      expect(within(drawer).getByText(/Only a Platform Owner can change another Admin’s role/)).toBeTruthy();
+      expect(within(drawer).queryByRole("combobox", { name: "Role" })).toBeNull();
+      expect(within(drawer).queryByRole("button", { name: "Deactivate User" })).toBeNull();
+
+      fireEvent.click(within(drawer).getByRole("button", { name: "Select all hubs & teams" }));
+      await waitFor(() => {
+        expect((within(drawer).getByRole("checkbox", { name: "Red Deer U13 A" }) as HTMLInputElement).checked).toBe(true);
+      });
+      expect((within(drawer).getByRole("checkbox", { name: "Calgary" }) as HTMLInputElement).checked).toBe(true);
+      expect(within(drawer).getByRole("button", { name: "Save access" })).toBeTruthy();
+    } finally {
+      cleanup();
+      demoUser.role = originalRole;
+    }
+  });
+
   it("shows invitation email delivery state in the people workspace", async () => {
     window.history.replaceState(null, "", "/admin#people");
     render(<AdminApp />);
@@ -322,6 +350,18 @@ describe("AdminApp operations shell", () => {
     expect(within(drawer).getByText("Avery Admin")).toBeTruthy();
     expect(within(drawer).getByText("Morgan Manager")).toBeTruthy();
     expect(within(drawer).getByRole("button", { name: "Save changes" })).toBeTruthy();
+    expect(within(drawer).getByLabelText("team logo file")).toBeTruthy();
+    expect(within(drawer).getByText("Replace logo")).toBeTruthy();
+    fireEvent.change(within(drawer).getByLabelText("team logo file"), {
+      target: { files: [new File(["logo"], "wolves.svg", { type: "image/svg+xml" })] }
+    });
+    expect(within(drawer).getByText("Choose a PNG, JPG, or WebP image.")).toBeTruthy();
+    fireEvent.change(within(drawer).getByLabelText("team logo file"), {
+      target: { files: [new File(["logo"], "wolves.png", { type: "image/png" })] }
+    });
+    expect(within(drawer).getByText("wolves.png")).toBeTruthy();
+    fireEvent.click(within(drawer).getByRole("button", { name: "Use parent logo" }));
+    expect(within(drawer).getByText("Parent logo selected")).toBeTruthy();
     fireEvent.click(within(drawer).getByRole("button", { name: "Delete team" }));
     expect(within(drawer).getByText("Delete this team?")).toBeTruthy();
   });

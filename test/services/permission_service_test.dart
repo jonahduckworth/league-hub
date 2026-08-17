@@ -594,6 +594,34 @@ void main() {
       });
     });
 
+    group('canManageUserAssignments', () {
+      test('allows a super admin to update same-org peer assignments only', () {
+        final actor = superAdmin();
+        final peer = makeUser(id: 'peer', role: UserRole.superAdmin);
+
+        expect(service.canManageUser(actor, peer), isFalse);
+        expect(service.canManageUserAssignments(actor, peer), isTrue);
+      });
+
+      test('rejects self, platform owner, and cross-org assignments', () {
+        final actor = superAdmin();
+
+        expect(service.canManageUserAssignments(actor, actor), isFalse);
+        expect(service.canManageUserAssignments(actor, owner()), isFalse);
+        expect(
+          service.canManageUserAssignments(
+            actor,
+            makeUser(
+              id: 'peer',
+              role: UserRole.superAdmin,
+              orgId: 'other-org',
+            ),
+          ),
+          isFalse,
+        );
+      });
+    });
+
     group('canChangeUserRole', () {
       test('superAdmin+ can change roles of lower-ranked users', () {
         expect(service.canChangeUserRole(superAdmin(), manager()), isTrue);

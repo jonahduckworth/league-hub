@@ -54,12 +54,13 @@ import { auth, db, demoMode, firebaseProjectId, hasFirebaseConfig, storage } fro
 import { formatAdminActionError } from "@/lib/action-errors";
 import { callAdmin, type CallableName } from "@/lib/callables";
 import { useAdminData } from "@/lib/firestore";
-import { assignableRoles, canAccessAdmin, canManageUser, roleLabel } from "@/lib/admin-access";
+import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignments, roleLabel } from "@/lib/admin-access";
 import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, dateTimeLabel, timeAgo, toDate } from "@/lib/format";
 import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES } from "@/lib/policy-upload";
 import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
+import { structureLogoStoragePath, validateStructureLogoFile } from "@/lib/structure-logo";
 import { demoUser } from "@/lib/demo-data";
 import type {
   AdminData,
@@ -1570,7 +1571,6 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
       default: return "warning";
     }
   };
-  const manageable = selectedUser ? canManageUser(currentUser, selectedUser) : false;
   const filters: Array<WorkspaceFilterItem<PeopleView>> = [
     { id: "all", label: "All Members", count: data.users.length, icon: Users },
     { id: "managers", label: "Managers", count: managers.length, icon: UserCog },
@@ -1726,26 +1726,12 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
               </div>
             </DrawerSection>
             <DrawerSection title="Access">
-              {manageable ? (
-                <div className="grid gap-3">
-                  <Field label="Role">
-                    <Select
-                      value={selectedUser.role}
-                      onChange={(event) => runAction("adminUpdateUserAccess", { targetUserId: selectedUser.id, role: event.target.value })}
-                    >
-                      {assignableRoles(currentUser).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
-                    </Select>
-                  </Field>
-                  <Button
-                    variant={selectedUser.isActive ? "danger" : "secondary"}
-                    onClick={() => runAction("adminUpdateUserAccess", { targetUserId: selectedUser.id, isActive: !selectedUser.isActive })}
-                  >
-                    {selectedUser.isActive ? "Deactivate User" : "Reactivate User"}
-                  </Button>
-                </div>
-              ) : (
-                <EmptyLine label="You cannot manage this user from your current role" />
-              )}
+              <UserAccessEditor
+                data={data}
+                currentUser={currentUser}
+                selectedUser={selectedUser}
+                runAction={runAction}
+              />
             </DrawerSection>
           </>
         )}
@@ -1780,6 +1766,145 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
         onClose={() => setCreateInviteOpen(false)}
       />
     </>
+  );
+}
+
+function UserAccessEditor({
+  data,
+  currentUser,
+  selectedUser,
+  runAction
+}: {
+  data: AdminData;
+  currentUser: AppUser;
+  selectedUser: AppUser;
+  runAction: ActionRunner;
+}) {
+  const canManageFully = canManageUser(currentUser, selectedUser);
+  const canManageAssignments = canManageUserAssignments(currentUser, selectedUser);
+  const [hubIds, setHubIds] = useState(selectedUser.hubIds);
+  const [teamIds, setTeamIds] = useState(selectedUser.teamIds);
+  const [savingAssignments, setSavingAssignments] = useState(false);
+
+  useEffect(() => {
+    setHubIds(selectedUser.hubIds);
+    setTeamIds(selectedUser.teamIds);
+    setSavingAssignments(false);
+  }, [selectedUser.id, selectedUser.hubIds, selectedUser.teamIds]);
+
+  if (!canManageFully && !canManageAssignments) {
+    return <EmptyLine label="You cannot manage this user from your current role" />;
+  }
+
+  const availableTeams = data.teams.filter((team) => hubIds.includes(team.hubId));
+  const selectedLeagueIds = [...new Set(hubIds
+    .map((hubId) => data.hubs.find((hub) => hub.id === hubId)?.leagueId)
+    .filter((leagueId): leagueId is string => Boolean(leagueId)))];
+
+  function updateHubIds(nextHubIds: string[]) {
+    const validTeamIds = new Set(data.teams
+      .filter((team) => nextHubIds.includes(team.hubId))
+      .map((team) => team.id));
+    setHubIds(nextHubIds);
+    setTeamIds((current) => current.filter((teamId) => validTeamIds.has(teamId)));
+  }
+
+  async function saveAssignments() {
+    setSavingAssignments(true);
+    try {
+      await runAction("adminUpdateUserAccess", {
+        targetUserId: selectedUser.id,
+        leagueIds: selectedLeagueIds,
+        hubIds,
+        teamIds
+      });
+    } finally {
+      setSavingAssignments(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-4">
+      {selectedUser.role === "superAdmin" && (
+        <div className="rounded-xl border border-sky/20 bg-sky/[0.06] p-3.5 text-sm font-semibold leading-5 text-ink">
+          Admins automatically have organization-wide access to every league, hub, and team. Recorded assignments are optional and can be useful if this person’s role changes later.
+        </div>
+      )}
+      {canManageFully ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Role">
+            <Select
+              value={selectedUser.role}
+              onChange={(event) => runAction("adminUpdateUserAccess", { targetUserId: selectedUser.id, role: event.target.value })}
+            >
+              {assignableRoles(currentUser).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+            </Select>
+          </Field>
+          <div className="flex items-end">
+            <Button
+              className="w-full"
+              variant={selectedUser.isActive ? "danger" : "secondary"}
+              onClick={() => runAction("adminUpdateUserAccess", { targetUserId: selectedUser.id, isActive: !selectedUser.isActive })}
+            >
+              {selectedUser.isActive ? "Deactivate User" : "Reactivate User"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm font-semibold leading-5 text-muted">
+          You can update this Admin’s recorded assignments. Only a Platform Owner can change another Admin’s role or deactivate their account.
+        </p>
+      )}
+
+      {canManageAssignments && (
+        <div className="grid gap-3 border-t border-line/80 pt-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-extrabold text-ink">Hub and team assignments</p>
+              <p className="mt-0.5 text-xs font-semibold text-muted">Select a hub before choosing its teams.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                className="min-h-10 px-3 text-xs"
+                onClick={() => {
+                  setHubIds(data.hubs.map((hub) => hub.id));
+                  setTeamIds(data.teams.map((team) => team.id));
+                }}
+              >
+                Select all hubs & teams
+              </Button>
+              <Button
+                variant="ghost"
+                className="min-h-10 px-3 text-xs"
+                onClick={() => {
+                  setHubIds([]);
+                  setTeamIds([]);
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+          <CheckboxGroup
+            label="Hubs"
+            options={data.hubs.map((hub) => ({ id: hub.id, label: hub.name }))}
+            values={hubIds}
+            setValues={updateHubIds}
+          />
+          <CheckboxGroup
+            label="Teams"
+            options={availableTeams.map((team) => ({ id: team.id, label: team.name }))}
+            values={teamIds}
+            setValues={setTeamIds}
+          />
+          <Button disabled={savingAssignments} onClick={saveAssignments}>
+            <Save className="size-4" aria-hidden />
+            {savingAssignments ? "Saving access…" : "Save access"}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2381,9 +2506,25 @@ function StructureEditorDrawer({
   const [location, setLocation] = useState("");
   const [ageGroup, setAgeGroup] = useState("");
   const [division, setDivision] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [removeLogo, setRemoveLogo] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [logoInputKey, setLogoInputKey] = useState(0);
+  const [localLogoUrl, setLocalLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selection) return;
+    setLogoFile(null);
+    setRemoveLogo(false);
+    setLogoError(null);
+    setLogoInputKey((current) => current + 1);
+    setLocalLogoUrl(
+      selection.type === "league"
+        ? selection.league.logoUrl ?? null
+        : selection.type === "hub"
+          ? selection.hub.logoUrl ?? null
+          : selection.team.logoUrl ?? null
+    );
     if (selection.type === "league") {
       setName(selection.league.name);
       setAbbreviation(selection.league.abbreviation);
@@ -2409,29 +2550,68 @@ function StructureEditorDrawer({
 
   async function save() {
     if (!selection) return;
+    setLogoError(null);
+    let changedLogoUrl: string | null | undefined;
+    try {
+      if (removeLogo) {
+        changedLogoUrl = null;
+      } else if (logoFile) {
+        const validationError = validateStructureLogoFile(logoFile);
+        if (validationError) {
+          setLogoError(validationError);
+          return;
+        }
+        const orgId = data.selectedOrg?.id;
+        const firebaseUser = auth?.currentUser;
+        if (!storage || !orgId || !firebaseUser) {
+          setLogoError("Logo uploads are not available in this session. Refresh the page and try again.");
+          return;
+        }
+        const entityId = selection.type === "league"
+          ? selection.league.id
+          : selection.type === "hub"
+            ? selection.hub.id
+            : selection.team.id;
+        const fileRef = storageRef(storage, structureLogoStoragePath({
+          orgId,
+          entityType: selection.type,
+          entityId,
+          userId: firebaseUser.uid,
+          fileName: logoFile.name
+        }));
+        await uploadBytes(fileRef, logoFile, { contentType: logoFile.type });
+        changedLogoUrl = await getDownloadURL(fileRef);
+      }
+    } catch (caught) {
+      setLogoError(caught instanceof Error ? caught.message : "The logo could not be uploaded.");
+      return;
+    }
+    let result: ActionResult | undefined;
     if (selection.type === "league") {
-      await runAction("adminUpsertLeague", {
+      result = await runAction("adminUpsertLeague", {
         league: {
           id: selection.league.id,
           name,
           abbreviation,
-          iconName: selection.league.iconName ?? "league"
+          iconName: selection.league.iconName ?? "league",
+          ...(changedLogoUrl !== undefined ? { logoUrl: changedLogoUrl } : {})
         }
       });
     }
     if (selection.type === "hub") {
-      await runAction("adminUpsertHub", {
+      result = await runAction("adminUpsertHub", {
         leagueId: selection.league.id,
         hub: {
           id: selection.hub.id,
           name,
           location,
-          iconName: selection.hub.iconName ?? "hub"
+          iconName: selection.hub.iconName ?? "hub",
+          ...(changedLogoUrl !== undefined ? { logoUrl: changedLogoUrl } : {})
         }
       });
     }
     if (selection.type === "team") {
-      await runAction("adminUpsertTeam", {
+      result = await runAction("adminUpsertTeam", {
         leagueId: selection.league.id,
         hubId: selection.hub.id,
         team: {
@@ -2440,9 +2620,16 @@ function StructureEditorDrawer({
           ageGroup,
           division,
           iconName: selection.team.iconName ?? "team",
-          memberIds: selection.team.memberIds
+          memberIds: selection.team.memberIds,
+          ...(changedLogoUrl !== undefined ? { logoUrl: changedLogoUrl } : {})
         }
       });
+    }
+    if (result?.ok) {
+      if (changedLogoUrl !== undefined) setLocalLogoUrl(changedLogoUrl);
+      setLogoFile(null);
+      setRemoveLogo(false);
+      setLogoInputKey((current) => current + 1);
     }
   }
 
@@ -2483,6 +2670,13 @@ function StructureEditorDrawer({
     : selection?.type === "hub"
       ? data.teams.filter((team) => team.hubId === selection.hub.id)
       : [];
+  const currentLogoUrl = localLogoUrl;
+  const inheritedLogoUrl = selection?.type === "hub"
+    ? selection.league.logoUrl
+    : selection?.type === "team"
+      ? selection.hub.logoUrl ?? selection.league.logoUrl
+      : null;
+  const displayedLogoUrl = removeLogo ? inheritedLogoUrl : currentLogoUrl ?? inheritedLogoUrl;
 
   return (
     <SideDrawer
@@ -2512,6 +2706,61 @@ function StructureEditorDrawer({
                 <Field label="Division"><Input value={division} onChange={(event) => setDivision(event.target.value)} /></Field>
               </div>
             )}
+          </DrawerSection>
+          <DrawerSection title="Logo">
+            <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+              <StructureEntityLogo
+                name={name || title}
+                imageUrl={displayedLogoUrl}
+                icon={Icon}
+                level={selection.type}
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-ink">
+                  {logoFile
+                    ? logoFile.name
+                    : removeLogo
+                      ? inheritedLogoUrl ? "Parent logo selected" : "Default icon selected"
+                      : currentLogoUrl ? "Custom logo" : inheritedLogoUrl ? "Using parent logo" : "Using default icon"}
+                </p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-muted">PNG, JPG, or WebP up to 10 MB. Transparent PNG works best.</p>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink shadow-sm transition-colors hover:border-[#b8c4d2] hover:bg-[#f8fafc] focus-within:ring-4 focus-within:ring-teal/20">
+                <UploadCloud className="size-4" aria-hidden />
+                {currentLogoUrl || logoFile ? "Replace logo" : "Upload logo"}
+                <input
+                  key={logoInputKey}
+                  type="file"
+                  className="sr-only"
+                  aria-label={`${selection.type} logo file`}
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    if (!file) return;
+                    const validationError = validateStructureLogoFile(file);
+                    setLogoError(validationError);
+                    setLogoFile(validationError ? null : file);
+                    setRemoveLogo(false);
+                  }}
+                />
+              </label>
+              {(currentLogoUrl || logoFile) && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setLogoFile(null);
+                    setRemoveLogo(true);
+                    setLogoError(null);
+                    setLogoInputKey((current) => current + 1);
+                  }}
+                >
+                  {inheritedLogoUrl ? "Use parent logo" : "Remove logo"}
+                </Button>
+              )}
+            </div>
+            {logoError && <StatusNotice tone="error" message={logoError} />}
           </DrawerSection>
           <DrawerSection title="Connections">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
