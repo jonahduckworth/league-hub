@@ -59,6 +59,12 @@ export function isOrganizationWidePolicyTarget(value: Record<string, unknown>): 
   return value.leagueId == null && value.hubId == null && value.teamId == null;
 }
 
+export function initialPolicyUploadMode(fileUrl: unknown): "ready" | "uploading" {
+  return typeof fileUrl === "string" && fileUrl.trim().length > 0
+    ? "ready"
+    : "uploading";
+}
+
 export function outranks(actorRole: unknown, targetRole: unknown): boolean {
   if (!isUserRole(actorRole) || !isUserRole(targetRole)) return false;
   return roleOrder.indexOf(actorRole) < roleOrder.indexOf(targetRole);

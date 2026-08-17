@@ -14,6 +14,7 @@ import {
   canManageTargetAssignments,
   isAdminRole,
   isManagedChatRoomType,
+  initialPolicyUploadMode,
   isOrganizationWidePolicyTarget,
   isValidAnnouncementTarget,
   isValidPolicyCategory,
@@ -937,20 +938,32 @@ export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
         "Admin dashboard policies must be organization-wide.",
       );
     }
+    const uploadMode = initialPolicyUploadMode(data.fileUrl);
+    const initialFileUrl = uploadMode === "ready" ? requiredString(data.fileUrl, "fileUrl") : "";
+    const uploaderName = actor.displayName ?? actor.email ?? "Admin";
+    const initialVersion = uploadMode === "ready" ? [{
+      url: initialFileUrl,
+      fileUrl: initialFileUrl,
+      version: 1,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: actor.id,
+      uploadedByName: uploaderName,
+      fileSize: typeof data.fileSize === "number" ? data.fileSize : 0,
+    }] : [];
     await ref.set({
       orgId,
       leagueId: null,
       hubId: null,
       teamId: null,
       name: requiredString(data.name, "name"),
-      fileUrl: "",
+      fileUrl: initialFileUrl,
       fileType: requiredString(data.fileType, "fileType"),
       fileSize: typeof data.fileSize === "number" ? data.fileSize : 0,
       category,
       uploadedBy: actor.id,
-      uploadedByName: actor.displayName ?? actor.email ?? "Admin",
-      versions: [],
-      uploadStatus: "uploading",
+      uploadedByName: uploaderName,
+      versions: initialVersion,
+      uploadStatus: uploadMode,
       createdAt: now(),
       updatedAt: now(),
     });
