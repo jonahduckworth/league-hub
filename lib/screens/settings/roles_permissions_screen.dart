@@ -51,7 +51,7 @@ class RolesPermissionsScreen extends ConsumerWidget {
         'Update assigned hubs and manage their teams',
         'Invite and manage Staff in assigned hubs',
         'Create scoped announcements',
-        'Upload and edit own scoped policies',
+        'Upload and edit own hub or team policies',
         'Create and manage scoped chat rooms',
       ],
       icon: Icons.manage_accounts_outlined,

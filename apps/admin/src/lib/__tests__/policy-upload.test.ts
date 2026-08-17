@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   POLICY_FILE_MAX_BYTES,
   isPolicyFileAllowed,
   POLICY_CATEGORIES,
   policyStoragePath,
-  sanitizeStorageFileName
+  sanitizeStorageFileName,
+  runReservedPolicyUpload
 } from "../policy-upload";
 
 describe("policy upload helpers", () => {
@@ -24,5 +25,35 @@ describe("policy upload helpers", () => {
   it("allows files at or under the policy upload limit", () => {
     expect(isPolicyFileAllowed({ size: POLICY_FILE_MAX_BYTES })).toBe(true);
     expect(isPolicyFileAllowed({ size: POLICY_FILE_MAX_BYTES + 1 })).toBe(false);
+  });
+
+  it("reserves metadata before Storage upload and finalizes afterward", async () => {
+    const order: string[] = [];
+    const fileUrl = await runReservedPolicyUpload({
+      reserve: async () => { order.push("reserve"); },
+      upload: async () => { order.push("upload"); return "https://example.com/policy.pdf"; },
+      finalize: async () => { order.push("finalize"); },
+      cleanupFile: vi.fn(),
+      cleanupPolicy: vi.fn()
+    });
+
+    expect(fileUrl).toBe("https://example.com/policy.pdf");
+    expect(order).toEqual(["reserve", "upload", "finalize"]);
+  });
+
+  it("cleans up both file and reservation when finalization fails", async () => {
+    const cleanupFile = vi.fn(async () => undefined);
+    const cleanupPolicy = vi.fn(async () => undefined);
+
+    await expect(runReservedPolicyUpload({
+      reserve: async () => undefined,
+      upload: async () => "https://example.com/policy.pdf",
+      finalize: async () => { throw new Error("finalization failed"); },
+      cleanupFile,
+      cleanupPolicy
+    })).rejects.toThrow("finalization failed");
+
+    expect(cleanupFile).toHaveBeenCalledOnce();
+    expect(cleanupPolicy).toHaveBeenCalledOnce();
   });
 });

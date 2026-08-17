@@ -23,6 +23,18 @@ void main() {
       isActive: true,
     );
 
+    final adminUser = AppUser(
+      id: 'admin-1',
+      email: 'admin@example.com',
+      displayName: 'Admin User',
+      role: UserRole.superAdmin,
+      orgId: 'org-1',
+      hubIds: const [],
+      teamIds: const [],
+      createdAt: DateTime(2024),
+      isActive: true,
+    );
+
     final testLeagues = [
       League(
         id: 'league-1',
@@ -96,10 +108,7 @@ void main() {
       testWidgets('displays shell header title', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('upload-policy-submit-button')),
-          findsOneWidget,
-        );
+        expect(find.text('Upload Policy'), findsAtLeastNWidgets(1));
       });
 
       testWidgets('displays close button in app bar',
@@ -177,6 +186,11 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('upload-policy-submit-button')),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester
             .tap(find.byKey(const ValueKey('upload-policy-submit-button')));
         await tester.pumpAndSettle();
@@ -214,6 +228,32 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
         // Dropdown should have leagues available
+      });
+    });
+
+    group('Organization-wide Scope', () {
+      testWidgets('admin defaults to organization-wide without league scope',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(user: adminUser));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Organization'), findsOneWidget);
+        expect(
+          find.text('Visible to every active member of the organization.'),
+          findsOneWidget,
+        );
+        expect(find.text('League'), findsNothing);
+      });
+
+      testWidgets('does not offer the removed league-only scope',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(user: adminUser));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Organization'), findsOneWidget);
+        expect(find.text('Hub'), findsOneWidget);
+        expect(find.text('Team'), findsOneWidget);
+        expect(find.text('League'), findsNothing);
       });
     });
 

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/screens/viewers/pdf_viewer_screen.dart';
-import 'package:open_filex/open_filex.dart';
 
 Future<void> _pendingDownload({
   required String url,
@@ -16,7 +15,7 @@ Future<void> _pendingDownload({
 
 void main() {
   group('PdfViewerScreen', () {
-    test('uses a readable policy title for the native preview', () {
+    test('uses a readable policy title for the local viewer copy', () {
       expect(policyPdfFileName('Lily v2'), 'Lily v2.pdf');
       expect(policyPdfFileName('Rules.pdf'), 'Rules.pdf');
       expect(policyPdfFileName('Policy / Final'), 'Policy _ Final.pdf');
@@ -62,12 +61,11 @@ void main() {
       expect(find.byType(AppBar), findsOneWidget);
     });
 
-    testWidgets('downloads and opens the native PDF preview automatically',
-        (tester) async {
+    testWidgets('downloads and renders the PDF inside the app', (tester) async {
       final tempDirectory =
           Directory.systemTemp.createTempSync('league_hub_pdf_test_');
       addTearDown(() => tempDirectory.deleteSync(recursive: true));
-      String? openedPath;
+      String? renderedPath;
 
       await tester.pumpWidget(MaterialApp(
         home: PdfViewerScreen(
@@ -78,9 +76,12 @@ void main() {
               {required url, required savePath, required onProgress}) async {
             onProgress(4, 4);
           },
-          openPdf: (path) async {
-            openedPath = path;
-            return OpenResult();
+          pdfContentBuilder: (context, path) {
+            renderedPath = path;
+            return const ColoredBox(
+              key: ValueKey('embedded-pdf-viewer'),
+              color: Colors.white,
+            );
           },
         ),
       ));
@@ -89,9 +90,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(openedPath, isNotNull);
-      expect(find.text('PDF ready'), findsOneWidget);
-      expect(find.text('Open PDF'), findsOneWidget);
+      expect(renderedPath, isNotNull);
+      expect(renderedPath, endsWith('Preview PDF.pdf'));
+      expect(find.byKey(const ValueKey('embedded-pdf-viewer')), findsOneWidget);
+      expect(find.text('Open PDF'), findsNothing);
+      expect(find.text('PDF ready'), findsNothing);
     });
 
     testWidgets('shows a concise error instead of native exception details',

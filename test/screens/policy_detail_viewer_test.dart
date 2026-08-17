@@ -106,6 +106,46 @@ void main() {
       expect(policyViewerTypeForExt('pdf'), PolicyViewerType.pdf);
     });
 
+    test('PDF MIME types normalize to the embedded PDF viewer', () {
+      final ext = normalizedPolicyExtension(
+        'application/pdf',
+        'https://storage.example.com/download?token=abc',
+      );
+      expect(ext, 'pdf');
+      expect(policyViewerTypeForExt(ext), PolicyViewerType.pdf);
+    });
+
+    test('MIME types with parameters normalize correctly', () {
+      expect(
+        normalizedPolicyExtension(
+          'application/pdf; charset=binary',
+          'https://storage.example.com/download',
+        ),
+        'pdf',
+      );
+    });
+
+    test('image and Office MIME types normalize to safe extensions', () {
+      expect(normalizedPolicyExtension('image/jpeg', ''), 'jpg');
+      expect(
+        normalizedPolicyExtension(
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          '',
+        ),
+        'docx',
+      );
+    });
+
+    test('unknown MIME types fall back to the URL extension', () {
+      expect(
+        normalizedPolicyExtension(
+          'application/octet-stream',
+          'https://storage.example.com/policy.pdf?token=abc',
+        ),
+        'pdf',
+      );
+    });
+
     test('DOCX files route to office viewer', () {
       expect(policyViewerTypeForExt('docx'), PolicyViewerType.native);
     });

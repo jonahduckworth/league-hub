@@ -80,6 +80,7 @@ void main() {
       id: 'policy-1',
       orgId: 'org-1',
       leagueId: 'league-1',
+      hubId: 'hub-1',
       name: 'Code of Conduct Policy',
       fileUrl: 'https://storage.example.com/policy-1/v2.pdf',
       fileType: 'pdf',
@@ -401,6 +402,25 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Upload New Version'), findsOneWidget);
+        expect(find.textContaining('Uploading as Admin User'), findsOneWidget);
+        expect(find.textContaining('admin@example.com'), findsOneWidget);
+      });
+
+      test('uploader identity falls back to email when display name is empty',
+          () {
+        final user = AppUser(
+          id: 'admin-2',
+          email: 'fallback@example.com',
+          displayName: '',
+          role: UserRole.superAdmin,
+          orgId: 'org-1',
+          hubIds: const [],
+          teamIds: const [],
+          createdAt: DateTime(2024),
+          isActive: true,
+        );
+
+        expect(policyUploaderLabel(user), 'fallback@example.com');
       });
 
       testWidgets('shows upload new version button for uploader',
@@ -459,8 +479,8 @@ void main() {
       });
     });
 
-    group('League Display', () {
-      testWidgets('displays league name if policy is league-scoped',
+    group('Target Context', () {
+      testWidgets('displays parent league name for a hub-targeted policy',
           (WidgetTester tester) async {
         await tester.pumpWidget(
           createTestWidget(policyId: 'policy-1', policy: pdfPolicy),

@@ -58,7 +58,7 @@ import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignment
 import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, dateTimeLabel, timeAgo, toDate } from "@/lib/format";
-import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES } from "@/lib/policy-upload";
+import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES, runReservedPolicyUpload } from "@/lib/policy-upload";
 import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
 import { structureLogoStoragePath, validateStructureLogoFile } from "@/lib/structure-logo";
 import { demoUser } from "@/lib/demo-data";
@@ -442,7 +442,7 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
     case "announcements":
       return <AnnouncementsSection data={data} runAction={runAction} />;
     case "policies":
-      return <PoliciesSection data={data} runAction={runAction} selectedOrgId={selectedOrgId} />;
+      return <PoliciesSection data={data} currentUser={currentUser} runAction={runAction} selectedOrgId={selectedOrgId} />;
     default:
       return <OverviewSection data={data} />;
   }
@@ -3228,9 +3228,9 @@ function AnnouncementTargetFields({
   );
 }
 
-type PolicyView = "all" | "general" | "versioned" | "scoped";
+type PolicyView = "all" | "general" | "versioned" | "targeted";
 
-function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; runAction: ActionRunner; selectedOrgId?: string }) {
+function PoliciesSection({ data, currentUser, runAction, selectedOrgId }: { data: AdminData; currentUser: AppUser; runAction: ActionRunner; selectedOrgId?: string }) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<PolicyView>("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -3240,7 +3240,7 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
     .filter((policy) => {
       if (view === "general") return policy.category.toLowerCase() === "general";
       if (view === "versioned") return policy.versions.length > 0;
-      if (view === "scoped") return Boolean(policy.leagueId || policy.hubId || policy.teamId);
+      if (view === "targeted") return Boolean(policy.hubId || policy.teamId);
       return true;
     })
     .filter((policy) => matchesQuery([policy.name, policy.category, policy.uploadedByName, policy.fileType], query));
@@ -3248,13 +3248,13 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
     { id: "all", label: "All Policies", count: data.policies.length, icon: FileText },
     { id: "general", label: "General", count: data.policies.filter((policy) => policy.category.toLowerCase() === "general").length, icon: FolderOpen },
     { id: "versioned", label: "Versioned", count: data.policies.filter((policy) => policy.versions.length > 0).length, icon: Layers },
-    { id: "scoped", label: "Scoped", count: data.policies.filter((policy) => Boolean(policy.leagueId || policy.hubId || policy.teamId)).length, icon: SlidersHorizontal }
+    { id: "targeted", label: "Targeted", count: data.policies.filter((policy) => Boolean(policy.hubId || policy.teamId)).length, icon: SlidersHorizontal }
   ];
   const panelCopy: Record<PolicyView, { title: string; description: string }> = {
     all: { title: "All Policies", description: "Every uploaded policy file in this organization." },
     general: { title: "General", description: "Policies categorized as general operating documents." },
     versioned: { title: "Versioned", description: "Policies with previous uploads tracked in history." },
-    scoped: { title: "Scoped", description: "Policies limited to a league, hub, or team." }
+    targeted: { title: "Targeted", description: "Policies limited to a specific hub or team." }
   };
 
   return (
@@ -3268,7 +3268,7 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
           { label: "Documents", value: data.policies.length },
           { label: "Categories", value: new Set(data.policies.map((policy) => policy.category.toLowerCase())).size },
           { label: "Previous versions", value: data.policies.reduce((total, policy) => total + policy.versions.length, 0) },
-          { label: "Scoped", value: data.policies.filter((policy) => Boolean(policy.leagueId || policy.hubId || policy.teamId)).length }
+          { label: "Targeted", value: data.policies.filter((policy) => Boolean(policy.hubId || policy.teamId)).length }
         ]}
         action={<ToolbarActionButton icon={UploadCloud} onClick={() => setCreateOpen(true)}>New Policy</ToolbarActionButton>}
         filters={filters}
@@ -3290,7 +3290,7 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
         {filteredPolicies.length > 0 ? (
           <div className="grid gap-3 xl:grid-cols-2">
             {filteredPolicies.map((policy) => {
-              const scope = policy.teamId ? "Team scoped" : policy.hubId ? "Hub scoped" : policy.leagueId ? "League scoped" : "Organization wide";
+              const scope = policy.teamId ? "Team" : policy.hubId ? "Hub" : "Organization-wide";
               const fileType = policy.fileType.split("/").pop()?.toUpperCase() || "FILE";
               return (
                 <button
@@ -3310,7 +3310,7 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
                         </span>
                         <ChevronRight className="mt-1 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
                       </span>
-                      <span className="mt-3 flex flex-wrap gap-2"><Badge tone="neutral">{policy.category}</Badge><Badge tone={scope === "Organization wide" ? "info" : "neutral"}>{scope}</Badge></span>
+                      <span className="mt-3 flex flex-wrap gap-2"><Badge tone="neutral">{policy.category}</Badge><Badge tone={scope === "Organization-wide" ? "info" : "neutral"}>{scope}</Badge></span>
                     </span>
                   </span>
                   <span className="mt-4 grid grid-cols-3 gap-2 border-t border-line/70 pt-4">
@@ -3326,19 +3326,21 @@ function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; 
           <WorkspaceEmptyState icon={FolderOpen} title="No policies found" description="No policies match the current filter and search." />
         )}
       </ManagementWorkspace>
-      <PolicyCreateDrawer open={createOpen} selectedOrgId={selectedOrgId} runAction={runAction} onClose={() => setCreateOpen(false)} />
-      <PolicyDrawer policy={selectedPolicy} selectedOrgId={selectedOrgId} onClose={() => setSelectedPolicyId(null)} runAction={runAction} />
+      <PolicyCreateDrawer open={createOpen} currentUser={currentUser} selectedOrgId={selectedOrgId} runAction={runAction} onClose={() => setCreateOpen(false)} />
+      <PolicyDrawer policy={selectedPolicy} currentUser={currentUser} selectedOrgId={selectedOrgId} onClose={() => setSelectedPolicyId(null)} runAction={runAction} />
     </>
   );
 }
 
 function PolicyCreateDrawer({
   open,
+  currentUser,
   selectedOrgId,
   runAction,
   onClose
 }: {
   open: boolean;
+  currentUser: AppUser;
   selectedOrgId?: string;
   runAction: ActionRunner;
   onClose: () => void;
@@ -3377,23 +3379,36 @@ function PolicyCreateDrawer({
     const fileRef = storageRef(storage, policyStoragePath(selectedOrgId, policyId, policyFile.name));
 
     try {
-      await uploadBytes(fileRef, policyFile, {
-        contentType: policyFile.type || "application/octet-stream"
+      await runReservedPolicyUpload({
+        reserve: async () => {
+          const result = await runAction("adminCreatePolicy", {
+            policyId,
+            name: policyName,
+            fileType: policyFile.type || "application/octet-stream",
+            fileSize: policyFile.size,
+            category: policyCategory
+          });
+          if (!result.ok) throw new Error(result.error);
+        },
+        upload: async () => {
+          await uploadBytes(fileRef, policyFile, {
+            contentType: policyFile.type || "application/octet-stream"
+          });
+          return getDownloadURL(fileRef);
+        },
+        finalize: async (fileUrl) => {
+          const result = await runAction("adminFinalizePolicyUpload", {
+            policyId,
+            fileUrl,
+            fileSize: policyFile.size
+          });
+          if (!result.ok) throw new Error(result.error);
+        },
+        cleanupFile: () => deleteObject(fileRef),
+        cleanupPolicy: async () => {
+          await runAction("adminDeletePolicy", { policyId });
+        }
       });
-      const fileUrl = await getDownloadURL(fileRef);
-      const result = await runAction("adminCreatePolicy", {
-        policyId,
-        name: policyName,
-        fileUrl,
-        fileType: policyFile.type || "application/octet-stream",
-        fileSize: policyFile.size,
-        category: policyCategory
-      });
-
-      if (!result.ok) {
-        await deleteObject(fileRef).catch(() => undefined);
-        return;
-      }
 
       setPolicyName("");
       setPolicyCategory(POLICY_CATEGORIES[0]);
@@ -3436,6 +3451,11 @@ function PolicyCreateDrawer({
   return (
     <SideDrawer open={open} title="New Policy" description="Upload a policy file and create its first record." icon={FileText} onClose={onClose}>
       <form className="grid gap-4" onSubmit={createPolicy}>
+        <div className="rounded-2xl border border-teal/20 bg-teal/[0.055] px-4 py-3">
+          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-teal">Organization-wide</p>
+          <p className="mt-1 text-sm font-bold text-ink">Uploading as {currentUser.displayName}</p>
+          <p className="mt-0.5 text-xs font-semibold text-muted">{currentUser.email} · Visible to every active member</p>
+        </div>
         <Field label="Name"><Input value={policyName} onChange={(event) => setPolicyName(event.target.value)} required /></Field>
         <PolicyFileField
           inputId={policyInputId}
@@ -3530,11 +3550,13 @@ function PolicyFileField({
 
 function PolicyDrawer({
   policy,
+  currentUser,
   selectedOrgId,
   onClose,
   runAction
 }: {
   policy: Policy | null;
+  currentUser: AppUser;
   selectedOrgId?: string;
   onClose: () => void;
   runAction: ActionRunner;
@@ -3655,6 +3677,9 @@ function PolicyDrawer({
             </div>
           </DrawerSection>
           <DrawerSection title="Upload Version">
+            <p className="rounded-xl border border-teal/20 bg-teal/[0.055] px-3.5 py-2.5 text-xs font-semibold text-muted">
+              Uploading as <span className="font-extrabold text-ink">{currentUser.displayName}</span> ({currentUser.email})
+            </p>
             <PolicyFileField
               inputId={inputId}
               inputRef={versionInputRef}
@@ -3672,10 +3697,11 @@ function PolicyDrawer({
           <DrawerSection title="Versions">
             <div className="grid gap-2">
               {policy.versions.map((version, index) => (
-                <div key={`${policy.id}-${index}`} className="rounded-xl border border-line/80 bg-white px-3.5 py-3 shadow-sm">
-                  <div className="text-sm font-bold text-ink">Version {String(version.version ?? index + 1)}</div>
-                  <div className="mt-1 text-xs font-semibold text-muted">{typeof version.fileSize === "number" ? bytesLabel(version.fileSize) : "File"} · {String(version.uploadedAt ?? "Uploaded")}</div>
-                </div>
+                  <div key={`${policy.id}-${index}`} className="rounded-xl border border-line/80 bg-white px-3.5 py-3 shadow-sm">
+                    <div className="text-sm font-bold text-ink">Version {String(version.version ?? index + 1)}</div>
+                    <div className="mt-1 text-xs font-semibold text-muted">{typeof version.fileSize === "number" ? bytesLabel(version.fileSize) : "File"} · {String(version.uploadedAt ?? "Uploaded")}</div>
+                    {typeof version.uploadedByName === "string" && version.uploadedByName && <div className="mt-1 text-xs font-semibold text-muted">Uploaded by {version.uploadedByName}</div>}
+                  </div>
               ))}
               {policy.versions.length === 0 && <EmptyLine label="No previous versions" />}
             </div>

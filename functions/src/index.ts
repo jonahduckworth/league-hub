@@ -33,6 +33,7 @@ export {
   adminUpdateAnnouncement,
   adminDeleteAnnouncement,
   adminCreatePolicy,
+  adminFinalizePolicyUpload,
   adminAddPolicyVersion,
   adminDeletePolicy,
   adminUpdateChatRoom,

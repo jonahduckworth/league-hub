@@ -972,6 +972,7 @@ void main() {
     Map<String, dynamic> policyData({
       String name = 'Rulebook',
       String? leagueId,
+      String? hubId,
       String category = 'general',
     }) =>
         {
@@ -981,6 +982,7 @@ void main() {
           'fileSize': 1024,
           'category': category,
           'leagueId': leagueId,
+          'hubId': hubId,
           'uploadedBy': 'user-1',
           'uploadedByName': 'Alice',
           'versions': [],
@@ -994,14 +996,18 @@ void main() {
       expect(policies, hasLength(2));
     });
 
-    test('policiesStream filters by leagueId', () async {
-      await svc.createPolicy(orgId, policyData(leagueId: 'lg-1'));
+    test('league context keeps organization policies and matching targets',
+        () async {
+      await svc.createPolicy(orgId, policyData(name: 'Organization'));
       await svc.createPolicy(
-          orgId, policyData(name: 'Other', leagueId: 'lg-2'));
+          orgId, policyData(leagueId: 'lg-1', hubId: 'hub-1'));
+      await svc.createPolicy(
+          orgId, policyData(name: 'Other', leagueId: 'lg-2', hubId: 'hub-2'));
 
       final policies = await svc.policiesStream(orgId, leagueId: 'lg-1').first;
-      expect(policies, hasLength(1));
-      expect(policies.first.leagueId, 'lg-1');
+      expect(policies, hasLength(2));
+      expect(policies.map((policy) => policy.name),
+          containsAll(<String>['Organization', 'Rulebook']));
     });
 
     test('policiesStream filters by category', () async {

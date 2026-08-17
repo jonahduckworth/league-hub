@@ -14,6 +14,8 @@ import {
   canManageTargetAssignments,
   isAdminRole,
   isManagedChatRoomType,
+  initialPolicyUploadMode,
+  isOrganizationWidePolicyTarget,
   isValidAnnouncementTarget,
   isValidPolicyCategory,
   isUserRole,
@@ -930,23 +932,75 @@ export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
     if (!isValidPolicyCategory(category)) {
       throw new HttpsError("invalid-argument", "Select a supported policy category.");
     }
+    if (!isOrganizationWidePolicyTarget(data)) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Admin dashboard policies must be organization-wide.",
+      );
+    }
+    const uploadMode = initialPolicyUploadMode(data.fileUrl);
+    const initialFileUrl = uploadMode === "ready" ? requiredString(data.fileUrl, "fileUrl") : "";
+    const uploaderName = actor.displayName ?? actor.email ?? "Admin";
+    const initialVersion = uploadMode === "ready" ? [{
+      url: initialFileUrl,
+      fileUrl: initialFileUrl,
+      version: 1,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: actor.id,
+      uploadedByName: uploaderName,
+      fileSize: typeof data.fileSize === "number" ? data.fileSize : 0,
+    }] : [];
     await ref.set({
       orgId,
-      leagueId: optionalString(data.leagueId) ?? null,
-      hubId: optionalString(data.hubId) ?? null,
-      teamId: optionalString(data.teamId) ?? null,
+      leagueId: null,
+      hubId: null,
+      teamId: null,
       name: requiredString(data.name, "name"),
-      fileUrl: requiredString(data.fileUrl, "fileUrl"),
+      fileUrl: initialFileUrl,
       fileType: requiredString(data.fileType, "fileType"),
       fileSize: typeof data.fileSize === "number" ? data.fileSize : 0,
       category,
       uploadedBy: actor.id,
-      uploadedByName: actor.displayName ?? actor.email ?? "Admin",
-      versions: [],
+      uploadedByName: uploaderName,
+      versions: initialVersion,
+      uploadStatus: uploadMode,
       createdAt: now(),
       updatedAt: now(),
     });
     return { policyId: ref.id };
+  });
+});
+
+export const adminFinalizePolicyUpload = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminFinalizePolicyUpload", async (actor, data, orgId) => {
+    const policyId = requiredString(data.policyId, "policyId");
+    const fileUrl = requiredString(data.fileUrl, "fileUrl");
+    const policyRef = orgRef(orgId).collection("policies").doc(policyId);
+    await db.runTransaction(async (transaction) => {
+      const snap = await transaction.get(policyRef);
+      if (!snap.exists) throw new HttpsError("not-found", "Policy was not found.");
+      const policy = snap.data() ?? {};
+      if (policy.uploadStatus !== "uploading" || policy.fileUrl) {
+        throw new HttpsError("failed-precondition", "Policy upload is not awaiting a file.");
+      }
+      const versionEntry = {
+        url: fileUrl,
+        fileUrl,
+        version: 1,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: policy.uploadedBy ?? actor.id,
+        uploadedByName: policy.uploadedByName ?? actor.displayName ?? actor.email ?? "Admin",
+        fileSize: typeof data.fileSize === "number" ? data.fileSize : policy.fileSize ?? 0,
+      };
+      transaction.update(policyRef, {
+        fileUrl,
+        fileSize: versionEntry.fileSize,
+        versions: [versionEntry],
+        uploadStatus: "ready",
+        updatedAt: now(),
+      });
+    });
+    return { policyId };
   });
 });
 

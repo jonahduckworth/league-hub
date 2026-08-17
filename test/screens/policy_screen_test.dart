@@ -75,6 +75,7 @@ void main() {
         fileSize: 25600,
         fileUrl: 'https://example.com/file.pdf',
         leagueId: 'league-1',
+        hubId: 'hub-1',
         uploadedBy: 'admin-1',
         uploadedByName: 'Test User',
         createdAt: DateTime.now().subtract(Duration(days: 2)),
@@ -90,6 +91,7 @@ void main() {
         fileSize: 102400,
         fileUrl: 'https://example.com/file.pdf',
         leagueId: 'league-2',
+        hubId: 'hub-2',
         uploadedBy: 'admin-1',
         uploadedByName: 'Test User',
         createdAt: DateTime.now().subtract(Duration(hours: 4)),
@@ -306,6 +308,7 @@ void main() {
             findsWidgets); // Spring League (filter + policy tag)
         expect(
             find.text('FL'), findsWidgets); // Fall League (filter + policy tag)
+        expect(find.text('Organization-wide'), findsOneWidget);
       });
 
       testWidgets('shows correct file icons', (WidgetTester tester) async {
@@ -492,7 +495,7 @@ void main() {
         expect(find.text('FL'), findsWidgets);
       });
 
-      testWidgets('tile does not show league for org-wide policies',
+      testWidgets('tile labels org-wide policies explicitly',
           (WidgetTester tester) async {
         // Recruitment Policy has no leagueId
         await tester.pumpWidget(createTestWidget());
@@ -500,6 +503,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Recruitment Policy.docx'), findsOneWidget);
+        expect(find.text('Organization-wide'), findsOneWidget);
       });
     });
 
@@ -624,7 +628,7 @@ void main() {
     });
 
     group('No League Association Display', () {
-      testWidgets('org-wide policy shows no league tag',
+      testWidgets('org-wide policy shows organization-wide tag',
           (WidgetTester tester) async {
         final orgWidePolicy = [
           Policy(
@@ -653,7 +657,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('League Code of Conduct.pdf'), findsOneWidget);
-        // Should not show any league abbreviation for this policy
+        expect(find.text('Organization-wide'), findsOneWidget);
       });
     });
   });

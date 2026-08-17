@@ -142,12 +142,9 @@ service firebase.storage {
             && hasAssignedHub(policy.hubId)
           )
           || (
-            'leagueId' in policy
-            && policy.leagueId != null
-            && (!('hubId' in policy) || policy.hubId == null)
-            && hasAssignedLeague(policy.leagueId)
+            (!('hubId' in policy) || policy.hubId == null)
+            && (!('teamId' in policy) || policy.teamId == null)
           )
-          || (!('leagueId' in policy) || policy.leagueId == null)
         );
     }
 
@@ -178,12 +175,6 @@ service firebase.storage {
                 && policy.hubId != null
                 && (!('teamId' in policy) || policy.teamId == null)
                 && hasAssignedHub(policy.hubId)
-              )
-              || (
-                'leagueId' in policy
-                && policy.leagueId != null
-                && (!('hubId' in policy) || policy.hubId == null)
-                && hasAssignedLeague(policy.leagueId)
               )
             )
           )

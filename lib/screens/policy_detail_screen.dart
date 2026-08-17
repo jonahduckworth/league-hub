@@ -34,6 +34,23 @@ enum PolicyViewerType {
 
 const _imageExts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
 const _pdfExts = {'pdf'};
+const _mimeExtensions = <String, String>{
+  'application/pdf': 'pdf',
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/bmp': 'bmp',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+      'pptx',
+  'text/csv': 'csv',
+};
 const _policyViewerSlideFactor = 0.012;
 
 Route<void> policyViewerRoute(Widget child) {
@@ -92,6 +109,22 @@ PolicyViewerType policyViewerTypeForExt(String ext) {
   return PolicyViewerType.native;
 }
 
+String normalizedPolicyExtension(String? fileType, String url) {
+  final normalizedType = fileType?.trim().toLowerCase().split(';').first ?? '';
+  if (_mimeExtensions.containsKey(normalizedType)) {
+    return _mimeExtensions[normalizedType]!;
+  }
+  if (normalizedType.isNotEmpty && !normalizedType.contains('/')) {
+    return normalizedType.replaceFirst(RegExp(r'^\.'), '');
+  }
+  return extractPolicyExtensionFromUrl(url).toLowerCase();
+}
+
+String policyUploaderLabel(AppUser user) {
+  final displayName = user.displayName.trim();
+  return displayName.isNotEmpty ? displayName : user.email;
+}
+
 String extractPolicyExtensionFromUrl(String url) {
   try {
     final path = Uri.parse(url).path;
@@ -120,7 +153,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
   /// for other policy formats after downloading them locally.
   Future<void> _openPolicy(String url,
       {String? fileType, String? title}) async {
-    final ext = (fileType ?? extractPolicyExtensionFromUrl(url)).toLowerCase();
+    final ext = normalizedPolicyExtension(fileType, url);
     final viewerType = policyViewerTypeForExt(ext);
 
     if (viewerType == PolicyViewerType.image) {
@@ -286,7 +319,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
       final versionEntry = {
         'url': fileUrl,
         'uploadedBy': currentUser.id,
-        'uploadedByName': currentUser.displayName,
+        'uploadedByName': policyUploaderLabel(currentUser),
         'uploadedAt': now.toIso8601String(),
         'fileSize': file.size,
       };
@@ -436,7 +469,8 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
             );
           }
 
-          final leagueName = policy.leagueId != null
+          final leagueName = policy.leagueId != null &&
+                  (policy.hubId != null || policy.teamId != null)
               ? leagues
                   .where((l) => l.id == policy.leagueId)
                   .map((l) => l.name)
@@ -503,10 +537,18 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
                                     policy.category,
                                     AppGlassColors.aqua,
                                   ),
+                                  _GlassBadge(
+                                    policy.teamId != null
+                                        ? 'Team'
+                                        : policy.hubId != null
+                                            ? 'Hub'
+                                            : 'Organization-wide',
+                                    AppGlassColors.gold,
+                                  ),
                                   if (leagueName != null)
                                     _GlassBadge(
                                       leagueName,
-                                      AppGlassColors.gold,
+                                      AppGlassColors.inkSecondary,
                                     ),
                                 ],
                               ),
@@ -544,6 +586,8 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
                         ),
               ),
               if (_canEdit(currentUser, policy)) ...[
+                const SizedBox(height: 10),
+                _UploadIdentityNotice(user: currentUser!),
                 const SizedBox(height: 10),
                 _PolicyActionButton(
                   icon: Icons.upload_file,
@@ -596,7 +640,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
   }
 
   IconData _fileIcon(String fileType) {
-    switch (fileType.toLowerCase()) {
+    switch (normalizedPolicyExtension(fileType, '')) {
       case 'pdf':
         return Icons.picture_as_pdf;
       case 'xlsx':
@@ -617,7 +661,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
   }
 
   Color _fileColor(String fileType) {
-    switch (fileType.toLowerCase()) {
+    switch (normalizedPolicyExtension(fileType, '')) {
       case 'pdf':
         return AppGlassColors.rose;
       case 'xlsx':
@@ -635,6 +679,59 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
       default:
         return AppGlassColors.inkSecondary;
     }
+  }
+}
+
+class _UploadIdentityNotice extends StatelessWidget {
+  const _UploadIdentityNotice({required this.user});
+
+  final AppUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final uploaderLabel = policyUploaderLabel(user);
+    final showEmail = uploaderLabel.toLowerCase() != user.email.toLowerCase();
+    return AppGlassSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      radius: 16,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.verified_user_outlined,
+            color: AppGlassColors.aqua,
+            size: 19,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(
+                    text: 'Uploading as ',
+                    style: TextStyle(color: AppGlassColors.inkSecondary),
+                  ),
+                  TextSpan(
+                    text: uploaderLabel,
+                    style: const TextStyle(
+                      color: AppGlassColors.ink,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (showEmail)
+                    TextSpan(
+                      text: ' · ${user.email}',
+                      style:
+                          const TextStyle(color: AppGlassColors.inkSecondary),
+                    ),
+                ],
+              ),
+              style: const TextStyle(fontSize: 12.5, height: 1.35),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
