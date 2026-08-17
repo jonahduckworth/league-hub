@@ -147,6 +147,7 @@ async function main() {
           data.teamId == null) {
         scopeUpdates.push({
           ref: policy.ref,
+          updateTime: policy.updateTime,
           orgId: organization.id,
           policyId: policy.id,
           name: data.name ?? policy.id,
@@ -169,6 +170,7 @@ async function main() {
     }
     uploaderCorrections.push({
       ref: correctionRef,
+      updateTime: correctionSnap.updateTime,
       correction,
       plan: planUploaderCorrection(
         correctionSnap.data() ?? {},
@@ -198,11 +200,19 @@ async function main() {
 
   const batch = db.batch();
   for (const update of scopeUpdates) {
-    batch.update(update.ref, {leagueId: null});
+    batch.update(
+      update.ref,
+      {leagueId: null},
+      {lastUpdateTime: update.updateTime},
+    );
   }
   for (const uploaderCorrection of uploaderCorrections) {
     if (Object.keys(uploaderCorrection.plan.update).length > 0) {
-      batch.update(uploaderCorrection.ref, uploaderCorrection.plan.update);
+      batch.update(
+        uploaderCorrection.ref,
+        uploaderCorrection.plan.update,
+        {lastUpdateTime: uploaderCorrection.updateTime},
+      );
     }
   }
   if (scopeUpdates.length > 0 ||
