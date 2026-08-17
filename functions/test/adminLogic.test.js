@@ -8,6 +8,7 @@ const {
   canManageTarget,
   canManageTargetAssignments,
   isManagedChatRoomType,
+  isOrganizationWidePolicyTarget,
   isValidAnnouncementTarget,
   isValidPolicyCategory,
   nullableStringPatch,
@@ -47,6 +48,14 @@ test("policy categories match the mobile policy taxonomy", () => {
   }
   assert.equal(isValidPolicyCategory("General"), false);
   assert.equal(isValidPolicyCategory("Safety"), false);
+});
+
+test("admin policy uploads are organization-wide only", () => {
+  assert.equal(isOrganizationWidePolicyTarget({}), true);
+  assert.equal(isOrganizationWidePolicyTarget({leagueId: null, hubId: null, teamId: null}), true);
+  assert.equal(isOrganizationWidePolicyTarget({leagueId: "l1"}), false);
+  assert.equal(isOrganizationWidePolicyTarget({leagueId: "l1", hubId: "h1"}), false);
+  assert.equal(isOrganizationWidePolicyTarget({leagueId: "l1", hubId: "h1", teamId: "t1"}), false);
 });
 
 test("role hierarchy matches mobile permission behavior", () => {

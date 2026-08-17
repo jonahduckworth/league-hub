@@ -436,7 +436,8 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
             );
           }
 
-          final leagueName = policy.leagueId != null
+          final leagueName = policy.leagueId != null &&
+                  (policy.hubId != null || policy.teamId != null)
               ? leagues
                   .where((l) => l.id == policy.leagueId)
                   .map((l) => l.name)
@@ -503,10 +504,18 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
                                     policy.category,
                                     AppGlassColors.aqua,
                                   ),
+                                  _GlassBadge(
+                                    policy.teamId != null
+                                        ? 'Team'
+                                        : policy.hubId != null
+                                            ? 'Hub'
+                                            : 'Organization-wide',
+                                    AppGlassColors.gold,
+                                  ),
                                   if (leagueName != null)
                                     _GlassBadge(
                                       leagueName,
-                                      AppGlassColors.gold,
+                                      AppGlassColors.inkSecondary,
                                     ),
                                 ],
                               ),

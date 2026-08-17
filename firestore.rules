@@ -186,6 +186,46 @@ service cloud.firestore {
         );
     }
 
+    function validPolicyTarget(orgId, data) {
+      return (
+          (!('leagueId' in data) || data.leagueId == null)
+          && (!('hubId' in data) || data.hubId == null)
+          && (!('teamId' in data) || data.teamId == null)
+        )
+        || (
+          data.leagueId is string
+          && data.hubId is string
+          && exists(leaguePath(orgId, data.leagueId))
+          && exists(hubPath(orgId, data.leagueId, data.hubId))
+          && (
+            (!('teamId' in data) || data.teamId == null)
+            || (
+              data.teamId is string
+              && exists(teamPath(
+                orgId,
+                data.leagueId,
+                data.hubId,
+                data.teamId
+              ))
+            )
+          )
+        );
+    }
+
+    function canManagePolicyTarget(data) {
+      return (
+          (!('leagueId' in data) || data.leagueId == null)
+          && (!('hubId' in data) || data.hubId == null)
+          && (!('teamId' in data) || data.teamId == null)
+          && isSuperAdmin()
+        )
+        || (
+          data.leagueId is string
+          && data.hubId is string
+          && canManageScopedTarget(data)
+        );
+    }
+
     function validAnnouncementTarget(data) {
       return data.keys().hasAll(['scope', 'leagueId', 'hubId', 'teamId'])
         && data.scope in ['league', 'hub', 'team']
@@ -877,13 +917,13 @@ service cloud.firestore {
           && request.resource.data.orgId == orgId
           && request.resource.data.uploadedBy == request.auth.uid
           && validPolicyCategory(request.resource.data)
-          && canManageScopedTarget(request.resource.data)
-          && scopedTargetExists(orgId, request.resource.data);
+          && canManagePolicyTarget(request.resource.data)
+          && validPolicyTarget(orgId, request.resource.data);
         allow update: if canManageContent(orgId)
           && validPolicyUpdate(orgId)
-          && canManageScopedTarget(resource.data)
-          && canManageScopedTarget(request.resource.data)
-          && scopedTargetExists(orgId, request.resource.data)
+          && canManagePolicyTarget(resource.data)
+          && canManagePolicyTarget(request.resource.data)
+          && validPolicyTarget(orgId, request.resource.data)
           && (canManageOrg(orgId) || resource.data.uploadedBy == request.auth.uid)
           && (
             request.resource.data.category == resource.data.category

@@ -923,10 +923,14 @@ void main() {
       expect(service.canUploadPolicyToHub(superAdmin(), 'h_any'), isTrue);
     });
 
-    test('canUploadPolicyToScope requires league and owned hub/team scope', () {
+    test('canUploadPolicyToScope standardizes organization, hub, and team', () {
       final ma = manager(leagueIds: ['l1'], hubIds: ['h1'], teamIds: ['t1']);
-      expect(service.canUploadPolicyToScope(ma, leagueId: 'l1'), isTrue);
       expect(service.canUploadPolicyToScope(ma, leagueId: null), isFalse);
+      expect(
+          service.canUploadPolicyToScope(superAdmin(), leagueId: null), isTrue);
+      expect(service.canUploadPolicyToScope(ma, leagueId: 'l1'), isFalse);
+      expect(service.canUploadPolicyToScope(superAdmin(), leagueId: 'l1'),
+          isFalse);
       expect(service.canUploadPolicyToScope(ma, leagueId: 'l1', hubId: 'h1'),
           isTrue);
       expect(service.canUploadPolicyToScope(ma, leagueId: 'l1', hubId: 'h2'),
@@ -935,6 +939,8 @@ void main() {
           service.canUploadPolicyToScope(ma,
               leagueId: 'l1', hubId: 'h1', teamId: 't1'),
           isTrue);
+      expect(service.canUploadPolicyToScope(ma, leagueId: 'l1', teamId: 't1'),
+          isFalse);
     });
 
     group('canEditPolicy', () {
@@ -974,14 +980,11 @@ void main() {
         expect(service.canViewPolicy(s, hubId: 'h2'), isFalse);
       });
 
-      test('league-scoped policy visible to user in that league', () {
+      test('legacy league-only policy is treated as organization-wide', () {
         expect(service.canViewPolicy(staff(leagueIds: ['l1']), leagueId: 'l1'),
             isTrue);
-      });
-
-      test('league-scoped policy NOT visible to user outside that league', () {
         expect(service.canViewPolicy(staff(leagueIds: ['l2']), leagueId: 'l1'),
-            isFalse);
+            isTrue);
       });
 
       test('unscoped policy visible to everyone', () {

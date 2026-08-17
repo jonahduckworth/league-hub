@@ -803,7 +803,10 @@ class FirestoreService {
         ..._convertTimestamps(d.data() as Map<String, dynamic>)
       });
 
-  /// Stream of all policies for an org, client-side filtered by leagueId/category.
+  /// Stream of policies for an organization.
+  ///
+  /// A selected league narrows hub/team policies while always retaining
+  /// organization-wide policies.
   Stream<List<Policy>> policiesStream(String orgId,
       {String? leagueId, String? category}) {
     return _policiesRef(orgId)
@@ -812,7 +815,9 @@ class FirestoreService {
         .map((snap) {
       var policies = snap.docs.map((d) => _policyFromSnap(d, orgId)).toList();
       if (leagueId != null) {
-        policies = policies.where((p) => p.leagueId == leagueId).toList();
+        policies = policies
+            .where((p) => p.leagueId == null || p.leagueId == leagueId)
+            .toList();
       }
       if (category != null) {
         policies = policies.where((p) => p.category == category).toList();
@@ -823,6 +828,8 @@ class FirestoreService {
 
   Stream<List<Policy>> getPolicies(String orgId) => policiesStream(orgId);
 
+  /// Includes organization-wide policies plus targeted policies below the
+  /// selected league.
   Stream<List<Policy>> getPoliciesByLeague(String orgId, String leagueId) =>
       policiesStream(orgId, leagueId: leagueId);
 

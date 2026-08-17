@@ -126,7 +126,7 @@ final messagesProvider =
 });
 
 /// Policy, scope-filtered by user role. superAdmin+ sees all.
-/// managerAdmin/staff only see policies scoped to their hubs (or unscoped policies).
+/// managerAdmin/staff see organization-wide policies plus assigned hub/team policies.
 final policiesProvider = StreamProvider<List<Policy>>((ref) {
   final leagueId = ref.watch(selectedLeagueProvider);
   final category = ref.watch(selectedPolicyCategoryProvider);

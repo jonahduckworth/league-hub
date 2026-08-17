@@ -284,7 +284,7 @@ void main() {
           isActive: true,
         );
 
-        final data = {'name': 'Policy', 'leagueId': 'l1'};
+        final data = {'name': 'Policy'};
         when(mockFs.createPolicy('org1', data, policyId: null))
             .thenAnswer((_) => Future.value('doc1'));
 

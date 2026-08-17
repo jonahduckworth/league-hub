@@ -433,7 +433,13 @@ class PermissionService {
     String? teamId,
   }) {
     if (!canUploadPolicy(user)) return false;
-    if (leagueId == null) return false;
+    final isOrganizationWide =
+        leagueId == null && hubId == null && teamId == null;
+    if (isOrganizationWide) {
+      return isAtLeast(user.role, UserRole.superAdmin);
+    }
+    if (leagueId == null || hubId == null) return false;
+    if (teamId != null && hubId.isEmpty) return false;
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     return canManageContentScope(
       user,
@@ -452,7 +458,7 @@ class PermissionService {
   bool canDeletePolicy(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
 
-  /// Returns true if [user] should see a policy scoped to [hubId] / [leagueId].
+  /// Returns true if [user] should see an organization, hub, or team policy.
   bool canViewPolicy(
     AppUser user, {
     String? leagueId,
@@ -468,9 +474,8 @@ class PermissionService {
     }
     // If hub-scoped, user must be in that hub.
     if (hubId != null) return user.hubIds.contains(hubId);
-    // League-scoped: user must belong to a hub within that league.
-    if (leagueId != null) return user.leagueIds.contains(leagueId);
-    // Unscoped policies are visible to everyone in the org.
+    // Organization-wide policies are visible to everyone in the org. During
+    // the migration, legacy league-only records are treated the same way.
     return true;
   }
 

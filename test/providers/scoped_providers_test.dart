@@ -764,7 +764,7 @@ void main() {
         expect(result, isEmpty);
       });
 
-      test('staff with matching leagueIds sees league-scoped policies',
+      test('staff sees organization policies and only assigned hub policies',
           () async {
         final staffUser = AppUser(
           id: 'staff1',
@@ -779,11 +779,12 @@ void main() {
           isActive: true,
         );
 
-        final leagueDoc = Policy(
+        final assignedHubDoc = Policy(
           id: 'doc1',
           orgId: 'org1',
           leagueId: 'l1',
-          name: 'League Rules',
+          hubId: 'h1',
+          name: 'Assigned Hub Rules',
           fileUrl: 'https://example.com/rules.pdf',
           fileType: 'pdf',
           fileSize: 1024,
@@ -795,11 +796,12 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        final otherLeagueDoc = Policy(
+        final otherHubDoc = Policy(
           id: 'doc2',
           orgId: 'org1',
-          leagueId: 'l2',
-          name: 'Other League Rules',
+          leagueId: 'l1',
+          hubId: 'h2',
+          name: 'Other Hub Rules',
           fileUrl: 'https://example.com/rules2.pdf',
           fileType: 'pdf',
           fileSize: 1024,
@@ -811,8 +813,24 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        when(mockFs.policiesStream('org1'))
-            .thenAnswer((_) => Stream.value([leagueDoc, otherLeagueDoc]));
+        final organizationDoc = Policy(
+          id: 'doc3',
+          orgId: 'org1',
+          name: 'Organization Rules',
+          fileUrl: 'https://example.com/org.pdf',
+          fileType: 'pdf',
+          fileSize: 1024,
+          category: 'Rules',
+          uploadedBy: 'admin',
+          uploadedByName: 'Admin',
+          versions: const [],
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        when(mockFs.policiesStream('org1')).thenAnswer(
+          (_) => Stream.value([assignedHubDoc, otherHubDoc, organizationDoc]),
+        );
 
         container = ProviderContainer(
           overrides: [
@@ -823,8 +841,9 @@ void main() {
         );
 
         final result = await container.read(policiesProvider.future);
-        expect(result, hasLength(1));
-        expect(result.first.id, 'doc1');
+        expect(
+            result.map((policy) => policy.id), containsAll(['doc1', 'doc3']));
+        expect(result.map((policy) => policy.id), isNot(contains('doc2')));
       });
     });
   });

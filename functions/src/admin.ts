@@ -14,6 +14,7 @@ import {
   canManageTargetAssignments,
   isAdminRole,
   isManagedChatRoomType,
+  isOrganizationWidePolicyTarget,
   isValidAnnouncementTarget,
   isValidPolicyCategory,
   isUserRole,
@@ -930,11 +931,17 @@ export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
     if (!isValidPolicyCategory(category)) {
       throw new HttpsError("invalid-argument", "Select a supported policy category.");
     }
+    if (!isOrganizationWidePolicyTarget(data)) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Admin dashboard policies must be organization-wide.",
+      );
+    }
     await ref.set({
       orgId,
-      leagueId: optionalString(data.leagueId) ?? null,
-      hubId: optionalString(data.hubId) ?? null,
-      teamId: optionalString(data.teamId) ?? null,
+      leagueId: null,
+      hubId: null,
+      teamId: null,
       name: requiredString(data.name, "name"),
       fileUrl: requiredString(data.fileUrl, "fileUrl"),
       fileType: requiredString(data.fileType, "fileType"),

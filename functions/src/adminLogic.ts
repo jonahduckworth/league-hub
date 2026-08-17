@@ -55,6 +55,10 @@ export function isValidPolicyCategory(value: unknown): boolean {
   return value === "Policy" || value === "Protocol" || value === "Code of Conduct" || value === "Other";
 }
 
+export function isOrganizationWidePolicyTarget(value: Record<string, unknown>): boolean {
+  return value.leagueId == null && value.hubId == null && value.teamId == null;
+}
+
 export function outranks(actorRole: unknown, targetRole: unknown): boolean {
   if (!isUserRole(actorRole) || !isUserRole(targetRole)) return false;
   return roleOrder.indexOf(actorRole) < roleOrder.indexOf(targetRole);

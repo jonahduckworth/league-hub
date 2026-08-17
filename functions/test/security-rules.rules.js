@@ -423,6 +423,79 @@ test("manager cannot overwrite another manager's out-of-scope policy file", asyn
   await assertFails(uploadBytes(ref(storage, objectPath), new Uint8Array([2])));
 });
 
+test("policy writes allow organization, hub, and team targets but reject league-only scope", async () => {
+  await seedFirestore([
+    ["users/admin", user({id: "admin", role: "superAdmin"})],
+    ["users/manager", user({
+      id: "manager",
+      role: "managerAdmin",
+      leagueIds: ["league-1"],
+      hubIds: ["hub-1"],
+      teamIds: ["team-1"],
+    })],
+    ["users/staff", user({id: "staff"})],
+    ["organizations/org-1/leagues/league-1", {
+      id: "league-1",
+      orgId: "org-1",
+      name: "League",
+    }],
+    ["organizations/org-1/leagues/league-1/hubs/hub-1", {
+      id: "hub-1",
+      orgId: "org-1",
+      leagueId: "league-1",
+      name: "Hub",
+    }],
+    ["organizations/org-1/leagues/league-1/hubs/hub-1/teams/team-1", {
+      id: "team-1",
+      orgId: "org-1",
+      leagueId: "league-1",
+      hubId: "hub-1",
+      name: "Team",
+    }],
+  ]);
+  const policy = (id, uploadedBy, target) => ({
+    id,
+    orgId: "org-1",
+    name: id,
+    category: "Policy",
+    uploadedBy,
+    uploadedByName: uploadedBy,
+    fileUrl: "",
+    fileType: "pdf",
+    fileSize: 10,
+    versions: [],
+    ...target,
+  });
+  const adminDb = testEnv.authenticatedContext("admin").firestore();
+  const managerDb = testEnv.authenticatedContext("manager").firestore();
+  const staffDb = testEnv.authenticatedContext("staff").firestore();
+
+  await assertSucceeds(setDoc(
+    doc(adminDb, "organizations/org-1/policies/org-wide"),
+    policy("org-wide", "admin", {leagueId: null, hubId: null, teamId: null}),
+  ));
+  await assertFails(setDoc(
+    doc(managerDb, "organizations/org-1/policies/manager-org-wide"),
+    policy("manager-org-wide", "manager", {leagueId: null, hubId: null, teamId: null}),
+  ));
+  await assertFails(setDoc(
+    doc(managerDb, "organizations/org-1/policies/league-only"),
+    policy("league-only", "manager", {leagueId: "league-1", hubId: null, teamId: null}),
+  ));
+  await assertSucceeds(setDoc(
+    doc(managerDb, "organizations/org-1/policies/hub"),
+    policy("hub", "manager", {leagueId: "league-1", hubId: "hub-1", teamId: null}),
+  ));
+  await assertSucceeds(setDoc(
+    doc(managerDb, "organizations/org-1/policies/team"),
+    policy("team", "manager", {leagueId: "league-1", hubId: "hub-1", teamId: "team-1"}),
+  ));
+  await assertFails(setDoc(
+    doc(staffDb, "organizations/org-1/policies/staff-policy"),
+    policy("staff-policy", "staff", {leagueId: null, hubId: null, teamId: null}),
+  ));
+});
+
 test("admin cannot mutate a direct-message room as managed content", async () => {
   await seedFirestore([
     ["users/admin", user({ id: "admin", role: "superAdmin" })],

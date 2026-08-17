@@ -1482,10 +1482,18 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when managerAdmin creates policy', () async {
-        final managerAdmin =
-            makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
-        final policyData = {'title': 'Policy', 'leagueId': 'l1'};
+      test('calls FirestoreService when managerAdmin creates hub policy',
+          () async {
+        final managerAdmin = makeUser(
+          role: UserRole.managerAdmin,
+          leagueIds: ['l1'],
+          hubIds: ['h1'],
+        );
+        final policyData = {
+          'title': 'Policy',
+          'leagueId': 'l1',
+          'hubId': 'h1',
+        };
 
         when(mockFs.createPolicy('org1', policyData, policyId: null))
             .thenAnswer((_) async => 'policyId');
@@ -1498,10 +1506,10 @@ void main() {
       });
 
       test(
-          'calls FirestoreService when superAdmin creates policy with specific policyId',
+          'calls FirestoreService when superAdmin creates organization policy with specific policyId',
           () async {
         final superAdmin = makeUser(role: UserRole.superAdmin);
-        final policyData = {'title': 'Policy', 'leagueId': 'l1'};
+        final policyData = {'title': 'Policy'};
 
         when(mockFs.createPolicy('org1', policyData, policyId: 'specific-id'))
             .thenAnswer((_) async => 'specific-id');
@@ -1516,6 +1524,20 @@ void main() {
         expect(result, equals('specific-id'));
         verify(mockFs.createPolicy('org1', policyData, policyId: 'specific-id'))
             .called(1);
+      });
+
+      test('rejects organization-wide policy from managerAdmin', () async {
+        final managerAdmin = makeUser(role: UserRole.managerAdmin);
+
+        expect(
+          () => afs.createPolicy(
+            managerAdmin,
+            'org1',
+            {'title': 'Organization Policy'},
+          ),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
       });
     });
 
@@ -1619,9 +1641,13 @@ void main() {
         verifyZeroInteractions(mockFs);
       });
 
-      test('calls FirestoreService when managerAdmin adds version', () async {
-        final managerAdmin =
-            makeUser(role: UserRole.managerAdmin, leagueIds: ['l1']);
+      test('calls FirestoreService when managerAdmin adds hub policy version',
+          () async {
+        final managerAdmin = makeUser(
+          role: UserRole.managerAdmin,
+          leagueIds: ['l1'],
+          hubIds: ['h1'],
+        );
         final versionData = {'url': 'https://...', 'fileSize': 1024};
 
         when(mockFs.addPolicyVersion('org1', 'doc1', versionData))
@@ -1634,6 +1660,7 @@ void main() {
           versionData,
           uploadedBy: managerAdmin.id,
           leagueId: 'l1',
+          hubId: 'h1',
         );
 
         verify(mockFs.addPolicyVersion('org1', 'doc1', versionData)).called(1);

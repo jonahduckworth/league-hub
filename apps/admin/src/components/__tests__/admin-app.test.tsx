@@ -297,8 +297,12 @@ describe("AdminApp operations shell", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Policies for Prairie Hockey League" })).toBeTruthy();
     const policyFilters = screen.getByRole("group", { name: "Policies for Prairie Hockey League filters" });
     expect(within(policyFilters).getByRole("button", { name: /All Policies/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(policyFilters).getByRole("button", { name: /Targeted/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "New Policy" }));
     const createPolicyDrawer = await screen.findByRole("dialog", { name: "New Policy" });
+    expect(within(createPolicyDrawer).getByText("Organization-wide")).toBeTruthy();
+    expect(within(createPolicyDrawer).getByText("Uploading as Jordan Owner")).toBeTruthy();
+    expect(within(createPolicyDrawer).getByText(/owner@leaguehub.local/)).toBeTruthy();
     const categorySelect = within(createPolicyDrawer).getByRole("combobox", { name: "Category" });
     expect(within(categorySelect).getAllByRole("option").map((option) => option.textContent)).toEqual(["Policy", "Protocol", "Code of Conduct", "Other"]);
     fireEvent.click(within(createPolicyDrawer).getByRole("button", { name: "Close drawer" }));

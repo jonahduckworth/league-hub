@@ -229,7 +229,10 @@ class _PolicyTile extends StatelessWidget {
   }
 
   String? get _leagueName {
-    if (policy.leagueId == null) return null;
+    if (policy.leagueId == null ||
+        (policy.hubId == null && policy.teamId == null)) {
+      return null;
+    }
     return leagues
         .where((l) => l.id == policy.leagueId)
         .map((l) => l.abbreviation)
@@ -288,6 +291,11 @@ class _PolicyTile extends StatelessWidget {
                     if (leagueName != null)
                       _PolicyGlassBadge(
                         label: leagueName,
+                        color: AppGlassColors.gold,
+                      ),
+                    if (policy.hubId == null && policy.teamId == null)
+                      const _PolicyGlassBadge(
+                        label: 'Organization-wide',
                         color: AppGlassColors.gold,
                       ),
                     _PolicyGlassBadge(

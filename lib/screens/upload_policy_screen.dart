@@ -29,13 +29,13 @@ class UploadPolicyScreen extends ConsumerStatefulWidget {
   ConsumerState<UploadPolicyScreen> createState() => _UploadPolicyScreenState();
 }
 
-enum _PolicyScope { league, hub, team }
+enum _PolicyScope { organization, hub, team }
 
 class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
   final _nameCtrl = TextEditingController();
 
   String _category = 'Policy';
-  _PolicyScope _scope = _PolicyScope.league;
+  _PolicyScope _scope = _PolicyScope.organization;
   String? _selectedLeagueId;
   String? _selectedHubId;
   String? _selectedTeamId;
@@ -153,7 +153,7 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
       AppUtils.showInfoSnackBar(context, 'Please enter a policy name.');
       return;
     }
-    if (_selectedLeagueId == null) {
+    if (_scope != _PolicyScope.organization && _selectedLeagueId == null) {
       AppUtils.showInfoSnackBar(context, 'Please select a league.');
       return;
     }
@@ -170,6 +170,9 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     final currentUser = await ref.read(currentUserProvider.future);
     if (orgId == null || currentUser == null) return;
+    final uploaderName = currentUser.displayName.trim().isNotEmpty
+        ? currentUser.displayName.trim()
+        : currentUser.email;
 
     setState(() {
       _isUploading = true;
@@ -186,7 +189,7 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
       final contentType = _contentType(ext);
       final now = DateTime.now();
 
-      // Reserve the scoped policy document before uploading. Storage rules use
+      // Reserve the policy document before uploading. Storage rules use
       // this authoritative metadata to prevent out-of-scope file overwrites.
       await authorizedFirestore.createPolicy(
         currentUser,
@@ -197,11 +200,12 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
           'fileType': ext,
           'fileSize': file.size,
           'category': _category,
-          'leagueId': _selectedLeagueId,
-          'hubId': _scope == _PolicyScope.league ? null : _selectedHubId,
+          'leagueId':
+              _scope == _PolicyScope.organization ? null : _selectedLeagueId,
+          'hubId': _scope == _PolicyScope.organization ? null : _selectedHubId,
           'teamId': _scope == _PolicyScope.team ? _selectedTeamId : null,
           'uploadedBy': currentUser.id,
-          'uploadedByName': currentUser.displayName,
+          'uploadedByName': uploaderName,
           'versions': const <Map<String, dynamic>>[],
           'uploadStatus': 'uploading',
         },
@@ -223,7 +227,7 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
         'url': fileUrl,
         'version': 1,
         'uploadedBy': currentUser.id,
-        'uploadedByName': currentUser.displayName,
+        'uploadedByName': uploaderName,
         'uploadedAt': now.toIso8601String(),
         'fileSize': file.size,
       };
@@ -262,6 +266,14 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
   Widget build(BuildContext context) {
     final leaguesAsync = ref.watch(leaguesProvider);
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final canPublishOrganizationWide = currentUser != null &&
+        ref.read(permissionServiceProvider).canUploadPolicyToScope(
+              currentUser,
+              leagueId: null,
+            );
+    if (!canPublishOrganizationWide && _scope == _PolicyScope.organization) {
+      _scope = _PolicyScope.hub;
+    }
     final leagues =
         manageableLeaguesForUser(currentUser, leaguesAsync.valueOrNull ?? []);
     final defaultLeagueId = singleManageableLeagueId(currentUser, leagues);
@@ -273,7 +285,9 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
       _selectedLeagueId = null;
       _selectedHubId = null;
       _selectedTeamId = null;
-      _scope = _PolicyScope.league;
+      _scope = canPublishOrganizationWide
+          ? _PolicyScope.organization
+          : _PolicyScope.hub;
     }
     final hubsAsync = _selectedLeagueId != null
         ? ref.watch(hubsProvider(_selectedLeagueId!))
@@ -318,6 +332,47 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
           bottomContentPadding,
         ),
         children: [
+          if (currentUser != null) ...[
+            AppGlassSurface(
+              padding: const EdgeInsets.all(14),
+              radius: 20,
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.verified_user_outlined,
+                    color: AppGlassColors.aqua,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Uploading as',
+                          style: TextStyle(
+                            color: AppGlassColors.inkMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          '${currentUser.displayName} · ${currentUser.email}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppGlassColors.ink,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           _FilePickerCard(
             file: _pickedFile,
             isUploading: _isUploading,
@@ -348,61 +403,72 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
                 : (v) => setState(() => _category = v ?? _category),
           ),
           const SizedBox(height: 18),
-          const GlassFormSectionLabel('League'),
+          const GlassFormSectionLabel('Policy Scope'),
           const SizedBox(height: 8),
-          GlassDropdownField<String>(
-            value: _selectedLeagueId,
-            hintText: 'Select league',
-            items: leagues
-                .map(
-                  (l) => DropdownMenuItem<String>(
-                    value: l.id,
-                    child: Text(l.name),
-                  ),
-                )
-                .toList(),
+          GlassScopeSelector<_PolicyScope>(
+            selected: _scope,
+            options: [
+              if (canPublishOrganizationWide)
+                const GlassChoiceOption(
+                  value: _PolicyScope.organization,
+                  label: 'Organization',
+                  icon: Icons.apartment_outlined,
+                ),
+              const GlassChoiceOption(
+                value: _PolicyScope.hub,
+                label: 'Hub',
+                icon: Icons.location_on_outlined,
+              ),
+              const GlassChoiceOption(
+                value: _PolicyScope.team,
+                label: 'Team',
+                icon: Icons.groups_2_outlined,
+              ),
+            ],
             onChanged: _isUploading
                 ? null
-                : (v) => setState(() {
-                      _selectedLeagueId = v;
-                      _selectedHubId = null;
-                      _selectedTeamId = null;
-                      _scope = _PolicyScope.league;
+                : (scope) => setState(() {
+                      _scope = scope;
+                      if (scope == _PolicyScope.organization) {
+                        _selectedHubId = null;
+                        _selectedTeamId = null;
+                      } else if (scope == _PolicyScope.hub) {
+                        _selectedTeamId = null;
+                      }
                     }),
           ),
-          if (_selectedLeagueId != null) ...[
-            const SizedBox(height: 18),
-            const GlassFormSectionLabel('Policy Scope'),
+          if (_scope == _PolicyScope.organization) ...[
             const SizedBox(height: 8),
-            GlassScopeSelector<_PolicyScope>(
-              selected: _scope,
-              options: const [
-                GlassChoiceOption(
-                  value: _PolicyScope.league,
-                  label: 'League',
-                  icon: Icons.emoji_events_outlined,
-                ),
-                GlassChoiceOption(
-                  value: _PolicyScope.hub,
-                  label: 'Hub',
-                  icon: Icons.location_on_outlined,
-                ),
-                GlassChoiceOption(
-                  value: _PolicyScope.team,
-                  label: 'Team',
-                  icon: Icons.groups_2_outlined,
-                ),
-              ],
+            const Text(
+              'Visible to every active member of the organization.',
+              style: TextStyle(
+                color: AppGlassColors.inkMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (_scope != _PolicyScope.organization) ...[
+            const SizedBox(height: 18),
+            const GlassFormSectionLabel('League'),
+            const SizedBox(height: 8),
+            GlassDropdownField<String>(
+              value: _selectedLeagueId,
+              hintText: 'Select league',
+              items: leagues
+                  .map(
+                    (l) => DropdownMenuItem<String>(
+                      value: l.id,
+                      child: Text(l.name),
+                    ),
+                  )
+                  .toList(),
               onChanged: _isUploading
                   ? null
-                  : (scope) => setState(() {
-                        _scope = scope;
-                        if (scope == _PolicyScope.league) {
-                          _selectedHubId = null;
-                          _selectedTeamId = null;
-                        } else if (scope == _PolicyScope.hub) {
-                          _selectedTeamId = null;
-                        }
+                  : (v) => setState(() {
+                        _selectedLeagueId = v;
+                        _selectedHubId = null;
+                        _selectedTeamId = null;
                       }),
             ),
           ],
