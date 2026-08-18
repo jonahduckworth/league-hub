@@ -117,6 +117,16 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.close), findsOneWidget);
       });
+
+      testWidgets('does not expose the signed-in uploader identity',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(user: adminUser));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Uploading as'), findsNothing);
+        expect(find.textContaining('Admin User'), findsNothing);
+        expect(find.textContaining('admin@example.com'), findsNothing);
+      });
     });
 
     group('Form Fields', () {
@@ -191,6 +201,10 @@ void main() {
           300,
           scrollable: find.byType(Scrollable).first,
         );
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('upload-policy-submit-button')),
+        );
+        await tester.pumpAndSettle();
         await tester
             .tap(find.byKey(const ValueKey('upload-policy-submit-button')));
         await tester.pumpAndSettle();

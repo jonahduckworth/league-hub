@@ -402,8 +402,8 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Upload New Version'), findsOneWidget);
-        expect(find.textContaining('Uploading as Admin User'), findsOneWidget);
-        expect(find.textContaining('admin@example.com'), findsOneWidget);
+        expect(find.textContaining('Uploading as'), findsNothing);
+        expect(find.textContaining('admin@example.com'), findsNothing);
       });
 
       test('uploader identity falls back to email when display name is empty',

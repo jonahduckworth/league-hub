@@ -332,47 +332,6 @@ class _UploadPolicyScreenState extends ConsumerState<UploadPolicyScreen> {
           bottomContentPadding,
         ),
         children: [
-          if (currentUser != null) ...[
-            AppGlassSurface(
-              padding: const EdgeInsets.all(14),
-              radius: 20,
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.verified_user_outlined,
-                    color: AppGlassColors.aqua,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Uploading as',
-                          style: TextStyle(
-                            color: AppGlassColors.inkMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          '${currentUser.displayName} · ${currentUser.email}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppGlassColors.ink,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
           _FilePickerCard(
             file: _pickedFile,
             isUploading: _isUploading,

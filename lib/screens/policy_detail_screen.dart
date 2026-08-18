@@ -587,8 +587,6 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
               ),
               if (_canEdit(currentUser, policy)) ...[
                 const SizedBox(height: 10),
-                _UploadIdentityNotice(user: currentUser!),
-                const SizedBox(height: 10),
                 _PolicyActionButton(
                   icon: Icons.upload_file,
                   label: _isUploading
@@ -679,59 +677,6 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
       default:
         return AppGlassColors.inkSecondary;
     }
-  }
-}
-
-class _UploadIdentityNotice extends StatelessWidget {
-  const _UploadIdentityNotice({required this.user});
-
-  final AppUser user;
-
-  @override
-  Widget build(BuildContext context) {
-    final uploaderLabel = policyUploaderLabel(user);
-    final showEmail = uploaderLabel.toLowerCase() != user.email.toLowerCase();
-    return AppGlassSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      radius: 16,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.verified_user_outlined,
-            color: AppGlassColors.aqua,
-            size: 19,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  const TextSpan(
-                    text: 'Uploading as ',
-                    style: TextStyle(color: AppGlassColors.inkSecondary),
-                  ),
-                  TextSpan(
-                    text: uploaderLabel,
-                    style: const TextStyle(
-                      color: AppGlassColors.ink,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (showEmail)
-                    TextSpan(
-                      text: ' · ${user.email}',
-                      style:
-                          const TextStyle(color: AppGlassColors.inkSecondary),
-                    ),
-                ],
-              ),
-              style: const TextStyle(fontSize: 12.5, height: 1.35),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
