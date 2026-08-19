@@ -5,7 +5,7 @@
     "lint": "eslint --ext .js,.ts src/ scripts/",
     "build": "tsc",
     "test": "npm run build && node --test test/*.test.js",
-    "test:rules": "cd .. && firebase emulators:exec --config firebase.rules-test.json --project demo-league-hub-rules --only firestore,storage \"node --test functions/test/security-rules.rules.js\"",
+    "test:rules": "cd .. && firebase emulators:exec --config firebase.rules-test.json --project demo-league-hub-rules --only firestore,storage \"node --test functions/test/*.rules.js\"",
     "backfill:invitation-expiry": "node scripts/backfill-invitation-expiry.js",
     "migrate:policy-scope": "node scripts/migrate-policy-scope.js",
     "migrate:jphl-structure": "node scripts/reconcile-jphl-structure.js",

@@ -6,20 +6,25 @@
  * Safety defaults:
  *   node scripts/reconcile-jphl-structure.js          # validate and dry-run
  *   node scripts/reconcile-jphl-structure.js --apply  # back up, then mutate
+ *   node scripts/reconcile-jphl-structure.js --restore <backup> --apply
  */
 
-const { randomUUID } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const admin = require("firebase-admin");
+const {
+  matchRampDirectory,
+  parseRampDirectory,
+} = require("../lib/schedule/rampDiscovery");
 
 const PROJECT_ID = "jdb-league-hub";
-const STORAGE_BUCKET = "jdb-league-hub.firebasestorage.app";
 const ORG_ID = "JMl7VkKm9tAADBaxxdiI";
 const LEAGUE_ID = "KHuoFdO37RD0i2ARocIl";
 const DIRECTORY_URL = "https://juniorprospectshockeyleague.com";
 const CURRENT_SEASON_ID = "14553";
 const LEGACY_SEASON_ID = "12322";
+const MIGRATION_ID = "jphl-structure-2026-27";
+const BACKUP_DIR = path.resolve(__dirname, "../../.codex-backups");
 const RAMP_DIVISION_IDS = {
   "14U": "16624",
   "15U": "16623",
@@ -27,10 +32,25 @@ const RAMP_DIVISION_IDS = {
   "18U": "16622",
 };
 const APPLY = process.argv.includes("--apply");
-const UNKNOWN_ARGS = process.argv.slice(2).filter((arg) => arg !== "--apply");
+const restoreIndex = process.argv.indexOf("--restore");
+const RESTORE_PATH = restoreIndex >= 0 ? process.argv[restoreIndex + 1] : undefined;
+const consumedArgs = new Set(["--apply"]);
+if (restoreIndex >= 0) {
+  assertCliArgument(
+    RESTORE_PATH && !RESTORE_PATH.startsWith("--"),
+    "--restore requires a backup path",
+  );
+  consumedArgs.add("--restore");
+  consumedArgs.add(RESTORE_PATH);
+}
+const UNKNOWN_ARGS = process.argv.slice(2).filter((arg) => !consumedArgs.has(arg));
 
 if (UNKNOWN_ARGS.length > 0) {
   throw new Error(`Unknown arguments: ${UNKNOWN_ARGS.join(", ")}`);
+}
+
+function assertCliArgument(condition, message) {
+  if (!condition) throw new Error(message);
 }
 
 const hubs = [
@@ -78,7 +98,7 @@ const hubs = [
   },
   {
     slug: "epic-hockey-academy",
-    name: "Epic Hockey Academy",
+    name: "EPIC Hockey Academy",
     location: "Middlesex, ON",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/EPIC-E-icon-full-colour-no-background.png",
     teams: [["398242", "18U"]],
@@ -130,7 +150,7 @@ const hubs = [
     name: "Okanagan HC",
     location: "Kelowna, BC",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Okanagan%20HC%20Logo%20-%20OFFICIAL.png",
-    teams: [["398209", "14U"], ["398221", "15U"], ["398233", "17U"], ["398247", "18U"]],
+    teams: [["398221", "15U"], ["398233", "17U"], ["398247", "18U"]],
   },
   {
     slug: "surrey-eagles-ha",
@@ -151,7 +171,14 @@ const hubs = [
     name: "Victoria HA",
     location: "Victoria, BC",
     logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Victoria%20HC%20On%20White%20-%20PNG.png",
-    teams: [["398212", "14U"], ["398235", "17U"], ["398250", "18U"]],
+    teams: [["398212", "14U"], ["398235", "17U"]],
+  },
+  {
+    slug: "velocity-ha",
+    name: "Velocity HA",
+    location: "Montreal, QC",
+    logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Colour Logo_on blk@2x.png",
+    teams: [["399986", "18U"]],
   },
   {
     slug: "wolves-hc",
@@ -184,9 +211,21 @@ const dummyHubs = new Map([
 const DUMMY_ANNOUNCEMENT_ID = "seed_announcement_calgary_ice";
 const DUMMY_ANNOUNCEMENT_TITLE = "Calgary ice allocation update";
 const canonicalHubIds = new Set(hubs.map((hub) => hub.id));
-const canonicalTeamIds = new Set(hubs.flatMap((hub) => hub.teams.map((team) => team.id)));
 const dummyHubIds = new Set(dummyHubs.keys());
 const dummyTeamIds = new Set([...dummyHubs.values()].flatMap((hub) => hub.teamIds));
+const approvedTeamAliases = new Map([
+  ["18U:epic ha", "18U:epic hockey academy"],
+  ["18U:junior capitals", "18U:cowichan jr capitals"],
+]);
+const approvedRetiredTeams = new Map([
+  ["14U:okanagan hc", "398209"],
+  ["18U:victoria ha", "398250"],
+]);
+const approvedRetiredHubRooms = new Map([
+  ["jphl_hub_room_lloydminster_athletics", "jphl_hub_lloydminster_athletics"],
+  ["jphl_hub_room_south_sask_hc", "jphl_hub_south_sask_hc"],
+]);
+const approvedRetiredHubIds = new Set(approvedRetiredHubRooms.values());
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -198,6 +237,82 @@ function arraysWithout(values, removed) {
 
 function hasAny(values, candidates) {
   return Array.isArray(values) && values.some((value) => candidates.has(value));
+}
+
+function teamKey(name, ageGroup) {
+  const normalizedAgeGroup = typeof ageGroup === "string" && ageGroup.trim()
+    ? ageGroup.trim().toUpperCase()
+    : String(name).match(/\b(\d{2}U)\b/i)?.[1].toUpperCase();
+  const club = String(name)
+    .replace(/^\s*\d{2}U(?:\s+AAA)?\s*[-–—:]\s*/i, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return normalizedAgeGroup && club ? `${normalizedAgeGroup}:${club}` : undefined;
+}
+
+function desiredTeamEntries() {
+  return hubs.flatMap((hub) => hub.teams.map((team) => ({
+    ...team,
+    hubId: hub.id,
+    hubName: hub.name,
+    key: teamKey(team.name, team.ageGroup),
+  })));
+}
+
+function buildTeamPlan(existingTeams) {
+  const desired = desiredTeamEntries();
+  const desiredByKey = new Map(desired.map((team) => [team.key, team]));
+  assert(desiredByKey.size === desired.length, "The approved JPHL manifest contains duplicate team names");
+
+  const claimed = new Set();
+  const items = [];
+  const retired = [];
+  for (const existing of existingTeams) {
+    const rawKey = teamKey(existing.name, existing.ageGroup);
+    const key = approvedTeamAliases.get(rawKey) ?? rawKey;
+    const target = desiredByKey.get(key);
+    if (!target) {
+      const retiredSourceId = approvedRetiredTeams.get(key);
+      const matchesApprovedRetirement = retiredSourceId &&
+        (existing.sourceTeamId === retiredSourceId || existing.id === `jphl_team_${retiredSourceId}`);
+      assert(
+        matchesApprovedRetirement,
+        `Refusing to remove unexpected team ${existing.id} (${existing.name})`,
+      );
+      retired.push(existing);
+      continue;
+    }
+    assert(!claimed.has(key), `Multiple League Hub teams map to ${target.name}`);
+    claimed.add(key);
+    items.push({
+      kind: existing.hubId === target.hubId ? "update" : "move",
+      existing,
+      target,
+      targetId: existing.id,
+    });
+  }
+
+  for (const target of desired) {
+    if (claimed.has(target.key)) continue;
+    items.push({ kind: "create", target, targetId: target.id });
+  }
+  assert(items.length === desired.length, `Expected ${desired.length} planned teams, found ${items.length}`);
+  return { items, retired };
+}
+
+function assignmentPatch(data, plan) {
+  const retiredIds = new Set(plan.retired.map((team) => team.id));
+  const teamIds = arraysWithout(arraysWithout(data.teamIds, dummyTeamIds), retiredIds);
+  const hubIds = arraysWithout(arraysWithout(data.hubIds, dummyHubIds), approvedRetiredHubIds);
+  for (const item of plan.items) {
+    if (item.kind !== "move" || !teamIds.includes(item.existing.id)) continue;
+    if (!hubIds.includes(item.target.hubId)) hubIds.push(item.target.hubId);
+  }
+  const patch = {};
+  if (JSON.stringify(teamIds) !== JSON.stringify(data.teamIds || [])) patch.teamIds = teamIds;
+  if (JSON.stringify(hubIds) !== JSON.stringify(data.hubIds || [])) patch.hubIds = hubIds;
+  return patch;
 }
 
 function serialize(value) {
@@ -218,24 +333,92 @@ function serialize(value) {
   return value;
 }
 
+function deserialize(value, db) {
+  if (Array.isArray(value)) return value.map((item) => deserialize(item, db));
+  if (!value || typeof value !== "object") return value;
+  if (value.__type === "timestamp") {
+    return new admin.firestore.Timestamp(value.seconds, value.nanoseconds);
+  }
+  if (value.__type === "geopoint") {
+    return new admin.firestore.GeoPoint(value.latitude, value.longitude);
+  }
+  if (value.__type === "reference") return db.doc(value.path);
+  if (value.__type === "buffer") return Buffer.from(value.base64, "base64");
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, deserialize(item, db)]),
+  );
+}
+
+function updateTimeToken(snapshot) {
+  if (!snapshot.exists) return null;
+  return `${snapshot.updateTime.seconds}:${snapshot.updateTime.nanoseconds}`;
+}
+
 function backupDoc(doc) {
-  return { path: doc.ref.path, data: serialize(doc.data()) };
+  return {
+    path: doc.ref.path,
+    data: serialize(doc.data()),
+    updateTime: updateTimeToken(doc),
+  };
+}
+
+function inventoryOf(documents) {
+  return new Map(documents.map((doc) => [doc.ref.path, updateTimeToken(doc)]));
+}
+
+function compareInventories(expected, actual) {
+  const missing = [...expected.keys()].filter((key) => !actual.has(key));
+  const added = [...actual.keys()].filter((key) => !expected.has(key));
+  const changed = [...expected.keys()].filter((key) =>
+    actual.has(key) && actual.get(key) !== expected.get(key));
+  return { missing, added, changed };
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function dataToken(data) {
+  return stableStringify(serialize(data));
+}
+
+function dataInventoryOf(documents) {
+  return new Map(documents.map((doc) => [doc.ref.path, dataToken(doc.data())]));
 }
 
 async function fetchBytes(url, label) {
-  const response = await fetch(url, { redirect: "follow" });
-  assert(response.ok, `${label} returned HTTP ${response.status}: ${url}`);
-  const bytes = Buffer.from(await response.arrayBuffer());
-  assert(bytes.length > 100, `${label} returned an unexpectedly small file (${bytes.length} bytes)`);
-  return { bytes, contentType: response.headers.get("content-type") || "application/octet-stream" };
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(url, {
+        redirect: "follow",
+        signal: AbortSignal.timeout(15_000),
+      });
+      assert(response.ok, `${label} returned HTTP ${response.status}: ${url}`);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      assert(bytes.length > 100, `${label} returned an unexpectedly small file (${bytes.length} bytes)`);
+      return { bytes, contentType: response.headers.get("content-type") || "application/octet-stream" };
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 250));
+    }
+  }
+  throw new Error(`${label} fetch failed after 3 attempts: ${lastError?.message ?? lastError}`);
 }
 
 async function loadState(db) {
   const orgRef = db.collection("organizations").doc(ORG_ID);
   const leagueRef = orgRef.collection("leagues").doc(LEAGUE_ID);
-  const [orgDoc, leagueDoc, hubDocs, userDocs, invitationDocs, roomDocs, announcementDocs] = await Promise.all([
+  const migrationRef = orgRef.collection("auditLogs").doc(MIGRATION_ID);
+  const [orgDoc, leagueDoc, migrationDoc, hubDocs, userDocs, invitationDocs, roomDocs, announcementDocs] = await Promise.all([
     orgRef.get(),
     leagueRef.get(),
+    migrationRef.get(),
     leagueRef.collection("hubs").get(),
     db.collection("users").where("orgId", "==", ORG_ID).get(),
     orgRef.collection("invitations").get(),
@@ -257,19 +440,36 @@ async function loadState(db) {
     if (expected) assert(doc.data().name === expected.name, `Dummy hub ${doc.id} has unexpected name ${doc.data().name}`);
   }
 
+  const teamDocs = [];
   const oldHubDocs = hubDocs.docs.filter((doc) => dummyHubIds.has(doc.id));
   const oldTeamDocs = [];
-  for (const hubDoc of oldHubDocs) {
+  for (const hubDoc of hubDocs.docs) {
     const teams = await hubDoc.ref.collection("teams").get();
-    const expectedTeamIds = new Set(dummyHubs.get(hubDoc.id).teamIds);
-    const unexpectedTeams = teams.docs.filter((doc) => !expectedTeamIds.has(doc.id));
-    assert(unexpectedTeams.length === 0, `Dummy hub ${hubDoc.id} contains unapproved teams: ${unexpectedTeams.map((doc) => doc.id).join(", ")}`);
-    oldTeamDocs.push(...teams.docs);
+    teamDocs.push(...teams.docs);
+    if (dummyHubIds.has(hubDoc.id)) {
+      const expectedTeamIds = new Set(dummyHubs.get(hubDoc.id).teamIds);
+      const unexpectedTeams = teams.docs.filter((doc) => !expectedTeamIds.has(doc.id));
+      assert(unexpectedTeams.length === 0, `Dummy hub ${hubDoc.id} contains unapproved teams: ${unexpectedTeams.map((doc) => doc.id).join(", ")}`);
+      oldTeamDocs.push(...teams.docs);
+    }
   }
 
   const staleUsers = userDocs.docs.filter((doc) => hasAny(doc.data().hubIds, dummyHubIds) || hasAny(doc.data().teamIds, dummyTeamIds));
   const staleInvitations = invitationDocs.docs.filter((doc) => hasAny(doc.data().hubIds, dummyHubIds) || hasAny(doc.data().teamIds, dummyTeamIds));
   const oldRooms = roomDocs.docs.filter((doc) => dummyHubIds.has(doc.data().hubId));
+  const retiredRooms = roomDocs.docs.filter((doc) =>
+    approvedRetiredHubRooms.has(doc.id) &&
+    approvedRetiredHubRooms.get(doc.id) === doc.data().hubId,
+  );
+  const unexpectedActiveHubRooms = roomDocs.docs.filter((doc) =>
+    doc.data().leagueId === LEAGUE_ID &&
+    doc.data().hubId &&
+    doc.data().isArchived !== true &&
+    !canonicalHubIds.has(doc.data().hubId) &&
+    !dummyHubIds.has(doc.data().hubId) &&
+    !approvedRetiredHubIds.has(doc.data().hubId),
+  );
+  assert(unexpectedActiveHubRooms.length === 0, `Unapproved active hub rooms: ${unexpectedActiveHubRooms.map((doc) => doc.id).join(", ")}`);
   const unexpectedTargetedAnnouncements = announcementDocs.docs.filter((doc) => dummyHubIds.has(doc.data().hubId) && doc.id !== DUMMY_ANNOUNCEMENT_ID);
   assert(unexpectedTargetedAnnouncements.length === 0, `Unapproved announcements target dummy hubs: ${unexpectedTargetedAnnouncements.map((doc) => doc.id).join(", ")}`);
 
@@ -288,9 +488,12 @@ async function loadState(db) {
   return {
     orgRef,
     leagueRef,
+    migrationRef,
+    migrationDoc,
     orgDoc,
     leagueDoc,
     hubDocs: hubDocs.docs,
+    teamDocs,
     oldHubDocs,
     oldTeamDocs,
     userDocs: userDocs.docs,
@@ -300,17 +503,78 @@ async function loadState(db) {
     staleUsers,
     staleInvitations,
     oldRooms,
+    retiredRooms,
     roomMessages,
     dummyAnnouncement,
   };
 }
 
-async function validateOfficialSource() {
-  const [{ bytes: directory }, ...logos] = await Promise.all([
-    fetchBytes(DIRECTORY_URL, "Official directory"),
-    ...hubs.map((hub) => fetchBytes(hub.logoSource, `${hub.name} logo`)),
+function stateDocuments(state) {
+  return [
+    state.orgDoc,
+    state.leagueDoc,
+    ...(state.migrationDoc.exists ? [state.migrationDoc] : []),
+    ...state.hubDocs,
+    ...state.teamDocs,
+    ...state.userDocs,
+    ...state.invitationDocs,
+    ...state.roomDocs,
+    ...state.roomMessages,
+    ...state.announcementDocs,
+  ];
+}
+
+async function transactionStateDocuments(transaction, state) {
+  const documents = [];
+  documents.push(await transaction.get(state.orgRef));
+  documents.push(await transaction.get(state.leagueRef));
+  const hubSnapshot = await transaction.get(state.leagueRef.collection("hubs"));
+  documents.push(...hubSnapshot.docs);
+
+  const hubIds = new Set([...state.hubDocs.map((doc) => doc.id), ...canonicalHubIds]);
+  for (const hubId of hubIds) {
+    const teams = await transaction.get(
+      state.leagueRef.collection("hubs").doc(hubId).collection("teams"),
+    );
+    documents.push(...teams.docs);
+  }
+
+  const [users, invitations, rooms, announcements] = await Promise.all([
+    transaction.get(dbCollectionQuery(state.orgRef.firestore, "users", "orgId", ORG_ID)),
+    transaction.get(state.orgRef.collection("invitations")),
+    transaction.get(state.orgRef.collection("chatRooms")),
+    transaction.get(state.orgRef.collection("announcements")),
   ]);
+  documents.push(...users.docs, ...invitations.docs, ...rooms.docs, ...announcements.docs);
+  for (const room of state.oldRooms) {
+    const messages = await transaction.get(room.ref.collection("messages"));
+    documents.push(...messages.docs);
+  }
+  return documents;
+}
+
+function dbCollectionQuery(db, collection, field, value) {
+  return db.collection(collection).where(field, "==", value);
+}
+
+async function validateOfficialSource() {
+  const { bytes: directory } = await fetchBytes(DIRECTORY_URL, "Official directory");
+  const logos = [];
+  for (const hub of hubs) logos.push(await fetchBytes(hub.logoSource, `${hub.name} logo`));
   const directoryHtml = directory.toString("utf8");
+  const configured = desiredTeamEntries().map((team) => ({
+    id: team.id,
+    name: team.name,
+    ageGroup: team.ageGroup,
+  }));
+  const discovery = matchRampDirectory(parseRampDirectory(directoryHtml), configured);
+  assert(
+    discovery.status === "matched" &&
+      discovery.discoveredSeasonId === CURRENT_SEASON_ID &&
+      discovery.matchedTeams === configured.length &&
+      discovery.discoveredTeams === configured.length,
+    `Official directory is no longer an exact ${configured.length}-team match: ${discovery.message}`,
+  );
   for (const team of hubs.flatMap((hub) => hub.teams)) {
     assert(directoryHtml.includes(team.sourceId), `Official directory no longer includes team ${team.sourceId} (${team.name})`);
   }
@@ -320,182 +584,326 @@ async function validateOfficialSource() {
   return logos;
 }
 
-function printPlan(state, logos) {
+function printPlan(state, logos, plan) {
   console.log(`${APPLY ? "APPLY" : "DRY RUN"}: ${hubs.length} hubs, ${hubs.flatMap((hub) => hub.teams).length} teams`);
   for (const hub of hubs) console.log(`  + ${hub.name}: ${hub.teams.map((team) => team.ageGroup).join(", ")}`);
   console.log(`  - dummy hubs present: ${state.oldHubDocs.length}`);
   console.log(`  - dummy teams present: ${state.oldTeamDocs.length}`);
   console.log(`  - dummy hub rooms present: ${state.oldRooms.length} (${state.roomMessages.length} messages)`);
+  console.log(`  - approved retired hub rooms to archive: ${state.retiredRooms.length}`);
   console.log(`  - stale user assignments: ${state.staleUsers.length}`);
   console.log(`  - stale invitation assignments: ${state.staleInvitations.length}`);
   console.log(`  - dummy announcement present: ${Boolean(state.dummyAnnouncement)}`);
+  console.log(`  - existing teams updated in place: ${plan.items.filter((item) => item.kind === "update").length}`);
+  console.log(`  - existing teams moved without changing IDs: ${plan.items.filter((item) => item.kind === "move").length}`);
+  console.log(`  - new teams: ${plan.items.filter((item) => item.kind === "create").length}`);
+  console.log(`  - approved retired teams: ${plan.retired.length}`);
   console.log(`  - official logos validated: ${logos.length} (${logos.reduce((sum, logo) => sum + logo.bytes.length, 0)} bytes)`);
 }
 
-function writeBackup(state) {
+function plannedCreatedPaths(state, plan) {
+  const existingPaths = new Set(stateDocuments(state).map((doc) => doc.ref.path));
+  const paths = new Set();
+  for (const hub of hubs) {
+    const hubRef = state.leagueRef.collection("hubs").doc(hub.id);
+    const roomRef = state.orgRef.collection("chatRooms")
+      .doc(`jphl_hub_room_${hub.slug.replaceAll("-", "_")}`);
+    if (!existingPaths.has(hubRef.path)) paths.add(hubRef.path);
+    if (!existingPaths.has(roomRef.path)) paths.add(roomRef.path);
+  }
+  for (const item of plan.items.filter((item) => item.kind === "create" || item.kind === "move")) {
+    const targetRef = state.leagueRef.collection("hubs").doc(item.target.hubId)
+      .collection("teams").doc(item.targetId);
+    if (!existingPaths.has(targetRef.path)) paths.add(targetRef.path);
+  }
+  if (!state.migrationDoc.exists) paths.add(state.migrationRef.path);
+  return [...paths].sort();
+}
+
+function writeBackup(state, plan) {
   const timestamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
-  const backupDir = path.resolve(__dirname, "../../.codex-backups");
-  fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
-  const backupPath = path.join(backupDir, `jphl-structure-production-${timestamp}.json`);
-  const documents = [
-    state.orgDoc,
-    state.leagueDoc,
-    ...state.hubDocs,
-    ...state.oldTeamDocs,
-    ...state.userDocs,
-    ...state.invitationDocs,
-    ...state.roomDocs,
-    ...state.roomMessages,
-    ...state.announcementDocs,
-  ].map(backupDoc);
-  fs.writeFileSync(backupPath, `${JSON.stringify({ projectId: PROJECT_ID, createdAt: new Date().toISOString(), documents }, null, 2)}\n`, { mode: 0o600 });
+  fs.mkdirSync(BACKUP_DIR, { recursive: true, mode: 0o700 });
+  const backupPath = path.join(BACKUP_DIR, `jphl-structure-production-${timestamp}.json`);
+  const documents = stateDocuments(state).map(backupDoc);
+  const backup = {
+    schemaVersion: 1,
+    projectId: PROJECT_ID,
+    organizationId: ORG_ID,
+    leagueId: LEAGUE_ID,
+    migrationId: MIGRATION_ID,
+    createdAt: new Date().toISOString(),
+    createdPaths: plannedCreatedPaths(state, plan),
+    documents,
+  };
+  fs.writeFileSync(backupPath, `${JSON.stringify(backup, null, 2)}\n`, { mode: 0o600 });
   return backupPath;
 }
 
-async function uploadLogos(bucket, logos) {
-  const urls = new Map();
-  for (const [index, hub] of hubs.entries()) {
-    const objectPath = `organizations/${ORG_ID}/hubs/${hub.id}/logo.png`;
-    const file = bucket.file(objectPath);
-    let token = randomUUID();
-    try {
-      const [metadata] = await file.getMetadata();
-      const existing = metadata.metadata?.firebaseStorageDownloadTokens;
-      if (typeof existing === "string" && existing.length > 0) token = existing.split(",")[0];
-    } catch (error) {
-      if (error.code !== 404) throw error;
-    }
-    await file.save(logos[index].bytes, {
-      resumable: false,
-      contentType: "image/png",
-      metadata: {
-        cacheControl: "public,max-age=86400",
-        metadata: {
-          firebaseStorageDownloadTokens: token,
-          sourceUrl: hub.logoSource,
-          sourceSite: "juniorprospectshockeyleague.com",
-        },
-      },
-    });
-    const url = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodeURIComponent(objectPath)}?alt=media&token=${token}`;
-    urls.set(hub.id, url);
-    console.log(`Uploaded ${hub.name} logo`);
-  }
-  return urls;
+function validatedBackupPath(inputPath) {
+  fs.mkdirSync(BACKUP_DIR, { recursive: true, mode: 0o700 });
+  const resolved = fs.realpathSync(path.resolve(inputPath));
+  const realBackupDir = fs.realpathSync(BACKUP_DIR);
+  assert(path.dirname(resolved) === realBackupDir, "Restore file must be directly inside .codex-backups");
+  assert(path.basename(resolved).startsWith("jphl-structure-production-"), "Unexpected restore filename");
+  return resolved;
 }
 
-async function writeCanonicalStructure(db, state, logoUrls) {
+function readBackup(inputPath) {
+  const backupPath = validatedBackupPath(inputPath);
+  const backup = JSON.parse(fs.readFileSync(backupPath, "utf8"));
+  assert(backup.schemaVersion === 1, "Unsupported structure backup schema");
+  assert(backup.projectId === PROJECT_ID, "Backup targets a different Firebase project");
+  assert(backup.organizationId === ORG_ID, "Backup targets a different organization");
+  assert(backup.leagueId === LEAGUE_ID, "Backup targets a different league");
+  assert(backup.migrationId === MIGRATION_ID, "Backup belongs to a different migration");
+  assert(Array.isArray(backup.documents) && backup.documents.length > 0, "Backup has no documents");
+  assert(Array.isArray(backup.createdPaths), "Backup has no created-path inventory");
+  assert(backup.postApplyGuard && typeof backup.postApplyGuard === "object", "Backup has no prepared post-apply guard");
+  const originalPaths = new Set(backup.documents.map((doc) => doc.path));
+  assert(backup.createdPaths.every((item) => !originalPaths.has(item)), "Backup created paths overlap original documents");
+  return { backup, backupPath };
+}
+
+function prepareBackupGuard(backupPath, postApplyData) {
+  const backup = JSON.parse(fs.readFileSync(backupPath, "utf8"));
+  const guardedPaths = new Set([
+    ...backup.documents.map((doc) => doc.path),
+    ...backup.createdPaths,
+    ...postApplyData.keys(),
+  ]);
+  const postApplyGuard = new Map([...guardedPaths].map((guardedPath) => [
+    guardedPath,
+    postApplyData.has(guardedPath) ? dataToken(postApplyData.get(guardedPath)) : null,
+  ]));
+  assert(
+    backup.createdPaths.every((createdPath) => postApplyGuard.get(createdPath) != null),
+    "One or more planned documents were not created",
+  );
+  backup.guardPreparedAt = new Date().toISOString();
+  backup.postApplyGuard = Object.fromEntries([...postApplyGuard.entries()].sort());
+  const tempPath = `${backupPath}.tmp`;
+  fs.writeFileSync(tempPath, `${JSON.stringify(backup, null, 2)}\n`, { mode: 0o600 });
+  fs.renameSync(tempPath, backupPath);
+}
+
+async function restoreBackup(db, inputPath) {
+  assert(APPLY, "Restore is a production mutation and requires --apply");
+  const { backup, backupPath } = readBackup(inputPath);
+  const expected = new Map(Object.entries(backup.postApplyGuard));
+  const writes = backup.documents.length + backup.createdPaths.length;
+  assert(writes < 450, `Refusing oversized restore transaction with ${writes} writes`);
+  const currentState = await loadState(db);
+
+  await db.runTransaction(async (transaction) => {
+    const currentDocuments = await transactionStateDocuments(transaction, currentState);
+    const migrationDoc = await transaction.get(currentState.migrationRef);
+    if (migrationDoc.exists) currentDocuments.push(migrationDoc);
+    const createdRoomPaths = backup.createdPaths.filter((docPath) =>
+      docPath.startsWith(`${currentState.orgRef.path}/chatRooms/`) &&
+      docPath.split("/").length === 4,
+    );
+    for (const roomPath of createdRoomPaths) {
+      const messages = await transaction.get(db.doc(roomPath).collection("messages"));
+      currentDocuments.push(...messages.docs);
+    }
+    const actual = dataInventoryOf(currentDocuments);
+    const directPaths = [...expected.keys()].filter((docPath) => !actual.has(docPath));
+    const directSnapshots = await Promise.all(
+      directPaths.map((docPath) => transaction.get(db.doc(docPath))),
+    );
+    for (const snapshot of directSnapshots) {
+      actual.set(snapshot.ref.path, snapshot.exists ? dataToken(snapshot.data()) : null);
+    }
+    const difference = compareInventories(expected, actual);
+    assert(
+      difference.missing.length === 0 && difference.added.length === 0 && difference.changed.length === 0,
+      `Refusing restore because production changed after migration: ${JSON.stringify(difference)}`,
+    );
+    for (const document of backup.documents) {
+      transaction.set(db.doc(document.path), deserialize(document.data, db));
+    }
+    for (const createdPath of backup.createdPaths) transaction.delete(db.doc(createdPath));
+  });
+  console.log(`Guarded restore completed from ${backupPath}`);
+  console.log("Disable/remove the schedule functions and remove imported scheduleEvents separately if the initial sync already ran.");
+}
+
+function resolveLogoUrls(state) {
+  const existingHubs = new Map(state.hubDocs.map((doc) => [doc.id, doc.data()]));
+  return new Map(hubs.map((hub) => {
+    const existing = existingHubs.get(hub.id)?.logoUrl;
+    return [hub.id, typeof existing === "string" && existing.trim() ? existing : hub.logoSource];
+  }));
+}
+
+async function writeCanonicalStructure(db, state, logoUrls, plan, backupPath) {
   const now = admin.firestore.Timestamp.now();
   const existingHubs = new Map(state.hubDocs.map((doc) => [doc.id, doc]));
-  let batch = db.batch();
-  let pending = 0;
-  const commit = async () => {
-    if (pending === 0) return;
-    await batch.commit();
-    batch = db.batch();
-    pending = 0;
-  };
-  const set = async (ref, data, options) => {
-    batch.set(ref, data, options);
-    pending += 1;
-    if (pending >= 400) await commit();
-  };
+  const existingRooms = new Map(state.roomDocs.map((doc) => [doc.id, doc]));
+  const expectedInventory = inventoryOf(stateDocuments(state));
 
-  await set(state.orgRef, {
-    scheduleIntegration: {
-      provider: "ramp",
-      enabled: true,
-      autoDiscoverSeason: true,
-      baseUrl: "https://juniorprospectshockeyleague.com",
-      associationId: "2888",
-      seasonId: CURRENT_SEASON_ID,
-      legacySourceSeasonId: LEGACY_SEASON_ID,
-      timezone: "America/Edmonton",
-      divisionIds: RAMP_DIVISION_IDS,
-      updatedAt: now,
-      updatedBy: "reconcile-jphl-structure",
-    },
-  }, { merge: true });
+  return db.runTransaction(async (transaction) => {
+    const actualDocuments = await transactionStateDocuments(transaction, state);
+    const difference = compareInventories(expectedInventory, inventoryOf(actualDocuments));
+    assert(
+      difference.missing.length === 0 && difference.added.length === 0 && difference.changed.length === 0,
+      `Production structure changed during validation: ${JSON.stringify(difference)}`,
+    );
+    const migrationDoc = await transaction.get(state.migrationRef);
+    assert(!migrationDoc.exists, `Migration marker ${MIGRATION_ID} already exists`);
 
-  for (const hub of hubs) {
-    const hubRef = state.leagueRef.collection("hubs").doc(hub.id);
-    const logoUrl = logoUrls.get(hub.id);
-    await set(hubRef, {
-      orgId: ORG_ID,
-      leagueId: LEAGUE_ID,
-      name: hub.name,
-      location: hub.location,
-      logoUrl,
-      iconName: null,
-      ...(existingHubs.has(hub.id) ? {} : { createdAt: now }),
-    }, { merge: true });
+    const postApplyData = new Map(
+      stateDocuments(state).map((doc) => [doc.ref.path, doc.data()]),
+    );
+    let writes = 0;
+    const update = (doc, data) => {
+      transaction.update(doc.ref, data);
+      postApplyData.set(doc.ref.path, { ...postApplyData.get(doc.ref.path), ...data });
+      writes += 1;
+    };
+    const create = (ref, data) => {
+      transaction.create(ref, data);
+      postApplyData.set(ref.path, data);
+      writes += 1;
+    };
+    const remove = (doc) => {
+      transaction.delete(doc.ref);
+      postApplyData.delete(doc.ref.path);
+      writes += 1;
+    };
 
-    for (const team of hub.teams) {
-      const teamRef = hubRef.collection("teams").doc(team.id);
-      const existing = await teamRef.get();
-      await set(teamRef, {
+    update(state.orgDoc, {
+      scheduleIntegration: {
+        provider: "ramp",
+        enabled: true,
+        autoDiscoverSeason: true,
+        baseUrl: "https://juniorprospectshockeyleague.com",
+        associationId: "2888",
+        seasonId: CURRENT_SEASON_ID,
+        legacySourceSeasonId: LEGACY_SEASON_ID,
+        timezone: "America/Edmonton",
+        divisionIds: RAMP_DIVISION_IDS,
+        updatedAt: now,
+        updatedBy: "reconcile-jphl-structure",
+      },
+    });
+
+    for (const hub of hubs) {
+      const hubRef = state.leagueRef.collection("hubs").doc(hub.id);
+      const logoUrl = logoUrls.get(hub.id);
+      const fields = {
         orgId: ORG_ID,
         leagueId: LEAGUE_ID,
-        hubId: hub.id,
-        name: team.name,
-        ageGroup: team.ageGroup,
-        division: team.division,
+        name: hub.name,
+        location: hub.location,
         logoUrl,
         iconName: null,
-        memberIds: existing.exists && Array.isArray(existing.data().memberIds) ? existing.data().memberIds : [],
-        sourceTeamId: team.sourceId,
-        sourceDivisionId: RAMP_DIVISION_IDS[team.ageGroup],
+      };
+      const existingHub = existingHubs.get(hub.id);
+      if (existingHub) update(existingHub, fields);
+      else create(hubRef, { ...fields, createdAt: now });
+
+      const roomRef = state.orgRef.collection("chatRooms").doc(`jphl_hub_room_${hub.slug.replaceAll("-", "_")}`);
+      const roomFields = {
+        orgId: ORG_ID,
+        name: `${hub.name} - General`,
+        type: "league",
+        leagueId: LEAGUE_ID,
+        hubId: hub.id,
+        teamId: null,
+        isArchived: false,
+        roomIconName: null,
+        roomImageUrl: logoUrl,
+      };
+      const existingRoom = existingRooms.get(roomRef.id);
+      if (existingRoom) update(existingRoom, roomFields);
+      else create(roomRef, {
+        ...roomFields,
+        participants: [],
+        createdAt: now,
+        lastMessage: null,
+        lastMessageAt: now,
+        lastMessageBy: null,
+      });
+    }
+
+    for (const item of plan.items) {
+      const targetRef = state.leagueRef.collection("hubs").doc(item.target.hubId)
+        .collection("teams").doc(item.targetId);
+      const logoUrl = logoUrls.get(item.target.hubId);
+      const existingData = item.existing?.doc?.data() ?? {};
+      const fields = {
+        orgId: ORG_ID,
+        leagueId: LEAGUE_ID,
+        hubId: item.target.hubId,
+        name: item.target.name,
+        ageGroup: item.target.ageGroup,
+        division: item.target.division,
+        logoUrl,
+        iconName: null,
+        memberIds: Array.isArray(existingData.memberIds) ? existingData.memberIds : [],
+        sourceTeamId: item.target.sourceId,
+        sourceDivisionId: RAMP_DIVISION_IDS[item.target.ageGroup],
         sourceUrl: DIRECTORY_URL,
-        ...(existing.exists ? {} : { createdAt: now }),
-      }, { merge: true });
+      };
+      if (item.kind === "create") {
+        create(targetRef, { ...fields, createdAt: now });
+      } else if (item.kind === "move") {
+        create(targetRef, { ...existingData, ...fields });
+        remove(item.existing.doc);
+      } else {
+        update(item.existing.doc, fields);
+      }
     }
 
-    const roomRef = state.orgRef.collection("chatRooms").doc(`jphl_hub_room_${hub.slug.replaceAll("-", "_")}`);
-    await set(roomRef, {
-      orgId: ORG_ID,
-      name: `${hub.name} - General`,
-      type: "league",
-      leagueId: LEAGUE_ID,
-      hubId: hub.id,
-      teamId: null,
-      participants: [],
-      isArchived: false,
+    for (const retired of plan.retired) remove(retired.doc);
+    for (const room of state.retiredRooms) {
+      update(room, {
+        isArchived: true,
+        archivedAt: now,
+        archivedBy: "reconcile-jphl-structure",
+      });
+    }
+    for (const doc of [...state.userDocs, ...state.invitationDocs]) {
+      const patch = assignmentPatch(doc.data(), plan);
+      if (Object.keys(patch).length > 0) update(doc, patch);
+    }
+    if (state.dummyAnnouncement) remove(state.dummyAnnouncement);
+    for (const doc of state.roomMessages) remove(doc);
+    for (const doc of state.oldRooms) remove(doc);
+    for (const doc of state.oldTeamDocs) remove(doc);
+    for (const doc of state.oldHubDocs) remove(doc);
+
+    create(state.migrationRef, {
+      action: "reconcileJphlStructure",
+      actorId: "system-production-migration",
+      actorName: "Codex production migration",
+      actorEmail: null,
+      actorRole: "system",
+      backupFile: path.basename(backupPath),
+      request: {
+        approvedPlan: "Reconcile the production structure to the exact official JPHL directory",
+        sourceUrl: DIRECTORY_URL,
+      },
+      result: {
+        expectedHubs: hubs.length,
+        expectedTeams: desiredTeamEntries().length,
+        archivedRetiredRooms: state.retiredRooms.length,
+        removedDummyHubs: state.oldHubDocs.length,
+        removedDummyTeams: state.oldTeamDocs.length,
+        removedDummyRooms: state.oldRooms.length,
+        updatedTeams: plan.items.filter((item) => item.kind === "update").length,
+        movedTeams: plan.items.filter((item) => item.kind === "move").length,
+        createdTeams: plan.items.filter((item) => item.kind === "create").length,
+        retiredTeams: plan.retired.length,
+      },
       createdAt: now,
-      lastMessage: null,
-      lastMessageAt: now,
-      lastMessageBy: null,
-      roomIconName: null,
-      roomImageUrl: logoUrl,
-    }, { merge: true });
-  }
-  await commit();
-}
+    });
 
-async function cleanAssignments(db, docs) {
-  let batch = db.batch();
-  let pending = 0;
-  for (const doc of docs) {
-    const data = doc.data();
-    const hubIds = arraysWithout(data.hubIds, dummyHubIds);
-    const teamIds = arraysWithout(data.teamIds, dummyTeamIds);
-    if (JSON.stringify(hubIds) === JSON.stringify(data.hubIds || []) && JSON.stringify(teamIds) === JSON.stringify(data.teamIds || [])) continue;
-    batch.update(doc.ref, { hubIds, teamIds });
-    pending += 1;
-    if (pending >= 400) {
-      await batch.commit();
-      batch = db.batch();
-      pending = 0;
-    }
-  }
-  if (pending > 0) await batch.commit();
-}
-
-async function removeDummyData(db, state) {
-  await cleanAssignments(db, state.userDocs);
-  await cleanAssignments(db, state.invitationDocs);
-  if (state.dummyAnnouncement) await state.dummyAnnouncement.ref.delete();
-  for (const room of state.oldRooms) await db.recursiveDelete(room.ref);
-  for (const hub of state.oldHubDocs) await db.recursiveDelete(hub.ref);
+    assert(writes < 450, `Refusing oversized structure transaction with ${writes} writes`);
+    prepareBackupGuard(backupPath, postApplyData);
+    return { writes };
+  });
 }
 
 async function verify(db) {
@@ -508,77 +916,86 @@ async function verify(db) {
     orgRef.collection("chatRooms").get(),
     orgRef.collection("announcements").get(),
   ]);
-  assert(hubDocs.size === 18, `Expected 18 hubs, found ${hubDocs.size}`);
+  assert(hubDocs.size === hubs.length, `Expected ${hubs.length} hubs, found ${hubDocs.size}`);
   assert(hubDocs.docs.every((doc) => canonicalHubIds.has(doc.id)), "Non-canonical hub remains after migration");
 
-  let teamCount = 0;
+  const teamDocs = [];
   const logoUrls = [];
   for (const hubDoc of hubDocs.docs) {
     const teams = await hubDoc.ref.collection("teams").get();
-    teamCount += teams.size;
-    assert(teams.docs.every((doc) => canonicalTeamIds.has(doc.id)), `Unexpected team under ${hubDoc.id}`);
+    teamDocs.push(...teams.docs);
     assert(teams.docs.every((doc) => doc.data().hubId === hubDoc.id), `Team has incorrect hubId under ${hubDoc.id}`);
     assert(teams.docs.every((doc) => doc.data().logoUrl === hubDoc.data().logoUrl), `Team logo differs from hub logo under ${hubDoc.id}`);
     logoUrls.push(hubDoc.data().logoUrl);
   }
-  assert(teamCount === 50, `Expected 50 teams, found ${teamCount}`);
+  const plan = buildTeamPlan(teamDocs.map((doc) => ({
+    id: doc.id,
+    hubId: doc.ref.parent.parent.id,
+    name: doc.data().name,
+    ageGroup: doc.data().ageGroup,
+    sourceTeamId: doc.data().sourceTeamId,
+    doc,
+  })));
+  assert(teamDocs.length === desiredTeamEntries().length, `Expected ${desiredTeamEntries().length} teams, found ${teamDocs.length}`);
+  assert(plan.retired.length === 0, "A retired JPHL team remains after migration");
+  assert(plan.items.every((item) => item.kind === "update"), "The reconciled JPHL structure is not idempotent");
+  assert(plan.items.every((item) => item.existing.sourceTeamId === item.target.sourceId), "A team has stale RAMP routing after migration");
   assert(userDocs.docs.every((doc) => !hasAny(doc.data().hubIds, dummyHubIds) && !hasAny(doc.data().teamIds, dummyTeamIds)), "A user still references dummy structure");
   assert(invitationDocs.docs.every((doc) => !hasAny(doc.data().hubIds, dummyHubIds) && !hasAny(doc.data().teamIds, dummyTeamIds)), "An invitation still references dummy structure");
   assert(announcementDocs.docs.every((doc) => !dummyHubIds.has(doc.data().hubId)), "An announcement still targets dummy structure");
 
   const activeHubRooms = roomDocs.docs.filter((doc) => doc.data().leagueId === LEAGUE_ID && doc.data().hubId && doc.data().isArchived !== true);
-  assert(activeHubRooms.length === 18, `Expected 18 active hub rooms, found ${activeHubRooms.length}`);
+  assert(activeHubRooms.length === hubs.length, `Expected ${hubs.length} active hub rooms, found ${activeHubRooms.length}`);
   assert(activeHubRooms.every((doc) => canonicalHubIds.has(doc.data().hubId)), "A dummy hub room remains");
   assert(activeHubRooms.every((doc) => doc.data().roomImageUrl === hubDocs.docs.find((hub) => hub.id === doc.data().hubId).data().logoUrl), "A hub room logo is out of sync");
+  assert(roomDocs.docs.filter((doc) => approvedRetiredHubIds.has(doc.data().hubId)).every((doc) => doc.data().isArchived === true), "A retired hub room remains active");
 
   const checks = await Promise.all(logoUrls.map((url) => fetch(url, { method: "HEAD" })));
   assert(checks.every((response) => response.ok), `One or more Firebase logo URLs failed: ${checks.map((response) => response.status).join(", ")}`);
-  return { hubs: hubDocs.size, teams: teamCount, hubRooms: activeHubRooms.length, logoUrls: logoUrls.length };
+  return { hubs: hubDocs.size, teams: teamDocs.length, hubRooms: activeHubRooms.length, logoUrls: logoUrls.length };
 }
 
 async function main() {
-  const app = admin.initializeApp({ projectId: PROJECT_ID, storageBucket: STORAGE_BUCKET }, "jphl-structure-reconciliation");
+  const app = admin.initializeApp({ projectId: PROJECT_ID }, "jphl-structure-reconciliation");
   const db = admin.firestore(app);
   db.settings({ ignoreUndefinedProperties: true });
-  const bucket = admin.storage(app).bucket();
 
   console.log(`Target project: ${PROJECT_ID}`);
+  if (RESTORE_PATH) {
+    await restoreBackup(db, RESTORE_PATH);
+    return;
+  }
   const [state, logos] = await Promise.all([loadState(db), validateOfficialSource()]);
-  printPlan(state, logos);
+  const plan = buildTeamPlan(state.teamDocs
+    .filter((doc) => !dummyHubIds.has(doc.ref.parent.parent.id))
+    .map((doc) => ({
+      id: doc.id,
+      hubId: doc.ref.parent.parent.id,
+      name: doc.data().name,
+      ageGroup: doc.data().ageGroup,
+      sourceTeamId: doc.data().sourceTeamId,
+      doc,
+    })));
+  const plannedTeamIds = new Set(plan.items.map((item) => item.targetId));
+  for (const doc of [...state.userDocs, ...state.invitationDocs]) {
+    const data = { ...doc.data(), ...assignmentPatch(doc.data(), plan) };
+    const unknownTeamIds = (data.teamIds || []).filter((teamId) => !plannedTeamIds.has(teamId));
+    assert(unknownTeamIds.length === 0, `${doc.ref.path} references unknown teams: ${unknownTeamIds.join(", ")}`);
+  }
+  printPlan(state, logos, plan);
   if (!APPLY) {
     console.log("Dry run passed. Re-run with --apply to back up and reconcile production.");
     return;
   }
 
-  const backupPath = writeBackup(state);
+  assert(!state.migrationDoc.exists, `Migration marker ${MIGRATION_ID} already exists`);
+  const backupPath = writeBackup(state, plan);
   console.log(`Backup written: ${backupPath}`);
-  const logoUrls = await uploadLogos(bucket, logos);
-  await writeCanonicalStructure(db, state, logoUrls);
-  await removeDummyData(db, state);
+  const logoUrls = resolveLogoUrls(state);
+  const writeResult = await writeCanonicalStructure(db, state, logoUrls, plan, backupPath);
+  console.log("Migration committed with the pre-written deterministic rollback guard");
   const verification = await verify(db);
-  await state.orgRef.collection("auditLogs").add({
-    action: "reconcileJphlStructure",
-    actorId: "system-production-migration",
-    actorName: "Codex production migration",
-    actorEmail: null,
-    actorRole: "system",
-    request: {
-      approvedPlan: "Replace approved dummy structure from the official JPHL directory",
-      sourceUrl: DIRECTORY_URL,
-    },
-    result: {
-      ...verification,
-      removedDummyHubs: state.oldHubDocs.length,
-      removedDummyTeams: state.oldTeamDocs.length,
-      cleanedUsers: state.staleUsers.length,
-      cleanedInvitations: state.staleInvitations.length,
-      removedDummyRooms: state.oldRooms.length,
-      removedDummyAnnouncement: Boolean(state.dummyAnnouncement),
-      backupFile: path.basename(backupPath),
-    },
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-  console.log(`Verification passed: ${JSON.stringify(verification)}`);
+  console.log(`Verification passed: ${JSON.stringify({ ...verification, atomicWrites: writeResult.writes })}`);
   console.log("Production JPHL structure reconciliation completed successfully.");
 }
 
@@ -592,5 +1009,14 @@ if (require.main === module) {
 module.exports = {
   CURRENT_SEASON_ID,
   RAMP_DIVISION_IDS,
+  assignmentPatch,
+  buildTeamPlan,
+  compareInventories,
   hubs,
+  loadState,
+  plannedCreatedPaths,
+  resolveLogoUrls,
+  teamKey,
+  writeBackup,
+  writeCanonicalStructure,
 };
