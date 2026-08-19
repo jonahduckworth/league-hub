@@ -10,6 +10,7 @@ const {
   RAMP_DIVISION_IDS,
   assignmentPatch,
   buildTeamPlan,
+  compareInventories,
   hubs,
 } = require("../scripts/reconcile-jphl-structure");
 
@@ -76,10 +77,22 @@ test("production reconciliation preserves existing team IDs and moves Junior Cap
   assert.equal(capitals.target.hubId, "jphl_hub_cowichan_jr_capitals");
 
   assert.deepEqual(assignmentPatch({
-    hubIds: ["jphl_hub_island_hc"],
+    hubIds: ["jphl_hub_island_hc", "jphl_hub_lloydminster_athletics"],
     teamIds: ["jphl_team_319161"],
   }, plan), {
     hubIds: ["jphl_hub_island_hc", "jphl_hub_cowichan_jr_capitals"],
+  });
+});
+
+test("production reconciliation inventory guard detects added, removed, and changed documents", () => {
+  const difference = compareInventories(
+    new Map([["unchanged", "1:0"], ["changed", "1:0"], ["removed", "1:0"]]),
+    new Map([["unchanged", "1:0"], ["changed", "2:0"], ["added", "1:0"]]),
+  );
+  assert.deepEqual(difference, {
+    missing: ["removed"],
+    added: ["added"],
+    changed: ["changed"],
   });
 });
 
