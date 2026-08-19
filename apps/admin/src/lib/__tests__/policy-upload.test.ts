@@ -10,7 +10,7 @@ import {
 
 describe("policy upload helpers", () => {
   it("uses the mobile policy category taxonomy", () => {
-    expect(POLICY_CATEGORIES).toEqual(["Policy", "Protocol", "Code of Conduct", "Other"]);
+    expect(POLICY_CATEGORIES).toEqual(["Policy", "Waiver", "Protocol", "Code of Conduct", "Other"]);
   });
   it("sanitizes storage file names", () => {
     expect(sanitizeStorageFileName("  Safety Policy (Final).pdf ")).toBe("Safety-Policy-Final.pdf");

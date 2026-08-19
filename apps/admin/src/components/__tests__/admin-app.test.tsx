@@ -297,18 +297,24 @@ describe("AdminApp operations shell", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Policies for Prairie Hockey League" })).toBeTruthy();
     const policyFilters = screen.getByRole("group", { name: "Policies for Prairie Hockey League filters" });
     expect(within(policyFilters).getByRole("button", { name: /All Policies/ }).getAttribute("aria-pressed")).toBe("true");
-    expect(within(policyFilters).getByRole("button", { name: /Targeted/ })).toBeTruthy();
+    expect(within(policyFilters).getByRole("button", { name: /Waiver/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "New Policy" }));
     const createPolicyDrawer = await screen.findByRole("dialog", { name: "New Policy" });
     expect(within(createPolicyDrawer).getByText("Organization-wide")).toBeTruthy();
-    expect(within(createPolicyDrawer).getByText("Uploading as Jordan Owner")).toBeTruthy();
-    expect(within(createPolicyDrawer).getByText(/owner@leaguehub.local/)).toBeTruthy();
+    expect(within(createPolicyDrawer).queryByText(/Uploading as/i)).toBeNull();
+    expect(within(createPolicyDrawer).queryByText(/owner@leaguehub.local/)).toBeNull();
     const categorySelect = within(createPolicyDrawer).getByRole("combobox", { name: "Category" });
-    expect(within(categorySelect).getAllByRole("option").map((option) => option.textContent)).toEqual(["Policy", "Protocol", "Code of Conduct", "Other"]);
+    expect(within(categorySelect).getAllByRole("option").map((option) => option.textContent)).toEqual(["Policy", "Waiver", "Protocol", "Code of Conduct", "Other"]);
     fireEvent.click(within(createPolicyDrawer).getByRole("button", { name: "Close drawer" }));
     fireEvent.click(screen.getByRole("button", { name: "Open Concussion Protocol policy" }));
     const policyDrawer = await screen.findByRole("dialog", { name: "Concussion Protocol" });
     expect(within(policyDrawer).getByTestId("drawer-scroll-region").className).toContain("overscroll-contain");
+    expect(within(policyDrawer).queryByText(/Uploading as/i)).toBeNull();
+    const editCategorySelect = within(policyDrawer).getByRole("combobox", { name: "Category" });
+    expect((editCategorySelect as HTMLSelectElement).value).toBe("Waiver");
+    expect(within(policyDrawer).getByRole("button", { name: "Save Category" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(editCategorySelect, { target: { value: "Policy" } });
+    expect(within(policyDrawer).getByRole("button", { name: "Save Category" }).hasAttribute("disabled")).toBe(false);
   });
 
   it("shows, searches, and expands the connected league-to-hub-to-team structure with its people", async () => {

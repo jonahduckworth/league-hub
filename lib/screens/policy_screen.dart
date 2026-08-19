@@ -91,7 +91,7 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: visibleCategories
                   .map((cat) => _CategoryChip(
-                        label: cat,
+                        label: policyCategoryDisplayLabel(cat),
                         isSelected: selectedCategory == cat,
                         onTap: () => ref
                             .read(selectedPolicyCategoryProvider.notifier)
