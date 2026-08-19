@@ -13,17 +13,10 @@ on:
       - "pubspec.yaml"
       - "pubspec.lock"
       - ".github/workflows/flutter-ci.yml"
+  # Run on every PR so this check can be safely required by branch protection;
+  # path-filtered required checks otherwise remain pending when no path matches.
   pull_request:
-    paths:
-      - "android/**"
-      - "ios/**"
-      - "lib/**"
-      - "test/**"
-      - "integration_test/**"
-      - "tool/ci/**"
-      - "pubspec.yaml"
-      - "pubspec.lock"
-      - ".github/workflows/flutter-ci.yml"
+    branches: [main]
   workflow_dispatch:
 
 permissions:

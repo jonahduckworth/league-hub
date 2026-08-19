@@ -4,13 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - ".firebaserc"
-      - ".github/workflows/deploy-web.yml"
-      - "apps/admin/**"
-      - "apps/marketing/**"
-      - "firebase.json"
-      - "functions/**"
   push:
     branches:
       - main
