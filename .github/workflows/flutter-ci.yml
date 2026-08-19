@@ -1,0 +1,53 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "ios/**"
+      - "lib/**"
+      - "test/**"
+      - "integration_test/**"
+      - "tool/ci/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - ".github/workflows/flutter-ci.yml"
+  # Run on every PR so this check can be safely required by branch protection;
+  # path-filtered required checks otherwise remain pending when no path matches.
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.9
+          cache: true
+
+      - name: Provide non-production Firebase options for static validation
+        run: cp tool/ci/firebase_options.dart lib/firebase_options.dart
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
