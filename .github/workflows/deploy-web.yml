@@ -24,7 +24,9 @@ on:
 
 concurrency:
   group: web-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Keep production releases serialized so a newer push cannot cancel a deploy
+  # after only one Hosting target has been updated.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
