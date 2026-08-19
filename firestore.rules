@@ -296,7 +296,7 @@ service cloud.firestore {
     }
 
     function validPolicyCategory(data) {
-      return data.category in ['Policy', 'Protocol', 'Code of Conduct', 'Other'];
+      return data.category in ['Policy', 'Waiver', 'Protocol', 'Code of Conduct', 'Other'];
     }
 
     function canBootstrapOrg(orgId) {

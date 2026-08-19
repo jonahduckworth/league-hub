@@ -131,6 +131,11 @@ void main() {
           ['All', 'Protocol', 'Code of Conduct'],
         );
       });
+
+      test('includes a dedicated Waiver category', () {
+        expect(policyCategories, contains('Waiver'));
+        expect(policyCategoryDisplayLabel('Waiver'), 'Waivers');
+      });
     });
 
     Widget createTestWidget({

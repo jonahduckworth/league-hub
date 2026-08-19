@@ -498,6 +498,7 @@ test("policy writes allow organization, hub, and team targets but reject league-
     fileType: "pdf",
     fileSize: 10,
     versions: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
     ...target,
   });
   const adminDb = testEnv.authenticatedContext("admin").firestore();
@@ -508,6 +509,13 @@ test("policy writes allow organization, hub, and team targets but reject league-
   await assertSucceeds(setDoc(
     doc(adminDb, "organizations/org-1/policies/org-wide"),
     policy("org-wide", "admin", {leagueId: null, hubId: null, teamId: null}),
+  ));
+  await assertSucceeds(setDoc(
+    doc(adminDb, "organizations/org-1/policies/waiver"),
+    {
+      ...policy("waiver", "admin", {leagueId: null, hubId: null, teamId: null}),
+      category: "Waiver",
+    },
   ));
   await assertSucceeds(setDoc(
     doc(ownerDb, "organizations/org-1/policies/owner-org-wide"),
@@ -532,6 +540,22 @@ test("policy writes allow organization, hub, and team targets but reject league-
   await assertSucceeds(setDoc(
     doc(managerDb, "organizations/org-1/policies/team"),
     policy("team", "manager", {leagueId: "league-1", hubId: "hub-1", teamId: "team-1"}),
+  ));
+  await assertSucceeds(updateDoc(
+    doc(ownerDb, "organizations/org-1/policies/owner-org-wide"),
+    {category: "Waiver"},
+  ));
+  await assertSucceeds(updateDoc(
+    doc(adminDb, "organizations/org-1/policies/org-wide"),
+    {category: "Waiver"},
+  ));
+  await assertSucceeds(updateDoc(
+    doc(managerDb, "organizations/org-1/policies/hub"),
+    {category: "Waiver"},
+  ));
+  await assertFails(updateDoc(
+    doc(staffDb, "organizations/org-1/policies/org-wide"),
+    {category: "Waiver"},
   ));
   await assertFails(setDoc(
     doc(staffDb, "organizations/org-1/policies/staff-policy"),

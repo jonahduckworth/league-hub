@@ -225,7 +225,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        // Categories: Policy, Protocol, Code of Conduct, Other
+        // Categories: Policy, Waiver, Protocol, Code of Conduct, Other
         // These should be accessible in the dropdown
       });
     });

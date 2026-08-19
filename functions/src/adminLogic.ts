@@ -52,7 +52,7 @@ export function isValidAnnouncementTarget(value: Record<string, unknown>): boole
 }
 
 export function isValidPolicyCategory(value: unknown): boolean {
-  return value === "Policy" || value === "Protocol" || value === "Code of Conduct" || value === "Other";
+  return value === "Policy" || value === "Waiver" || value === "Protocol" || value === "Code of Conduct" || value === "Other";
 }
 
 export function isOrganizationWidePolicyTarget(value: Record<string, unknown>): boolean {

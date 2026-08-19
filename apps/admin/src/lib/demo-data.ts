@@ -186,7 +186,7 @@ export const demoData: AdminData = {
       fileUrl: "https://example.com/protocol.pdf",
       fileType: "application/pdf",
       fileSize: 184000,
-      category: "Safety",
+      category: "Waiver",
       uploadedBy: "admin-1",
       uploadedByName: "Avery Admin",
       versions: [],

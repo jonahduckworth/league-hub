@@ -1,9 +1,13 @@
 const policyCategories = [
   'Policy',
+  'Waiver',
   'Protocol',
   'Code of Conduct',
   'Other',
 ];
+
+String policyCategoryDisplayLabel(String category) =>
+    category == 'Waiver' ? 'Waivers' : category;
 
 class PolicyVersion {
   final String fileUrl;

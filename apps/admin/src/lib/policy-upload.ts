@@ -1,5 +1,5 @@
 export const POLICY_FILE_MAX_BYTES = 50 * 1024 * 1024;
-export const POLICY_CATEGORIES = ["Policy", "Protocol", "Code of Conduct", "Other"] as const;
+export const POLICY_CATEGORIES = ["Policy", "Waiver", "Protocol", "Code of Conduct", "Other"] as const;
 
 export function isPolicyFileAllowed(file: Pick<File, "size">): boolean {
   return file.size <= POLICY_FILE_MAX_BYTES;

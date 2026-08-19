@@ -44,7 +44,7 @@ test("announcement targets require a league and the correct nested IDs", () => {
 });
 
 test("policy categories match the mobile policy taxonomy", () => {
-  for (const category of ["Policy", "Protocol", "Code of Conduct", "Other"]) {
+  for (const category of ["Policy", "Waiver", "Protocol", "Code of Conduct", "Other"]) {
     assert.equal(isValidPolicyCategory(category), true);
   }
   assert.equal(isValidPolicyCategory("General"), false);

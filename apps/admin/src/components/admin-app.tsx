@@ -13,7 +13,6 @@ import {
   FileText,
   FolderOpen,
   Inbox,
-  Layers,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -31,7 +30,6 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
   Tags,
   Trash2,
@@ -442,7 +440,7 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
     case "announcements":
       return <AnnouncementsSection data={data} runAction={runAction} />;
     case "policies":
-      return <PoliciesSection data={data} currentUser={currentUser} runAction={runAction} selectedOrgId={selectedOrgId} />;
+      return <PoliciesSection data={data} runAction={runAction} selectedOrgId={selectedOrgId} />;
     default:
       return <OverviewSection data={data} />;
   }
@@ -3228,57 +3226,66 @@ function AnnouncementTargetFields({
   );
 }
 
-type PolicyView = "all" | "general" | "versioned" | "targeted";
+type PolicyView = "all" | `category:${string}`;
 
-function PoliciesSection({ data, currentUser, runAction, selectedOrgId }: { data: AdminData; currentUser: AppUser; runAction: ActionRunner; selectedOrgId?: string }) {
+function PoliciesSection({ data, runAction, selectedOrgId }: { data: AdminData; runAction: ActionRunner; selectedOrgId?: string }) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<PolicyView>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
   const selectedPolicy = selectedPolicyId ? data.policies.find((policy) => policy.id === selectedPolicyId) ?? null : null;
+  const existingCategories = new Set(data.policies.map((policy) => policy.category));
+  const visibleCategories = [
+    ...POLICY_CATEGORIES.filter((category) => existingCategories.has(category)),
+    ...[...existingCategories]
+      .filter((category) => !POLICY_CATEGORIES.includes(category as typeof POLICY_CATEGORIES[number]))
+      .sort((left, right) => left.localeCompare(right))
+  ];
+  const requestedCategory = view === "all" ? null : view.slice("category:".length);
+  const selectedCategory = requestedCategory && existingCategories.has(requestedCategory)
+    ? requestedCategory
+    : null;
   const filteredPolicies = data.policies
     .filter((policy) => {
-      if (view === "general") return policy.category.toLowerCase() === "general";
-      if (view === "versioned") return policy.versions.length > 0;
-      if (view === "targeted") return Boolean(policy.hubId || policy.teamId);
-      return true;
+      return selectedCategory == null || policy.category === selectedCategory;
     })
     .filter((policy) => matchesQuery([policy.name, policy.category, policy.uploadedByName, policy.fileType], query));
   const filters: Array<WorkspaceFilterItem<PolicyView>> = [
     { id: "all", label: "All Policies", count: data.policies.length, icon: FileText },
-    { id: "general", label: "General", count: data.policies.filter((policy) => policy.category.toLowerCase() === "general").length, icon: FolderOpen },
-    { id: "versioned", label: "Versioned", count: data.policies.filter((policy) => policy.versions.length > 0).length, icon: Layers },
-    { id: "targeted", label: "Targeted", count: data.policies.filter((policy) => Boolean(policy.hubId || policy.teamId)).length, icon: SlidersHorizontal }
+    ...visibleCategories.map((category) => ({
+      id: `category:${category}` as PolicyView,
+      label: category === "Waiver" ? "Waivers" : category,
+      count: data.policies.filter((policy) => policy.category === category).length,
+      icon: Tags
+    }))
   ];
-  const panelCopy: Record<PolicyView, { title: string; description: string }> = {
-    all: { title: "All Policies", description: "Every uploaded policy file in this organization." },
-    general: { title: "General", description: "Policies categorized as general operating documents." },
-    versioned: { title: "Versioned", description: "Policies with previous uploads tracked in history." },
-    targeted: { title: "Targeted", description: "Policies limited to a specific hub or team." }
-  };
+  const panelTitle = selectedCategory === "Waiver" ? "Waivers" : selectedCategory ?? "All Policies";
+  const panelDescription = selectedCategory
+    ? `Documents categorized as ${selectedCategory.toLowerCase()}.`
+    : "Every uploaded policy file in this organization.";
 
   return (
     <>
       <ManagementWorkspace
         eyebrow="Document library"
         title={`Policies for ${data.selectedOrg?.name ?? "League Hub"}`}
-        description="Browse policies as a document library with category, scope, file details, and version history visible before opening a record."
+        description="Browse policies by category, then open a document to manage its category, file, or version history."
         icon={FileText}
         metrics={[
           { label: "Documents", value: data.policies.length },
           { label: "Categories", value: new Set(data.policies.map((policy) => policy.category.toLowerCase())).size },
           { label: "Previous versions", value: data.policies.reduce((total, policy) => total + policy.versions.length, 0) },
-          { label: "Targeted", value: data.policies.filter((policy) => Boolean(policy.hubId || policy.teamId)).length }
+          { label: "Waivers", value: data.policies.filter((policy) => policy.category === "Waiver").length }
         ]}
         action={<ToolbarActionButton icon={UploadCloud} onClick={() => setCreateOpen(true)}>New Policy</ToolbarActionButton>}
         filters={filters}
-        selectedFilterId={view}
+        selectedFilterId={selectedCategory ? view : "all"}
         onSelectFilter={(nextView) => {
           setView(nextView);
           setQuery("");
         }}
-        panelTitle={panelCopy[view].title}
-        panelDescription={panelCopy[view].description}
+        panelTitle={panelTitle}
+        panelDescription={panelDescription}
         searchLabel="Search policies..."
         searchValue={query}
         onSearchChange={setQuery}
@@ -3326,21 +3333,19 @@ function PoliciesSection({ data, currentUser, runAction, selectedOrgId }: { data
           <WorkspaceEmptyState icon={FolderOpen} title="No policies found" description="No policies match the current filter and search." />
         )}
       </ManagementWorkspace>
-      <PolicyCreateDrawer open={createOpen} currentUser={currentUser} selectedOrgId={selectedOrgId} runAction={runAction} onClose={() => setCreateOpen(false)} />
-      <PolicyDrawer policy={selectedPolicy} currentUser={currentUser} selectedOrgId={selectedOrgId} onClose={() => setSelectedPolicyId(null)} runAction={runAction} />
+      <PolicyCreateDrawer open={createOpen} selectedOrgId={selectedOrgId} runAction={runAction} onClose={() => setCreateOpen(false)} />
+      <PolicyDrawer policy={selectedPolicy} selectedOrgId={selectedOrgId} onClose={() => setSelectedPolicyId(null)} runAction={runAction} />
     </>
   );
 }
 
 function PolicyCreateDrawer({
   open,
-  currentUser,
   selectedOrgId,
   runAction,
   onClose
 }: {
   open: boolean;
-  currentUser: AppUser;
   selectedOrgId?: string;
   runAction: ActionRunner;
   onClose: () => void;
@@ -3453,8 +3458,7 @@ function PolicyCreateDrawer({
       <form className="grid gap-4" onSubmit={createPolicy}>
         <div className="rounded-2xl border border-teal/20 bg-teal/[0.055] px-4 py-3">
           <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-teal">Organization-wide</p>
-          <p className="mt-1 text-sm font-bold text-ink">Uploading as {currentUser.displayName}</p>
-          <p className="mt-0.5 text-xs font-semibold text-muted">{currentUser.email} · Visible to every active member</p>
+          <p className="mt-1 text-xs font-semibold text-muted">Visible to every active member.</p>
         </div>
         <Field label="Name"><Input value={policyName} onChange={(event) => setPolicyName(event.target.value)} required /></Field>
         <PolicyFileField
@@ -3550,13 +3554,11 @@ function PolicyFileField({
 
 function PolicyDrawer({
   policy,
-  currentUser,
   selectedOrgId,
   onClose,
   runAction
 }: {
   policy: Policy | null;
-  currentUser: AppUser;
   selectedOrgId?: string;
   onClose: () => void;
   runAction: ActionRunner;
@@ -3564,16 +3566,32 @@ function PolicyDrawer({
   const [versionFile, setVersionFile] = useState<File | null>(null);
   const [versionError, setVersionError] = useState<string | null>(null);
   const [versionSubmitting, setVersionSubmitting] = useState(false);
+  const [policyCategory, setPolicyCategory] = useState(POLICY_CATEGORIES[0] as string);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
   const versionInputRef = useRef<HTMLInputElement>(null);
   const inputId = policy ? `policy-version-${policy.id}` : "policy-version-upload";
 
   useEffect(() => {
     setVersionFile(null);
     setVersionError(null);
+    setPolicyCategory(policy?.category ?? POLICY_CATEGORIES[0]);
     if (versionInputRef.current) {
       versionInputRef.current.value = "";
     }
-  }, [policy?.id]);
+  }, [policy?.category, policy?.id]);
+
+  async function saveCategory() {
+    if (!policy || policyCategory === policy.category) return;
+    setCategorySubmitting(true);
+    try {
+      await runAction("adminUpdatePolicy", {
+        policyId: policy.id,
+        category: policyCategory
+      });
+    } finally {
+      setCategorySubmitting(false);
+    }
+  }
 
   function selectVersionFile(file?: File) {
     setVersionError(null);
@@ -3670,16 +3688,29 @@ function PolicyDrawer({
         <>
           <DrawerSection title="Details">
             <div className="grid gap-3 sm:grid-cols-2">
-              <InfoRow label="Category" value={policy.category} />
+              <div className="grid gap-2 text-sm font-bold text-ink">
+                <label htmlFor="policy-category-edit">Category</label>
+                <div className="flex items-center gap-2">
+                  <Select id="policy-category-edit" value={policyCategory} onChange={(event) => setPolicyCategory(event.target.value)}>
+                    {!POLICY_CATEGORIES.includes(policy.category as typeof POLICY_CATEGORIES[number]) && (
+                      <option value={policy.category}>{policy.category}</option>
+                    )}
+                    {POLICY_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </Select>
+                  <Button
+                    onClick={saveCategory}
+                    disabled={categorySubmitting || policyCategory === policy.category}
+                  >
+                    {categorySubmitting ? "Saving..." : "Save Category"}
+                  </Button>
+                </div>
+              </div>
               <InfoRow label="Size" value={bytesLabel(policy.fileSize)} />
               <InfoRow label="Uploaded By" value={policy.uploadedByName} />
               <InfoRow label="Updated" value={dateLabel(policy.updatedAt)} />
             </div>
           </DrawerSection>
           <DrawerSection title="Upload Version">
-            <p className="rounded-xl border border-teal/20 bg-teal/[0.055] px-3.5 py-2.5 text-xs font-semibold text-muted">
-              Uploading as <span className="font-extrabold text-ink">{currentUser.displayName}</span> ({currentUser.email})
-            </p>
             <PolicyFileField
               inputId={inputId}
               inputRef={versionInputRef}

@@ -1004,6 +1004,21 @@ export const adminFinalizePolicyUpload = onCall(adminRuntime, async (request) =>
   });
 });
 
+export const adminUpdatePolicy = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminUpdatePolicy", async (_actor, data, orgId) => {
+    const policyId = requiredString(data.policyId, "policyId");
+    const category = requiredString(data.category, "category");
+    if (!isValidPolicyCategory(category)) {
+      throw new HttpsError("invalid-argument", "Select a supported policy category.");
+    }
+    const policyRef = orgRef(orgId).collection("policies").doc(policyId);
+    const policy = await policyRef.get();
+    if (!policy.exists) throw new HttpsError("not-found", "Policy was not found.");
+    await policyRef.update({category, updatedAt: now()});
+    return {policyId, category};
+  });
+});
+
 export const adminAddPolicyVersion = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminAddPolicyVersion", async (actor, data, orgId) => {
     const policyId = requiredString(data.policyId, "policyId");
