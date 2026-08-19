@@ -75,6 +75,21 @@ After running `flutterfire configure`, uncomment the initialization in `lib/main
 await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 ```
 
+## Web deployment
+
+Pull requests that change the admin app, landing page, Functions, or Firebase
+Hosting configuration run the full validation and static builds for both web
+apps. A successful push to `main` that changes a web app or Hosting
+configuration then deploys only the `admin` and `marketing` Firebase Hosting
+targets.
+
+The GitHub repository must define a
+`FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB` Actions secret containing a Firebase
+service-account JSON key with permission to deploy Hosting for the
+`jdb-league-hub` project. The workflow never deploys Functions; their Node.js 22
+runtime takes effect the next time Functions are released through the existing
+release process.
+
 ## Contributing
 
 This project uses clean architecture with a clear separation of concerns:
