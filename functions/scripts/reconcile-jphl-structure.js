@@ -374,6 +374,23 @@ function compareInventories(expected, actual) {
   return { missing, added, changed };
 }
 
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function dataToken(data) {
+  return stableStringify(serialize(data));
+}
+
+function dataInventoryOf(documents) {
+  return new Map(documents.map((doc) => [doc.ref.path, dataToken(doc.data())]));
+}
+
 async function fetchBytes(url, label) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -641,28 +658,28 @@ function readBackup(inputPath) {
   assert(backup.migrationId === MIGRATION_ID, "Backup belongs to a different migration");
   assert(Array.isArray(backup.documents) && backup.documents.length > 0, "Backup has no documents");
   assert(Array.isArray(backup.createdPaths), "Backup has no created-path inventory");
-  assert(backup.postApplyGuard && typeof backup.postApplyGuard === "object", "Backup was not finalized after apply");
+  assert(backup.postApplyGuard && typeof backup.postApplyGuard === "object", "Backup has no prepared post-apply guard");
   const originalPaths = new Set(backup.documents.map((doc) => doc.path));
   assert(backup.createdPaths.every((item) => !originalPaths.has(item)), "Backup created paths overlap original documents");
   return { backup, backupPath };
 }
 
-async function finalizeBackup(db, backupPath) {
+function prepareBackupGuard(backupPath, postApplyData) {
   const backup = JSON.parse(fs.readFileSync(backupPath, "utf8"));
   const guardedPaths = new Set([
     ...backup.documents.map((doc) => doc.path),
     ...backup.createdPaths,
+    ...postApplyData.keys(),
   ]);
-  const postApplyState = await loadState(db);
-  const postApplyGuard = inventoryOf(stateDocuments(postApplyState));
-  for (const guardedPath of guardedPaths) {
-    if (!postApplyGuard.has(guardedPath)) postApplyGuard.set(guardedPath, null);
-  }
+  const postApplyGuard = new Map([...guardedPaths].map((guardedPath) => [
+    guardedPath,
+    postApplyData.has(guardedPath) ? dataToken(postApplyData.get(guardedPath)) : null,
+  ]));
   assert(
     backup.createdPaths.every((createdPath) => postApplyGuard.get(createdPath) != null),
     "One or more planned documents were not created",
   );
-  backup.appliedAt = new Date().toISOString();
+  backup.guardPreparedAt = new Date().toISOString();
   backup.postApplyGuard = Object.fromEntries([...postApplyGuard.entries()].sort());
   const tempPath = `${backupPath}.tmp`;
   fs.writeFileSync(tempPath, `${JSON.stringify(backup, null, 2)}\n`, { mode: 0o600 });
@@ -681,13 +698,21 @@ async function restoreBackup(db, inputPath) {
     const currentDocuments = await transactionStateDocuments(transaction, currentState);
     const migrationDoc = await transaction.get(currentState.migrationRef);
     if (migrationDoc.exists) currentDocuments.push(migrationDoc);
-    const actual = inventoryOf(currentDocuments);
+    const createdRoomPaths = backup.createdPaths.filter((docPath) =>
+      docPath.startsWith(`${currentState.orgRef.path}/chatRooms/`) &&
+      docPath.split("/").length === 4,
+    );
+    for (const roomPath of createdRoomPaths) {
+      const messages = await transaction.get(db.doc(roomPath).collection("messages"));
+      currentDocuments.push(...messages.docs);
+    }
+    const actual = dataInventoryOf(currentDocuments);
     const directPaths = [...expected.keys()].filter((docPath) => !actual.has(docPath));
     const directSnapshots = await Promise.all(
       directPaths.map((docPath) => transaction.get(db.doc(docPath))),
     );
     for (const snapshot of directSnapshots) {
-      actual.set(snapshot.ref.path, updateTimeToken(snapshot));
+      actual.set(snapshot.ref.path, snapshot.exists ? dataToken(snapshot.data()) : null);
     }
     const difference = compareInventories(expected, actual);
     assert(
@@ -727,17 +752,23 @@ async function writeCanonicalStructure(db, state, logoUrls, plan, backupPath) {
     const migrationDoc = await transaction.get(state.migrationRef);
     assert(!migrationDoc.exists, `Migration marker ${MIGRATION_ID} already exists`);
 
+    const postApplyData = new Map(
+      stateDocuments(state).map((doc) => [doc.ref.path, doc.data()]),
+    );
     let writes = 0;
     const update = (doc, data) => {
       transaction.update(doc.ref, data);
+      postApplyData.set(doc.ref.path, { ...postApplyData.get(doc.ref.path), ...data });
       writes += 1;
     };
     const create = (ref, data) => {
       transaction.create(ref, data);
+      postApplyData.set(ref.path, data);
       writes += 1;
     };
     const remove = (doc) => {
       transaction.delete(doc.ref);
+      postApplyData.delete(doc.ref.path);
       writes += 1;
     };
 
@@ -870,6 +901,7 @@ async function writeCanonicalStructure(db, state, logoUrls, plan, backupPath) {
     });
 
     assert(writes < 450, `Refusing oversized structure transaction with ${writes} writes`);
+    prepareBackupGuard(backupPath, postApplyData);
     return { writes };
   });
 }
@@ -961,8 +993,7 @@ async function main() {
   console.log(`Backup written: ${backupPath}`);
   const logoUrls = resolveLogoUrls(state);
   const writeResult = await writeCanonicalStructure(db, state, logoUrls, plan, backupPath);
-  await finalizeBackup(db, backupPath);
-  console.log("Backup finalized with post-migration concurrency guards");
+  console.log("Migration committed with the pre-written deterministic rollback guard");
   const verification = await verify(db);
   console.log(`Verification passed: ${JSON.stringify({ ...verification, atomicWrites: writeResult.writes })}`);
   console.log("Production JPHL structure reconciliation completed successfully.");
@@ -981,7 +1012,6 @@ module.exports = {
   assignmentPatch,
   buildTeamPlan,
   compareInventories,
-  finalizeBackup,
   hubs,
   loadState,
   plannedCreatedPaths,

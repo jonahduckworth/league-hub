@@ -6,7 +6,6 @@ const { after, before, test } = require("node:test");
 const admin = require("firebase-admin");
 const {
   buildTeamPlan,
-  finalizeBackup,
   hubs,
   loadState,
   resolveLogoUrls,
@@ -184,7 +183,6 @@ test("structure transaction archives stale rooms and guarded restore returns the
   const backupPath = writeBackup(state, plan);
   try {
     await writeCanonicalStructure(db, state, resolveLogoUrls(state), plan, backupPath);
-    await finalizeBackup(db, backupPath);
 
     const orgRef = db.collection("organizations").doc(ORG_ID);
     const leagueRef = orgRef.collection("leagues").doc(LEAGUE_ID);
@@ -200,6 +198,22 @@ test("structure transaction archives stale rooms and guarded restore returns the
       .doc(LEGACY_CAPITALS_ID).get()).exists);
     assert((await leagueRef.collection("hubs").doc(COWICHAN_ID).collection("teams")
       .doc(LEGACY_CAPITALS_ID).get()).exists);
+
+    const newRoomMessage = orgRef.collection("chatRooms")
+      .doc("jphl_hub_room_bellingham_hc").collection("messages").doc("new-message");
+    await newRoomMessage.set({ text: "Do not orphan this message" });
+    let rejectedRestore;
+    try {
+      execFileSync(process.execPath, [SCRIPT_PATH, "--restore", backupPath, "--apply"], {
+        env: process.env,
+        stdio: "pipe",
+      });
+    } catch (error) {
+      rejectedRestore = error;
+    }
+    assert(rejectedRestore, "Restore should reject a message added to a newly created room");
+    assert.match(rejectedRestore.stderr.toString(), /new-message/);
+    await newRoomMessage.delete();
 
     execFileSync(process.execPath, [SCRIPT_PATH, "--restore", backupPath, "--apply"], {
       env: process.env,
