@@ -1,0 +1,5 @@
+{
+  "all": false,
+  "targets": [],
+  "reason": "No production Functions source change in this workflow-only release."
+}
