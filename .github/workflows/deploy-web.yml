@@ -78,7 +78,8 @@ jobs:
       deploy: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release-plan.outputs.functions_deploy == 'true' }}
       targets: ${{ needs.release-plan.outputs.functions_targets }}
       all: ${{ needs.release-plan.outputs.functions_all == 'true' }}
-    secrets: inherit
+    secrets:
+      FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB }}
 
   validate-and-deploy:
     name: Validate and deploy web

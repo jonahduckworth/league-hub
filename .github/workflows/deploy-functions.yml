@@ -22,6 +22,11 @@ on:
         required: false
   workflow_dispatch:
     inputs:
+      deploy:
+        description: Deploy after validation.
+        required: true
+        default: true
+        type: boolean
       targets:
         description: Comma-separated Function export names to deploy.
         required: false
@@ -46,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      SHOULD_DEPLOY: ${{ github.event_name == 'workflow_dispatch' || inputs.deploy }}
+      SHOULD_DEPLOY: ${{ inputs.deploy }}
       REQUESTED_TARGETS: ${{ inputs.targets }}
       DEPLOY_ALL: ${{ inputs.all }}
 
@@ -70,7 +75,7 @@ jobs:
         run: npm run lint && npm test
 
       - name: Require explicit manual targets
-        if: github.event_name == 'workflow_dispatch' && inputs.all == false && inputs.targets == ''
+        if: inputs.deploy && inputs.all == false && inputs.targets == ''
         run: |
           echo "::error::Enter one or more Function export names, or select all."
           exit 1
