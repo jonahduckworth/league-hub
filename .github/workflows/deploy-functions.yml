@@ -1,0 +1,160 @@
+name: Deploy Functions
+
+on:
+  workflow_call:
+    inputs:
+      deploy:
+        description: Deploy after validation.
+        required: true
+        type: boolean
+      targets:
+        description: Comma-separated Function export names.
+        required: false
+        default: ""
+        type: string
+      all:
+        description: Deploy every Function export.
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB:
+        required: false
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy after validation.
+        required: true
+        default: true
+        type: boolean
+      targets:
+        description: Comma-separated Function export names to deploy.
+        required: false
+        default: ""
+        type: string
+      all:
+        description: Deploy every Function export instead of named targets.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: functions-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-and-deploy:
+    name: Validate and deploy Functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SHOULD_DEPLOY: ${{ inputs.deploy }}
+      REQUESTED_TARGETS: ${{ inputs.targets }}
+      DEPLOY_ALL: ${{ inputs.all }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install Functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Validate Functions
+        working-directory: functions
+        run: npm run lint && npm test
+
+      - name: Require explicit manual targets
+        if: inputs.deploy && inputs.all == false && inputs.targets == ''
+        run: |
+          echo "::error::Enter one or more Function export names, or select all."
+          exit 1
+
+      - name: Resolve deploy targets
+        id: targets
+        if: inputs.all || inputs.targets != ''
+        run: |
+          node functions/scripts/function-release.js targets \
+            --targets "$REQUESTED_TARGETS" \
+            --all "$DEPLOY_ALL" \
+            --output "$GITHUB_OUTPUT"
+
+      - name: Require main for production deployment
+        if: env.SHOULD_DEPLOY == 'true'
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Production Functions may only deploy from main."
+            exit 1
+          fi
+
+      - name: Configure Firebase credentials
+        if: env.SHOULD_DEPLOY == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Configure FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB before deploying."
+            exit 1
+          fi
+          credentials_path="$RUNNER_TEMP/firebase-service-account.json"
+          umask 077
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$credentials_path"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$credentials_path" >> "$GITHUB_ENV"
+
+      - name: Deploy targeted Functions
+        if: env.SHOULD_DEPLOY == 'true'
+        env:
+          FIREBASE_ONLY: ${{ steps.targets.outputs.firebase_only }}
+        run: |
+          if [ -z "$FIREBASE_ONLY" ]; then
+            echo "::error::No validated Function deploy targets were resolved."
+            exit 1
+          fi
+          npx --yes firebase-tools@15.27.0 deploy \
+            --project jdb-league-hub \
+            --only "$FIREBASE_ONLY" \
+            --non-interactive
+
+      - name: Read deployed Functions
+        if: env.SHOULD_DEPLOY == 'true'
+        run: |
+          npx --yes firebase-tools@15.27.0 functions:list \
+            --project jdb-league-hub \
+            --json > "$RUNNER_TEMP/functions-list.json"
+
+      - name: Verify deployed state and runtime
+        if: env.SHOULD_DEPLOY == 'true'
+        env:
+          TARGET_NAMES: ${{ steps.targets.outputs.target_names }}
+        run: |
+          node functions/scripts/function-release.js verify \
+            --targets "$TARGET_NAMES" \
+            --functions-list "$RUNNER_TEMP/functions-list.json" \
+            --runtime nodejs22 \
+            --region us-central1
+
+      - name: Summarize validation
+        if: always()
+        env:
+          TARGET_NAMES: ${{ steps.targets.outputs.target_names }}
+        run: |
+          {
+            echo "### Functions release"
+            echo "- Validation: npm lint, build, and tests"
+            if [ "$SHOULD_DEPLOY" = "true" ]; then
+              echo "- Deployment targets: $TARGET_NAMES"
+              echo "- Required state: ACTIVE / nodejs22 / us-central1"
+            else
+              echo "- Deployment: skipped for validation-only run"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

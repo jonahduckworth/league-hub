@@ -75,20 +75,36 @@ After running `flutterfire configure`, uncomment the initialization in `lib/main
 await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 ```
 
-## Web deployment
+## Firebase deployment
 
 Pull requests that change the admin app, landing page, Functions, or Firebase
-Hosting configuration run the full validation and static builds for both web
-apps. A successful push to `main` that changes a web app or Hosting
-configuration then deploys only the `admin` and `marketing` Firebase Hosting
-targets.
+configuration validate every affected surface. Production Functions changes
+must also update `functions/release-plan.json` with either every affected export
+or an explicit all-Functions release. A successful push to `main` deploys those
+Functions first, verifies that they are active on Node.js 22 in `us-central1`,
+and only then deploys dependent `admin` or `marketing` Hosting changes.
+
+For a targeted release, use:
+
+```json
+{
+  "all": false,
+  "targets": ["adminCreatePolicy"],
+  "reason": "Deploy the updated policy creation callable."
+}
+```
+
+Changes to shared Functions dependencies or TypeScript configuration require
+`"all": true` with an empty target list so the broader rollout is intentional.
+
+The `Deploy Functions` workflow can also be run manually from `main` with a
+comma-separated target list. This provides a safe retry path after a provider
+outage without requiring an empty commit or redeploying unrelated Functions.
 
 The GitHub repository must define a
 `FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB` Actions secret containing a Firebase
-service-account JSON key with permission to deploy Hosting for the
-`jdb-league-hub` project. The workflow never deploys Functions; their Node.js 22
-runtime takes effect the next time Functions are released through the existing
-release process.
+service-account JSON key with permission to deploy Hosting and Cloud Functions
+for the `jdb-league-hub` project.
 
 ## Contributing
 

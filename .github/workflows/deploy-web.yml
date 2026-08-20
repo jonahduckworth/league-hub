@@ -1,4 +1,4 @@
-name: Validate and deploy web
+name: Validate and deploy Firebase
 
 on:
   pull_request:
@@ -9,10 +9,12 @@ on:
       - main
     paths:
       - ".firebaserc"
+      - ".github/workflows/deploy-functions.yml"
       - ".github/workflows/deploy-web.yml"
       - "apps/admin/**"
       - "apps/marketing/**"
       - "firebase.json"
+      - "functions/**"
   workflow_dispatch:
 
 concurrency:
@@ -25,16 +27,89 @@ permissions:
   contents: read
 
 jobs:
+  release-plan:
+    name: Plan Firebase release
+    runs-on: ubuntu-latest
+    outputs:
+      functions_validate: ${{ steps.plan.outputs.functions_validate }}
+      functions_deploy: ${{ steps.plan.outputs.functions_deploy }}
+      functions_all: ${{ steps.plan.outputs.functions_all }}
+      functions_targets: ${{ steps.plan.outputs.functions_targets }}
+      admin_validate: ${{ steps.plan.outputs.admin_validate }}
+      admin_deploy: ${{ steps.plan.outputs.admin_deploy }}
+      marketing_validate: ${{ steps.plan.outputs.marketing_validate }}
+      marketing_deploy: ${{ steps.plan.outputs.marketing_deploy }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve affected release surfaces
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            {
+              echo "functions_validate=true"
+              echo "functions_deploy=false"
+              echo "functions_all=false"
+              echo "functions_targets="
+              echo "admin_validate=true"
+              echo "admin_deploy=true"
+              echo "marketing_validate=true"
+              echo "marketing_deploy=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            node functions/scripts/function-release.js plan \
+              --base "$BASE_SHA" \
+              --head "$HEAD_SHA" \
+              --output "$GITHUB_OUTPUT"
+          fi
+
+  functions:
+    needs: release-plan
+    if: needs.release-plan.outputs.functions_validate == 'true'
+    uses: ./.github/workflows/deploy-functions.yml
+    with:
+      deploy: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release-plan.outputs.functions_deploy == 'true' }}
+      targets: ${{ needs.release-plan.outputs.functions_targets }}
+      all: ${{ needs.release-plan.outputs.functions_all == 'true' }}
+    secrets:
+      FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB }}
+
   validate-and-deploy:
     name: Validate and deploy web
+    needs:
+      - release-plan
+      - functions
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
+      - name: Require successful release prerequisites
+        env:
+          PLAN_RESULT: ${{ needs.release-plan.result }}
+          FUNCTIONS_RESULT: ${{ needs.functions.result }}
+        run: |
+          if [ "$PLAN_RESULT" != "success" ]; then
+            echo "::error::Firebase release planning failed."
+            exit 1
+          fi
+          if [ "$FUNCTIONS_RESULT" != "success" ] && [ "$FUNCTIONS_RESULT" != "skipped" ]; then
+            echo "::error::Functions validation or deployment failed."
+            exit 1
+          fi
+
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Node.js 22
+        if: needs.release-plan.outputs.admin_validate == 'true' || needs.release-plan.outputs.marketing_validate == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
@@ -44,32 +119,31 @@ jobs:
             apps/marketing/package-lock.json
             functions/package-lock.json
 
-      - name: Install Functions dependencies
-        working-directory: functions
-        run: npm ci
-
-      - name: Validate Functions
-        working-directory: functions
-        run: npm run lint && npm test
-
       - name: Install admin dependencies
+        if: needs.release-plan.outputs.admin_validate == 'true'
         working-directory: apps/admin
         run: npm ci
 
       - name: Validate and build admin
+        if: needs.release-plan.outputs.admin_validate == 'true'
         working-directory: apps/admin
         run: npm run verify
 
       - name: Install landing page dependencies
+        if: needs.release-plan.outputs.marketing_validate == 'true'
         working-directory: apps/marketing
         run: npm ci
 
       - name: Validate and build landing page
+        if: needs.release-plan.outputs.marketing_validate == 'true'
         working-directory: apps/marketing
         run: npm run verify
 
       - name: Require Firebase deployment credentials
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/main' &&
+          (needs.release-plan.outputs.admin_deploy == 'true' || needs.release-plan.outputs.marketing_deploy == 'true')
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB }}
         run: |
@@ -79,7 +153,10 @@ jobs:
           fi
 
       - name: Deploy admin to Firebase Hosting
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/main' &&
+          needs.release-plan.outputs.admin_deploy == 'true'
         uses: FirebaseExtended/action-hosting-deploy@500ac625ca2dd40cbd15f7659af953801858032a # v0.11.0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB }}
@@ -89,7 +166,10 @@ jobs:
           firebaseToolsVersion: 15.27.0
 
       - name: Deploy landing page to Firebase Hosting
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/main' &&
+          needs.release-plan.outputs.marketing_deploy == 'true'
         uses: FirebaseExtended/action-hosting-deploy@500ac625ca2dd40cbd15f7659af953801858032a # v0.11.0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB }}
