@@ -922,8 +922,8 @@ export const adminDeleteAnnouncement = onCall(adminRuntime, async (request) => {
   });
 });
 
-export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
-  return withAdmin(request, "adminCreatePolicy", async (actor, data, orgId) => {
+async function createPolicyForAdmin(request: CallableRequest, action: string) {
+  return withAdmin(request, action, async (actor, data, orgId) => {
     const requestedPolicyId = optionalString(data.policyId);
     const ref = requestedPolicyId ?
       orgRef(orgId).collection("policies").doc(requestedPolicyId) :
@@ -969,6 +969,14 @@ export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
     });
     return { policyId: ref.id };
   });
+}
+
+export const adminCreatePolicy = onCall(adminRuntime, async (request) => {
+  return createPolicyForAdmin(request, "adminCreatePolicy");
+});
+
+export const adminCreatePolicyV2 = onCall(adminRuntime, async (request) => {
+  return createPolicyForAdmin(request, "adminCreatePolicyV2");
 });
 
 export const adminFinalizePolicyUpload = onCall(adminRuntime, async (request) => {

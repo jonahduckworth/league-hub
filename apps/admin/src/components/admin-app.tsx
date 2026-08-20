@@ -56,7 +56,7 @@ import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignment
 import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, dateTimeLabel, timeAgo, toDate } from "@/lib/format";
-import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES, runReservedPolicyUpload } from "@/lib/policy-upload";
+import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_CREATE_CALLABLE, POLICY_FILE_MAX_BYTES, runReservedPolicyUpload } from "@/lib/policy-upload";
 import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
 import { structureLogoStoragePath, validateStructureLogoFile } from "@/lib/structure-logo";
 import { demoUser } from "@/lib/demo-data";
@@ -3386,7 +3386,7 @@ function PolicyCreateDrawer({
     try {
       await runReservedPolicyUpload({
         reserve: async () => {
-          const result = await runAction("adminCreatePolicy", {
+          const result = await runAction(POLICY_CREATE_CALLABLE, {
             policyId,
             name: policyName,
             fileType: policyFile.type || "application/octet-stream",

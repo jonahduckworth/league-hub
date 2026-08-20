@@ -16,6 +16,7 @@ export type CallableName =
   | "adminUpdateAnnouncement"
   | "adminDeleteAnnouncement"
   | "adminCreatePolicy"
+  | "adminCreatePolicyV2"
   | "adminFinalizePolicyUpload"
   | "adminUpdatePolicy"
   | "adminAddPolicyVersion"

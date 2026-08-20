@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   POLICY_FILE_MAX_BYTES,
+  POLICY_CREATE_CALLABLE,
   isPolicyFileAllowed,
   POLICY_CATEGORIES,
   policyStoragePath,
@@ -9,6 +10,10 @@ import {
 } from "../policy-upload";
 
 describe("policy upload helpers", () => {
+  it("reserves new policies through the V2 callable", () => {
+    expect(POLICY_CREATE_CALLABLE).toBe("adminCreatePolicyV2");
+  });
+
   it("uses the mobile policy category taxonomy", () => {
     expect(POLICY_CATEGORIES).toEqual(["Policy", "Waiver", "Protocol", "Code of Conduct", "Other"]);
   });
