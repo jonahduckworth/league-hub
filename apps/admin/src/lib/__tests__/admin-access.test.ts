@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignments, roleLabel } from "../admin-access";
+import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignments, roleDetails, roleLabel } from "../admin-access";
 import type { AppUser } from "../types";
 
 const baseUser: AppUser = {
@@ -51,5 +51,12 @@ describe("admin access helpers", () => {
   it("renders human role labels", () => {
     expect(roleLabel("platformOwner")).toBe("Platform Owner");
     expect(roleLabel("managerAdmin")).toBe("Manager");
+  });
+
+  it("explains access for every role", () => {
+    expect(roleDetails("platformOwner").headline).toBe("Cross-organization control");
+    expect(roleDetails("superAdmin").headline).toBe("Full organization access");
+    expect(roleDetails("managerAdmin").headline).toBe("Assigned hubs and teams");
+    expect(roleDetails("staff").headline).toBe("Standard team access");
   });
 });

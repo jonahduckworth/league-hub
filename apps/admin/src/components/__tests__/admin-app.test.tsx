@@ -265,6 +265,31 @@ describe("AdminApp operations shell", () => {
     expect(within(drawer).getByText("Expires")).toBeTruthy();
   });
 
+  it("shows clear role choices and updates the selected access guidance", async () => {
+    window.history.replaceState(null, "", "/admin#people");
+    render(<AdminApp />);
+
+    await screen.findByRole("heading", { level: 1, name: "People" });
+    fireEvent.click(screen.getByRole("button", { name: "Add Member" }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Add Member" });
+    const adminRole = within(drawer).getByRole("radio", { name: "Admin: Full organization access" });
+    const managerRole = within(drawer).getByRole("radio", { name: "Manager: Assigned hubs and teams" });
+    const staffRole = within(drawer).getByRole("radio", { name: "Staff: Standard team access" });
+
+    expect((staffRole as HTMLInputElement).checked).toBe(true);
+    expect((adminRole as HTMLInputElement).checked).toBe(false);
+    expect((managerRole as HTMLInputElement).checked).toBe(false);
+    expect(within(drawer).getByText(/View shared content, rosters, and policies/)).toBeTruthy();
+    expect(within(drawer).getByText(/Choose the hubs and teams this staff member/)).toBeTruthy();
+
+    fireEvent.click(adminRole);
+
+    expect((adminRole as HTMLInputElement).checked).toBe(true);
+    expect(within(drawer).getByText(/Manage existing leagues, hubs, teams, people/)).toBeTruthy();
+    expect(within(drawer).getByText(/Admins automatically have access to the full organization/)).toBeTruthy();
+  });
+
   it("renders announcement and policy workspaces as filterable, actionable card libraries", async () => {
     window.history.replaceState(null, "", "/admin#announcements");
     render(<AdminApp />);

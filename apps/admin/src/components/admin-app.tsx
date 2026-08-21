@@ -52,7 +52,7 @@ import { auth, db, demoMode, firebaseProjectId, hasFirebaseConfig, storage } fro
 import { formatAdminActionError } from "@/lib/action-errors";
 import { callAdmin, type CallableName } from "@/lib/callables";
 import { useAdminData } from "@/lib/firestore";
-import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignments, roleLabel } from "@/lib/admin-access";
+import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignments, roleDetails, roleLabel } from "@/lib/admin-access";
 import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, dateTimeLabel, timeAgo, toDate } from "@/lib/format";
@@ -1924,39 +1924,111 @@ function CreateInviteDrawer({
   const [inviteName, setInviteName] = useState("");
   const [inviteHubIds, setInviteHubIds] = useState<string[]>([]);
   const [inviteTeamIds, setInviteTeamIds] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   async function submitInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = await runAction("adminCreateInvitation", {
-      email: inviteEmail,
-      displayName: inviteName || undefined,
-      role: inviteRole,
-      hubIds: inviteHubIds,
-      teamIds: inviteTeamIds
-    });
-    if (!result.ok) return;
-    setInviteEmail("");
-    setInviteName("");
-    setInviteHubIds([]);
-    setInviteTeamIds([]);
-    onClose();
+    setSubmitting(true);
+    try {
+      const result = await runAction("adminCreateInvitation", {
+        email: inviteEmail,
+        displayName: inviteName || undefined,
+        role: inviteRole,
+        hubIds: inviteHubIds,
+        teamIds: inviteTeamIds
+      });
+      if (!result.ok) return;
+      setInviteEmail("");
+      setInviteName("");
+      setInviteRole("staff");
+      setInviteHubIds([]);
+      setInviteTeamIds([]);
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <SideDrawer open={open} title="Add Member" description="Create a pending invite with role and scope." icon={UserPlus} onClose={onClose}>
+    <SideDrawer open={open} title="Add Member" description="Invite someone and choose the access they need." icon={UserPlus} onClose={onClose}>
       <form className="grid gap-4" onSubmit={submitInvite}>
         <Field label="Email"><Input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required /></Field>
-        <Field label="Name"><Input value={inviteName} onChange={(event) => setInviteName(event.target.value)} /></Field>
-        <Field label="Role">
-          <Select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as UserRole)}>
-            {assignableRoles(currentUser).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
-          </Select>
-        </Field>
-        <CheckboxGroup label="Hubs" options={data.hubs.map((hub) => ({ id: hub.id, label: hub.name }))} values={inviteHubIds} setValues={setInviteHubIds} />
-        <CheckboxGroup label="Teams" options={data.teams.filter((team) => inviteHubIds.includes(team.hubId)).map((team) => ({ id: team.id, label: team.name }))} values={inviteTeamIds} setValues={setInviteTeamIds} />
-        <Button type="submit"><UserPlus className="size-4" aria-hidden />Create Invite</Button>
+        <Field label="Name" hint="Optional"><Input value={inviteName} onChange={(event) => setInviteName(event.target.value)} /></Field>
+        <RoleSelector
+          roles={assignableRoles(currentUser)}
+          value={inviteRole}
+          onChange={setInviteRole}
+        />
+        <div className="grid gap-3 rounded-2xl border border-line/80 bg-white p-4 shadow-sm">
+          <div>
+            <p className="text-sm font-extrabold text-ink">Access assignments</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-muted">{roleDetails(inviteRole).assignmentGuidance}</p>
+          </div>
+          <CheckboxGroup label="Hubs" options={data.hubs.map((hub) => ({ id: hub.id, label: hub.name }))} values={inviteHubIds} setValues={setInviteHubIds} />
+          <CheckboxGroup label="Teams" options={data.teams.filter((team) => inviteHubIds.includes(team.hubId)).map((team) => ({ id: team.id, label: team.name }))} values={inviteTeamIds} setValues={setInviteTeamIds} />
+        </div>
+        <Button type="submit" disabled={submitting} aria-busy={submitting}>
+          {submitting
+            ? <RefreshCw className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+            : <UserPlus className="size-4" aria-hidden />}
+          {submitting ? "Creating invite…" : "Create Invite"}
+        </Button>
       </form>
     </SideDrawer>
+  );
+}
+
+function RoleSelector({
+  roles,
+  value,
+  onChange
+}: {
+  roles: UserRole[];
+  value: UserRole;
+  onChange: (role: UserRole) => void;
+}) {
+  return (
+    <fieldset className="grid gap-2.5">
+      <legend className="text-sm font-bold text-ink">Role</legend>
+      <p className="text-xs font-semibold leading-5 text-muted">Choose what this member can see and manage.</p>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {roles.map((role) => {
+          const details = roleDetails(role);
+          const selected = role === value;
+          const Icon = role === "superAdmin" ? ShieldCheck : role === "managerAdmin" ? UserCog : UserRound;
+          return (
+            <label
+              key={role}
+              className={`group flex min-h-24 cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition-[border-color,background-color,box-shadow] duration-200 focus-within:ring-4 focus-within:ring-teal/15 ${selected ? "border-teal/50 bg-teal/[0.045] shadow-sm" : "border-line bg-white hover:border-[#b8c4d2] hover:bg-[#fbfcfd]"}`}
+            >
+              <input
+                type="radio"
+                name="invite-role"
+                value={role}
+                checked={selected}
+                aria-label={`${roleLabel(role)}: ${details.headline}`}
+                className="sr-only"
+                onChange={() => onChange(role)}
+              />
+              <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${selected ? "bg-teal text-white" : "bg-shell text-muted group-hover:text-ink"}`} aria-hidden>
+                <Icon className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-start justify-between gap-2">
+                  <span className="text-sm font-extrabold text-ink">{roleLabel(role)}</span>
+                  {selected && <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-teal" aria-hidden />}
+                </span>
+                <span className="mt-1 block text-xs font-semibold leading-4 text-muted">{details.headline}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      <div aria-live="polite" className="rounded-xl border border-teal/15 bg-teal/[0.045] px-3.5 py-3">
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-teal">{roleLabel(value)} access</p>
+        <p className="mt-1 text-sm font-semibold leading-5 text-ink">{roleDetails(value).description}</p>
+      </div>
+    </fieldset>
   );
 }
 
