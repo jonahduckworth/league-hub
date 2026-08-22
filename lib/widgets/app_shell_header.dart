@@ -6,6 +6,15 @@ import '../core/utils.dart';
 import 'app_glass.dart';
 
 const _headerLogoSize = 40.0;
+const _headerTextSize = 15.0;
+const _headerTextHeight = 1.1;
+
+double appShellHeaderRowHeight(BuildContext context) {
+  final scaledLineHeight =
+      MediaQuery.textScalerOf(context).scale(_headerTextSize) *
+          _headerTextHeight;
+  return scaledLineHeight.clamp(_headerLogoSize, double.infinity).toDouble();
+}
 
 class AppShellHeader extends StatelessWidget {
   final String title;
@@ -111,8 +120,10 @@ class _HeaderTitlePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: appShellHeaderRowHeight(context),
+      ),
       child: Row(
         children: [
           if (leadingIcon != null) ...[
@@ -129,10 +140,10 @@ class _HeaderTitlePill extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 15,
+                fontSize: _headerTextSize,
                 fontWeight: FontWeight.w700,
                 color: AppGlassColors.ink,
-                height: 1.1,
+                height: _headerTextHeight,
               ),
             ),
           ),

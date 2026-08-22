@@ -43,6 +43,7 @@ import '../screens/admin/manage_leagues_screen.dart';
 import '../screens/admin/team_detail_screen.dart';
 import '../screens/unauthorized_screen.dart';
 import '../widgets/app_shell_scaffold.dart';
+import '../widgets/app_icon_prompt_coordinator.dart';
 import '../widgets/glass_bottom_nav.dart';
 import '../core/design_system.dart';
 
@@ -1022,34 +1023,36 @@ class _MainScaffold extends StatelessWidget {
     final returnHomeOnBack = quickDestinationConfig != null &&
         location == quickDestinationConfig.route;
 
-    return AppShellNavigationScope(
-      bottomPadding: showBottomNavigation
-          ? leagueHubGlassBottomNavBarHeight + appShellBottomNavSpacing
-          : 0,
-      child: PopScope(
-        canPop: !returnHomeOnBack,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop && returnHomeOnBack) {
-            context.go('/');
-          }
-        },
-        child: Scaffold(
-          extendBody: true,
-          body: navigationShell,
-          bottomNavigationBar: showBottomNavigation
-              ? LeagueHubGlassBottomNav(
-                  currentIndex: _bottomNavIndex,
-                  onTap: (index) => _handleBottomNavTap(context, index),
-                  overrideLastItem: quickDestinationConfig == null
-                      ? null
-                      : GlassNavBarItem(
-                          icon: quickDestinationConfig.icon,
-                          activeIcon: quickDestinationConfig.activeIcon,
-                          label: quickDestinationConfig.label,
-                          iconSize: quickDestinationConfig.iconSize,
-                        ),
-                )
-              : null,
+    return AppIconPromptCoordinator(
+      child: AppShellNavigationScope(
+        bottomPadding: showBottomNavigation
+            ? leagueHubGlassBottomNavBarHeight + appShellBottomNavSpacing
+            : 0,
+        child: PopScope(
+          canPop: !returnHomeOnBack,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && returnHomeOnBack) {
+              context.go('/');
+            }
+          },
+          child: Scaffold(
+            extendBody: true,
+            body: navigationShell,
+            bottomNavigationBar: showBottomNavigation
+                ? LeagueHubGlassBottomNav(
+                    currentIndex: _bottomNavIndex,
+                    onTap: (index) => _handleBottomNavTap(context, index),
+                    overrideLastItem: quickDestinationConfig == null
+                        ? null
+                        : GlassNavBarItem(
+                            icon: quickDestinationConfig.icon,
+                            activeIcon: quickDestinationConfig.activeIcon,
+                            label: quickDestinationConfig.label,
+                            iconSize: quickDestinationConfig.iconSize,
+                          ),
+                  )
+                : null,
+          ),
         ),
       ),
     );

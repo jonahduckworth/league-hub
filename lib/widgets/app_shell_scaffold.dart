@@ -22,7 +22,9 @@ double appShellBottomPadding(BuildContext context, {double extra = 8}) {
 }
 
 double appShellHeaderHeight(BuildContext context) {
-  return MediaQuery.paddingOf(context).top + 52;
+  return MediaQuery.paddingOf(context).top +
+      appShellHeaderRowHeight(context) +
+      12;
 }
 
 double appShellTopPadding(

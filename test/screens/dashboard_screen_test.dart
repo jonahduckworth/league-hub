@@ -83,6 +83,7 @@ void main() {
       int memberCount = 45,
       WeatherSnapshot? weather,
       List<ScheduleEvent> scheduleEvents = const [],
+      TextScaler textScaler = TextScaler.noScaling,
     }) {
       return ProviderScope(
         overrides: [
@@ -120,6 +121,10 @@ void main() {
         ],
         child: MaterialApp(
           home: DashboardScreen(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child!,
+          ),
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
@@ -659,6 +664,95 @@ void main() {
         expect(find.text('18°'), findsOneWidget);
       });
 
+      testWidgets('phone-width live weather wraps without clipping',
+          (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          createTestWidget(
+            weather: WeatherSnapshot(
+              temperatureC: 20,
+              apparentTemperatureC: 20,
+              windSpeedKph: 13,
+              weatherCode: 2,
+              isDay: true,
+              observedAt: DateTime(2026),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Partly cloudy'), findsOneWidget);
+        expect(find.textContaining('13 km/h'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('large Dynamic Type stacks and expands quick access tiles',
+          (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          createTestWidget(textScaler: const TextScaler.linear(2)),
+        );
+        await tester.pumpAndSettle();
+
+        final policy = find.byKey(const ValueKey('home-tile-policy'));
+        final weather = find.byKey(const ValueKey('home-tile-weather'));
+        final chats = find.byKey(const ValueKey('home-tile-chats'));
+        final settings = find.byKey(const ValueKey('home-tile-settings'));
+
+        expect(tester.getSize(policy).height, greaterThan(136));
+        expect(tester.getSize(policy).width, greaterThan(300));
+        expect(tester.getTopLeft(policy).dx, tester.getTopLeft(weather).dx);
+        expect(tester.getTopLeft(weather).dx, tester.getTopLeft(chats).dx);
+        expect(tester.getTopLeft(chats).dx, tester.getTopLeft(settings).dx);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('moderate Dynamic Type keeps the balanced two-column grid',
+          (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          createTestWidget(textScaler: const TextScaler.linear(1.4)),
+        );
+        await tester.pumpAndSettle();
+
+        final policy = find.byKey(const ValueKey('home-tile-policy'));
+        final weather = find.byKey(const ValueKey('home-tile-weather'));
+
+        expect(tester.getSize(policy).height, greaterThan(136));
+        expect(
+          tester.getTopLeft(weather).dx,
+          greaterThan(tester.getTopLeft(policy).dx),
+        );
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('large Dynamic Type reserves room below the greeting header',
+          (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          createTestWidget(textScaler: const TextScaler.linear(3.2)),
+        );
+        await tester.pumpAndSettle();
+
+        final greetingBottom = tester
+            .getBottomLeft(find.byKey(const ValueKey('home-greeting-row')))
+            .dy;
+        final profileTop = tester
+            .getTopLeft(find.byKey(const ValueKey('home-profile-frame')))
+            .dy;
+
+        expect(profileTop, greaterThan(greetingBottom));
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('uses a night icon for clear nighttime conditions',
           (WidgetTester tester) async {
         await tester.pumpWidget(
@@ -713,7 +807,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Snow showers'), findsOneWidget);
+        expect(find.textContaining('Snow showers'), findsOneWidget);
         expect(find.byIcon(Icons.ac_unit), findsOneWidget);
       });
 
