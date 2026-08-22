@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/widgets/avatar_widget.dart';
@@ -91,6 +92,30 @@ void main() {
       );
 
       expect(find.byType(AvatarWidget), findsOneWidget);
+    });
+
+    testWidgets('bounds network avatar decoding to its rendered size',
+        (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: AvatarWidget(
+              name: 'Test User',
+              imageUrl: 'https://example.com/avatar.png',
+              size: 40,
+            ),
+          ),
+        ),
+      );
+
+      final image = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage),
+      );
+      final expectedCacheDimension = (40 * tester.view.devicePixelRatio).ceil();
+      expect(image.memCacheWidth, expectedCacheDimension);
+      expect(image.memCacheHeight, expectedCacheDimension);
+      expect(image.maxWidthDiskCache, expectedCacheDimension);
+      expect(image.maxHeightDiskCache, expectedCacheDimension);
     });
 
     testWidgets('renders as circle shape', (tester) async {

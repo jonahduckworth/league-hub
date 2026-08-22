@@ -6,6 +6,8 @@ import 'package:league_hub/models/schedule_event.dart';
 import 'package:league_hub/models/schedule_team_logos.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/schedule_screen.dart';
+import 'package:league_hub/widgets/app_glass.dart';
+import 'package:league_hub/widgets/schedule_game_card.dart';
 import 'package:league_hub/widgets/schedule_team_logo.dart';
 
 void main() {
@@ -139,6 +141,31 @@ void main() {
     expect(find.textContaining('Mountain time'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
     expect(find.byType(ScheduleTeamLogo), findsNWidgets(4));
+  });
+
+  testWidgets('lazily builds a large first date instead of every game at once',
+      (tester) async {
+    games = List.generate(
+      40,
+      (index) => event(
+        id: 'future-$index',
+        firstTeam: 'Home $index',
+        secondTeam: 'Away $index',
+        startsAt: now.add(Duration(days: 2, minutes: index)),
+      ),
+    );
+
+    await tester.pumpWidget(subject());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ScheduleGameCard), findsWidgets);
+    expect(find.byType(ScheduleGameCard).evaluate().length, lessThan(40));
+    expect(
+      tester
+          .widgetList<AppGlassSurface>(find.byType(AppGlassSurface))
+          .any((surface) => surface.quality == appGlassListSurfaceQuality),
+      isTrue,
+    );
   });
 
   testWidgets('switches to final results with scores', (tester) async {

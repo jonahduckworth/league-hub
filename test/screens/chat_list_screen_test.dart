@@ -17,7 +17,9 @@ import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/app_shell_header.dart';
+import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/widgets/avatar_widget.dart';
+import 'package:league_hub/widgets/chat_room_avatar.dart';
 import 'package:league_hub/widgets/empty_state.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 import 'package:mockito/mockito.dart';
@@ -800,6 +802,34 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
         expect(find.byType(ChatListScreen), findsOneWidget);
+      });
+
+      testWidgets('lazily builds large room lists with shader-free cards',
+          (WidgetTester tester) async {
+        final manyRooms = List.generate(
+          40,
+          (index) => ChatRoom(
+            id: 'room-$index',
+            orgId: 'org-1',
+            name: 'Room $index',
+            type: ChatRoomType.league,
+            participants: const ['user-1'],
+            createdAt: DateTime(2026, 8, 1).add(Duration(minutes: index)),
+            isArchived: false,
+          ),
+        );
+
+        await tester.pumpWidget(createTestWidget(chatRooms: manyRooms));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ChatRoomAvatar), findsWidgets);
+        expect(find.byType(ChatRoomAvatar).evaluate().length, lessThan(40));
+        expect(
+          tester
+              .widgetList<AppGlassSurface>(find.byType(AppGlassSurface))
+              .any((surface) => surface.quality == appGlassListSurfaceQuality),
+          isTrue,
+        );
       });
 
       testWidgets('displays title Messages', (WidgetTester tester) async {

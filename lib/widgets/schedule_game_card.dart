@@ -55,6 +55,7 @@ class ScheduleGameCard extends StatelessWidget {
       label: semanticLabel,
       child: AppGlassSurface(
         onTap: onTap,
+        quality: appGlassListSurfaceQuality,
         radius: AppRadius.card,
         padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.lg),
         child: Row(

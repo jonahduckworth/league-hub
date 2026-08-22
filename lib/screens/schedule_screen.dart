@@ -63,6 +63,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       selectedDate: _selectedDate,
     );
     final grouped = _groupByDate(events);
+    final rows = _buildScheduleRows(grouped);
     const toolbarHeight = 48.0;
     final topPadding = appShellTopPadding(
       context,
@@ -120,41 +121,37 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                       16,
                       appShellBottomPadding(context),
                     ),
-                    itemCount: grouped.length,
-                    itemBuilder: (context, groupIndex) {
-                      final group = grouped[groupIndex];
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.only(
-                              top: groupIndex == 0 ? 0 : AppSpacing.lg,
-                              bottom: AppSpacing.sm,
-                            ),
-                            child: _DateHeading(date: group.date),
+                    itemCount: rows.length,
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      if (row.date != null) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: row.isFirstHeading ? 0 : AppSpacing.lg,
+                            bottom: AppSpacing.sm,
                           ),
-                          ...group.events.indexed.map(
-                            (entry) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: AppMotionReveal(
-                                index: groupIndex * 3 + entry.$1,
-                                child: ScheduleGameCard(
-                                  event: entry.$2,
-                                  firstTeamLogoUrl: teamLogos.logoFor(
-                                    teamId: entry.$2.firstTeamId,
-                                    teamName: entry.$2.firstTeamName,
-                                  ),
-                                  secondTeamLogoUrl: teamLogos.logoFor(
-                                    teamId: entry.$2.secondTeamId,
-                                    teamName: entry.$2.secondTeamName,
-                                  ),
-                                  onTap: () =>
-                                      _showGameDetails(entry.$2, teamLogos),
-                                ),
-                              ),
+                          child: _DateHeading(date: row.date!),
+                        );
+                      }
+
+                      final event = row.event!;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: AppMotionReveal(
+                          index: row.revealIndex,
+                          child: ScheduleGameCard(
+                            event: event,
+                            firstTeamLogoUrl: teamLogos.logoFor(
+                              teamId: event.firstTeamId,
+                              teamName: event.firstTeamName,
                             ),
+                            secondTeamLogoUrl: teamLogos.logoFor(
+                              teamId: event.secondTeamId,
+                              teamName: event.secondTeamName,
+                            ),
+                            onTap: () => _showGameDetails(event, teamLogos),
                           ),
-                        ],
+                        ),
                       );
                     },
                   ),
@@ -173,6 +170,24 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           .add(event);
     }
     return groups.values.toList();
+  }
+
+  List<_ScheduleListRow> _buildScheduleRows(
+    List<_ScheduleDateGroup> groups,
+  ) {
+    final rows = <_ScheduleListRow>[];
+    var revealIndex = 0;
+    for (final (groupIndex, group) in groups.indexed) {
+      rows.add(_ScheduleListRow.heading(
+        group.date,
+        isFirst: groupIndex == 0,
+      ));
+      for (final event in group.events) {
+        rows.add(_ScheduleListRow.game(event, revealIndex: revealIndex));
+        revealIndex++;
+      }
+    }
+    return rows;
   }
 
   Future<void> _pickDate() async {
@@ -347,6 +362,26 @@ class _ScheduleDateGroup {
   final List<ScheduleEvent> events;
 
   _ScheduleDateGroup(this.date, this.events);
+}
+
+class _ScheduleListRow {
+  final DateTime? date;
+  final ScheduleEvent? event;
+  final bool isFirstHeading;
+  final int revealIndex;
+
+  const _ScheduleListRow.heading(
+    this.date, {
+    required bool isFirst,
+  })  : event = null,
+        isFirstHeading = isFirst,
+        revealIndex = 0;
+
+  const _ScheduleListRow.game(
+    this.event, {
+    required this.revealIndex,
+  })  : date = null,
+        isFirstHeading = false;
 }
 
 class _DateHeading extends StatelessWidget {

@@ -60,6 +60,11 @@ void main() {
       find.byType(CachedNetworkImage),
     );
     expect(image.fit, BoxFit.contain);
+    final expectedCacheDimension = (28 * tester.view.devicePixelRatio).ceil();
+    expect(image.memCacheWidth, expectedCacheDimension);
+    expect(image.memCacheHeight, expectedCacheDimension);
+    expect(image.maxWidthDiskCache, expectedCacheDimension);
+    expect(image.maxHeightDiskCache, expectedCacheDimension);
     expect(tester.getSize(find.byType(ScheduleTeamLogo)), const Size(28, 28));
   });
 }

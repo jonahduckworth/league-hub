@@ -28,6 +28,13 @@ const _surfaceSettings = LiquidGlassSettings(
   chromaticAberration: 0.18,
 );
 
+/// Shader-free glass for repeated scrolling surfaces.
+///
+/// The liquid-glass package recommends its minimal tier for screens with many
+/// list cards so the cumulative shader cost stays flat while the frosted glass
+/// appearance is preserved.
+const appGlassListSurfaceQuality = GlassQuality.minimal;
+
 class AppGlassBackground extends StatelessWidget {
   const AppGlassBackground({super.key});
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../core/image_cache.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
 
@@ -20,6 +21,7 @@ class AvatarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bgColor = backgroundColor ?? AppColors.primary;
+    final cacheDimension = thumbnailCacheDimension(context, size);
     return Container(
       width: size,
       height: size,
@@ -32,6 +34,10 @@ class AvatarWidget extends StatelessWidget {
           ? CachedNetworkImage(
               imageUrl: imageUrl!,
               fit: BoxFit.cover,
+              memCacheWidth: cacheDimension,
+              memCacheHeight: cacheDimension,
+              maxWidthDiskCache: cacheDimension,
+              maxHeightDiskCache: cacheDimension,
               placeholder: (_, __) => _initials(bgColor),
               errorWidget: (_, __, ___) => _initials(bgColor),
             )
