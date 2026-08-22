@@ -39,7 +39,7 @@ double appShellTopPadding(
       (stickyHeight > 0 ? stickyHeight + stickySpacing : 0);
 }
 
-class AppShellScaffold extends StatelessWidget {
+class AppShellScaffold extends StatefulWidget {
   final AppShellHeader header;
   final Widget child;
   final Widget? pinnedContent;
@@ -66,13 +66,51 @@ class AppShellScaffold extends StatelessWidget {
   });
 
   @override
+  State<AppShellScaffold> createState() => _AppShellScaffoldState();
+}
+
+class _AppShellScaffoldState extends State<AppShellScaffold> {
+  final ValueNotifier<double> _verticalScrollOffset = ValueNotifier(0);
+
+  @override
+  void dispose() {
+    _verticalScrollOffset.dispose();
+    super.dispose();
+  }
+
+  bool _trackVerticalScroll(ScrollNotification notification) {
+    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    final pixels = notification.metrics.pixels;
+    final nextOffset = pixels < 0 ? 0.0 : pixels;
+    if ((_verticalScrollOffset.value - nextOffset).abs() >= 0.5) {
+      _verticalScrollOffset.value = nextOffset;
+    }
+    return false;
+  }
+
+  Widget _scrollingTopLayer(Widget child) {
+    return ValueListenableBuilder<double>(
+      valueListenable: _verticalScrollOffset,
+      child: child,
+      builder: (context, offset, child) => Transform.translate(
+        offset: Offset(0, -offset),
+        child: child,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final fabBottom = MediaQuery.viewPaddingOf(context).bottom +
         AppShellNavigationScope.bottomPaddingOf(context) +
         44;
-    final pinnedTop = appShellHeaderHeight(context) + topSpacing;
+    final pinnedTop = appShellHeaderHeight(context) + widget.topSpacing;
     final stickyTop = pinnedTop +
-        (pinnedContent != null ? pinnedContentHeight + pinnedSpacing : 0);
+        (widget.pinnedContent != null
+            ? widget.pinnedContentHeight + widget.pinnedSpacing
+            : 0);
     final routeVisual = AppShellRouteVisualScope.maybeOf(context);
     final showHeader = routeVisual?.showHeader ?? true;
     final contentOpacity = routeVisual?.contentOpacity ?? 1;
@@ -84,9 +122,12 @@ class AppShellScaffold extends StatelessWidget {
           Positioned.fill(
             child: _AppShellContentFade(
               routeOpacity: contentOpacity,
-              child: ScrollConfiguration(
-                behavior: const LeagueHubScrollBehavior(),
-                child: child,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _trackVerticalScroll,
+                child: ScrollConfiguration(
+                  behavior: const LeagueHubScrollBehavior(),
+                  child: widget.child,
+                ),
               ),
             ),
           ),
@@ -95,40 +136,42 @@ class AppShellScaffold extends StatelessWidget {
               top: 0,
               left: 0,
               right: 0,
-              height: topFadeHeight,
-              child: const _AppShellTopFade(),
+              height: widget.topFadeHeight,
+              child: _scrollingTopLayer(const _AppShellTopFade()),
             ),
           if (showHeader)
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              child: header,
+              child: _scrollingTopLayer(widget.header),
             ),
-          if (pinnedContent != null && showHeader)
+          if (widget.pinnedContent != null && showHeader)
             Positioned(
               top: pinnedTop,
               left: 0,
               right: 0,
-              child: pinnedContent!,
+              child: _scrollingTopLayer(widget.pinnedContent!),
             ),
-          if (stickyContent != null)
+          if (widget.stickyContent != null)
             Positioned(
               top: stickyTop,
               left: 0,
               right: 0,
-              child: _AppShellContentFade(
-                routeOpacity: contentOpacity,
-                child: stickyContent!,
+              child: _scrollingTopLayer(
+                _AppShellContentFade(
+                  routeOpacity: contentOpacity,
+                  child: widget.stickyContent!,
+                ),
               ),
             ),
-          if (floatingActionButton != null)
+          if (widget.floatingActionButton != null)
             Positioned(
               right: 16,
               bottom: fabBottom,
               child: _AppShellContentFade(
                 routeOpacity: contentOpacity,
-                child: floatingActionButton!,
+                child: widget.floatingActionButton!,
               ),
             ),
         ],

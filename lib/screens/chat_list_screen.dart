@@ -434,16 +434,14 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                   );
                 }
 
-                return ListView(
+                return ListView.builder(
                   padding: EdgeInsets.fromLTRB(
                       16, topContentPadding, 16, bottomContentPadding),
-                  children: [
-                    for (final entry in visibleRooms.asMap().entries)
-                      AppMotionReveal(
-                        index: entry.key,
-                        child: _ChatRoomTile(room: entry.value),
-                      ),
-                  ],
+                  itemCount: visibleRooms.length,
+                  itemBuilder: (context, index) => AppMotionReveal(
+                    index: index,
+                    child: _ChatRoomTile(room: visibleRooms[index]),
+                  ),
                 );
               },
             ),
@@ -814,6 +812,7 @@ class _ChatRoomTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: EdgeInsets.zero,
       radius: 20,
+      quality: appGlassListSurfaceQuality,
       onTap: () => context.push('/chat/${room.id}'),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../core/image_cache.dart';
 import '../core/theme.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
@@ -58,6 +59,7 @@ class ChatRoomAvatar extends StatelessWidget {
 
     final imageUrl = room.roomImageUrl;
     if (imageUrl != null && imageUrl.isNotEmpty) {
+      final cacheDimension = thumbnailCacheDimension(context, size);
       return Container(
         width: size,
         height: size,
@@ -69,6 +71,10 @@ class ChatRoomAvatar extends StatelessWidget {
         child: CachedNetworkImage(
           imageUrl: imageUrl,
           fit: BoxFit.cover,
+          memCacheWidth: cacheDimension,
+          memCacheHeight: cacheDimension,
+          maxWidthDiskCache: cacheDimension,
+          maxHeightDiskCache: cacheDimension,
           placeholder: (_, __) => _iconFallback(),
           errorWidget: (_, __, ___) => _iconFallback(),
         ),

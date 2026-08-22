@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../core/image_cache.dart';
 import '../core/utils.dart';
 import 'app_glass.dart';
 
@@ -21,6 +22,7 @@ class ScheduleTeamLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = imageUrl?.trim();
+    final cacheDimension = thumbnailCacheDimension(context, size);
     return ExcludeSemantics(
       child: SizedBox(
         width: size,
@@ -33,6 +35,10 @@ class ScheduleTeamLogo extends StatelessWidget {
                 ? CachedNetworkImage(
                     imageUrl: url,
                     fit: BoxFit.contain,
+                    memCacheWidth: cacheDimension,
+                    memCacheHeight: cacheDimension,
+                    maxWidthDiskCache: cacheDimension,
+                    maxHeightDiskCache: cacheDimension,
                     fadeInDuration: const Duration(milliseconds: 140),
                     placeholder: (_, __) => _fallback(),
                     errorWidget: (_, __, ___) => _fallback(),

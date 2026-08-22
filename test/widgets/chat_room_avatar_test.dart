@@ -133,6 +133,14 @@ void main() {
         ),
         findsOneWidget,
       );
+      final image = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage),
+      );
+      final expectedCacheDimension = (46 * tester.view.devicePixelRatio).ceil();
+      expect(image.memCacheWidth, expectedCacheDimension);
+      expect(image.memCacheHeight, expectedCacheDimension);
+      expect(image.maxWidthDiskCache, expectedCacheDimension);
+      expect(image.maxHeightDiskCache, expectedCacheDimension);
     });
   });
 }

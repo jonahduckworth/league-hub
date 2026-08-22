@@ -52,6 +52,39 @@ void main() {
       );
     });
 
+    testWidgets('header and top controls scroll away with page content',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: AppShellScaffold(
+            header: AppShellHeader(title: 'Messages'),
+            stickyContent: SizedBox(
+              key: Key('sticky-content'),
+              height: 36,
+            ),
+            child: _ScrollableShellTestContent(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialHeaderTop = tester.getTopLeft(find.text('Messages')).dy;
+      final initialStickyTop =
+          tester.getTopLeft(find.byKey(const Key('sticky-content'))).dy;
+
+      await tester.drag(find.byType(ListView), const Offset(0, -180));
+      await tester.pump();
+
+      expect(
+        tester.getTopLeft(find.text('Messages')).dy,
+        lessThan(initialHeaderTop - 100),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('sticky-content'))).dy,
+        lessThan(initialStickyTop - 100),
+      );
+    });
+
     testWidgets(
         'bottom padding uses real safe area instead of scaffold padding',
         (WidgetTester tester) async {
@@ -258,6 +291,23 @@ void main() {
       expect(physics, isA<ClampingScrollPhysics>());
     });
   });
+}
+
+class _ScrollableShellTestContent extends StatelessWidget {
+  const _ScrollableShellTestContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding:
+          EdgeInsets.only(top: appShellTopPadding(context, stickyHeight: 36)),
+      itemCount: 30,
+      itemBuilder: (context, index) => SizedBox(
+        height: 64,
+        child: Text('Row $index'),
+      ),
+    );
+  }
 }
 
 Widget _scrollBehaviorProbeBuilder(BuildContext context) {
