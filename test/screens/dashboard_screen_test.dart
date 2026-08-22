@@ -664,6 +664,30 @@ void main() {
         expect(find.text('18°'), findsOneWidget);
       });
 
+      testWidgets('phone-width live weather wraps without clipping',
+          (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          createTestWidget(
+            weather: WeatherSnapshot(
+              temperatureC: 20,
+              apparentTemperatureC: 20,
+              windSpeedKph: 13,
+              weatherCode: 2,
+              isDay: true,
+              observedAt: DateTime(2026),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Partly cloudy'), findsOneWidget);
+        expect(find.textContaining('13 km/h'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('large Dynamic Type stacks and expands quick access tiles',
           (WidgetTester tester) async {
         await tester.binding.setSurfaceSize(const Size(390, 844));

@@ -164,7 +164,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildHomeGrid(BuildContext context) {
     final textScale = MediaQuery.textScalerOf(context).scale(15) / 15;
     final useSingleColumn = textScale >= 1.45;
-    final tileHeight = 136 + (textScale.clamp(1.0, 3.2).toDouble() - 1) * 84;
+    final tileHeight = 144 + (textScale.clamp(1.0, 3.2).toDouble() - 1) * 84;
     final tiles = <Widget>[
       _CompactHomeTile(
         icon: Icons.folder_copy_outlined,
