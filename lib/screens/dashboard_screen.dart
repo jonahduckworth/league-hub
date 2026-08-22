@@ -162,45 +162,63 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildHomeGrid(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(15) / 15;
+    final useSingleColumn = textScale >= 1.45;
+    final tileHeight = 136 + (textScale.clamp(1.0, 3.2).toDouble() - 1) * 84;
+    final tiles = <Widget>[
+      _CompactHomeTile(
+        icon: Icons.folder_copy_outlined,
+        label: 'Policy',
+        subtitle: 'Files and rules',
+        accentColor: AppGlassColors.aqua,
+        height: tileHeight,
+        onTap: () => context.go('/policy'),
+      ),
+      _WeatherHomeTile(height: tileHeight),
+      _CompactHomeTile(
+        icon: Icons.mark_unread_chat_alt_outlined,
+        label: 'Chats',
+        subtitle: 'Chats & announcements',
+        accentColor: AppGlassColors.rose,
+        height: tileHeight,
+        onTap: () => context.go('/chat'),
+      ),
+      _CompactHomeTile(
+        icon: Icons.settings_outlined,
+        label: 'Settings',
+        subtitle: 'Profile and tools',
+        accentColor: AppGlassColors.gold,
+        height: tileHeight,
+        onTap: () => context.go('/settings'),
+      ),
+    ];
+
+    if (useSingleColumn) {
+      return Column(
+        children: [
+          for (var index = 0; index < tiles.length; index++) ...[
+            tiles[index],
+            if (index != tiles.length - 1) const SizedBox(height: 12),
+          ],
+        ],
+      );
+    }
+
     return Column(
       children: [
         Row(
           children: [
-            Expanded(
-              child: _CompactHomeTile(
-                icon: Icons.folder_copy_outlined,
-                label: 'Policy',
-                subtitle: 'Files and rules',
-                accentColor: AppGlassColors.aqua,
-                onTap: () => context.go('/policy'),
-              ),
-            ),
+            Expanded(child: tiles[0]),
             const SizedBox(width: 12),
-            const Expanded(child: _WeatherHomeTile()),
+            Expanded(child: tiles[1]),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-              child: _CompactHomeTile(
-                icon: Icons.mark_unread_chat_alt_outlined,
-                label: 'Chats',
-                subtitle: 'Chats & announcements',
-                accentColor: AppGlassColors.rose,
-                onTap: () => context.go('/chat'),
-              ),
-            ),
+            Expanded(child: tiles[2]),
             const SizedBox(width: 12),
-            Expanded(
-              child: _CompactHomeTile(
-                icon: Icons.settings_outlined,
-                label: 'Settings',
-                subtitle: 'Profile and tools',
-                accentColor: AppGlassColors.gold,
-                onTap: () => context.go('/settings'),
-              ),
-            ),
+            Expanded(child: tiles[3]),
           ],
         ),
       ],
@@ -528,7 +546,6 @@ class _SectionHeading extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             icon,
@@ -536,11 +553,13 @@ class _SectionHeading extends StatelessWidget {
             size: 18,
           ),
           const SizedBox(width: 10),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: _homePillTextStyle(),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _homePillTextStyle(),
+            ),
           ),
         ],
       ),
@@ -658,6 +677,7 @@ class _CompactHomeTile extends StatelessWidget {
   final String label;
   final String subtitle;
   final Color accentColor;
+  final double height;
   final VoidCallback onTap;
 
   const _CompactHomeTile({
@@ -665,14 +685,16 @@ class _CompactHomeTile extends StatelessWidget {
     required this.label,
     required this.subtitle,
     required this.accentColor,
+    required this.height,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return AppGlassSurface(
+      key: ValueKey('home-tile-${label.toLowerCase()}'),
       onTap: onTap,
-      height: 136,
+      height: height,
       padding: const EdgeInsets.all(18),
       radius: 22,
       child: Column(
@@ -845,7 +867,9 @@ class _XLogoIcon extends StatelessWidget {
 }
 
 class _WeatherHomeTile extends ConsumerWidget {
-  const _WeatherHomeTile();
+  final double height;
+
+  const _WeatherHomeTile({required this.height});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -853,10 +877,12 @@ class _WeatherHomeTile extends ConsumerWidget {
 
     return weatherAsync.when(
       data: (weather) => _WeatherTileSurface(
+        height: height,
         onTap: () => ref.invalidate(currentWeatherProvider),
         child: _WeatherDataContent(weather: weather),
       ),
       loading: () => _WeatherTileSurface(
+        height: height,
         onTap: () => ref.invalidate(currentWeatherProvider),
         child: const _WeatherMessageContent(
           icon: Icons.my_location_outlined,
@@ -870,6 +896,7 @@ class _WeatherHomeTile extends ConsumerWidget {
             ? error.message
             : 'Tap to refresh';
         return _WeatherTileSurface(
+          height: height,
           onTap: () => ref.invalidate(currentWeatherProvider),
           child: _WeatherMessageContent(
             icon: Icons.location_off_outlined,
@@ -885,18 +912,21 @@ class _WeatherHomeTile extends ConsumerWidget {
 
 class _WeatherTileSurface extends StatelessWidget {
   final Widget child;
+  final double height;
   final VoidCallback onTap;
 
   const _WeatherTileSurface({
     required this.child,
+    required this.height,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return AppGlassSurface(
+      key: const ValueKey('home-tile-weather'),
       onTap: onTap,
-      height: 136,
+      height: height,
       padding: const EdgeInsets.all(18),
       radius: 22,
       child: child,
@@ -912,6 +942,9 @@ class _WeatherDataContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accentColor = _weatherAccentForCode(weather.weatherCode);
+    final textScale = MediaQuery.textScalerOf(context).scale(15) / 15;
+    final temperatureScale = textScale.clamp(1.0, 1.45).toDouble();
+    final detailMaxLines = textScale >= 1.3 ? 2 : 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -934,6 +967,7 @@ class _WeatherDataContent extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   child: Text(
                     weather.temperatureLabel,
+                    textScaler: TextScaler.linear(temperatureScale),
                     style: const TextStyle(
                       color: AppGlassColors.ink,
                       fontSize: 34,
@@ -957,32 +991,16 @@ class _WeatherDataContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                weather.description,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppGlassColors.inkMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              weather.windLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppGlassColors.inkMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        Text(
+          '${weather.description}  ·  ${weather.windLabel}',
+          maxLines: detailMaxLines,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppGlassColors.inkMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            height: 1.2,
+          ),
         ),
       ],
     );
@@ -1004,6 +1022,8 @@ class _WeatherMessageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(15) / 15;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1022,7 +1042,7 @@ class _WeatherMessageContent extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           subtitle,
-          maxLines: 1,
+          maxLines: textScale >= 1.3 ? 2 : 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: AppGlassColors.inkMuted,
@@ -1152,9 +1172,11 @@ class _GreetingRow extends StatelessWidget {
             ? Icons.wb_sunny
             : Icons.nightlight_outlined;
 
-    return SizedBox(
+    return ConstrainedBox(
       key: const ValueKey('home-greeting-row'),
-      height: 40,
+      constraints: BoxConstraints(
+        minHeight: appShellHeaderRowHeight(context),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

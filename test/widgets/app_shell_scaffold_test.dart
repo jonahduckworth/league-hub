@@ -44,12 +44,45 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final expectedTop = topInset + 52 + appShellHeaderContentSpacing;
+      final expectedTop = appShellHeaderHeight(
+            tester.element(find.byType(AppShellScaffold)),
+          ) +
+          appShellHeaderContentSpacing;
       expect(computedTopPadding, expectedTop);
       expect(
         tester.getTopLeft(find.byKey(const Key('sticky-content'))).dy,
         expectedTop,
       );
+    });
+
+    testWidgets('large Dynamic Type expands header and matching content inset',
+        (WidgetTester tester) async {
+      const topInset = 47.0;
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: Size(390, 844),
+              padding: EdgeInsets.only(top: topInset),
+              textScaler: TextScaler.linear(3.2),
+            ),
+            child: AppShellScaffold(
+              header: AppShellHeader(title: 'Policy'),
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.byType(AppShellScaffold));
+      expect(appShellHeaderHeight(context), greaterThan(topInset + 52));
+      expect(
+        tester.getSize(find.byType(AppShellHeader)).height,
+        closeTo(appShellHeaderHeight(context), 0.5),
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('header and top controls scroll away with page content',
