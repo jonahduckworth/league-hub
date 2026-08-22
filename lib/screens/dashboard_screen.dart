@@ -164,7 +164,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildHomeGrid(BuildContext context) {
     final textScale = MediaQuery.textScalerOf(context).scale(15) / 15;
     final useSingleColumn = textScale >= 1.45;
-    final tileHeight = 144 + (textScale.clamp(1.0, 3.2).toDouble() - 1) * 84;
+    final tileHeight = 152 + (textScale.clamp(1.0, 3.2).toDouble() - 1) * 84;
     final tiles = <Widget>[
       _CompactHomeTile(
         icon: Icons.folder_copy_outlined,
@@ -990,21 +990,35 @@ class _WeatherDataContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          '${weather.description}  ·  ${weather.windLabel}',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: AppGlassColors.inkMuted,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            height: 1.2,
-          ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 0,
+          children: [
+            Text(
+              weather.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: _weatherDetailStyle,
+            ),
+            Text(
+              '· ${weather.windLabel}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _weatherDetailStyle,
+            ),
+          ],
         ),
       ],
     );
   }
 }
+
+const _weatherDetailStyle = TextStyle(
+  color: AppGlassColors.inkMuted,
+  fontSize: 12,
+  fontWeight: FontWeight.w500,
+  height: 1.2,
+);
 
 class _WeatherMessageContent extends StatelessWidget {
   final IconData icon;
