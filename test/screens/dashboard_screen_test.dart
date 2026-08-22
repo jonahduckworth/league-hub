@@ -704,6 +704,7 @@ void main() {
         final settings = find.byKey(const ValueKey('home-tile-settings'));
 
         expect(tester.getSize(policy).height, greaterThan(136));
+        expect(tester.getSize(policy).width, greaterThan(300));
         expect(tester.getTopLeft(policy).dx, tester.getTopLeft(weather).dx);
         expect(tester.getTopLeft(weather).dx, tester.getTopLeft(chats).dx);
         expect(tester.getTopLeft(chats).dx, tester.getTopLeft(settings).dx);

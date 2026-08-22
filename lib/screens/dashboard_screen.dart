@@ -195,6 +195,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     if (useSingleColumn) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (var index = 0; index < tiles.length; index++) ...[
             tiles[index],
