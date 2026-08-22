@@ -944,7 +944,6 @@ class _WeatherDataContent extends StatelessWidget {
     final accentColor = _weatherAccentForCode(weather.weatherCode);
     final textScale = MediaQuery.textScalerOf(context).scale(15) / 15;
     final temperatureScale = textScale.clamp(1.0, 1.45).toDouble();
-    final detailMaxLines = textScale >= 1.3 ? 2 : 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -993,7 +992,7 @@ class _WeatherDataContent extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '${weather.description}  ·  ${weather.windLabel}',
-          maxLines: detailMaxLines,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: AppGlassColors.inkMuted,
@@ -1022,8 +1021,6 @@ class _WeatherMessageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textScale = MediaQuery.textScalerOf(context).scale(15) / 15;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1042,7 +1039,7 @@ class _WeatherMessageContent extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           subtitle,
-          maxLines: textScale >= 1.3 ? 2 : 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: AppGlassColors.inkMuted,
