@@ -7,12 +7,14 @@ import {
   ActorLike,
   UserRole,
   assignableRoles,
+  buildChatRoomSetupPlan,
   canAccessOrg,
   canCreateLeague,
   canManageInvitationRole,
   canManageTarget,
   canManageTargetAssignments,
   isAdminRole,
+  chatRoomSetupPreviewToken,
   isManagedChatRoomType,
   initialPolicyUploadMode,
   isOrganizationWidePolicyTarget,
@@ -22,6 +24,8 @@ import {
   nullableStringPatch,
   normalizeStringArray,
   teamMemberRecordsMatchOrg,
+  ChatRoomSetupPlan,
+  ChatRoomSetupTarget,
 } from "./adminLogic";
 import {
   invitationExpiresAt,
@@ -261,6 +265,87 @@ async function getStructure(orgId: string) {
   }
 
   return { leagues, hubs, teams };
+}
+
+async function getStructureInTransaction(
+  orgId: string,
+  transaction: FirebaseFirestore.Transaction,
+) {
+  const leaguesSnap = await transaction.get(
+    orgRef(orgId).collection("leagues").orderBy("createdAt"),
+  );
+  const leagues = leaguesSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const hubs: DocumentData[] = [];
+  const teams: DocumentData[] = [];
+
+  for (const leagueDoc of leaguesSnap.docs) {
+    const hubsSnap = await transaction.get(
+      leagueDoc.ref.collection("hubs").orderBy("createdAt"),
+    );
+    for (const hubDoc of hubsSnap.docs) {
+      hubs.push({ id: hubDoc.id, ...hubDoc.data() });
+      const teamsSnap = await transaction.get(
+        hubDoc.ref.collection("teams").orderBy("createdAt"),
+      );
+      for (const teamDoc of teamsSnap.docs) {
+        teams.push({ id: teamDoc.id, ...teamDoc.data() });
+      }
+    }
+  }
+
+  return { leagues, hubs, teams };
+}
+
+function buildChatRoomPlanFromData(
+  structure: Awaited<ReturnType<typeof getStructure>>,
+  rooms: Array<DocumentData & { id: string }>,
+): ChatRoomSetupPlan {
+  return buildChatRoomSetupPlan({
+    hubs: structure.hubs.map((hub) => ({
+      id: requiredString(hub.id, "hub.id"),
+      leagueId: requiredString(hub.leagueId, "hub.leagueId"),
+      name: requiredString(hub.name, "hub.name"),
+      logoUrl: optionalString(hub.logoUrl) ?? null,
+      iconName: optionalString(hub.iconName) ?? null,
+    })),
+    teams: structure.teams.map((team) => ({
+      id: requiredString(team.id, "team.id"),
+      leagueId: requiredString(team.leagueId, "team.leagueId"),
+      hubId: requiredString(team.hubId, "team.hubId"),
+      name: requiredString(team.name, "team.name"),
+      logoUrl: optionalString(team.logoUrl) ?? null,
+      iconName: optionalString(team.iconName) ?? null,
+    })),
+    rooms,
+  });
+}
+
+async function getChatRoomSetupPlan(orgId: string): Promise<ChatRoomSetupPlan> {
+  const [structure, roomsSnap] = await Promise.all([
+    getStructure(orgId),
+    orgRef(orgId).collection("chatRooms").get(),
+  ]);
+  return buildChatRoomPlanFromData(
+    structure,
+    roomsSnap.docs.map((room) => ({ id: room.id, ...room.data() })),
+  );
+}
+
+function sameTargetKeys(expected: string[], actual: ChatRoomSetupTarget[]): boolean {
+  const actualKeys = actual.map((target) => target.key).sort();
+  return expected.length === actualKeys.length &&
+    expected.every((key, index) => key === actualKeys[index]);
+}
+
+function setupTargetRef(orgId: string, target: ChatRoomSetupTarget) {
+  const hubRef = orgRef(orgId)
+    .collection("leagues")
+    .doc(target.leagueId)
+    .collection("hubs")
+    .doc(target.hubId);
+  return target.scope === "team"
+    ? hubRef.collection("teams").doc(target.teamId!)
+    : hubRef;
 }
 
 async function validateAssignments(
@@ -1055,6 +1140,86 @@ export const adminDeletePolicy = onCall(adminRuntime, async (request) => {
   });
 });
 
+export const adminPreviewChatRoomSetup = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminPreviewChatRoomSetup", async (_actor, _data, orgId) => {
+    const plan = await getChatRoomSetupPlan(orgId);
+    return { ...plan, previewToken: chatRoomSetupPreviewToken(plan) };
+  });
+});
+
+export const adminProvisionChatRooms = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminProvisionChatRooms", async (actor, data, orgId) => {
+    const expectedTargetKeys = normalizeStringArray(data.expectedTargetKeys).sort();
+    const previewToken = requiredString(data.previewToken, "previewToken");
+    if (expectedTargetKeys.length === 0) {
+      throw new HttpsError("invalid-argument", "Preview at least one missing chat room before applying setup.");
+    }
+    if (expectedTargetKeys.length > 200) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "This setup contains more than 200 rooms. Create them in smaller organization groups.",
+      );
+    }
+
+    const roomsRef = orgRef(orgId).collection("chatRooms");
+    const result = await db.runTransaction(async (transaction) => {
+      const structure = await getStructureInTransaction(orgId, transaction);
+      const roomsSnap = await transaction.get(roomsRef);
+      const currentPlan = buildChatRoomPlanFromData(
+        structure,
+        roomsSnap.docs.map((room) => ({ id: room.id, ...room.data() })),
+      );
+      if (
+        !sameTargetKeys(expectedTargetKeys, currentPlan.targets) ||
+        previewToken !== chatRoomSetupPreviewToken(currentPlan)
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Chat room coverage changed after the preview. Refresh the preview before applying setup.",
+        );
+      }
+
+      let created = 0;
+      let restored = 0;
+      for (const target of currentPlan.targets) {
+        const roomRef = target.action === "restore"
+          ? roomsRef.doc(target.existingRoomId!)
+          : roomsRef.doc();
+        if (target.action === "restore") {
+          transaction.update(roomRef, { isArchived: false });
+          restored += 1;
+        } else {
+          transaction.set(roomRef, {
+            orgId,
+            name: target.name,
+            type: "league",
+            leagueId: target.leagueId,
+            hubId: target.hubId,
+            teamId: target.teamId,
+            participants: [],
+            isArchived: false,
+            createdAt: now(),
+            createdBy: actor.id,
+            lastMessage: null,
+            lastMessageAt: now(),
+            lastMessageBy: null,
+            roomIconName: target.roomIconName,
+            roomImageUrl: target.roomImageUrl,
+            managedScope: target.scope,
+          });
+          created += 1;
+        }
+        if (target.scope === "team") {
+          transaction.update(setupTargetRef(orgId, target), { chatRoomId: roomRef.id });
+        }
+      }
+      return { created, restored, targetKeys: currentPlan.targets.map((target) => target.key) };
+    });
+
+    return result;
+  });
+});
+
 export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminUpdateChatRoom", async (_actor, data, orgId) => {
     const roomId = requiredString(data.roomId, "roomId");
@@ -1082,12 +1247,34 @@ export const adminArchiveChatRoom = onCall(adminRuntime, async (request) => {
   return withAdmin(request, "adminArchiveChatRoom", async (_actor, data, orgId) => {
     const roomId = requiredString(data.roomId, "roomId");
     const roomRef = orgRef(orgId).collection("chatRooms").doc(roomId);
-    const roomSnap = await roomRef.get();
-    if (!roomSnap.exists) throw new HttpsError("not-found", "Chat room was not found.");
-    if (!isManagedChatRoomType(roomSnap.data()?.type)) {
-      throw new HttpsError("permission-denied", "Direct-message rooms cannot be managed by administrators.");
-    }
-    await roomRef.update({ isArchived: true });
+    await db.runTransaction(async (transaction) => {
+      const roomSnap = await transaction.get(roomRef);
+      if (!roomSnap.exists) throw new HttpsError("not-found", "Chat room was not found.");
+      const room = roomSnap.data() ?? {};
+      if (!isManagedChatRoomType(room.type)) {
+        throw new HttpsError("permission-denied", "Direct-message rooms cannot be managed by administrators.");
+      }
+      const leagueId = optionalString(room.leagueId);
+      const hubId = optionalString(room.hubId);
+      const teamId = optionalString(room.teamId);
+      let linkedTeamRef: FirebaseFirestore.DocumentReference | null = null;
+      let shouldClearLinkedTeam = false;
+      if (leagueId && hubId && teamId) {
+        linkedTeamRef = orgRef(orgId)
+          .collection("leagues")
+          .doc(leagueId)
+          .collection("hubs")
+          .doc(hubId)
+          .collection("teams")
+          .doc(teamId);
+        const teamSnap = await transaction.get(linkedTeamRef);
+        shouldClearLinkedTeam = teamSnap.exists && teamSnap.data()?.chatRoomId === roomId;
+      }
+      transaction.update(roomRef, { isArchived: true });
+      if (linkedTeamRef && shouldClearLinkedTeam) {
+        transaction.update(linkedTeamRef, { chatRoomId: null });
+      }
+    });
     return { roomId, isArchived: true };
   });
 });

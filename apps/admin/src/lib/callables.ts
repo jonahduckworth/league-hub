@@ -20,6 +20,8 @@ export type CallableName =
   | "adminUpdatePolicy"
   | "adminAddPolicyVersion"
   | "adminDeletePolicy"
+  | "adminPreviewChatRoomSetup"
+  | "adminProvisionChatRooms"
   | "adminUpdateChatRoom"
   | "adminArchiveChatRoom"
   | "adminDeleteMessage"

@@ -2,11 +2,13 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   assignableRoles,
+  buildChatRoomSetupPlan,
   canAccessOrg,
   canCreateLeague,
   canManageInvitationRole,
   canManageTarget,
   canManageTargetAssignments,
+  chatRoomSetupPreviewToken,
   isManagedChatRoomType,
   initialPolicyUploadMode,
   isOrganizationWidePolicyTarget,
@@ -23,6 +25,7 @@ test("platform owners and super admins can access the admin org scope correctly"
   assert.equal(canAccessOrg({ id: "admin", role: "superAdmin", orgId: "org-1", isActive: true }, "org-1"), true);
   assert.equal(canAccessOrg({ id: "admin", role: "superAdmin", orgId: "org-1", isActive: true }, "org-2"), false);
   assert.equal(canAccessOrg({ id: "manager", role: "managerAdmin", orgId: "org-1", isActive: true }, "org-1"), false);
+  assert.equal(canAccessOrg({ id: "staff", role: "staff", orgId: "org-1", isActive: true }, "org-1"), false);
 });
 
 test("only active platform owners can create leagues", () => {
@@ -183,6 +186,77 @@ test("admin chat callables accept managed rooms but reject direct messages", () 
   assert.equal(isManagedChatRoomType("event"), true);
   assert.equal(isManagedChatRoomType("direct"), false);
   assert.equal(isManagedChatRoomType(undefined), false);
+});
+
+test("chat room setup plans only missing hub and team rooms", () => {
+  const plan = buildChatRoomSetupPlan({
+    hubs: [
+      { id: "h1", leagueId: "l1", name: "Calgary", logoUrl: "hub.png" },
+      { id: "h2", leagueId: "l1", name: "Red Deer" },
+    ],
+    teams: [
+      { id: "t1", leagueId: "l1", hubId: "h1", name: "Calgary U18", logoUrl: "team.png" },
+      { id: "t2", leagueId: "l1", hubId: "h2", name: "Red Deer U18" },
+    ],
+    rooms: [
+      { id: "hub-active", type: "league", leagueId: "l1", hubId: "h1", teamId: null, isArchived: false },
+      { id: "team-archived", type: "event", leagueId: "l1", hubId: "h2", teamId: "t2", isArchived: true },
+      { id: "direct", type: "direct", leagueId: "l1", hubId: "h1", teamId: "t1", isArchived: false },
+    ],
+  });
+
+  assert.equal(plan.totalHubs, 2);
+  assert.equal(plan.totalTeams, 2);
+  assert.equal(plan.coveredHubs, 1);
+  assert.equal(plan.coveredTeams, 0);
+  assert.equal(plan.createCount, 2);
+  assert.equal(plan.restoreCount, 1);
+  assert.deepEqual(plan.targets.map((target) => ({
+    key: target.key,
+    action: target.action,
+    name: target.name,
+    image: target.roomImageUrl,
+  })), [
+    { key: "hub:l1:h2", action: "create", name: "Red Deer - General", image: null },
+    { key: "team:l1:h1:t1", action: "create", name: "Calgary U18 - General", image: "team.png" },
+    { key: "team:l1:h2:t2", action: "restore", name: "Red Deer U18 - General", image: null },
+  ]);
+});
+
+test("chat room setup treats an active scoped room as covered regardless of legacy name", () => {
+  const plan = buildChatRoomSetupPlan({
+    hubs: [{ id: "h1", leagueId: "l1", name: "Calgary" }],
+    teams: [{ id: "t1", leagueId: "l1", hubId: "h1", name: "Calgary U18" }],
+    rooms: [
+      { id: "legacy-hub", type: "event", leagueId: "l1", hubId: "h1", teamId: null, isArchived: false },
+      { id: "legacy-team", type: "league", leagueId: "l1", hubId: "h1", teamId: "t1", isArchived: false },
+    ],
+  });
+
+  assert.equal(plan.coveredHubs, 1);
+  assert.equal(plan.coveredTeams, 1);
+  assert.deepEqual(plan.targets, []);
+});
+
+test("chat room setup preview tokens change when an exact planned action changes", () => {
+  const basePlan = buildChatRoomSetupPlan({
+    hubs: [{ id: "h1", leagueId: "l1", name: "Calgary" }],
+    teams: [],
+    rooms: [],
+  });
+  const restoredPlan = buildChatRoomSetupPlan({
+    hubs: [{ id: "h1", leagueId: "l1", name: "Calgary" }],
+    teams: [],
+    rooms: [
+      { id: "archived", type: "league", leagueId: "l1", hubId: "h1", teamId: null, isArchived: true },
+    ],
+  });
+
+  assert.notEqual(chatRoomSetupPreviewToken(basePlan), chatRoomSetupPreviewToken(restoredPlan));
+  assert.equal(chatRoomSetupPreviewToken(basePlan), chatRoomSetupPreviewToken({
+    ...basePlan,
+    targets: [...basePlan.targets].reverse(),
+  }));
 });
 
 test("team member records must all exist in the target organization", () => {

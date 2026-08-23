@@ -86,16 +86,85 @@ describe("AdminApp operations shell", () => {
     const sectionNavigations = screen.getAllByRole("navigation", { name: "Admin sections" });
     expect(sectionNavigations).toHaveLength(2);
 
-    for (const section of ["Overview", "People", "Structure", "Schedule", "Announcements", "Policies"]) {
+    for (const section of ["Overview", "People", "Structure", "Schedule", "Chat Rooms", "Announcements", "Policies"]) {
       expect(within(sectionNavigations[0]).getByRole("button", { name: section })).toBeTruthy();
     }
-    for (const section of ["People", "Structure", "Schedule", "Announcements", "Policies"]) {
+    for (const section of ["People", "Structure", "Schedule", "Chat Rooms"]) {
       expect(within(sectionNavigations[1]).getByRole("button", { name: section })).toBeTruthy();
     }
+    expect(within(sectionNavigations[1]).getByRole("button", { name: "More sections" })).toBeTruthy();
+    expect(within(sectionNavigations[1]).queryByRole("button", { name: "Announcements" })).toBeNull();
+    expect(within(sectionNavigations[1]).queryByRole("button", { name: "Policies" })).toBeNull();
     expect(within(sectionNavigations[1]).queryByRole("button", { name: "Overview" })).toBeNull();
     expect(screen.getAllByRole("button", { name: "Overview" })).toHaveLength(2);
     expect(within(sectionNavigations[0]).getByRole("button", { name: "Overview" }).getAttribute("aria-current")).toBe("page");
     expect(within(sectionNavigations[0]).getByRole("button", { name: "People" }).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("shows chat room coverage and keeps private rooms read-only", async () => {
+    window.history.replaceState(null, "", "/admin#chats");
+    adminDataMocks.useAdminData.mockReturnValue({
+      data: {
+        ...demoData,
+        orgs: [...demoData.orgs, secondOrganization],
+        chatRooms: [
+          ...demoData.chatRooms,
+          {
+            id: "hub-room",
+            orgId: "org-demo",
+            name: "Calgary - General",
+            type: "league",
+            leagueId: "league-winter",
+            hubId: "hub-calgary",
+            participants: [],
+            isArchived: false
+          },
+          {
+            id: "team-room",
+            orgId: "org-demo",
+            name: "Calgary U11 AA - General",
+            type: "league",
+            leagueId: "league-winter",
+            hubId: "hub-calgary",
+            teamId: "team-u11-aa",
+            participants: [],
+            isArchived: false
+          },
+          {
+            id: "direct-room",
+            orgId: "org-demo",
+            name: "Private conversation",
+            type: "direct",
+            participants: ["demo-owner", "admin-1"],
+            isArchived: false
+          }
+        ]
+      },
+      error: undefined,
+      loading: false,
+      reloadStructure: adminDataMocks.reloadStructure,
+      selectedOrgId: "org-demo",
+      setSelectedOrgId: adminDataMocks.setSelectedOrgId
+    });
+
+    render(<AdminApp />);
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Chat Rooms" })).toBeTruthy();
+    expect(screen.getAllByText("1/2")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Review Room Setup" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open Private conversation chat room details" }));
+    const drawer = await screen.findByRole("dialog", { name: "Private conversation" });
+    expect(within(drawer).getByText(/private conversations/i)).toBeTruthy();
+    expect(within(drawer).queryByRole("button", { name: /save changes/i })).toBeNull();
+    expect(within(drawer).queryByRole("button", { name: /archive room/i })).toBeNull();
+
+    fireEvent.click(within(drawer).getByRole("button", { name: "Close drawer" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Private conversation" })).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Open Calgary U11 AA - General chat room details" }));
+    const managedDrawer = await screen.findByRole("dialog", { name: "Calgary U11 AA - General" });
+    fireEvent.click(within(managedDrawer).getByRole("button", { name: "Archive room" }));
+    const cancelArchive = within(managedDrawer).getByRole("button", { name: "Cancel" });
+    await waitFor(() => expect(document.activeElement).toBe(cancelArchive));
   });
 
   it("shows native game data, sync health, and source controls in the schedule workspace", async () => {

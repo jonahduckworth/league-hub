@@ -169,6 +169,21 @@ describe("useAdminData scope isolation", () => {
     cleanup();
   });
 
+  it("constrains active chat rooms to the selected organization for Firestore rules", async () => {
+    const admin = appUser("admin", "superAdmin", "org-a");
+    renderHook(() => useAdminData(admin));
+
+    await waitFor(() => {
+      expect(subscriptionFor("organizations/org-a/chatRooms", "org-a")).toBeTruthy();
+    });
+
+    const chatRooms = subscriptionFor("organizations/org-a/chatRooms", "org-a");
+    expect(chatRooms.reference.constraints).toEqual(expect.arrayContaining([
+      { field: "orgId", kind: "where", value: "org-a" },
+      { field: "isArchived", kind: "where", value: false }
+    ]));
+  });
+
   it("does not let a deferred organization A structure load overwrite faster organization B data", async () => {
     const orgALeagues = deferred<TestSnapshot>();
     const requestedPaths: string[] = [];

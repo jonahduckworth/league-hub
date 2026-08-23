@@ -1,5 +1,5 @@
 {
-  "all": false,
+  "all": true,
   "targets": [],
-  "reason": "No production Functions source change in this workflow-only release."
+  "reason": "Deploy all Functions because chat room provisioning updates the shared admin logic dependency used across admin callables."
 }

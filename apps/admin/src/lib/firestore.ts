@@ -304,7 +304,11 @@ export function useAdminData(currentUser?: AppUser | null) {
           data: { ...current.data, policies: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Policy[] }
         }));
       }, requiredSnapshotError("Policies")),
-      onSnapshot(query(collection(db, "organizations", selectedOrgId, "chatRooms"), where("isArchived", "==", false)), (snap) => {
+      onSnapshot(query(
+        collection(db, "organizations", selectedOrgId, "chatRooms"),
+        where("orgId", "==", selectedOrgId),
+        where("isArchived", "==", false)
+      ), (snap) => {
         if (!active) return;
         setState((current) => ({
           ...current,
