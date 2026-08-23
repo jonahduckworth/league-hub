@@ -1,15 +1,15 @@
 import { clsx } from "clsx";
-import type { ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 
 export type BadgeTone = "neutral" | "good" | "warning" | "danger" | "info";
 
-export function Button({
-  className,
-  variant = "primary",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" | "ghost" }) {
+export const Button = forwardRef<
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" | "ghost" }
+>(function Button({ className, variant = "primary", ...props }, ref) {
   return (
     <button
+      ref={ref}
       className={clsx(
         "inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20 disabled:cursor-not-allowed disabled:opacity-50",
         variant === "primary" && "bg-teal text-white shadow-[0_10px_24px_-14px_rgba(15,118,110,0.9)] hover:bg-[#0b665f] hover:shadow-[0_14px_28px_-16px_rgba(15,118,110,0.95)] active:translate-y-px",
@@ -21,7 +21,7 @@ export function Button({
       {...props}
     />
   );
-}
+});
 
 export function Badge({
   children,

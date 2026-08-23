@@ -1,3 +1,5 @@
+import { createHash } from "crypto";
+
 export type UserRole = "platformOwner" | "superAdmin" | "managerAdmin" | "staff";
 
 export type ActorLike = {
@@ -11,6 +13,52 @@ export type TargetLike = {
   id: string;
   orgId?: string | null;
   role?: string | null;
+};
+
+export type ChatRoomSetupScope = "hub" | "team";
+
+export type ChatRoomSetupHub = {
+  id: string;
+  leagueId: string;
+  name: string;
+  logoUrl?: string | null;
+  iconName?: string | null;
+};
+
+export type ChatRoomSetupTeam = ChatRoomSetupHub & {
+  hubId: string;
+};
+
+export type ChatRoomSetupRoom = {
+  id: string;
+  type?: unknown;
+  leagueId?: unknown;
+  hubId?: unknown;
+  teamId?: unknown;
+  isArchived?: unknown;
+};
+
+export type ChatRoomSetupTarget = {
+  key: string;
+  scope: ChatRoomSetupScope;
+  name: string;
+  leagueId: string;
+  hubId: string;
+  teamId: string | null;
+  roomIconName: string | null;
+  roomImageUrl: string | null;
+  action: "create" | "restore";
+  existingRoomId: string | null;
+};
+
+export type ChatRoomSetupPlan = {
+  totalHubs: number;
+  totalTeams: number;
+  coveredHubs: number;
+  coveredTeams: number;
+  createCount: number;
+  restoreCount: number;
+  targets: ChatRoomSetupTarget[];
 };
 
 const roleOrder: UserRole[] = [
@@ -90,6 +138,143 @@ export function canManageInvitationRole(
 
 export function isManagedChatRoomType(value: unknown): boolean {
   return value === "league" || value === "event";
+}
+
+export function chatRoomSetupTargetKey(
+  scope: ChatRoomSetupScope,
+  leagueId: string,
+  hubId: string,
+  teamId?: string | null,
+): string {
+  return scope === "team"
+    ? `team:${leagueId}:${hubId}:${teamId ?? ""}`
+    : `hub:${leagueId}:${hubId}`;
+}
+
+function roomMatchesSetupTarget(
+  room: ChatRoomSetupRoom,
+  scope: ChatRoomSetupScope,
+  leagueId: string,
+  hubId: string,
+  teamId?: string | null,
+): boolean {
+  if (!isManagedChatRoomType(room.type)) return false;
+  if (room.leagueId !== leagueId || room.hubId !== hubId) return false;
+  return scope === "team"
+    ? room.teamId === teamId
+    : room.teamId == null;
+}
+
+export function buildChatRoomSetupPlan({
+  hubs,
+  teams,
+  rooms,
+}: {
+  hubs: ChatRoomSetupHub[];
+  teams: ChatRoomSetupTeam[];
+  rooms: ChatRoomSetupRoom[];
+}): ChatRoomSetupPlan {
+  const sortedRooms = [...rooms].sort((left, right) => left.id.localeCompare(right.id));
+  const targets: ChatRoomSetupTarget[] = [];
+  let coveredHubs = 0;
+  let coveredTeams = 0;
+
+  const addTarget = ({
+    scope,
+    id,
+    name,
+    leagueId,
+    hubId,
+    logoUrl,
+    iconName,
+  }: {
+    scope: ChatRoomSetupScope;
+    id: string;
+    name: string;
+    leagueId: string;
+    hubId: string;
+    logoUrl?: string | null;
+    iconName?: string | null;
+  }) => {
+    const teamId = scope === "team" ? id : null;
+    const matchingRooms = sortedRooms.filter((room) => (
+      roomMatchesSetupTarget(room, scope, leagueId, hubId, teamId)
+    ));
+    if (matchingRooms.some((room) => room.isArchived !== true)) {
+      if (scope === "hub") coveredHubs += 1;
+      else coveredTeams += 1;
+      return;
+    }
+    const archivedRoom = matchingRooms.find((room) => room.isArchived === true);
+    targets.push({
+      key: chatRoomSetupTargetKey(scope, leagueId, hubId, teamId),
+      scope,
+      name: `${name} - General`,
+      leagueId,
+      hubId,
+      teamId,
+      roomIconName: iconName ?? scope,
+      roomImageUrl: logoUrl ?? null,
+      action: archivedRoom ? "restore" : "create",
+      existingRoomId: archivedRoom?.id ?? null,
+    });
+  };
+
+  for (const hub of [...hubs].sort((left, right) => left.name.localeCompare(right.name))) {
+    addTarget({
+      scope: "hub",
+      id: hub.id,
+      name: hub.name,
+      leagueId: hub.leagueId,
+      hubId: hub.id,
+      logoUrl: hub.logoUrl,
+      iconName: hub.iconName,
+    });
+  }
+  for (const team of [...teams].sort((left, right) => left.name.localeCompare(right.name))) {
+    addTarget({
+      scope: "team",
+      id: team.id,
+      name: team.name,
+      leagueId: team.leagueId,
+      hubId: team.hubId,
+      logoUrl: team.logoUrl,
+      iconName: team.iconName,
+    });
+  }
+
+  return {
+    totalHubs: hubs.length,
+    totalTeams: teams.length,
+    coveredHubs,
+    coveredTeams,
+    createCount: targets.filter((target) => target.action === "create").length,
+    restoreCount: targets.filter((target) => target.action === "restore").length,
+    targets,
+  };
+}
+
+export function chatRoomSetupPreviewToken(plan: ChatRoomSetupPlan): string {
+  const serialized = JSON.stringify({
+    totalHubs: plan.totalHubs,
+    totalTeams: plan.totalTeams,
+    coveredHubs: plan.coveredHubs,
+    coveredTeams: plan.coveredTeams,
+    createCount: plan.createCount,
+    restoreCount: plan.restoreCount,
+    targets: [...plan.targets]
+      .sort((left, right) => left.key.localeCompare(right.key))
+      .map((target) => ({
+        key: target.key,
+        scope: target.scope,
+        name: target.name,
+        action: target.action,
+        existingRoomId: target.existingRoomId,
+        roomIconName: target.roomIconName,
+        roomImageUrl: target.roomImageUrl,
+      })),
+  });
+  return createHash("sha256").update(serialized).digest("hex");
 }
 
 export function teamMemberRecordsMatchOrg(

@@ -17,6 +17,7 @@ import {
   LogOut,
   Mail,
   MapPin,
+  Menu,
   Megaphone,
   MessageSquare,
   Network,
@@ -65,6 +66,7 @@ import type {
   Announcement,
   AnnouncementScope,
   AppUser,
+  ChatRoom,
   HealthCheck,
   Hub,
   Invitation,
@@ -77,7 +79,7 @@ import type {
 } from "@/lib/types";
 import { Badge, Button, Card, Field, Input, Select, Textarea, type BadgeTone } from "./ui";
 
-type SectionId = "overview" | "people" | "structure" | "schedule" | "announcements" | "policies";
+type SectionId = "overview" | "people" | "structure" | "schedule" | "chats" | "announcements" | "policies";
 
 const navItems: Array<{
   id: SectionId;
@@ -90,11 +92,13 @@ const navItems: Array<{
   { id: "people", label: "People", mobileLabel: "People", description: "Members and access", icon: Users },
   { id: "structure", label: "Structure", mobileLabel: "Structure", description: "Leagues, hubs, and teams", icon: Building2 },
   { id: "schedule", label: "Schedule", mobileLabel: "Games", description: "RAMP games and sync health", icon: CalendarDays },
+  { id: "chats", label: "Chat Rooms", mobileLabel: "Chats", description: "Room coverage and setup", icon: MessageSquare },
   { id: "announcements", label: "Announcements", mobileLabel: "News", description: "League communications", icon: Megaphone },
   { id: "policies", label: "Policies", mobileLabel: "Policies", description: "Documents and versions", icon: FileText }
 ];
 
-const mobileNavItems = navItems.filter((item) => item.id !== "overview");
+const mobileNavItems = navItems.filter((item) => ["people", "structure", "schedule", "chats"].includes(item.id));
+const mobileMoreItems = navItems.filter((item) => ["announcements", "policies"].includes(item.id));
 
 type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -131,6 +135,7 @@ export function AdminApp() {
   const [section, setSection] = useState<SectionId>("overview");
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const { data, loading, error, selectedOrgId, setSelectedOrgId, reloadStructure, isActiveDataScope } = useAdminData(currentUser);
 
   const loadSignedInUser = useCallback(async (firebaseUser: FirebaseUser): Promise<ActionResult<AppUser>> => {
@@ -423,7 +428,50 @@ export function AdminApp() {
               </button>
             );
           })}
+          <button
+            type="button"
+            aria-label="More sections"
+            aria-current={mobileMoreItems.some((item) => item.id === section) ? "page" : undefined}
+            onClick={() => setMobileMoreOpen(true)}
+            className={`flex min-h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5eead4] ${mobileMoreItems.some((item) => item.id === section) ? "bg-white text-navy" : "text-white/70 hover:text-white"}`}
+          >
+            <Menu className={`size-[18px] ${mobileMoreItems.some((item) => item.id === section) ? "text-teal" : ""}`} aria-hidden />
+            <span className="max-w-full truncate">More</span>
+          </button>
         </nav>
+        <SideDrawer
+          open={mobileMoreOpen}
+          title="More sections"
+          description="Open another admin workspace."
+          icon={Menu}
+          onClose={() => setMobileMoreOpen(false)}
+        >
+          <div className="grid gap-3">
+            {mobileMoreItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-current={section === item.id ? "page" : undefined}
+                  onClick={() => {
+                    navigateToSection(item.id);
+                    setMobileMoreOpen(false);
+                  }}
+                  className="flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl border border-line bg-white px-4 text-left shadow-sm transition-colors hover:border-[#b8c4d2] hover:bg-shell focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-teal/10 text-teal">
+                    <Icon className="size-[18px]" aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-extrabold text-ink">{item.label}</span>
+                    <span className="mt-0.5 block text-xs font-semibold text-muted">{item.description}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </SideDrawer>
       </div>
     </div>
   );
@@ -437,6 +485,8 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
       return <StructureSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "schedule":
       return <ScheduleSection data={data} currentUser={currentUser} runAction={runAction} />;
+    case "chats":
+      return <ChatRoomsSection data={data} runAction={runAction} />;
     case "announcements":
       return <AnnouncementsSection data={data} runAction={runAction} />;
     case "policies":
@@ -946,17 +996,20 @@ function SearchBox({
 function ToolbarActionButton({
   icon: Icon,
   children,
-  onClick
+  onClick,
+  disabled = false
 }: {
   icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal px-5 text-sm font-bold text-white shadow-[0_12px_26px_-15px_rgba(15,118,110,0.9)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[#0b665f] hover:shadow-[0_16px_30px_-16px_rgba(15,118,110,0.95)] active:translate-y-px focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20 sm:w-auto"
+      disabled={disabled}
+      className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal px-5 text-sm font-bold text-white shadow-[0_12px_26px_-15px_rgba(15,118,110,0.9)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[#0b665f] hover:shadow-[0_16px_30px_-16px_rgba(15,118,110,0.95)] active:translate-y-px focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
     >
       <Icon className="size-[18px]" aria-hidden />
       {children}
@@ -2947,6 +3000,363 @@ function StructureCreateDrawer({
         ) : null}
         <Button type="submit"><Plus className="size-4" aria-hidden />{title}</Button>
       </form>
+    </SideDrawer>
+  );
+}
+
+type ChatRoomView = "all" | "hub" | "team" | "league" | "direct";
+
+type ChatRoomSetupTargetPreview = {
+  key: string;
+  scope: "hub" | "team";
+  name: string;
+  action: "create" | "restore";
+};
+
+type ChatRoomSetupPreview = {
+  previewToken: string;
+  totalHubs: number;
+  totalTeams: number;
+  coveredHubs: number;
+  coveredTeams: number;
+  createCount: number;
+  restoreCount: number;
+  targets: ChatRoomSetupTargetPreview[];
+};
+
+function chatRoomView(room: ChatRoom): Exclude<ChatRoomView, "all"> {
+  if (room.type === "direct") return "direct";
+  if (room.teamId) return "team";
+  if (room.hubId) return "hub";
+  return "league";
+}
+
+function chatRoomViewLabel(room: ChatRoom): string {
+  const view = chatRoomView(room);
+  if (view === "direct") return "Direct message";
+  if (view === "team") return "Team room";
+  if (view === "hub") return "Hub room";
+  return room.type === "event" ? "Event room" : "League room";
+}
+
+function ChatRoomsSection({ data, runAction }: { data: AdminData; runAction: ActionRunner }) {
+  const [query, setQuery] = useState("");
+  const [view, setView] = useState<ChatRoomView>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ChatRoomSetupPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const selectedRoom = selectedId ? data.chatRooms.find((room) => room.id === selectedId) ?? null : null;
+  const hubKeys = new Set(data.chatRooms
+    .filter((room) => room.type !== "direct" && room.hubId && !room.teamId)
+    .map((room) => `${room.leagueId ?? ""}:${room.hubId}`));
+  const teamKeys = new Set(data.chatRooms
+    .filter((room) => room.type !== "direct" && room.teamId)
+    .map((room) => `${room.leagueId ?? ""}:${room.hubId ?? ""}:${room.teamId}`));
+  const hubCoverage = data.hubs.filter((hub) => hubKeys.has(`${hub.leagueId}:${hub.id}`)).length;
+  const teamCoverage = data.teams.filter((team) => teamKeys.has(`${team.leagueId}:${team.hubId}:${team.id}`)).length;
+
+  const leagueById = new Map(data.leagues.map((league) => [league.id, league]));
+  const hubById = new Map(data.hubs.map((hub) => [hub.id, hub]));
+  const teamById = new Map(data.teams.map((team) => [team.id, team]));
+  const filteredRooms = data.chatRooms
+    .filter((room) => view === "all" || chatRoomView(room) === view)
+    .filter((room) => matchesQuery([
+      room.name,
+      chatRoomViewLabel(room),
+      room.leagueId ? leagueById.get(room.leagueId)?.name : undefined,
+      room.hubId ? hubById.get(room.hubId)?.name : undefined,
+      room.teamId ? teamById.get(room.teamId)?.name : undefined
+    ], query))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const filters: Array<WorkspaceFilterItem<ChatRoomView>> = [
+    { id: "all", label: "All Rooms", count: data.chatRooms.length, icon: MessageSquare },
+    { id: "hub", label: "Hub", count: data.chatRooms.filter((room) => chatRoomView(room) === "hub").length, icon: MapPin },
+    { id: "team", label: "Team", count: data.chatRooms.filter((room) => chatRoomView(room) === "team").length, icon: Users },
+    { id: "league", label: "League & Event", count: data.chatRooms.filter((room) => chatRoomView(room) === "league").length, icon: Trophy },
+    { id: "direct", label: "Direct", count: data.chatRooms.filter((room) => chatRoomView(room) === "direct").length, icon: UserRound }
+  ];
+  const panelCopy: Record<ChatRoomView, { title: string; description: string }> = {
+    all: { title: "Active Chat Rooms", description: "Every active room in the selected organization." },
+    hub: { title: "Hub Rooms", description: "General rooms scoped to an individual hub." },
+    team: { title: "Team Rooms", description: "General rooms scoped to an individual team." },
+    league: { title: "League & Event Rooms", description: "Organization, league, and event-wide conversations." },
+    direct: { title: "Direct Messages", description: "Private conversations are visible here but cannot be edited by administrators." }
+  };
+
+  async function loadPreview() {
+    setPreviewLoading(true);
+    try {
+      const result = await runAction("adminPreviewChatRoomSetup");
+      if (result.ok) setPreview(result.data as ChatRoomSetupPreview);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function applyPreview() {
+    if (!preview || preview.targets.length === 0) return;
+    setApplying(true);
+    try {
+      const result = await runAction("adminProvisionChatRooms", {
+        expectedTargetKeys: preview.targets.map((target) => target.key),
+        previewToken: preview.previewToken
+      });
+      if (result.ok) setPreview(null);
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  return (
+    <>
+      <ManagementWorkspace
+        eyebrow="Communications"
+        title={`Chat rooms for ${data.selectedOrg?.name ?? "League Hub"}`}
+        description="Review room coverage, maintain shared conversations, and safely add missing hub and team rooms from one workspace."
+        icon={MessageSquare}
+        metrics={[
+          { label: "Active rooms", value: data.chatRooms.length },
+          { label: "Hub coverage", value: `${hubCoverage}/${data.hubs.length}` },
+          { label: "Team coverage", value: `${teamCoverage}/${data.teams.length}` },
+          { label: "Direct messages", value: data.chatRooms.filter((room) => room.type === "direct").length }
+        ]}
+        action={
+          <ToolbarActionButton icon={ClipboardList} onClick={loadPreview} disabled={previewLoading}>
+            {previewLoading ? "Checking setup…" : "Review Room Setup"}
+          </ToolbarActionButton>
+        }
+        filters={filters}
+        selectedFilterId={view}
+        onSelectFilter={(nextView) => {
+          setView(nextView);
+          setQuery("");
+        }}
+        panelTitle={panelCopy[view].title}
+        panelDescription={panelCopy[view].description}
+        searchLabel="Search chat rooms..."
+        searchValue={query}
+        onSearchChange={setQuery}
+      >
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-extrabold text-ink">{pluralize(filteredRooms.length, "room")}</p>
+          <p className="hidden text-xs font-semibold text-muted sm:block">Direct messages remain read-only</p>
+        </div>
+        {filteredRooms.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {filteredRooms.map((room) => {
+              const targetName = room.teamId
+                ? teamById.get(room.teamId)?.name
+                : room.hubId
+                  ? hubById.get(room.hubId)?.name
+                  : room.leagueId
+                    ? leagueById.get(room.leagueId)?.name
+                    : undefined;
+              return (
+                <button
+                  key={room.id}
+                  type="button"
+                  aria-label={`Open ${room.name} chat room details`}
+                  onClick={() => setSelectedId(room.id)}
+                  className="group flex min-h-44 cursor-pointer flex-col rounded-2xl border border-line bg-[#fcfdff] p-4 text-left transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-[#b8c4d2] hover:shadow-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal/15"
+                >
+                  <span className="flex items-start justify-between gap-3">
+                    <EntityAvatar name={room.name} imageUrl={room.roomImageUrl} />
+                    <ChevronRight className="mt-2 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  </span>
+                  <span className="mt-4 block text-base font-extrabold leading-snug text-ink group-hover:text-teal">{room.name}</span>
+                  <span className="mt-2 flex flex-wrap gap-2">
+                    <Badge tone={room.type === "direct" ? "neutral" : "info"}>{chatRoomViewLabel(room)}</Badge>
+                    {targetName && <Badge>{targetName}</Badge>}
+                  </span>
+                  <span className="mt-auto flex items-center gap-2 pt-4 text-xs font-semibold text-muted">
+                    <Clock3 className="size-3.5" aria-hidden />
+                    {room.lastMessageAt ? <RelativeTime value={room.lastMessageAt} /> : "No messages yet"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <WorkspaceEmptyState
+            icon={MessageSquare}
+            title="No chat rooms found"
+            description="No active chat rooms match the current filter and search. Review room setup to check for missing shared rooms."
+          />
+        )}
+      </ManagementWorkspace>
+      <ChatRoomDrawer room={selectedRoom} data={data} runAction={runAction} onClose={() => setSelectedId(null)} />
+      <SideDrawer
+        open={Boolean(preview)}
+        title="Room setup preview"
+        description="Review every change before creating or restoring rooms."
+        icon={ClipboardList}
+        onClose={() => !applying && setPreview(null)}
+        footer={preview && (
+          <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button variant="secondary" disabled={applying} onClick={() => setPreview(null)}>Close</Button>
+            <Button disabled={applying || preview.targets.length === 0} onClick={applyPreview}>
+              {applying ? <><RefreshCw className="size-4 animate-spin" aria-hidden />Applying setup…</> : <><CheckCircle2 className="size-4" aria-hidden />Apply {pluralize(preview.targets.length, "room")}</>}
+            </Button>
+          </div>
+        )}
+      >
+        {preview && (
+          <div className="grid gap-5">
+            <div className="grid grid-cols-2 gap-3">
+              <InfoRow label="Hub coverage" value={`${preview.coveredHubs}/${preview.totalHubs}`} />
+              <InfoRow label="Team coverage" value={`${preview.coveredTeams}/${preview.totalTeams}`} />
+              <InfoRow label="Create" value={preview.createCount} />
+              <InfoRow label="Restore" value={preview.restoreCount} />
+            </div>
+            {preview.targets.length === 0 ? (
+              <div className="rounded-2xl border border-mint/25 bg-mint/[0.08] p-5 text-center">
+                <CheckCircle2 className="mx-auto size-7 text-mint" aria-hidden />
+                <p className="mt-3 text-base font-extrabold text-ink">Room coverage is complete</p>
+                <p className="mt-1 text-sm font-medium leading-6 text-muted">Every current hub and team already has an active room.</p>
+              </div>
+            ) : (
+              <DrawerSection title="Exact changes">
+                <p className="text-sm font-medium leading-6 text-muted">
+                  This adds only missing rooms. Existing rooms and message history are not changed.
+                </p>
+                <div className="thin-scrollbar grid max-h-[42vh] gap-2 overflow-y-auto pr-1">
+                  {preview.targets.map((target) => (
+                    <div key={target.key} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-white px-3.5 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-ink">{target.name}</p>
+                        <p className="mt-0.5 text-xs font-semibold capitalize text-muted">{target.scope} room</p>
+                      </div>
+                      <Badge tone={target.action === "restore" ? "warning" : "info"}>{target.action === "restore" ? "Restore" : "Create"}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </DrawerSection>
+            )}
+          </div>
+        )}
+      </SideDrawer>
+    </>
+  );
+}
+
+function ChatRoomDrawer({
+  room,
+  data,
+  runAction,
+  onClose
+}: {
+  room: ChatRoom | null;
+  data: AdminData;
+  runAction: ActionRunner;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const archiveCancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setName(room?.name ?? "");
+    setSaving(false);
+    setArchiving(false);
+    setConfirmingArchive(false);
+  }, [room]);
+
+  useEffect(() => {
+    if (!confirmingArchive) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => archiveCancelRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [confirmingArchive]);
+
+  const managed = room?.type !== "direct";
+  const league = room?.leagueId ? data.leagues.find((item) => item.id === room.leagueId) : undefined;
+  const hub = room?.hubId ? data.hubs.find((item) => item.id === room.hubId) : undefined;
+  const team = room?.teamId ? data.teams.find((item) => item.id === room.teamId) : undefined;
+
+  async function save() {
+    if (!room || !managed || !name.trim()) return;
+    setSaving(true);
+    try {
+      await runAction("adminUpdateChatRoom", { roomId: room.id, patch: { name: name.trim() } });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function archive() {
+    if (!room || !managed) return;
+    setArchiving(true);
+    try {
+      const result = await runAction("adminArchiveChatRoom", { roomId: room.id });
+      if (result.ok) onClose();
+    } finally {
+      setArchiving(false);
+    }
+  }
+
+  return (
+    <SideDrawer
+      open={Boolean(room)}
+      title={room?.name ?? "Chat room"}
+      description={room ? chatRoomViewLabel(room) : undefined}
+      icon={MessageSquare}
+      onClose={onClose}
+      footer={room && managed ? (
+        confirmingArchive ? (
+          <div className="w-full rounded-2xl border border-coral/25 bg-coral/[0.06] p-3.5 sm:flex sm:items-center sm:justify-between sm:gap-4">
+            <div>
+              <p className="text-sm font-extrabold text-[#912f2a]">Archive this room?</p>
+              <p className="mt-0.5 text-xs font-semibold text-[#a14a45]">It disappears from the app but can be restored by room setup.</p>
+            </div>
+            <div className="mt-3 flex gap-2 sm:mt-0 sm:shrink-0">
+              <Button ref={archiveCancelRef} variant="secondary" className="flex-1 sm:flex-none" disabled={archiving} onClick={() => setConfirmingArchive(false)}>Cancel</Button>
+              <Button variant="danger" className="flex-1 sm:flex-none" disabled={archiving} onClick={archive}>
+                <Trash2 className="size-4" aria-hidden />{archiving ? "Archiving…" : "Confirm archive"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button variant="secondary" className="border-coral/25 text-[#a93630]" disabled={saving} onClick={() => setConfirmingArchive(true)}>
+              <Trash2 className="size-4" aria-hidden />Archive room
+            </Button>
+            <Button disabled={saving || !name.trim()} onClick={save}>
+              <Save className="size-4" aria-hidden />{saving ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        )
+      ) : undefined}
+    >
+      {room && (
+        <div className="grid gap-5">
+          <DrawerSection title="Room details">
+            {managed ? (
+              <Field label="Room name"><Input value={name} onChange={(event) => setName(event.target.value)} required /></Field>
+            ) : (
+              <InfoRow label="Room name" value={room.name} />
+            )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <InfoRow label="Type" value={chatRoomViewLabel(room)} />
+              <InfoRow label="Messages" value={room.lastMessageAt ? <RelativeTime value={room.lastMessageAt} /> : "No messages yet"} />
+            </div>
+          </DrawerSection>
+          <DrawerSection title="Scope">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <InfoRow label="League" value={league?.name} />
+              <InfoRow label="Hub" value={hub?.name} />
+              <InfoRow label="Team" value={team?.name} />
+              <InfoRow label="Participants" value={room.type === "direct" ? room.participants.length : "Scope-based access"} />
+            </div>
+          </DrawerSection>
+          {!managed && (
+            <div className="rounded-2xl border border-line bg-white p-4 text-sm font-medium leading-6 text-muted">
+              Direct messages are private conversations. Administrators can see that the room exists, but cannot rename or archive it here.
+            </div>
+          )}
+        </div>
+      )}
     </SideDrawer>
   );
 }
