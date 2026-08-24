@@ -1273,6 +1273,28 @@ void main() {
 
         expect(result, equals('roomId2'));
       });
+
+      test('rejects client creation of Structure-managed General rooms', () {
+        for (final role in UserRole.values) {
+          final actor = makeUser(
+            role: role,
+            leagueIds: const ['l1'],
+            hubIds: const ['h1'],
+          );
+          expect(
+            () => afs.createChatRoom(
+              actor,
+              'org1',
+              'Hub One - General',
+              ChatRoomType.league,
+              leagueId: 'l1',
+              hubId: 'h1',
+            ),
+            throwsA(isA<PermissionDeniedException>()),
+          );
+        }
+        verifyZeroInteractions(mockFs);
+      });
     });
 
     group('archiveChatRoom', () {
@@ -1378,6 +1400,31 @@ void main() {
               managerAdmin, 'org1', 'room1', {'name': 'Nope'}),
           throwsA(isA<PermissionDeniedException>()),
         );
+      });
+
+      test('rejects edits to a Structure-managed General room', () async {
+        final owner = makeUser(role: UserRole.platformOwner);
+        final room = ChatRoom(
+          id: 'room1',
+          orgId: 'org1',
+          name: 'Hub One - General',
+          type: ChatRoomType.league,
+          leagueId: 'l1',
+          hubId: 'h1',
+          participants: const [],
+          createdAt: DateTime(2024),
+          isArchived: false,
+        );
+        when(mockFs.getChatRoom('org1', 'room1'))
+            .thenAnswer((_) => Stream.value(room));
+
+        expect(
+          () => afs.updateChatRoomFields(
+              owner, 'org1', 'room1', {'name': 'Manual override'}),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verify(mockFs.getChatRoom('org1', 'room1')).called(1);
+        verifyNoMoreInteractions(mockFs);
       });
     });
 

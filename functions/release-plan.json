@@ -1,5 +1,5 @@
 {
   "all": true,
   "targets": [],
-  "reason": "Deploy all Functions because chat room provisioning updates the shared admin logic dependency used across admin callables."
+  "reason": "Deploy all Functions because Structure-driven General room creation and reconciliation update shared admin logic and add hub, team, and released-client compatibility triggers."
 }

@@ -285,9 +285,9 @@ void main() {
     });
 
     test('send message in chat room', () async {
-      // Create chat room
-      final roomId = await authFs.createChatRoom(
-        manager,
+      // Structure-managed General rooms are provisioned by the backend. Seed
+      // one directly so this flow can exercise the manager's message access.
+      final roomId = await fs.createChatRoom(
         'org1',
         'General',
         ChatRoomType.league,

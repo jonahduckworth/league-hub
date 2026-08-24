@@ -32,6 +32,10 @@ import {
   normalizeInvitationRecipient,
 } from "./invitationEmailLogic";
 import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
+import {
+  managedStructureRoomDocumentId,
+  syncStructureChatRoom,
+} from "./structureChatRooms";
 
 type DocumentData = FirebaseFirestore.DocumentData;
 type FieldValue = FirebaseFirestore.FieldValue;
@@ -405,39 +409,6 @@ async function ensureLeagueRoom(orgId: string, leagueId: string, league: Request
     lastMessageBy: null,
     roomIconName: optionalString(league.iconName) ?? null,
     roomImageUrl: optionalString(league.logoUrl) ?? null,
-  });
-}
-
-async function ensureHubRoom(
-  orgId: string,
-  leagueId: string,
-  hubId: string,
-  hub: RequestRecord,
-): Promise<void> {
-  const rooms = orgRef(orgId).collection("chatRooms");
-  const existing = await rooms
-    .where("type", "==", "league")
-    .where("leagueId", "==", leagueId)
-    .where("hubId", "==", hubId)
-    .limit(1)
-    .get();
-  if (!existing.empty) return;
-
-  await rooms.add({
-    orgId,
-    name: `${requiredString(hub.name, "hub.name")} - General`,
-    type: "league",
-    leagueId,
-    hubId,
-    teamId: null,
-    participants: [],
-    isArchived: false,
-    createdAt: now(),
-    lastMessage: null,
-    lastMessageAt: now(),
-    lastMessageBy: null,
-    roomIconName: optionalString(hub.iconName) ?? null,
-    roomImageUrl: optionalString(hub.logoUrl) ?? null,
   });
 }
 
@@ -875,8 +846,15 @@ export const adminUpsertHub = onCall(adminRuntime, async (request) => {
       ...(exists ? {} : { createdAt: now() }),
     };
     await hubRef.set(payload, { merge: true });
-    if (!exists) await ensureHubRoom(orgId, leagueId, hubId, payload);
-    return { hubId, created: !exists };
+    const chatRoomId = await syncStructureChatRoom({
+      orgId,
+      leagueId,
+      hubId,
+      scope: "hub",
+      structureRef: hubRef,
+      restoreArchived: !exists,
+    });
+    return { hubId, chatRoomId, created: !exists };
   });
 });
 
@@ -928,7 +906,16 @@ export const adminUpsertTeam = onCall(adminRuntime, async (request) => {
       memberIds,
     );
     await batch.commit();
-    return { teamId, created: !before.exists };
+    const chatRoomId = await syncStructureChatRoom({
+      orgId,
+      leagueId,
+      hubId,
+      teamId,
+      scope: "team",
+      structureRef: teamRef,
+      restoreArchived: !before.exists,
+    });
+    return { teamId, chatRoomId, created: !before.exists };
   });
 });
 
@@ -1152,12 +1139,12 @@ export const adminProvisionChatRooms = onCall(adminRuntime, async (request) => {
     const expectedTargetKeys = normalizeStringArray(data.expectedTargetKeys).sort();
     const previewToken = requiredString(data.previewToken, "previewToken");
     if (expectedTargetKeys.length === 0) {
-      throw new HttpsError("invalid-argument", "Preview at least one missing chat room before applying setup.");
+      throw new HttpsError("invalid-argument", "Preview at least one chat room change before applying setup.");
     }
     if (expectedTargetKeys.length > 200) {
       throw new HttpsError(
         "resource-exhausted",
-        "This setup contains more than 200 rooms. Create them in smaller organization groups.",
+        "This setup contains more than 200 room changes. Apply them in smaller organization groups.",
       );
     }
 
@@ -1181,39 +1168,54 @@ export const adminProvisionChatRooms = onCall(adminRuntime, async (request) => {
 
       let created = 0;
       let restored = 0;
+      let synced = 0;
       for (const target of currentPlan.targets) {
-        const roomRef = target.action === "restore"
-          ? roomsRef.doc(target.existingRoomId!)
-          : roomsRef.doc();
-        if (target.action === "restore") {
-          transaction.update(roomRef, { isArchived: false });
-          restored += 1;
-        } else {
+        const roomRef = target.action === "create"
+          ? roomsRef.doc(managedStructureRoomDocumentId(
+            target.scope,
+            target.leagueId,
+            target.hubId,
+            target.teamId,
+          ))
+          : roomsRef.doc(target.existingRoomId!);
+        const managedFields = {
+          name: target.name,
+          type: "league",
+          leagueId: target.leagueId,
+          hubId: target.hubId,
+          teamId: target.teamId,
+          isArchived: false,
+          roomIconName: target.roomIconName,
+          roomImageUrl: target.roomImageUrl,
+          managedScope: target.scope,
+        };
+        if (target.action === "create") {
           transaction.set(roomRef, {
             orgId,
-            name: target.name,
-            type: "league",
-            leagueId: target.leagueId,
-            hubId: target.hubId,
-            teamId: target.teamId,
+            ...managedFields,
             participants: [],
-            isArchived: false,
             createdAt: now(),
             createdBy: actor.id,
             lastMessage: null,
             lastMessageAt: now(),
             lastMessageBy: null,
-            roomIconName: target.roomIconName,
-            roomImageUrl: target.roomImageUrl,
-            managedScope: target.scope,
           });
           created += 1;
+        } else {
+          transaction.set(roomRef, managedFields, { merge: true });
+          if (target.action === "restore") restored += 1;
+          else synced += 1;
         }
         if (target.scope === "team") {
           transaction.update(setupTargetRef(orgId, target), { chatRoomId: roomRef.id });
         }
       }
-      return { created, restored, targetKeys: currentPlan.targets.map((target) => target.key) };
+      return {
+        created,
+        restored,
+        synced,
+        targetKeys: currentPlan.targets.map((target) => target.key),
+      };
     });
 
     return result;
@@ -1228,6 +1230,15 @@ export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
     if (!roomSnap.exists) throw new HttpsError("not-found", "Chat room was not found.");
     if (!isManagedChatRoomType(roomSnap.data()?.type)) {
       throw new HttpsError("permission-denied", "Direct-message rooms cannot be managed by administrators.");
+    }
+    if (
+      roomSnap.data()?.type === "league" &&
+      optionalString(roomSnap.data()?.hubId)
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Hub and team General room details are synchronized from Structure.",
+      );
     }
     const patch = allowedPatch(data.patch, "patch", [
       "name",

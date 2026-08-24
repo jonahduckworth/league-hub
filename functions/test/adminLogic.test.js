@@ -17,8 +17,12 @@ const {
   nullableStringPatch,
   normalizeStringArray,
   outranks,
+  structureRoomTeamLinkId,
   teamMemberRecordsMatchOrg,
 } = require("../lib/adminLogic");
+const {
+  preferredStructureRoomId,
+} = require("../lib/structureChatRooms");
 
 test("platform owners and super admins can access the admin org scope correctly", () => {
   assert.equal(canAccessOrg({ id: "owner", role: "platformOwner", isActive: true }, "org-2"), true);
@@ -199,8 +203,17 @@ test("chat room setup plans only missing hub and team rooms", () => {
       { id: "t2", leagueId: "l1", hubId: "h2", name: "Red Deer U18" },
     ],
     rooms: [
-      { id: "hub-active", type: "league", leagueId: "l1", hubId: "h1", teamId: null, isArchived: false },
-      { id: "team-archived", type: "event", leagueId: "l1", hubId: "h2", teamId: "t2", isArchived: true },
+      {
+        id: "hub-active",
+        name: "Calgary - General",
+        type: "league",
+        leagueId: "l1",
+        hubId: "h1",
+        teamId: null,
+        isArchived: false,
+        roomImageUrl: "hub.png",
+      },
+      { id: "team-archived", type: "league", leagueId: "l1", hubId: "h2", teamId: "t2", isArchived: true },
       { id: "direct", type: "direct", leagueId: "l1", hubId: "h1", teamId: "t1", isArchived: false },
     ],
   });
@@ -211,6 +224,7 @@ test("chat room setup plans only missing hub and team rooms", () => {
   assert.equal(plan.coveredTeams, 0);
   assert.equal(plan.createCount, 2);
   assert.equal(plan.restoreCount, 1);
+  assert.equal(plan.syncCount, 0);
   assert.deepEqual(plan.targets.map((target) => ({
     key: target.key,
     action: target.action,
@@ -223,19 +237,69 @@ test("chat room setup plans only missing hub and team rooms", () => {
   ]);
 });
 
-test("chat room setup treats an active scoped room as covered regardless of legacy name", () => {
+test("chat room setup reports active rooms whose Structure name or logo drifted", () => {
   const plan = buildChatRoomSetupPlan({
     hubs: [{ id: "h1", leagueId: "l1", name: "Calgary" }],
     teams: [{ id: "t1", leagueId: "l1", hubId: "h1", name: "Calgary U18" }],
     rooms: [
-      { id: "legacy-hub", type: "event", leagueId: "l1", hubId: "h1", teamId: null, isArchived: false },
-      { id: "legacy-team", type: "league", leagueId: "l1", hubId: "h1", teamId: "t1", isArchived: false },
+      {
+        id: "legacy-hub",
+        name: "Old Calgary name",
+        type: "league",
+        leagueId: "l1",
+        hubId: "h1",
+        teamId: null,
+        isArchived: false,
+        roomImageUrl: "old.png",
+      },
+      {
+        id: "legacy-team",
+        name: "Calgary U18 - General",
+        type: "league",
+        leagueId: "l1",
+        hubId: "h1",
+        teamId: "t1",
+        isArchived: false,
+        roomIconName: "team",
+        roomImageUrl: null,
+      },
     ],
   });
 
   assert.equal(plan.coveredHubs, 1);
   assert.equal(plan.coveredTeams, 1);
-  assert.deepEqual(plan.targets, []);
+  assert.equal(plan.syncCount, 1);
+  assert.deepEqual(plan.targets.map((target) => ({
+    action: target.action,
+    roomId: target.existingRoomId,
+    name: target.name,
+    image: target.roomImageUrl,
+  })), [{
+    action: "sync",
+    roomId: "legacy-hub",
+    name: "Calgary - General",
+    image: null,
+  }]);
+});
+
+test("event rooms do not count as a hub or team General room", () => {
+  const plan = buildChatRoomSetupPlan({
+    hubs: [{ id: "h1", leagueId: "l1", name: "Calgary" }],
+    teams: [],
+    rooms: [{
+      id: "event",
+      name: "Calgary Tournament",
+      type: "event",
+      leagueId: "l1",
+      hubId: "h1",
+      teamId: null,
+      isArchived: false,
+    }],
+  });
+
+  assert.equal(plan.coveredHubs, 0);
+  assert.equal(plan.createCount, 1);
+  assert.equal(plan.targets[0].action, "create");
 });
 
 test("chat room setup preview tokens change when an exact planned action changes", () => {
@@ -257,6 +321,26 @@ test("chat room setup preview tokens change when an exact planned action changes
     ...basePlan,
     targets: [...basePlan.targets].reverse(),
   }));
+});
+
+test("archived team rooms stay unlinked until an explicit restore", () => {
+  assert.equal(structureRoomTeamLinkId("room-1", false, false), "room-1");
+  assert.equal(structureRoomTeamLinkId("room-1", true, false), null);
+  assert.equal(structureRoomTeamLinkId("room-1", true, true), "room-1");
+});
+
+test("a synchronized room wins a released-client duplicate race", () => {
+  assert.equal(preferredStructureRoomId([
+    { id: "legacy-random" },
+    { id: "managed-team", managedScope: "team" },
+  ], "team", "managed-team"), "managed-team");
+  assert.equal(preferredStructureRoomId([
+    { id: "legacy-random" },
+  ], "hub", "managed-hub"), "legacy-random");
+  assert.equal(preferredStructureRoomId([
+    { id: "active-random" },
+    { id: "managed-hub", managedScope: "hub", isArchived: true },
+  ], "hub", "managed-hub"), "active-random");
 });
 
 test("team member records must all exist in the target organization", () => {

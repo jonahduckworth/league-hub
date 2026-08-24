@@ -344,12 +344,14 @@ class AuthorizedFirestoreService {
           !participants.contains(actor.id)) {
         _deny('createChatRoom', actor);
       }
-    } else if (!_ps.canCreateChatRoomInScope(
-      actor,
-      leagueId: leagueId,
-      hubId: hubId,
-      teamId: teamId,
-    )) {
+    } else if (
+        (type == ChatRoomType.league && hubId?.isNotEmpty == true) ||
+        !_ps.canCreateChatRoomInScope(
+          actor,
+          leagueId: leagueId,
+          hubId: hubId,
+          teamId: teamId,
+        )) {
       _deny('createChatRoom', actor);
     }
     return _fs.createChatRoom(orgId, name, type,
@@ -400,7 +402,7 @@ class AuthorizedFirestoreService {
   ) async {
     if (!_ps.canUpdateChatRoom(actor)) _deny('updateChatRoomFields', actor);
     final room = await _fs.getChatRoom(orgId, roomId).first;
-    if (room == null || !_ps.canManageChatRoom(actor, room)) {
+    if (room == null || !_ps.canEditChatRoomDetails(actor, room)) {
       _deny('updateChatRoomFields scope', actor);
     }
     return _fs.updateChatRoomFields(orgId, roomId, data);

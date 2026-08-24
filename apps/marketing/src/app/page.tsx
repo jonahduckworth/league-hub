@@ -218,7 +218,7 @@ export default function Home() {
             </div>
             <div className="admin-content">
               <div className="admin-content-heading"><div><small>ORGANIZATION</small><strong>League structure</strong></div><span className="admin-add">+ Add</span></div>
-              <div className="structure-card structure-league"><span>L</span><div><small>LEAGUE</small><strong>Premier Hockey League</strong></div><b>18 hubs</b></div>
+              <div className="structure-card structure-league"><span>L</span><div><small>LEAGUE</small><strong>Premier Hockey League</strong></div><b>19 hubs</b></div>
               <div className="structure-line" />
               <div className="structure-row">
                 <div className="structure-card"><span>N</span><div><small>HUB</small><strong>North Region</strong></div><b>12 teams</b></div>

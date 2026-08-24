@@ -514,6 +514,34 @@ void main() {
       expect(doc.data()!['isArchived'], true);
     });
 
+    test('archiveChatRoom clears a linked team room', () async {
+      const leagueId = 'lg-1';
+      const hubId = 'hub-1';
+      const teamId = 'team-1';
+      final roomId = await svc.createChatRoom(
+        orgId,
+        'Team One - General',
+        ChatRoomType.league,
+        leagueId: leagueId,
+        hubId: hubId,
+        teamId: teamId,
+      );
+      final teamRef = fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.leaguesCollection)
+          .doc(leagueId)
+          .collection(AppConstants.hubsCollection)
+          .doc(hubId)
+          .collection(AppConstants.teamsCollection)
+          .doc(teamId);
+      await teamRef.set({'chatRoomId': roomId});
+
+      await svc.archiveChatRoom(orgId, roomId);
+
+      expect((await teamRef.get()).data()?['chatRoomId'], isNull);
+    });
+
     test('updateChatRoomFields updates editable room metadata', () async {
       final roomId =
           await svc.createChatRoom(orgId, 'Original', ChatRoomType.event);
