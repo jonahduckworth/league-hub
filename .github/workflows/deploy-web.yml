@@ -118,8 +118,12 @@ jobs:
         run: npm ci
 
       - name: Validate Firestore and Storage rules
-        working-directory: functions
-        run: npm run test:rules
+        run: |
+          npx --yes firebase-tools@15.27.0 emulators:exec \
+            --config firebase.rules-test.json \
+            --project demo-league-hub-rules \
+            --only firestore,storage \
+            "node --test functions/test/*.rules.js"
 
       - name: Configure Firebase credentials
         if: >-
