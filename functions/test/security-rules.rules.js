@@ -932,3 +932,54 @@ test("scoped room list query shapes return only readable metadata", async () => 
     where("hubId", "in", ["hub-2"]),
   )));
 });
+
+test("Structure-managed General room identity is server-owned", async () => {
+  const generalRoom = {
+    id: "hub-general",
+    orgId: "org-1",
+    type: "league",
+    leagueId: "league-1",
+    hubId: "hub-1",
+    teamId: null,
+    participants: [],
+    name: "Calgary - General",
+    roomIconName: "hub",
+    roomImageUrl: "https://example.com/calgary.png",
+    isArchived: false,
+  };
+  await seedFirestore([
+    ["organizations/org-1", { id: "org-1", ownerId: "owner" }],
+    ["organizations/org-1/leagues/league-1", { id: "league-1", orgId: "org-1" }],
+    ["organizations/org-1/leagues/league-1/hubs/hub-1", {
+      id: "hub-1",
+      orgId: "org-1",
+      leagueId: "league-1",
+      name: "Calgary",
+    }],
+    ["organizations/org-1/chatRooms/hub-general", generalRoom],
+    ["users/owner", user({ id: "owner", role: "platformOwner" })],
+    ["users/admin", user({ id: "admin", role: "superAdmin" })],
+    ["users/manager", user({
+      id: "manager",
+      role: "managerAdmin",
+      leagueIds: ["league-1"],
+      hubIds: ["hub-1"],
+    })],
+    ["users/staff", user({ id: "staff", role: "staff" })],
+  ]);
+
+  for (const userId of ["owner", "admin", "manager", "staff"]) {
+    const roomRef = doc(
+      testEnv.authenticatedContext(userId).firestore(),
+      "organizations/org-1/chatRooms/hub-general",
+    );
+    await assertFails(updateDoc(roomRef, { name: "Drifted name" }));
+    await assertFails(updateDoc(roomRef, { roomImageUrl: null }));
+  }
+
+  const managerRoom = doc(
+    testEnv.authenticatedContext("manager").firestore(),
+    "organizations/org-1/chatRooms/hub-general",
+  );
+  await assertSucceeds(updateDoc(managerRoom, { isArchived: true }));
+});

@@ -1078,6 +1078,41 @@ void main() {
           isFalse);
     });
 
+    test('Structure-managed General rooms cannot be edited by any role', () {
+      final structureRoom = makeRoom(
+        type: ChatRoomType.league,
+        leagueId: 'league-1',
+        hubId: 'hub-1',
+      );
+      expect(service.canEditChatRoomDetails(owner(), structureRoom), isFalse);
+      expect(
+          service.canEditChatRoomDetails(superAdmin(), structureRoom), isFalse);
+      expect(
+        service.canEditChatRoomDetails(
+          manager(leagueIds: ['league-1'], hubIds: ['hub-1']),
+          structureRoom,
+        ),
+        isFalse,
+      );
+      expect(service.canEditChatRoomDetails(staff(), structureRoom), isFalse);
+
+      final eventRoom = makeRoom(
+        type: ChatRoomType.event,
+        leagueId: 'league-1',
+        hubId: 'hub-1',
+      );
+      expect(service.canEditChatRoomDetails(owner(), eventRoom), isTrue);
+      expect(service.canEditChatRoomDetails(superAdmin(), eventRoom), isTrue);
+      expect(
+        service.canEditChatRoomDetails(
+          manager(leagueIds: ['league-1'], hubIds: ['hub-1']),
+          eventRoom,
+        ),
+        isTrue,
+      );
+      expect(service.canEditChatRoomDetails(staff(), eventRoom), isFalse);
+    });
+
     test('canSendMessage any active user', () {
       expect(service.canSendMessage(staff()), isTrue);
       expect(service.canSendMessage(staff(isActive: false)), isFalse);

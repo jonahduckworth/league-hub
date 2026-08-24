@@ -59,6 +59,8 @@ class ChatRoomInfoScreen extends ConsumerWidget {
 
     final canManageRoom = currentUser != null &&
         const PermissionService().canManageChatRoom(currentUser, room);
+    final canEditRoom = currentUser != null &&
+        const PermissionService().canEditChatRoomDetails(currentUser, room);
 
     return AppShellScaffold(
       header: AppShellHeader(
@@ -68,7 +70,7 @@ class ChatRoomInfoScreen extends ConsumerWidget {
         leadingLabel: headerLeague?.name ?? 'League Hub',
         showBackButton: true,
         actions: [
-          if (canManageRoom)
+          if (canEditRoom)
             AppHeaderIconButton(
               icon: Icons.edit_outlined,
               tooltip: 'Edit',
@@ -123,6 +125,34 @@ class ChatRoomInfoScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
+          if (room.isStructureManagedGeneral) ...[
+            AppGlassSurface(
+              radius: 22,
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.sync_rounded,
+                    color: AppGlassColors.aqua,
+                    size: 22,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'This General room’s name and logo stay synchronized with Structure.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: AppGlassColors.inkSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
           if (room.type == ChatRoomType.direct)
             _DirectMessageInfoCard(
               peer: peer,

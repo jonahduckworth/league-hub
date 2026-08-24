@@ -400,7 +400,7 @@ class AuthorizedFirestoreService {
   ) async {
     if (!_ps.canUpdateChatRoom(actor)) _deny('updateChatRoomFields', actor);
     final room = await _fs.getChatRoom(orgId, roomId).first;
-    if (room == null || !_ps.canManageChatRoom(actor, room)) {
+    if (room == null || !_ps.canEditChatRoomDetails(actor, room)) {
       _deny('updateChatRoomFields scope', actor);
     }
     return _fs.updateChatRoomFields(orgId, roomId, data);

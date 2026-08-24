@@ -44,6 +44,23 @@ service cloud.firestore {
       return /databases/$(database)/documents/organizations/$(orgId)/chatRooms/$(roomId)/messages/$(messageId);
     }
 
+    function structureManagedRoomFieldsUnchanged() {
+      return !(
+        resource.data.type == 'league'
+        && resource.data.hubId is string
+        && resource.data.hubId.size() > 0
+      ) || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'name',
+        'type',
+        'leagueId',
+        'hubId',
+        'teamId',
+        'roomIconName',
+        'roomImageUrl',
+        'managedScope'
+      ]);
+    }
+
     function leaguePath(orgId, leagueId) {
       return /databases/$(database)/documents/organizations/$(orgId)/leagues/$(leagueId);
     }
@@ -826,6 +843,7 @@ service cloud.firestore {
             && canManageScopedTarget(resource.data)
             && canManageScopedTarget(request.resource.data)
             && scopedTargetExists(orgId, request.resource.data)
+            && structureManagedRoomFieldsUnchanged()
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
               'lastMessage',
               'lastMessageAt',

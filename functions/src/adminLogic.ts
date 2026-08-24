@@ -31,11 +31,14 @@ export type ChatRoomSetupTeam = ChatRoomSetupHub & {
 
 export type ChatRoomSetupRoom = {
   id: string;
+  name?: unknown;
   type?: unknown;
   leagueId?: unknown;
   hubId?: unknown;
   teamId?: unknown;
   isArchived?: unknown;
+  roomIconName?: unknown;
+  roomImageUrl?: unknown;
 };
 
 export type ChatRoomSetupTarget = {
@@ -47,7 +50,7 @@ export type ChatRoomSetupTarget = {
   teamId: string | null;
   roomIconName: string | null;
   roomImageUrl: string | null;
-  action: "create" | "restore";
+  action: "create" | "restore" | "sync";
   existingRoomId: string | null;
 };
 
@@ -58,6 +61,7 @@ export type ChatRoomSetupPlan = {
   coveredTeams: number;
   createCount: number;
   restoreCount: number;
+  syncCount: number;
   targets: ChatRoomSetupTarget[];
 };
 
@@ -158,7 +162,9 @@ function roomMatchesSetupTarget(
   hubId: string,
   teamId?: string | null,
 ): boolean {
-  if (!isManagedChatRoomType(room.type)) return false;
+  // Event rooms can share a hub/team scope, but they are not the canonical
+  // General room derived from Structure.
+  if (room.type !== "league") return false;
   if (room.leagueId !== leagueId || room.hubId !== hubId) return false;
   return scope === "team"
     ? room.teamId === teamId
@@ -200,21 +206,42 @@ export function buildChatRoomSetupPlan({
     const matchingRooms = sortedRooms.filter((room) => (
       roomMatchesSetupTarget(room, scope, leagueId, hubId, teamId)
     ));
-    if (matchingRooms.some((room) => room.isArchived !== true)) {
+    const expectedName = `${name} - General`;
+    const expectedIconName = iconName ?? scope;
+    const expectedImageUrl = logoUrl ?? null;
+    const activeRoom = matchingRooms.find((room) => room.isArchived !== true);
+    if (activeRoom) {
       if (scope === "hub") coveredHubs += 1;
       else coveredTeams += 1;
+      const needsSync = activeRoom.name !== expectedName ||
+        (activeRoom.roomImageUrl ?? null) !== expectedImageUrl ||
+        (!expectedImageUrl && (activeRoom.roomIconName ?? null) !== expectedIconName);
+      if (needsSync) {
+        targets.push({
+          key: chatRoomSetupTargetKey(scope, leagueId, hubId, teamId),
+          scope,
+          name: expectedName,
+          leagueId,
+          hubId,
+          teamId,
+          roomIconName: expectedIconName,
+          roomImageUrl: expectedImageUrl,
+          action: "sync",
+          existingRoomId: activeRoom.id,
+        });
+      }
       return;
     }
     const archivedRoom = matchingRooms.find((room) => room.isArchived === true);
     targets.push({
       key: chatRoomSetupTargetKey(scope, leagueId, hubId, teamId),
       scope,
-      name: `${name} - General`,
+      name: expectedName,
       leagueId,
       hubId,
       teamId,
-      roomIconName: iconName ?? scope,
-      roomImageUrl: logoUrl ?? null,
+      roomIconName: expectedIconName,
+      roomImageUrl: expectedImageUrl,
       action: archivedRoom ? "restore" : "create",
       existingRoomId: archivedRoom?.id ?? null,
     });
@@ -250,6 +277,7 @@ export function buildChatRoomSetupPlan({
     coveredTeams,
     createCount: targets.filter((target) => target.action === "create").length,
     restoreCount: targets.filter((target) => target.action === "restore").length,
+    syncCount: targets.filter((target) => target.action === "sync").length,
     targets,
   };
 }

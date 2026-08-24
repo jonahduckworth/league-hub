@@ -523,6 +523,9 @@ class PermissionService {
     );
   }
 
+  bool canEditChatRoomDetails(AppUser user, ChatRoom room) =>
+      canManageChatRoom(user, room) && !room.isStructureManagedGeneral;
+
   /// All active users can send messages.
   bool canSendMessage(AppUser user) => isActiveUser(user);
 

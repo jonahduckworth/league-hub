@@ -19,6 +19,9 @@ class ChatRoom {
   final String? roomImageUrl;
   final Map<String, String> participantNames;
 
+  bool get isStructureManagedGeneral =>
+      type == ChatRoomType.league && hubId?.isNotEmpty == true;
+
   ChatRoom({
     required this.id,
     required this.orgId,

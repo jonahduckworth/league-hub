@@ -40,6 +40,19 @@ ChatRoom _eventRoomWithImage() => ChatRoom(
       roomImageUrl: 'https://example.com/room.png',
     );
 
+ChatRoom _structureRoom() => ChatRoom(
+      id: 'structure-room',
+      orgId: 'org-1',
+      name: 'Hub One - General',
+      type: ChatRoomType.league,
+      leagueId: 'l1',
+      hubId: 'h1',
+      participants: ['u1', 'u2'],
+      createdAt: DateTime(2025, 3, 1),
+      isArchived: false,
+      roomImageUrl: 'https://example.com/hub.png',
+    );
+
 ChatRoom _eventRoomWithIcon() => ChatRoom(
       id: 'cr4',
       orgId: 'org-1',
@@ -293,6 +306,31 @@ void main() {
 
       expect(find.text('Archive Chat Room'), findsOneWidget);
       expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    });
+
+    testWidgets('keeps Structure-managed General room identity read-only',
+        (tester) async {
+      final room = _structureRoom();
+      await tester.pumpWidget(_buildTestWidget(
+        roomId: room.id,
+        overrides: [
+          chatRoomProvider(room.id).overrideWith((ref) => Stream.value(room)),
+          orgUsersProvider.overrideWith(
+              (ref) => Stream.value([_adminUser(), _staffUser()])),
+          currentUserProvider.overrideWith((ref) async => _adminUser()),
+          organizationProvider.overrideWith((ref) async => null),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Archive Chat Room'), findsOneWidget);
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(
+        find.text(
+          'This General room’s name and logo stay synchronized with Structure.',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('saves room edits without using a disposed controller',

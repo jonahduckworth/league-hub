@@ -162,9 +162,30 @@ describe("AdminApp operations shell", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Private conversation" })).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Open Calgary U11 AA - General chat room details" }));
     const managedDrawer = await screen.findByRole("dialog", { name: "Calgary U11 AA - General" });
+    expect(within(managedDrawer).getByText(/managed from Structure/i)).toBeTruthy();
+    expect(within(managedDrawer).queryByRole("button", { name: /save changes/i })).toBeNull();
+    expect(within(managedDrawer).queryByRole("textbox", { name: "Room name" })).toBeNull();
     fireEvent.click(within(managedDrawer).getByRole("button", { name: "Archive room" }));
     const cancelArchive = within(managedDrawer).getByRole("button", { name: "Cancel" });
     await waitFor(() => expect(document.activeElement).toBe(cancelArchive));
+  });
+
+  it("explains automatic General chat creation in hub and team drawers", async () => {
+    window.history.replaceState(null, "", "/admin#structure");
+    render(<AdminApp />);
+
+    await screen.findByRole("heading", { level: 1, name: "Structure" });
+    fireEvent.click(screen.getAllByRole("button", { name: "Add hub" })[0]);
+    const hubDrawer = await screen.findByRole("dialog", { name: "Add Hub" });
+    expect(within(hubDrawer).getByRole("note")).toBeTruthy();
+    expect(within(hubDrawer).getByText(/General chat room will be created automatically/i)).toBeTruthy();
+    expect(within(hubDrawer).getByText(/name and logo stay synced with Structure/i)).toBeTruthy();
+
+    fireEvent.click(within(hubDrawer).getByRole("button", { name: "Close drawer" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Add team" })[0]);
+    const teamDrawer = await screen.findByRole("dialog", { name: "Add Team" });
+    expect(within(teamDrawer).getByRole("note")).toBeTruthy();
+    expect(within(teamDrawer).getByText(/General chat room will be created automatically/i)).toBeTruthy();
   });
 
   it("shows native game data, sync health, and source controls in the schedule workspace", async () => {

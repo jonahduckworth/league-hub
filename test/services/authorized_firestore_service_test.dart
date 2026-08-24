@@ -1379,6 +1379,31 @@ void main() {
           throwsA(isA<PermissionDeniedException>()),
         );
       });
+
+      test('rejects edits to a Structure-managed General room', () async {
+        final owner = makeUser(role: UserRole.platformOwner);
+        final room = ChatRoom(
+          id: 'room1',
+          orgId: 'org1',
+          name: 'Hub One - General',
+          type: ChatRoomType.league,
+          leagueId: 'l1',
+          hubId: 'h1',
+          participants: const [],
+          createdAt: DateTime(2024),
+          isArchived: false,
+        );
+        when(mockFs.getChatRoom('org1', 'room1'))
+            .thenAnswer((_) => Stream.value(room));
+
+        expect(
+          () => afs.updateChatRoomFields(
+              owner, 'org1', 'room1', {'name': 'Manual override'}),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verify(mockFs.getChatRoom('org1', 'room1')).called(1);
+        verifyNoMoreInteractions(mockFs);
+      });
     });
 
     group('sendMessage', () {

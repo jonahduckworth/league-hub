@@ -2966,8 +2966,8 @@ function StructureCreateDrawer({
   const description = type === "league"
     ? "Create a top-level league for this organization."
     : type === "hub"
-      ? "Connect a new hub to its parent league."
-      : "Connect a new team to its parent hub and league.";
+      ? "Connect a new hub to its parent league and create its General chat."
+      : "Connect a new team to its parent hub and league, including its General chat.";
 
   return (
     <SideDrawer open={Boolean(request && (request.type !== "league" || canCreateLeague))} title={title} description={description} icon={Building2} onClose={onClose}>
@@ -2998,6 +2998,19 @@ function StructureCreateDrawer({
         {(type === "hub" && data.leagues.length === 0) || (type === "team" && data.hubs.length === 0) ? (
           <EmptyLine label={type === "hub" ? "Create a league before adding hubs" : "Create a hub before adding teams"} />
         ) : null}
+        {type !== "league" && (
+          <div role="note" className="flex gap-3 rounded-2xl border border-teal/20 bg-teal/[0.055] p-4">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-teal/10 text-teal">
+              <MessageSquare className="size-4" aria-hidden />
+            </span>
+            <div>
+              <p className="text-sm font-extrabold text-ink">General chat included</p>
+              <p className="mt-1 text-sm font-medium leading-6 text-muted">
+                A General chat room will be created automatically. Its name and logo stay synced with Structure.
+              </p>
+            </div>
+          </div>
+        )}
         <Button type="submit"><Plus className="size-4" aria-hidden />{title}</Button>
       </form>
     </SideDrawer>
@@ -3010,7 +3023,7 @@ type ChatRoomSetupTargetPreview = {
   key: string;
   scope: "hub" | "team";
   name: string;
-  action: "create" | "restore";
+  action: "create" | "restore" | "sync";
 };
 
 type ChatRoomSetupPreview = {
@@ -3021,6 +3034,7 @@ type ChatRoomSetupPreview = {
   coveredTeams: number;
   createCount: number;
   restoreCount: number;
+  syncCount: number;
   targets: ChatRoomSetupTargetPreview[];
 };
 
@@ -3048,10 +3062,10 @@ function ChatRoomsSection({ data, runAction }: { data: AdminData; runAction: Act
   const [applying, setApplying] = useState(false);
   const selectedRoom = selectedId ? data.chatRooms.find((room) => room.id === selectedId) ?? null : null;
   const hubKeys = new Set(data.chatRooms
-    .filter((room) => room.type !== "direct" && room.hubId && !room.teamId)
+    .filter((room) => room.type === "league" && room.hubId && !room.teamId)
     .map((room) => `${room.leagueId ?? ""}:${room.hubId}`));
   const teamKeys = new Set(data.chatRooms
-    .filter((room) => room.type !== "direct" && room.teamId)
+    .filter((room) => room.type === "league" && room.teamId)
     .map((room) => `${room.leagueId ?? ""}:${room.hubId ?? ""}:${room.teamId}`));
   const hubCoverage = data.hubs.filter((hub) => hubKeys.has(`${hub.leagueId}:${hub.id}`)).length;
   const teamCoverage = data.teams.filter((team) => teamKeys.has(`${team.leagueId}:${team.hubId}:${team.id}`)).length;
@@ -3113,7 +3127,7 @@ function ChatRoomsSection({ data, runAction }: { data: AdminData; runAction: Act
       <ManagementWorkspace
         eyebrow="Communications"
         title={`Chat rooms for ${data.selectedOrg?.name ?? "League Hub"}`}
-        description="Review room coverage, maintain shared conversations, and safely add missing hub and team rooms from one workspace."
+        description="Review room coverage, keep General rooms aligned with Structure, and safely repair missing or stale rooms from one workspace."
         icon={MessageSquare}
         metrics={[
           { label: "Active rooms", value: data.chatRooms.length },
@@ -3189,14 +3203,14 @@ function ChatRoomsSection({ data, runAction }: { data: AdminData; runAction: Act
       <SideDrawer
         open={Boolean(preview)}
         title="Room setup preview"
-        description="Review every change before creating or restoring rooms."
+        description="Review every change before creating, restoring, or syncing rooms."
         icon={ClipboardList}
         onClose={() => !applying && setPreview(null)}
         footer={preview && (
           <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button variant="secondary" disabled={applying} onClick={() => setPreview(null)}>Close</Button>
             <Button disabled={applying || preview.targets.length === 0} onClick={applyPreview}>
-              {applying ? <><RefreshCw className="size-4 animate-spin" aria-hidden />Applying setup…</> : <><CheckCircle2 className="size-4" aria-hidden />Apply {pluralize(preview.targets.length, "room")}</>}
+              {applying ? <><RefreshCw className="size-4 animate-spin" aria-hidden />Applying setup…</> : <><CheckCircle2 className="size-4" aria-hidden />Apply {pluralize(preview.targets.length, "change")}</>}
             </Button>
           </div>
         )}
@@ -3208,17 +3222,18 @@ function ChatRoomsSection({ data, runAction }: { data: AdminData; runAction: Act
               <InfoRow label="Team coverage" value={`${preview.coveredTeams}/${preview.totalTeams}`} />
               <InfoRow label="Create" value={preview.createCount} />
               <InfoRow label="Restore" value={preview.restoreCount} />
+              <InfoRow label="Sync" value={preview.syncCount} />
             </div>
             {preview.targets.length === 0 ? (
               <div className="rounded-2xl border border-mint/25 bg-mint/[0.08] p-5 text-center">
                 <CheckCircle2 className="mx-auto size-7 text-mint" aria-hidden />
                 <p className="mt-3 text-base font-extrabold text-ink">Room coverage is complete</p>
-                <p className="mt-1 text-sm font-medium leading-6 text-muted">Every current hub and team already has an active room.</p>
+                <p className="mt-1 text-sm font-medium leading-6 text-muted">Every current hub and team has an active room with Structure-synced details.</p>
               </div>
             ) : (
               <DrawerSection title="Exact changes">
                 <p className="text-sm font-medium leading-6 text-muted">
-                  This adds only missing rooms. Existing rooms and message history are not changed.
+                  This creates missing rooms, restores archived General rooms, and syncs stale names or logos. Message history is preserved.
                 </p>
                 <div className="thin-scrollbar grid max-h-[42vh] gap-2 overflow-y-auto pr-1">
                   {preview.targets.map((target) => (
@@ -3227,7 +3242,9 @@ function ChatRoomsSection({ data, runAction }: { data: AdminData; runAction: Act
                         <p className="truncate text-sm font-bold text-ink">{target.name}</p>
                         <p className="mt-0.5 text-xs font-semibold capitalize text-muted">{target.scope} room</p>
                       </div>
-                      <Badge tone={target.action === "restore" ? "warning" : "info"}>{target.action === "restore" ? "Restore" : "Create"}</Badge>
+                      <Badge tone={target.action === "restore" ? "warning" : target.action === "sync" ? "neutral" : "info"}>
+                        {target.action === "restore" ? "Restore" : target.action === "sync" ? "Sync" : "Create"}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -3274,9 +3291,10 @@ function ChatRoomDrawer({
   const league = room?.leagueId ? data.leagues.find((item) => item.id === room.leagueId) : undefined;
   const hub = room?.hubId ? data.hubs.find((item) => item.id === room.hubId) : undefined;
   const team = room?.teamId ? data.teams.find((item) => item.id === room.teamId) : undefined;
+  const structureSynced = Boolean(room?.type === "league" && room.hubId);
 
   async function save() {
-    if (!room || !managed || !name.trim()) return;
+    if (!room || !managed || structureSynced || !name.trim()) return;
     setSaving(true);
     try {
       await runAction("adminUpdateChatRoom", { roomId: room.id, patch: { name: name.trim() } });
@@ -3317,6 +3335,12 @@ function ChatRoomDrawer({
               </Button>
             </div>
           </div>
+        ) : structureSynced ? (
+          <div className="flex w-full justify-start">
+            <Button variant="secondary" className="border-coral/25 text-[#a93630]" onClick={() => setConfirmingArchive(true)}>
+              <Trash2 className="size-4" aria-hidden />Archive room
+            </Button>
+          </div>
         ) : (
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Button variant="secondary" className="border-coral/25 text-[#a93630]" disabled={saving} onClick={() => setConfirmingArchive(true)}>
@@ -3332,10 +3356,15 @@ function ChatRoomDrawer({
       {room && (
         <div className="grid gap-5">
           <DrawerSection title="Room details">
-            {managed ? (
+            {managed && !structureSynced ? (
               <Field label="Room name"><Input value={name} onChange={(event) => setName(event.target.value)} required /></Field>
             ) : (
               <InfoRow label="Room name" value={room.name} />
+            )}
+            {structureSynced && (
+              <div role="note" className="rounded-2xl border border-teal/20 bg-teal/[0.055] p-4 text-sm font-medium leading-6 text-muted">
+                This General room’s name and logo are managed from Structure and stay synchronized automatically.
+              </div>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
               <InfoRow label="Type" value={chatRoomViewLabel(room)} />
