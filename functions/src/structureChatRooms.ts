@@ -1,12 +1,20 @@
 import { createHash } from "crypto";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import {
+  onDocumentCreated,
+  onDocumentWritten,
+} from "firebase-functions/v2/firestore";
 import { structureRoomTeamLinkId } from "./adminLogic";
 import { db } from "./helpers";
 
 type StructureRoomScope = "hub" | "team";
 type StructureData = Record<string, unknown>;
+type StructureRoomCandidate = {
+  id: string;
+  isArchived?: boolean;
+  managedScope?: unknown;
+};
 
 type StructureRoomInput = {
   orgId: string;
@@ -35,6 +43,21 @@ export function managedStructureRoomDocumentId(
   const key = `${scope}:${leagueId}:${hubId}:${teamId ?? ""}`;
   const digest = createHash("sha256").update(key).digest("hex").slice(0, 24);
   return `managed_${scope}_${digest}`;
+}
+
+export function preferredStructureRoomId(
+  rooms: StructureRoomCandidate[],
+  scope: StructureRoomScope,
+  deterministicId: string,
+): string | null {
+  const ranked = [...rooms].sort((left, right) => {
+    const rank = (room: StructureRoomCandidate) =>
+      (room.isArchived === true ? 100 : 0) +
+      (room.managedScope === scope ? 0 : 10) +
+      (room.id === deterministicId ? 0 : 1);
+    return rank(left) - rank(right) || left.id.localeCompare(right.id);
+  });
+  return ranked[0]?.id ?? null;
 }
 
 function managedRoomQuery({
@@ -92,17 +115,24 @@ export async function syncStructureChatRoom(input: StructureRoomInput): Promise<
     const expected = expectedRoomFields(input, structure.data() ?? {});
 
     const rooms = await transaction.get(managedRoomQuery(input));
-    const sortedRooms = [...rooms.docs].sort((left, right) => left.id.localeCompare(right.id));
-    const existing = sortedRooms.find((room) => room.data().isArchived !== true) ?? sortedRooms[0];
+    const deterministicId = managedStructureRoomDocumentId(
+      input.scope,
+      input.leagueId,
+      input.hubId,
+      input.teamId,
+    );
+    const preferredId = preferredStructureRoomId(
+      rooms.docs.map((room) => ({ ...room.data(), id: room.id })),
+      input.scope,
+      deterministicId,
+    );
+    const existing = preferredId
+      ? rooms.docs.find((room) => room.id === preferredId)
+      : undefined;
     const roomRef = existing?.ref ?? db.collection("organizations")
       .doc(input.orgId)
       .collection("chatRooms")
-      .doc(managedStructureRoomDocumentId(
-        input.scope,
-        input.leagueId,
-        input.hubId,
-        input.teamId,
-      ));
+      .doc(deterministicId);
 
     if (!existing) {
       transaction.set(roomRef, {
@@ -119,6 +149,12 @@ export async function syncStructureChatRoom(input: StructureRoomInput): Promise<
         ...expected,
         ...(input.restoreArchived ? { isArchived: false } : {}),
       }, { merge: true });
+    }
+
+    for (const duplicate of rooms.docs) {
+      if (duplicate.id !== roomRef.id && duplicate.data().isArchived !== true) {
+        transaction.update(duplicate.ref, { isArchived: true });
+      }
     }
 
     if (input.scope === "team") {
@@ -191,5 +227,34 @@ export const onTeamStructureWritten = onDocumentWritten(
       restoreArchived: event.data?.before.exists !== true,
     });
     logger.info("Synchronized team General chat room", input);
+  },
+);
+
+export const onStructureChatRoomCreated = onDocumentCreated(
+  "organizations/{orgId}/chatRooms/{roomId}",
+  async (event) => {
+    const room = event.data?.data();
+    if (!room) return;
+    const leagueId = optionalString(room.leagueId);
+    const hubId = optionalString(room.hubId);
+    if (room.type !== "league" || !leagueId || !hubId) return;
+
+    const teamId = optionalString(room.teamId);
+    const structureRef = teamId
+      ? db.collection("organizations").doc(event.params.orgId)
+        .collection("leagues").doc(leagueId)
+        .collection("hubs").doc(hubId)
+        .collection("teams").doc(teamId)
+      : db.collection("organizations").doc(event.params.orgId)
+        .collection("leagues").doc(leagueId)
+        .collection("hubs").doc(hubId);
+    await syncStructureChatRoom({
+      orgId: event.params.orgId,
+      leagueId,
+      hubId,
+      teamId,
+      scope: teamId ? "team" : "hub",
+      structureRef,
+    });
   },
 );

@@ -955,6 +955,8 @@ test("Structure-managed General room identity is server-owned", async () => {
       orgId: "org-1",
       leagueId: "league-1",
       name: "Calgary",
+      logoUrl: "https://example.com/calgary.png",
+      iconName: null,
     }],
     ["organizations/org-1/chatRooms/hub-general", generalRoom],
     ["organizations/org-1/chatRooms/event-room", {
@@ -993,11 +995,47 @@ test("Structure-managed General room identity is server-owned", async () => {
     "organizations/org-1/chatRooms/hub-general",
   );
   await assertSucceeds(updateDoc(managerRoom, { isArchived: true }));
+  await assertFails(updateDoc(managerRoom, {
+    type: "event",
+    name: "Detached event",
+    hubId: null,
+  }));
   await assertFails(updateDoc(
     doc(
       testEnv.authenticatedContext("manager").firestore(),
       "organizations/org-1/chatRooms/event-room",
     ),
     { type: "league" },
+  ));
+
+  const legacyRoom = {
+    orgId: "org-1",
+    name: "Calgary – General",
+    type: "league",
+    leagueId: "league-1",
+    hubId: "hub-1",
+    teamId: null,
+    participants: [],
+    isArchived: false,
+    createdAt: serverTimestamp(),
+    lastMessage: null,
+    lastMessageAt: serverTimestamp(),
+    lastMessageBy: null,
+    roomIconName: null,
+    roomImageUrl: "https://example.com/calgary.png",
+  };
+  await assertSucceeds(setDoc(
+    doc(
+      testEnv.authenticatedContext("manager").firestore(),
+      "organizations/org-1/chatRooms/legacy-hub-room",
+    ),
+    legacyRoom,
+  ));
+  await assertFails(setDoc(
+    doc(
+      testEnv.authenticatedContext("manager").firestore(),
+      "organizations/org-1/chatRooms/forged-legacy-hub-room",
+    ),
+    { ...legacyRoom, name: "Wrong name – General" },
   ));
 });

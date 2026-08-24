@@ -20,6 +20,9 @@ const {
   structureRoomTeamLinkId,
   teamMemberRecordsMatchOrg,
 } = require("../lib/adminLogic");
+const {
+  preferredStructureRoomId,
+} = require("../lib/structureChatRooms");
 
 test("platform owners and super admins can access the admin org scope correctly", () => {
   assert.equal(canAccessOrg({ id: "owner", role: "platformOwner", isActive: true }, "org-2"), true);
@@ -324,6 +327,20 @@ test("archived team rooms stay unlinked until an explicit restore", () => {
   assert.equal(structureRoomTeamLinkId("room-1", false, false), "room-1");
   assert.equal(structureRoomTeamLinkId("room-1", true, false), null);
   assert.equal(structureRoomTeamLinkId("room-1", true, true), "room-1");
+});
+
+test("a synchronized room wins a released-client duplicate race", () => {
+  assert.equal(preferredStructureRoomId([
+    { id: "legacy-random" },
+    { id: "managed-team", managedScope: "team" },
+  ], "team", "managed-team"), "managed-team");
+  assert.equal(preferredStructureRoomId([
+    { id: "legacy-random" },
+  ], "hub", "managed-hub"), "legacy-random");
+  assert.equal(preferredStructureRoomId([
+    { id: "active-random" },
+    { id: "managed-hub", managedScope: "hub", isArchived: true },
+  ], "hub", "managed-hub"), "active-random");
 });
 
 test("team member records must all exist in the target organization", () => {

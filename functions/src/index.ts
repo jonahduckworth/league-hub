@@ -51,5 +51,6 @@ export { deleteOwnAccount } from "./accountDeletion";
 export { onMessageReportCreated } from "./messageReports";
 export {
   onHubStructureWritten,
+  onStructureChatRoomCreated,
   onTeamStructureWritten,
 } from "./structureChatRooms";

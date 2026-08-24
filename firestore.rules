@@ -52,9 +52,13 @@ service cloud.firestore {
     }
 
     function structureManagedRoomFieldsUnchanged() {
-      return !isStructureManagedRoom(request.resource.data)
+      return (
+          !isStructureManagedRoom(resource.data)
+          && !isStructureManagedRoom(request.resource.data)
+        )
         || (
           isStructureManagedRoom(resource.data)
+          && isStructureManagedRoom(request.resource.data)
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
             'name',
             'type',
@@ -65,6 +69,42 @@ service cloud.firestore {
             'roomImageUrl',
             'managedScope'
           ])
+        );
+    }
+
+    function isLegacyHubGeneralRoomCreate(orgId, room) {
+      let hub = get(hubPath(orgId, room.leagueId, room.hubId)).data;
+      return isStructureManagedRoom(room)
+        && room.keys().hasOnly([
+          'orgId',
+          'name',
+          'type',
+          'leagueId',
+          'hubId',
+          'teamId',
+          'participants',
+          'isArchived',
+          'createdAt',
+          'lastMessage',
+          'lastMessageAt',
+          'lastMessageBy',
+          'roomIconName',
+          'roomImageUrl'
+        ])
+        && room.teamId == null
+        && room.participants is list
+        && room.participants.size() == 0
+        && room.isArchived == false
+        && room.lastMessage == null
+        && room.lastMessageBy == null
+        && room.name == hub.name + ' – General'
+        && (
+          ('logoUrl' in hub && room.roomImageUrl == hub.logoUrl)
+          || (!('logoUrl' in hub) && room.roomImageUrl == null)
+        )
+        && (
+          ('iconName' in hub && room.roomIconName == hub.iconName)
+          || (!('iconName' in hub) && room.roomIconName == null)
         );
     }
 
@@ -840,7 +880,10 @@ service cloud.firestore {
             canManageContent(orgId)
             && request.resource.data.orgId == orgId
             && request.resource.data.type in ['league', 'event']
-            && !isStructureManagedRoom(request.resource.data)
+            && (
+              !isStructureManagedRoom(request.resource.data)
+              || isLegacyHubGeneralRoomCreate(orgId, request.resource.data)
+            )
             && canManageScopedTarget(request.resource.data)
             && scopedTargetExists(orgId, request.resource.data)
           )
