@@ -1273,6 +1273,28 @@ void main() {
 
         expect(result, equals('roomId2'));
       });
+
+      test('rejects client creation of Structure-managed General rooms', () {
+        for (final role in UserRole.values) {
+          final actor = makeUser(
+            role: role,
+            leagueIds: const ['l1'],
+            hubIds: const ['h1'],
+          );
+          expect(
+            () => afs.createChatRoom(
+              actor,
+              'org1',
+              'Hub One - General',
+              ChatRoomType.league,
+              leagueId: 'l1',
+              hubId: 'h1',
+            ),
+            throwsA(isA<PermissionDeniedException>()),
+          );
+        }
+        verifyZeroInteractions(mockFs);
+      });
     });
 
     group('archiveChatRoom', () {

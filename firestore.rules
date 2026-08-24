@@ -44,21 +44,28 @@ service cloud.firestore {
       return /databases/$(database)/documents/organizations/$(orgId)/chatRooms/$(roomId)/messages/$(messageId);
     }
 
+    function isStructureManagedRoom(room) {
+      return room.keys().hasAll(['type', 'hubId'])
+        && room.type == 'league'
+        && room.hubId is string
+        && room.hubId.size() > 0;
+    }
+
     function structureManagedRoomFieldsUnchanged() {
-      return !(
-        resource.data.type == 'league'
-        && resource.data.hubId is string
-        && resource.data.hubId.size() > 0
-      ) || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'name',
-        'type',
-        'leagueId',
-        'hubId',
-        'teamId',
-        'roomIconName',
-        'roomImageUrl',
-        'managedScope'
-      ]);
+      return !isStructureManagedRoom(request.resource.data)
+        || (
+          isStructureManagedRoom(resource.data)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'name',
+            'type',
+            'leagueId',
+            'hubId',
+            'teamId',
+            'roomIconName',
+            'roomImageUrl',
+            'managedScope'
+          ])
+        );
     }
 
     function leaguePath(orgId, leagueId) {
@@ -833,6 +840,7 @@ service cloud.firestore {
             canManageContent(orgId)
             && request.resource.data.orgId == orgId
             && request.resource.data.type in ['league', 'event']
+            && !isStructureManagedRoom(request.resource.data)
             && canManageScopedTarget(request.resource.data)
             && scopedTargetExists(orgId, request.resource.data)
           )

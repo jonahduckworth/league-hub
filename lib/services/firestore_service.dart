@@ -309,8 +309,46 @@ class FirestoreService {
   }
 
   /// Archives a chat room (soft delete).
-  Future<void> archiveChatRoom(String orgId, String roomId) =>
-      _chatRoomsRef(orgId).doc(roomId).update({'isArchived': true});
+  Future<void> archiveChatRoom(String orgId, String roomId) async {
+    final roomRef = _chatRoomsRef(orgId).doc(roomId);
+    await _db.runTransaction((transaction) async {
+      final room = await transaction.get(roomRef);
+      if (!room.exists) {
+        throw StateError('Chat room $roomId does not exist');
+      }
+      final rawData = room.data();
+      if (rawData is! Map<String, dynamic>) {
+        throw StateError('Chat room $roomId has invalid data');
+      }
+      final data = rawData;
+      final leagueId = data['leagueId'] as String?;
+      final hubId = data['hubId'] as String?;
+      final teamId = data['teamId'] as String?;
+      DocumentReference<Map<String, dynamic>>? teamRef;
+      DocumentSnapshot<Map<String, dynamic>>? team;
+      if (leagueId?.isNotEmpty == true &&
+          hubId?.isNotEmpty == true &&
+          teamId?.isNotEmpty == true) {
+        teamRef = _db
+            .collection(AppConstants.orgsCollection)
+            .doc(orgId)
+            .collection(AppConstants.leaguesCollection)
+            .doc(leagueId)
+            .collection(AppConstants.hubsCollection)
+            .doc(hubId)
+            .collection(AppConstants.teamsCollection)
+            .doc(teamId);
+        team = await transaction.get(teamRef);
+      }
+
+      transaction.update(roomRef, {'isArchived': true});
+      if (teamRef != null &&
+          team?.exists == true &&
+          team?.data()?['chatRoomId'] == roomId) {
+        transaction.update(teamRef, {'chatRoomId': null});
+      }
+    });
+  }
 
   Future<void> updateChatRoomFields(
     String orgId,

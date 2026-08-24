@@ -957,6 +957,12 @@ test("Structure-managed General room identity is server-owned", async () => {
       name: "Calgary",
     }],
     ["organizations/org-1/chatRooms/hub-general", generalRoom],
+    ["organizations/org-1/chatRooms/event-room", {
+      ...generalRoom,
+      id: "event-room",
+      type: "event",
+      name: "Hub event",
+    }],
     ["users/owner", user({ id: "owner", role: "platformOwner" })],
     ["users/admin", user({ id: "admin", role: "superAdmin" })],
     ["users/manager", user({
@@ -969,12 +975,17 @@ test("Structure-managed General room identity is server-owned", async () => {
   ]);
 
   for (const userId of ["owner", "admin", "manager", "staff"]) {
+    const userDb = testEnv.authenticatedContext(userId).firestore();
     const roomRef = doc(
-      testEnv.authenticatedContext(userId).firestore(),
+      userDb,
       "organizations/org-1/chatRooms/hub-general",
     );
     await assertFails(updateDoc(roomRef, { name: "Drifted name" }));
     await assertFails(updateDoc(roomRef, { roomImageUrl: null }));
+    await assertFails(setDoc(
+      doc(userDb, `organizations/org-1/chatRooms/forged-${userId}`),
+      { ...generalRoom, id: `forged-${userId}` },
+    ));
   }
 
   const managerRoom = doc(
@@ -982,4 +993,11 @@ test("Structure-managed General room identity is server-owned", async () => {
     "organizations/org-1/chatRooms/hub-general",
   );
   await assertSucceeds(updateDoc(managerRoom, { isArchived: true }));
+  await assertFails(updateDoc(
+    doc(
+      testEnv.authenticatedContext("manager").firestore(),
+      "organizations/org-1/chatRooms/event-room",
+    ),
+    { type: "league" },
+  ));
 });

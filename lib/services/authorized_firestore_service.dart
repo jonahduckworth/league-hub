@@ -344,12 +344,14 @@ class AuthorizedFirestoreService {
           !participants.contains(actor.id)) {
         _deny('createChatRoom', actor);
       }
-    } else if (!_ps.canCreateChatRoomInScope(
-      actor,
-      leagueId: leagueId,
-      hubId: hubId,
-      teamId: teamId,
-    )) {
+    } else if (
+        (type == ChatRoomType.league && hubId?.isNotEmpty == true) ||
+        !_ps.canCreateChatRoomInScope(
+          actor,
+          leagueId: leagueId,
+          hubId: hubId,
+          teamId: teamId,
+        )) {
       _deny('createChatRoom', actor);
     }
     return _fs.createChatRoom(orgId, name, type,

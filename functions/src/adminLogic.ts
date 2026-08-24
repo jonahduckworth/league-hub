@@ -305,6 +305,14 @@ export function chatRoomSetupPreviewToken(plan: ChatRoomSetupPlan): string {
   return createHash("sha256").update(serialized).digest("hex");
 }
 
+export function structureRoomTeamLinkId(
+  roomId: string,
+  isArchived: boolean,
+  restoreArchived: boolean,
+): string | null {
+  return isArchived && !restoreArchived ? null : roomId;
+}
+
 export function teamMemberRecordsMatchOrg(
   memberIds: string[],
   orgId: string,

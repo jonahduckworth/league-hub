@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { structureRoomTeamLinkId } from "./adminLogic";
 import { db } from "./helpers";
 
 type StructureRoomScope = "hub" | "team";
@@ -120,11 +121,15 @@ export async function syncStructureChatRoom(input: StructureRoomInput): Promise<
       }, { merge: true });
     }
 
-    if (
-      input.scope === "team" &&
-      structure.data()?.chatRoomId !== roomRef.id
-    ) {
-      transaction.update(input.structureRef, { chatRoomId: roomRef.id });
+    if (input.scope === "team") {
+      const teamLinkId = structureRoomTeamLinkId(
+        roomRef.id,
+        existing?.data().isArchived === true,
+        input.restoreArchived === true,
+      );
+      if (structure.data()?.chatRoomId !== teamLinkId) {
+        transaction.update(input.structureRef, { chatRoomId: teamLinkId });
+      }
     }
     return roomRef.id;
   });

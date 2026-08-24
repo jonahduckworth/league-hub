@@ -850,16 +850,6 @@ class _AddHubScreenState extends ConsumerState<AddHubScreen> {
         createdAt: DateTime.now(),
       );
       await authDb.createHub(currentUser, orgId, league.id, hub);
-      await authDb.createChatRoom(
-        currentUser,
-        orgId,
-        '$name – General',
-        ChatRoomType.league,
-        leagueId: league.id,
-        hubId: id,
-        roomIconName: hub.iconName,
-        roomImageUrl: hub.logoUrl,
-      );
       if (mounted) context.pop();
     } on PermissionDeniedException {
       if (mounted) {

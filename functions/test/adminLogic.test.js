@@ -17,6 +17,7 @@ const {
   nullableStringPatch,
   normalizeStringArray,
   outranks,
+  structureRoomTeamLinkId,
   teamMemberRecordsMatchOrg,
 } = require("../lib/adminLogic");
 
@@ -317,6 +318,12 @@ test("chat room setup preview tokens change when an exact planned action changes
     ...basePlan,
     targets: [...basePlan.targets].reverse(),
   }));
+});
+
+test("archived team rooms stay unlinked until an explicit restore", () => {
+  assert.equal(structureRoomTeamLinkId("room-1", false, false), "room-1");
+  assert.equal(structureRoomTeamLinkId("room-1", true, false), null);
+  assert.equal(structureRoomTeamLinkId("room-1", true, true), "room-1");
 });
 
 test("team member records must all exist in the target organization", () => {
