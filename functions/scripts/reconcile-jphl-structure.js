@@ -58,7 +58,7 @@ const hubs = [
     slug: "bellingham-hc",
     name: "Bellingham HC",
     location: "Bellingham, WA",
-    logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Bellingham HC Logo - White.png",
+    logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Bellingham%20HC%20Logo%20-%20White.png",
     teams: [["398224", "17U"]],
   },
   {
@@ -177,7 +177,7 @@ const hubs = [
     slug: "velocity-ha",
     name: "Velocity HA",
     location: "Montreal, QC",
-    logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Colour Logo_on blk@2x.png",
+    logoSource: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Colour%20Logo_on%20blk@2x.png",
     teams: [["399986", "18U"]],
   },
   {
@@ -732,7 +732,8 @@ function resolveLogoUrls(state) {
   const existingHubs = new Map(state.hubDocs.map((doc) => [doc.id, doc.data()]));
   return new Map(hubs.map((hub) => {
     const existing = existingHubs.get(hub.id)?.logoUrl;
-    return [hub.id, typeof existing === "string" && existing.trim() ? existing : hub.logoSource];
+    const selected = typeof existing === "string" && existing.trim() ? existing : hub.logoSource;
+    return [hub.id, new URL(selected).toString()];
   }));
 }
 

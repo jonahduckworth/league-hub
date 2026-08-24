@@ -80,12 +80,20 @@ function classifyChangedFiles(files) {
   const functionsRuntimeChanged = files.some((file) =>
     file.startsWith("functions/src/") || SHARED_RUNTIME_FILES.has(file),
   );
+  const rulesChanged = files.some((file) =>
+    file === "firestore.rules" ||
+    file === "storage.rules" ||
+    file === "firestore.indexes.json" ||
+    file === "firebase.rules-test.json",
+  );
   const adminChanged = files.some((file) => file.startsWith("apps/admin/"));
   const marketingChanged = files.some((file) => file.startsWith("apps/marketing/"));
 
   return {
     functionsValidate: workflowChanged || firebaseConfigChanged || functionsValidationChanged || adminChanged,
     functionsDeploy: functionsRuntimeChanged,
+    rulesValidate: workflowChanged || firebaseConfigChanged || rulesChanged,
+    rulesDeploy: firebaseConfigChanged || rulesChanged,
     adminValidate: workflowChanged || firebaseConfigChanged || adminChanged,
     adminDeploy: firebaseConfigChanged || adminChanged,
     marketingValidate: workflowChanged || firebaseConfigChanged || marketingChanged,
@@ -191,6 +199,8 @@ function runPlan(args) {
     functions_deploy: classification.functionsDeploy,
     functions_all: plan.all,
     functions_targets: plan.targets.join(","),
+    rules_validate: classification.rulesValidate,
+    rules_deploy: classification.rulesDeploy,
     admin_validate: classification.adminValidate,
     admin_deploy: classification.adminDeploy,
     marketing_validate: classification.marketingValidate,

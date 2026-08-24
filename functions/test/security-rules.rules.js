@@ -654,7 +654,7 @@ test("message reports must reference a readable real message", async () => {
   ));
 });
 
-test("direct room metadata is private to participants", async () => {
+test("direct room messages remain private when admins can inspect room metadata", async () => {
   const dm = {
     id: "dm-1",
     orgId: "org-1",
@@ -669,11 +669,26 @@ test("direct room metadata is private to participants", async () => {
     ["users/member", user({id: "member", displayName: "Member"})],
     ["users/peer", user({id: "peer", displayName: "Peer"})],
     ["users/outsider", user({id: "outsider", displayName: "Outsider"})],
+    ["users/admin", user({
+      id: "admin",
+      displayName: "Admin",
+      role: "superAdmin",
+    })],
     ["organizations/org-1/chatRooms/dm-1", dm],
+    ["organizations/org-1/chatRooms/dm-1/messages/message-1", {
+      chatRoomId: "dm-1",
+      senderId: "member",
+      senderName: "Member",
+      text: "Private message",
+      previewText: "Private message",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      readBy: ["member"],
+    }],
   ]);
 
   const participantDb = testEnv.authenticatedContext("member").firestore();
   const outsiderDb = testEnv.authenticatedContext("outsider").firestore();
+  const adminDb = testEnv.authenticatedContext("admin").firestore();
   await assertSucceeds(getDoc(doc(
     participantDb,
     "organizations/org-1/chatRooms/dm-1",
@@ -681,6 +696,18 @@ test("direct room metadata is private to participants", async () => {
   await assertFails(getDoc(doc(
     outsiderDb,
     "organizations/org-1/chatRooms/dm-1",
+  )));
+  await assertSucceeds(getDoc(doc(
+    adminDb,
+    "organizations/org-1/chatRooms/dm-1",
+  )));
+  await assertSucceeds(getDoc(doc(
+    participantDb,
+    "organizations/org-1/chatRooms/dm-1/messages/message-1",
+  )));
+  await assertFails(getDoc(doc(
+    adminDb,
+    "organizations/org-1/chatRooms/dm-1/messages/message-1",
   )));
   await assertSucceeds(getDocs(query(
     collection(participantDb, "organizations/org-1/chatRooms"),
@@ -775,6 +802,57 @@ test("staff can send constrained messages only to readable rooms", async () => {
     memberDb,
     "organizations/org-1/chatRooms/direct-room/messages/blocked",
   ), validMessage("direct-room", "member", "Member")));
+});
+
+test("shared-room posting follows platform owner, admin, manager, and staff scope", async () => {
+  const hubRoom = {
+    id: "hub-room",
+    orgId: "org-1",
+    type: "league",
+    leagueId: "league-1",
+    hubId: "hub-1",
+    teamId: null,
+    participants: [],
+    name: "Hub - General",
+    isArchived: false,
+  };
+  const teamRoom = {
+    ...hubRoom,
+    id: "team-room",
+    teamId: "team-1",
+    name: "Team - General",
+  };
+  const actors = [
+    user({id: "owner", displayName: "Owner", role: "platformOwner", orgId: null}),
+    user({id: "admin", displayName: "Admin", role: "superAdmin"}),
+    user({id: "manager", displayName: "Manager", role: "managerAdmin", hubIds: ["hub-1"]}),
+    user({id: "staff", displayName: "Staff", teamIds: ["team-1"]}),
+    user({id: "outsider", displayName: "Outsider"}),
+  ];
+  await seedFirestore([
+    ...actors.map((actor) => [`users/${actor.id}`, actor]),
+    ["organizations/org-1/chatRooms/hub-room", hubRoom],
+    ["organizations/org-1/chatRooms/team-room", teamRoom],
+  ]);
+
+  const post = (actor, roomId) => setDoc(doc(
+    testEnv.authenticatedContext(actor.id).firestore(),
+    `organizations/org-1/chatRooms/${roomId}/messages/${actor.id}`,
+  ), {
+    chatRoomId: roomId,
+    senderId: actor.id,
+    senderName: actor.displayName,
+    text: "Hello",
+    previewText: "Hello",
+    createdAt: serverTimestamp(),
+    readBy: [actor.id],
+  });
+
+  await assertSucceeds(post(actors[0], "hub-room"));
+  await assertSucceeds(post(actors[1], "hub-room"));
+  await assertSucceeds(post(actors[2], "hub-room"));
+  await assertSucceeds(post(actors[3], "team-room"));
+  await assertFails(post(actors[4], "hub-room"));
 });
 
 test("posting requires accepted community guidelines", async () => {

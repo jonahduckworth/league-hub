@@ -155,6 +155,20 @@ export type ChatRoom = {
   roomImageUrl?: string | null;
 };
 
+export type ChatMessage = {
+  id: string;
+  chatRoomId: string;
+  senderId: string;
+  senderName: string;
+  text?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+  createdAt?: unknown;
+  editedAt?: unknown;
+  deleted: boolean;
+  readBy: string[];
+};
+
 export type AuditLog = {
   id: string;
   action: string;

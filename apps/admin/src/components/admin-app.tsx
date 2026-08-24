@@ -28,6 +28,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Send,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -52,7 +53,7 @@ import Image from "next/image";
 import { auth, db, demoMode, firebaseProjectId, hasFirebaseConfig, storage } from "@/lib/firebase";
 import { formatAdminActionError } from "@/lib/action-errors";
 import { callAdmin, type CallableName } from "@/lib/callables";
-import { useAdminData } from "@/lib/firestore";
+import { sendChatRoomMessage, useAdminData, useChatRoomMessages } from "@/lib/firestore";
 import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignments, roleDetails, roleLabel } from "@/lib/admin-access";
 import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
@@ -486,7 +487,7 @@ function renderSection(section: SectionId, data: AdminData, currentUser: AppUser
     case "schedule":
       return <ScheduleSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "chats":
-      return <ChatRoomsSection data={data} runAction={runAction} />;
+      return <ChatRoomsSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "announcements":
       return <AnnouncementsSection data={data} runAction={runAction} />;
     case "policies":
@@ -3053,7 +3054,15 @@ function chatRoomViewLabel(room: ChatRoom): string {
   return room.type === "event" ? "Event room" : "League room";
 }
 
-function ChatRoomsSection({ data, runAction }: { data: AdminData; runAction: ActionRunner }) {
+function ChatRoomsSection({
+  data,
+  currentUser,
+  runAction
+}: {
+  data: AdminData;
+  currentUser: AppUser;
+  runAction: ActionRunner;
+}) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ChatRoomView>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -3199,7 +3208,7 @@ function ChatRoomsSection({ data, runAction }: { data: AdminData; runAction: Act
           />
         )}
       </ManagementWorkspace>
-      <ChatRoomDrawer room={selectedRoom} data={data} runAction={runAction} onClose={() => setSelectedId(null)} />
+      <ChatRoomDrawer room={selectedRoom} data={data} currentUser={currentUser} runAction={runAction} onClose={() => setSelectedId(null)} />
       <SideDrawer
         open={Boolean(preview)}
         title="Room setup preview"
@@ -3260,11 +3269,13 @@ function ChatRoomsSection({ data, runAction }: { data: AdminData; runAction: Act
 function ChatRoomDrawer({
   room,
   data,
+  currentUser,
   runAction,
   onClose
 }: {
   room: ChatRoom | null;
   data: AdminData;
+  currentUser: AppUser;
   runAction: ActionRunner;
   onClose: () => void;
 }) {
@@ -3272,13 +3283,20 @@ function ChatRoomDrawer({
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [messageError, setMessageError] = useState<string | null>(null);
   const archiveCancelRef = useRef<HTMLButtonElement>(null);
+  const conversationEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setName(room?.name ?? "");
     setSaving(false);
     setArchiving(false);
     setConfirmingArchive(false);
+    setDraft("");
+    setSending(false);
+    setMessageError(null);
   }, [room]);
 
   useEffect(() => {
@@ -3288,10 +3306,41 @@ function ChatRoomDrawer({
   }, [confirmingArchive]);
 
   const managed = room?.type !== "direct";
+  const orgId = room?.orgId ?? data.selectedOrg?.id;
+  const conversation = useChatRoomMessages(
+    managed ? orgId : undefined,
+    managed ? room?.id : undefined
+  );
   const league = room?.leagueId ? data.leagues.find((item) => item.id === room.leagueId) : undefined;
   const hub = room?.hubId ? data.hubs.find((item) => item.id === room.hubId) : undefined;
   const team = room?.teamId ? data.teams.find((item) => item.id === room.teamId) : undefined;
   const structureSynced = Boolean(room?.type === "league" && room.hubId);
+
+  useEffect(() => {
+    if (conversation.loading || conversation.messages.length === 0) return;
+    conversationEndRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [conversation.loading, conversation.messages]);
+
+  async function sendMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!room || !managed || !orgId || sending) return;
+    setSending(true);
+    setMessageError(null);
+    try {
+      await sendChatRoomMessage({
+        orgId,
+        roomId: room.id,
+        senderId: currentUser.id,
+        senderName: currentUser.displayName,
+        text: draft
+      });
+      setDraft("");
+    } catch (caught) {
+      setMessageError(caught instanceof Error ? caught.message : "The message could not be sent.");
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function save() {
     if (!room || !managed || structureSynced || !name.trim()) return;
@@ -3379,6 +3428,80 @@ function ChatRoomDrawer({
               <InfoRow label="Participants" value={room.type === "direct" ? room.participants.length : "Scope-based access"} />
             </div>
           </DrawerSection>
+          {managed && (
+            <DrawerSection title="Conversation">
+              <div
+                className="thin-scrollbar grid max-h-[42vh] min-h-52 gap-3 overflow-y-auto rounded-2xl border border-line bg-[#f7f9fc] p-3 sm:p-4"
+                aria-busy={conversation.loading}
+                aria-label={`${room.name} conversation`}
+                aria-relevant="additions text"
+                role="log"
+              >
+                {conversation.loading ? (
+                  <div className="grid place-items-center py-12 text-center text-sm font-semibold text-muted">
+                    <RefreshCw className="mb-3 size-5 animate-spin text-teal" aria-hidden />
+                    Loading conversation…
+                  </div>
+                ) : conversation.error ? (
+                  <div className="grid place-items-center py-8 text-center">
+                    <ShieldAlert className="size-6 text-coral" aria-hidden />
+                    <p className="mt-3 text-sm font-bold text-ink">Conversation unavailable</p>
+                    <p className="mt-1 max-w-sm text-sm font-medium leading-6 text-muted">{conversation.error}</p>
+                    <Button variant="secondary" className="mt-4" onClick={conversation.retry}>
+                      <RefreshCw className="size-4" aria-hidden />Retry
+                    </Button>
+                  </div>
+                ) : conversation.messages.length === 0 ? (
+                  <div className="grid place-items-center py-10 text-center">
+                    <MessageSquare className="size-7 text-teal" aria-hidden />
+                    <p className="mt-3 text-sm font-extrabold text-ink">No messages yet</p>
+                    <p className="mt-1 max-w-sm text-sm font-medium leading-6 text-muted">Start the conversation from the admin workspace or the mobile app.</p>
+                  </div>
+                ) : (
+                  conversation.messages.map((message) => {
+                    const ownMessage = message.senderId === currentUser.id;
+                    return (
+                      <article key={message.id} className={`flex ${ownMessage ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[88%] rounded-2xl px-3.5 py-3 shadow-sm ${ownMessage ? "bg-teal text-white" : "border border-line bg-white text-ink"}`}>
+                          <div className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs font-bold ${ownMessage ? "text-white/80" : "text-muted"}`}>
+                            <span>{message.senderName || "Unknown member"}</span>
+                            {message.createdAt != null ? <span><RelativeTime value={message.createdAt} /></span> : null}
+                          </div>
+                          <p className={`mt-1 whitespace-pre-wrap break-words text-sm font-medium leading-6 ${message.deleted ? "italic opacity-70" : ""}`}>
+                            {message.deleted ? "Message removed" : message.text || (message.mediaUrl ? "Attachment" : "Message unavailable")}
+                          </p>
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+                <div ref={conversationEndRef} />
+              </div>
+              <form className="grid gap-2" onSubmit={sendMessage}>
+                <Field label="Post a message">
+                  <Textarea
+                    value={draft}
+                    onChange={(event) => {
+                      setDraft(event.target.value);
+                      setMessageError(null);
+                    }}
+                    placeholder="Write to this room…"
+                    maxLength={4000}
+                    rows={3}
+                    disabled={sending}
+                  />
+                </Field>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-xs font-semibold tabular-nums text-muted">{draft.length.toLocaleString()}/4,000</span>
+                  <Button type="submit" disabled={sending || !draft.trim()}>
+                    {sending ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <Send className="size-4" aria-hidden />}
+                    {sending ? "Sending…" : "Send message"}
+                  </Button>
+                </div>
+                {messageError && <StatusNotice tone="error" message={messageError} />}
+              </form>
+            </DrawerSection>
+          )}
           {!managed && (
             <div className="rounded-2xl border border-line bg-white p-4 text-sm font-medium leading-6 text-muted">
               Direct messages are private conversations. Administrators can see that the room exists, but cannot rename or archive it here.

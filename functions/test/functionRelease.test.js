@@ -22,6 +22,8 @@ test("classifies workflow changes as validation-only", () => {
     {
       functionsValidate: true,
       functionsDeploy: false,
+      rulesValidate: true,
+      rulesDeploy: false,
       adminValidate: true,
       adminDeploy: false,
       marketingValidate: true,
@@ -36,12 +38,24 @@ test("keeps Functions validation in the gate for admin changes", () => {
   assert.equal(classification.functionsDeploy, false);
   assert.equal(classification.adminValidate, true);
   assert.equal(classification.adminDeploy, true);
+  assert.equal(classification.rulesDeploy, false);
+});
+
+test("validates and deploys Firestore, Storage, and index changes", () => {
+  for (const file of ["firestore.rules", "storage.rules", "firestore.indexes.json"]) {
+    const classification = classifyChangedFiles([file]);
+    assert.equal(classification.rulesValidate, true, file);
+    assert.equal(classification.rulesDeploy, true, file);
+    assert.equal(classification.functionsDeploy, false, file);
+  }
 });
 
 test("validates Firebase configuration without forcing an all-Functions release", () => {
   const classification = classifyChangedFiles(["firebase.json"]);
   assert.equal(classification.functionsValidate, true);
   assert.equal(classification.functionsDeploy, false);
+  assert.equal(classification.rulesValidate, true);
+  assert.equal(classification.rulesDeploy, true);
   assert.equal(classification.adminDeploy, true);
   assert.equal(classification.marketingDeploy, true);
 });

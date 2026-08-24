@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const adminDataMocks = vi.hoisted(() => ({
   reloadStructure: vi.fn(),
+  sendChatRoomMessage: vi.fn(),
   setSelectedOrgId: vi.fn(),
+  useChatRoomMessages: vi.fn(),
   useAdminData: vi.fn()
 }));
 
@@ -17,7 +19,9 @@ vi.mock("@/lib/firebase", () => ({
 }));
 
 vi.mock("@/lib/firestore", () => ({
-  useAdminData: adminDataMocks.useAdminData
+  sendChatRoomMessage: adminDataMocks.sendChatRoomMessage,
+  useAdminData: adminDataMocks.useAdminData,
+  useChatRoomMessages: adminDataMocks.useChatRoomMessages
 }));
 
 vi.mock("@/lib/callables", () => ({
@@ -56,7 +60,14 @@ describe("AdminApp operations shell", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/admin");
     adminDataMocks.reloadStructure.mockReset().mockResolvedValue(undefined);
+    adminDataMocks.sendChatRoomMessage.mockReset().mockResolvedValue(undefined);
     adminDataMocks.setSelectedOrgId.mockReset();
+    adminDataMocks.useChatRoomMessages.mockReset().mockReturnValue({
+      messages: [],
+      loading: false,
+      error: undefined,
+      retry: vi.fn()
+    });
     adminDataMocks.useAdminData.mockReset().mockReturnValue({
       data: {
         ...demoData,
@@ -163,11 +174,54 @@ describe("AdminApp operations shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open Calgary U11 AA - General chat room details" }));
     const managedDrawer = await screen.findByRole("dialog", { name: "Calgary U11 AA - General" });
     expect(within(managedDrawer).getByText(/managed from Structure/i)).toBeTruthy();
+    expect(within(managedDrawer).getByRole("heading", { name: "Conversation" })).toBeTruthy();
+    expect(within(managedDrawer).getAllByText("No messages yet").length).toBeGreaterThan(0);
+    expect(within(managedDrawer).getByRole("textbox", { name: "Post a message" })).toBeTruthy();
     expect(within(managedDrawer).queryByRole("button", { name: /save changes/i })).toBeNull();
     expect(within(managedDrawer).queryByRole("textbox", { name: "Room name" })).toBeNull();
     fireEvent.click(within(managedDrawer).getByRole("button", { name: "Archive room" }));
     const cancelArchive = within(managedDrawer).getByRole("button", { name: "Cancel" });
     await waitFor(() => expect(document.activeElement).toBe(cancelArchive));
+  });
+
+  it("loads a shared-room conversation and posts as the signed-in administrator", async () => {
+    window.history.replaceState(null, "", "/admin#chats");
+    adminDataMocks.useChatRoomMessages.mockReturnValue({
+      messages: [
+        {
+          id: "message-1",
+          chatRoomId: "room-1",
+          senderId: "member-1",
+          senderName: "Taylor Member",
+          text: "Practice moves to 7 PM.",
+          createdAt: new Date().toISOString(),
+          deleted: false,
+          readBy: []
+        }
+      ],
+      loading: false,
+      error: undefined,
+      retry: vi.fn()
+    });
+
+    render(<AdminApp />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open Winter Hockey - General chat room details" }));
+    const drawer = await screen.findByRole("dialog", { name: "Winter Hockey - General" });
+    expect(within(drawer).getByText("Taylor Member")).toBeTruthy();
+    expect(within(drawer).getByText("Practice moves to 7 PM.")).toBeTruthy();
+
+    fireEvent.change(within(drawer).getByRole("textbox", { name: "Post a message" }), {
+      target: { value: "Thanks — the schedule is updated." }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(adminDataMocks.sendChatRoomMessage).toHaveBeenCalledWith({
+      orgId: "org-demo",
+      roomId: "room-1",
+      senderId: demoUser.id,
+      senderName: demoUser.displayName,
+      text: "Thanks — the schedule is updated."
+    }));
   });
 
   it("explains automatic General chat creation in hub and team drawers", async () => {
