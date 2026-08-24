@@ -11,6 +11,11 @@
         "marketing": [
           "league-hub-marketing"
         ]
+      },
+      "storage": {
+        "primary": [
+          "jdb-league-hub.firebasestorage.app"
+        ]
       }
     }
   },

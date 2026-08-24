@@ -63,8 +63,13 @@ test("validates Firebase configuration without forcing an all-Functions release"
 });
 
 test("pins Storage rules to the app's existing Firebase bucket", () => {
+  const root = path.resolve(__dirname, "../..");
   const firebaseConfig = JSON.parse(fs.readFileSync(
-    path.resolve(__dirname, "../../firebase.json"),
+    path.join(root, "firebase.json"),
+    "utf8",
+  ));
+  const firebaseRc = JSON.parse(fs.readFileSync(
+    path.join(root, ".firebaserc"),
     "utf8",
   ));
   assert.deepEqual(firebaseConfig.storage, [{
@@ -72,6 +77,9 @@ test("pins Storage rules to the app's existing Firebase bucket", () => {
     rules: "storage.rules",
     target: "primary",
   }]);
+  assert.deepEqual(firebaseRc.targets["jdb-league-hub"].storage, {
+    primary: ["jdb-league-hub.firebasestorage.app"],
+  });
 });
 
 test("requires an updated targeted release plan for Functions source changes", () => {
