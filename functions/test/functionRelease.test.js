@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 
 const {
@@ -58,6 +60,18 @@ test("validates Firebase configuration without forcing an all-Functions release"
   assert.equal(classification.rulesDeploy, true);
   assert.equal(classification.adminDeploy, true);
   assert.equal(classification.marketingDeploy, true);
+});
+
+test("pins Storage rules to the app's existing Firebase bucket", () => {
+  const firebaseConfig = JSON.parse(fs.readFileSync(
+    path.resolve(__dirname, "../../firebase.json"),
+    "utf8",
+  ));
+  assert.deepEqual(firebaseConfig.storage, [{
+    bucket: "jdb-league-hub.firebasestorage.app",
+    rules: "storage.rules",
+    target: "primary",
+  }]);
 });
 
 test("requires an updated targeted release plan for Functions source changes", () => {
