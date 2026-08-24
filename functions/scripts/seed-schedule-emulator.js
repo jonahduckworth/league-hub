@@ -11,7 +11,7 @@ const USER_EMAIL = "simulator@leaguehub.local";
 const USER_PASSWORD = "LeagueHub123!";
 const JPHL_URL = "https://juniorprospectshockeyleague.com";
 const JPHL_LOGO_URLS = Object.freeze({
-  "Bellingham HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Bellingham HC Logo - White.png",
+  "Bellingham HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Bellingham%20HC%20Logo%20-%20White.png",
   "Bow Valley HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Bow%20Valley%20Circle%20Badge.png",
   "Calgary Rockies": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Calgary%20Rockies.png",
   "Calgary Stallions": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Calgary%20Stallions.png",
@@ -29,7 +29,7 @@ const JPHL_LOGO_URLS = Object.freeze({
   "South Sask HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/team/319121/16839aad-a9c3-452b-b490-ab0f2cbe31e0.png",
   "Surrey Eagles HA": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/SE_ACADEMEY_LOGO.png",
   "Titans Hockey Union": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Logo%20PNGs/Titans%20Hockey%20Union.png",
-  "Velocity HA": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Colour Logo_on blk@2x.png",
+  "Velocity HA": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Colour%20Logo_on%20blk@2x.png",
   "Victoria HA": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Victoria%20HC%20On%20White%20-%20PNG.png",
   "Wolves HC": "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/files/Wolves%20HC%20-%20PNG.png",
 });

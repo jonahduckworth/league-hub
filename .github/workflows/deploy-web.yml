@@ -14,7 +14,11 @@ on:
       - "apps/admin/**"
       - "apps/marketing/**"
       - "firebase.json"
+      - "firebase.rules-test.json"
+      - "firestore.indexes.json"
+      - "firestore.rules"
       - "functions/**"
+      - "storage.rules"
   workflow_dispatch:
 
 concurrency:
@@ -35,6 +39,8 @@ jobs:
       functions_deploy: ${{ steps.plan.outputs.functions_deploy }}
       functions_all: ${{ steps.plan.outputs.functions_all }}
       functions_targets: ${{ steps.plan.outputs.functions_targets }}
+      rules_validate: ${{ steps.plan.outputs.rules_validate }}
+      rules_deploy: ${{ steps.plan.outputs.rules_deploy }}
       admin_validate: ${{ steps.plan.outputs.admin_validate }}
       admin_deploy: ${{ steps.plan.outputs.admin_deploy }}
       marketing_validate: ${{ steps.plan.outputs.marketing_validate }}
@@ -55,9 +61,11 @@ jobs:
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             {
               echo "functions_validate=true"
-              echo "functions_deploy=false"
-              echo "functions_all=false"
+              echo "functions_deploy=true"
+              echo "functions_all=true"
               echo "functions_targets="
+              echo "rules_validate=true"
+              echo "rules_deploy=true"
               echo "admin_validate=true"
               echo "admin_deploy=true"
               echo "marketing_validate=true"
@@ -81,11 +89,72 @@ jobs:
     secrets:
       FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB }}
 
+  rules:
+    name: Validate and deploy rules and indexes
+    needs: release-plan
+    if: needs.release-plan.outputs.rules_validate == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Set up Java 21 for Firebase emulators
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install rules test dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Validate Firestore and Storage rules
+        working-directory: functions
+        run: npm run test:rules
+
+      - name: Configure Firebase credentials
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          needs.release-plan.outputs.rules_deploy == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Configure FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB before deploying rules and indexes."
+            exit 1
+          fi
+          credentials_path="$RUNNER_TEMP/firebase-service-account.json"
+          umask 077
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$credentials_path"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$credentials_path" >> "$GITHUB_ENV"
+
+      - name: Deploy Firestore rules and indexes and Storage rules
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          needs.release-plan.outputs.rules_deploy == 'true'
+        run: |
+          npx --yes firebase-tools@15.27.0 deploy \
+            --project jdb-league-hub \
+            --only firestore,storage \
+            --non-interactive
+
   validate-and-deploy:
     name: Validate and deploy web
     needs:
       - release-plan
       - functions
+      - rules
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -95,6 +164,7 @@ jobs:
         env:
           PLAN_RESULT: ${{ needs.release-plan.result }}
           FUNCTIONS_RESULT: ${{ needs.functions.result }}
+          RULES_RESULT: ${{ needs.rules.result }}
         run: |
           if [ "$PLAN_RESULT" != "success" ]; then
             echo "::error::Firebase release planning failed."
@@ -102,6 +172,10 @@ jobs:
           fi
           if [ "$FUNCTIONS_RESULT" != "success" ] && [ "$FUNCTIONS_RESULT" != "skipped" ]; then
             echo "::error::Functions validation or deployment failed."
+            exit 1
+          fi
+          if [ "$RULES_RESULT" != "success" ] && [ "$RULES_RESULT" != "skipped" ]; then
+            echo "::error::Rules/index validation or deployment failed."
             exit 1
           fi
 

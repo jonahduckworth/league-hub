@@ -12,6 +12,7 @@ const {
   buildTeamPlan,
   compareInventories,
   hubs,
+  resolveLogoUrls,
 } = require("../scripts/reconcile-jphl-structure");
 
 test("production structure exactly matches the current RAMP directory shape", () => {
@@ -34,6 +35,30 @@ test("production structure exactly matches the current RAMP directory shape", ()
   assert.equal(result.discoveredSeasonId, CURRENT_SEASON_ID);
   assert.equal(result.matchedTeams, 49);
   assert.deepEqual(result.divisionIds, RAMP_DIVISION_IDS);
+});
+
+test("production structure logo sources are valid encoded HTTPS URLs", () => {
+  for (const hub of hubs) {
+    assert.equal(/\s/.test(hub.logoSource), false, `${hub.name} logo contains raw whitespace`);
+    const url = new URL(hub.logoSource);
+    assert.equal(url.protocol, "https:");
+  }
+});
+
+test("production reconciliation encodes legacy logo URLs before syncing Structure and rooms", () => {
+  const urls = resolveLogoUrls({
+    hubDocs: [{
+      id: "jphl_hub_bellingham_hc",
+      data: () => ({
+        logoUrl: "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Bellingham HC Logo - White.png",
+      }),
+    }],
+  });
+  assert.equal(
+    urls.get("jphl_hub_bellingham_hc"),
+    "https://cloud3.rampinteractive.com/juniorprospectshockeyleague/Bellingham%20HC%20Logo%20-%20White.png",
+  );
+  assert.equal([...urls.values()].some((url) => /\s/.test(url)), false);
 });
 
 function desiredExistingTeams() {

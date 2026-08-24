@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppUser, UserRole } from "../types";
 
 const firestoreMocks = vi.hoisted(() => ({
+  addDoc: vi.fn(),
   collection: vi.fn(),
   db: { id: "test-firestore" },
   doc: vi.fn(),
@@ -12,6 +13,7 @@ const firestoreMocks = vi.hoisted(() => ({
   onSnapshot: vi.fn(),
   orderBy: vi.fn(),
   query: vi.fn(),
+  serverTimestamp: vi.fn(),
   where: vi.fn()
 }));
 
@@ -21,6 +23,7 @@ vi.mock("@/lib/firebase", () => ({
 }));
 
 vi.mock("firebase/firestore", () => ({
+  addDoc: firestoreMocks.addDoc,
   collection: firestoreMocks.collection,
   doc: firestoreMocks.doc,
   getDocs: firestoreMocks.getDocs,
@@ -29,10 +32,11 @@ vi.mock("firebase/firestore", () => ({
   onSnapshot: firestoreMocks.onSnapshot,
   orderBy: firestoreMocks.orderBy,
   query: firestoreMocks.query,
+  serverTimestamp: firestoreMocks.serverTimestamp,
   where: firestoreMocks.where
 }));
 
-import { useAdminData } from "../firestore";
+import { sendChatRoomMessage, useAdminData, useChatRoomMessages } from "../firestore";
 
 type TestConstraint = {
   field?: string;
@@ -163,6 +167,8 @@ describe("useAdminData scope isolation", () => {
       };
     });
     firestoreMocks.getDocs.mockResolvedValue(querySnapshot([]));
+    firestoreMocks.addDoc.mockResolvedValue({ id: "message-new" });
+    firestoreMocks.serverTimestamp.mockReturnValue("server-timestamp");
   });
 
   afterEach(() => {
@@ -182,6 +188,55 @@ describe("useAdminData scope isolation", () => {
       { field: "orgId", kind: "where", value: "org-a" },
       { field: "isArchived", kind: "where", value: false }
     ]));
+  });
+
+  it("streams only the selected shared-room conversation and caps it to 100 messages", async () => {
+    const { result } = renderHook(() => useChatRoomMessages("org-a", "room-a"));
+    const messages = subscriptionFor("organizations/org-a/chatRooms/room-a/messages");
+
+    act(() => {
+      messages.next(querySnapshot([record("message-1", {
+        chatRoomId: "room-a",
+        senderId: "member-a",
+        senderName: "Member A",
+        text: "Hello",
+        readBy: []
+      })]));
+    });
+
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+    expect(result.current.messages[0]).toMatchObject({
+      id: "message-1",
+      deleted: false,
+      text: "Hello"
+    });
+    expect(messages.reference.constraints).toEqual(expect.arrayContaining([
+      { field: "createdAt", kind: "orderBy" },
+      { kind: "limit", value: 100 }
+    ]));
+  });
+
+  it("posts a trimmed message using the mobile-compatible message contract", async () => {
+    await sendChatRoomMessage({
+      orgId: "org-a",
+      roomId: "room-a",
+      senderId: "admin-a",
+      senderName: "Admin A",
+      text: "  Schedule updated.  "
+    });
+
+    expect(firestoreMocks.addDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "organizations/org-a/chatRooms/room-a/messages" }),
+      {
+        chatRoomId: "room-a",
+        senderId: "admin-a",
+        senderName: "Admin A",
+        text: "Schedule updated.",
+        previewText: "Schedule updated.",
+        createdAt: "server-timestamp",
+        readBy: ["admin-a"]
+      }
+    );
   });
 
   it("does not let a deferred organization A structure load overwrite faster organization B data", async () => {

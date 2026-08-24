@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  addDoc,
   collection,
   doc,
   getDocs,
@@ -9,6 +10,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  serverTimestamp,
   type FirestoreError,
   where
 } from "firebase/firestore";
@@ -18,6 +20,7 @@ import type {
   Announcement,
   AppUser,
   AuditLog,
+  ChatMessage,
   ChatRoom,
   Hub,
   Invitation,
@@ -56,6 +59,99 @@ const emptyData: AdminData = {
   notificationEvents: [],
   scheduleEvents: []
 };
+
+type ChatMessageState = {
+  messages: ChatMessage[];
+  loading: boolean;
+  error?: string;
+};
+
+const emptyChatMessageState: ChatMessageState = {
+  messages: [],
+  loading: false
+};
+
+export function useChatRoomMessages(orgId?: string, roomId?: string) {
+  const [generation, setGeneration] = useState(0);
+  const [state, setState] = useState<ChatMessageState>(emptyChatMessageState);
+
+  useEffect(() => {
+    if (!orgId || !roomId) {
+      setState(emptyChatMessageState);
+      return undefined;
+    }
+    if (demoMode) {
+      setState(emptyChatMessageState);
+      return undefined;
+    }
+    if (!db) {
+      setState({ messages: [], loading: false, error: "Firestore is not configured for the admin app." });
+      return undefined;
+    }
+
+    setState((current) => ({ ...current, loading: true, error: undefined }));
+    return onSnapshot(
+      query(
+        collection(db, "organizations", orgId, "chatRooms", roomId, "messages"),
+        orderBy("createdAt"),
+        limitToLast(100)
+      ),
+      (snapshot) => {
+        setState({
+          messages: snapshot.docs.map((item) => ({
+            id: item.id,
+            ...item.data(),
+            deleted: item.data().deleted === true,
+            readBy: Array.isArray(item.data().readBy) ? item.data().readBy : []
+          })) as ChatMessage[],
+          loading: false
+        });
+      },
+      (caught) => {
+        setState({
+          messages: [],
+          loading: false,
+          error: `Messages could not be loaded: ${caught.message}`
+        });
+      }
+    );
+  }, [generation, orgId, roomId]);
+
+  return {
+    ...state,
+    retry: useCallback(() => setGeneration((current) => current + 1), [])
+  };
+}
+
+export async function sendChatRoomMessage({
+  orgId,
+  roomId,
+  senderId,
+  senderName,
+  text
+}: {
+  orgId: string;
+  roomId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+}) {
+  const message = text.trim();
+  if (!message) throw new Error("Enter a message before sending.");
+  if (message.length > 4000) throw new Error("Messages cannot exceed 4,000 characters.");
+  if (demoMode) return;
+  if (!db) throw new Error("Firestore is not configured for the admin app.");
+
+  await addDoc(collection(db, "organizations", orgId, "chatRooms", roomId, "messages"), {
+    chatRoomId: roomId,
+    senderId,
+    senderName,
+    text: message,
+    previewText: message,
+    createdAt: serverTimestamp(),
+    readBy: [senderId]
+  });
+}
 
 function clearOrganizationScopedData(data: AdminData): AdminData {
   return {
