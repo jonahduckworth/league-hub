@@ -707,8 +707,13 @@ service cloud.firestore {
     }
 
     function canReadRoom(orgId, roomId) {
+      let room = get(roomPath(orgId, roomId)).data;
       return exists(roomPath(orgId, roomId))
-        && roomIsReadable(get(roomPath(orgId, roomId)).data);
+        && (
+          room.type == 'direct'
+            ? sameOrg(room.orgId) && request.auth.uid in room.participants
+            : roomIsReadable(room)
+        );
     }
 
     function directRecipientAllowsSender(room) {
@@ -917,7 +922,8 @@ service cloud.firestore {
               )
               || canManageOrg(orgId)
             );
-          allow delete: if canManageOrg(orgId);
+          allow delete: if canReadRoom(orgId, roomId)
+            && canManageOrg(orgId);
         }
 
         match /typing/{userId} {

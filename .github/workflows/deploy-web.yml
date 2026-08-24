@@ -83,7 +83,7 @@ jobs:
     if: needs.release-plan.outputs.functions_validate == 'true'
     uses: ./.github/workflows/deploy-functions.yml
     with:
-      deploy: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release-plan.outputs.functions_deploy == 'true' }}
+      deploy: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.release-plan.outputs.functions_deploy == 'true' }}
       targets: ${{ needs.release-plan.outputs.functions_targets }}
       all: ${{ needs.release-plan.outputs.functions_all == 'true' }}
     secrets:
@@ -117,6 +117,10 @@ jobs:
         working-directory: functions
         run: npm ci
 
+      - name: Build Functions dependencies used by rules tests
+        working-directory: functions
+        run: npm run build
+
       - name: Validate Firestore and Storage rules
         run: |
           npx --yes firebase-tools@15.27.0 emulators:exec \
@@ -127,7 +131,7 @@ jobs:
 
       - name: Configure Firebase credentials
         if: >-
-          github.event_name == 'push' &&
+          github.event_name != 'pull_request' &&
           github.ref == 'refs/heads/main' &&
           needs.release-plan.outputs.rules_deploy == 'true'
         env:
@@ -144,7 +148,7 @@ jobs:
 
       - name: Deploy Firestore rules and indexes and Storage rules
         if: >-
-          github.event_name == 'push' &&
+          github.event_name != 'pull_request' &&
           github.ref == 'refs/heads/main' &&
           needs.release-plan.outputs.rules_deploy == 'true'
         run: |

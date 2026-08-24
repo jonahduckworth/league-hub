@@ -654,7 +654,7 @@ test("message reports must reference a readable real message", async () => {
   ));
 });
 
-test("direct room metadata is private to participants", async () => {
+test("direct room messages remain private when admins can inspect room metadata", async () => {
   const dm = {
     id: "dm-1",
     orgId: "org-1",
@@ -669,11 +669,26 @@ test("direct room metadata is private to participants", async () => {
     ["users/member", user({id: "member", displayName: "Member"})],
     ["users/peer", user({id: "peer", displayName: "Peer"})],
     ["users/outsider", user({id: "outsider", displayName: "Outsider"})],
+    ["users/admin", user({
+      id: "admin",
+      displayName: "Admin",
+      role: "superAdmin",
+    })],
     ["organizations/org-1/chatRooms/dm-1", dm],
+    ["organizations/org-1/chatRooms/dm-1/messages/message-1", {
+      chatRoomId: "dm-1",
+      senderId: "member",
+      senderName: "Member",
+      text: "Private message",
+      previewText: "Private message",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      readBy: ["member"],
+    }],
   ]);
 
   const participantDb = testEnv.authenticatedContext("member").firestore();
   const outsiderDb = testEnv.authenticatedContext("outsider").firestore();
+  const adminDb = testEnv.authenticatedContext("admin").firestore();
   await assertSucceeds(getDoc(doc(
     participantDb,
     "organizations/org-1/chatRooms/dm-1",
@@ -681,6 +696,18 @@ test("direct room metadata is private to participants", async () => {
   await assertFails(getDoc(doc(
     outsiderDb,
     "organizations/org-1/chatRooms/dm-1",
+  )));
+  await assertSucceeds(getDoc(doc(
+    adminDb,
+    "organizations/org-1/chatRooms/dm-1",
+  )));
+  await assertSucceeds(getDoc(doc(
+    participantDb,
+    "organizations/org-1/chatRooms/dm-1/messages/message-1",
+  )));
+  await assertFails(getDoc(doc(
+    adminDb,
+    "organizations/org-1/chatRooms/dm-1/messages/message-1",
   )));
   await assertSucceeds(getDocs(query(
     collection(participantDb, "organizations/org-1/chatRooms"),
