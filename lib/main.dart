@@ -15,6 +15,7 @@ import 'services/messaging_service.dart';
 import 'widgets/app_glass.dart';
 import 'widgets/connectivity_banner.dart';
 import 'widgets/error_boundary.dart';
+import 'widgets/mandatory_update_coordinator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -112,11 +113,13 @@ class _LeagueHubAppState extends ConsumerState<LeagueHubApp> {
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        // Wrap every route in the connectivity banner and error boundary.
+        // Apply global update, connectivity, and error handling to every route.
         return AppGlassRouteBackground(
-          child: ConnectivityBanner(
-            child: ErrorBoundary(
-              child: child ?? const SizedBox.shrink(),
+          child: MandatoryUpdateCoordinator(
+            child: ConnectivityBanner(
+              child: ErrorBoundary(
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         );
