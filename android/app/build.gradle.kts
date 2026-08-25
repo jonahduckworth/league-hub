@@ -15,6 +15,9 @@ val keystoreProperties = Properties().apply {
     if (propertiesFile.exists()) propertiesFile.inputStream().use(::load)
 }
 
+fun signingValue(propertyName: String, environmentName: String): String? =
+    keystoreProperties.getProperty(propertyName) ?: System.getenv(environmentName)
+
 android {
     namespace = "com.leaguehub.league_hub"
     compileSdk = flutter.compileSdkVersion
@@ -40,10 +43,16 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-            keyPassword = keystoreProperties.getProperty("keyPassword")
-            storeFile = keystoreProperties.getProperty("storeFile")?.let(::file)
-            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = signingValue("keyAlias", "LEAGUE_HUB_ANDROID_KEY_ALIAS")
+            keyPassword = signingValue("keyPassword", "LEAGUE_HUB_ANDROID_KEY_PASSWORD")
+            storeFile = signingValue(
+                "storeFile",
+                "LEAGUE_HUB_ANDROID_STORE_FILE",
+            )?.let(::file)
+            storePassword = signingValue(
+                "storePassword",
+                "LEAGUE_HUB_ANDROID_STORE_PASSWORD",
+            )
         }
     }
 
