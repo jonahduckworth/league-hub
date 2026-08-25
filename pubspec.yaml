@@ -1,7 +1,7 @@
 name: league_hub
 description: "League Hub - Manage your sports leagues, hubs, and teams."
 publish_to: 'none'
-version: 1.0.3+13
+version: 1.0.4+15
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -29,6 +29,7 @@ dependencies:
   hive_flutter: ^1.1.0
   path_provider: ^2.1.2
   dio: ^5.4.1
+  package_info_plus: ^9.0.1
   cupertino_icons: ^1.0.6
   open_filex: ^4.7.0
   liquid_glass_widgets: ^0.12.2
