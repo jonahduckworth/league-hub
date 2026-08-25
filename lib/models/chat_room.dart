@@ -1,5 +1,10 @@
 enum ChatRoomType { league, event, direct }
 
+/// Semantic purpose for user-created shared rooms.
+///
+/// Shared rooms retain [ChatRoomType.event] for compatibility with released
+/// clients and existing Firestore rules. A null purpose therefore represents
+/// a legacy event room.
 enum ChatRoomPurpose { group, event }
 
 class ChatRoom {
