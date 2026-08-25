@@ -38,6 +38,7 @@ class MockAuthorizedFirestoreService extends Mock
     List<String> participants = const [],
     String? roomIconName,
     String? roomImageUrl,
+    ChatRoomPurpose? roomPurpose,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -50,6 +51,7 @@ class MockAuthorizedFirestoreService extends Mock
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
+            #roomPurpose: roomPurpose,
           },
         ),
         returnValue: Future<String>.value('created-room'),
@@ -112,6 +114,41 @@ void main() {
       createdAt: baseTime,
       isArchived: false,
     );
+    final hubRoom = ChatRoom(
+      id: 'hub-room',
+      orgId: 'org-1',
+      name: 'Calgary - General',
+      type: ChatRoomType.league,
+      leagueId: 'league-1',
+      hubId: 'hub-1',
+      participants: const [],
+      createdAt: baseTime,
+      isArchived: false,
+    );
+    final teamRoom = ChatRoom(
+      id: 'team-room',
+      orgId: 'org-1',
+      name: 'Calgary U18 - General',
+      type: ChatRoomType.league,
+      leagueId: 'league-1',
+      hubId: 'hub-1',
+      teamId: 'team-1',
+      participants: const [],
+      createdAt: baseTime,
+      isArchived: false,
+    );
+    final hubGroupRoom = ChatRoom(
+      id: 'hub-group-room',
+      orgId: 'org-1',
+      name: 'Hub GMs',
+      type: ChatRoomType.event,
+      roomPurpose: ChatRoomPurpose.group,
+      leagueId: 'league-1',
+      hubId: 'hub-1',
+      participants: const [],
+      createdAt: baseTime,
+      isArchived: false,
+    );
     final dmRoom = ChatRoom(
       id: 'dm-room',
       orgId: 'org-1',
@@ -144,15 +181,25 @@ void main() {
     });
 
     test('builds non-empty chat room sections in display order', () {
-      final sections = buildChatRoomSections([dmRoom, eventRoom, leagueRoom]);
+      final sections = buildChatRoomSections(
+        [dmRoom, eventRoom, teamRoom, hubGroupRoom, leagueRoom],
+      );
 
       expect(
         sections.map((section) => section.title).toList(),
-        ['League Rooms', 'Events & Tournaments', 'Direct Messages'],
+        [
+          'League Rooms',
+          'Hub Rooms',
+          'Team Rooms',
+          'Events',
+          'Direct Messages',
+        ],
       );
       expect(sections[0].rooms, [leagueRoom]);
-      expect(sections[1].rooms, [eventRoom]);
-      expect(sections[2].rooms, [dmRoom]);
+      expect(sections[1].rooms, [hubGroupRoom]);
+      expect(sections[2].rooms, [teamRoom]);
+      expect(sections[3].rooms, [eventRoom]);
+      expect(sections[4].rooms, [dmRoom]);
     });
 
     test('orders chat rooms for flat display by latest activity', () {
@@ -198,10 +245,19 @@ void main() {
         rooms: [leagueRoom, eventRoom, dmRoom],
         searchText: '',
         selectedLeagueId: null,
-        roomFilter: ChatRoomListFilter.eventsAndTournaments,
+        roomFilter: ChatRoomListFilter.events,
       );
 
       expect(filtered, [eventRoom]);
+    });
+
+    test('categorizes shared rooms by purpose and audience', () {
+      expect(chatRoomCategory(leagueRoom), ChatRoomListFilter.leagueRooms);
+      expect(chatRoomCategory(hubRoom), ChatRoomListFilter.hubRooms);
+      expect(chatRoomCategory(teamRoom), ChatRoomListFilter.teamRooms);
+      expect(chatRoomCategory(hubGroupRoom), ChatRoomListFilter.hubRooms);
+      expect(chatRoomCategory(eventRoom), ChatRoomListFilter.events);
+      expect(chatRoomCategory(dmRoom), ChatRoomListFilter.directMessages);
     });
 
     test('builds preview text from sender and message', () {
@@ -436,7 +492,7 @@ void main() {
       );
 
       expect(
-        eventRoomParticipantIds(
+        sharedRoomParticipantIds(
           creator: creator,
           users: [leagueMember, otherLeagueMember],
           leagueId: 'league-1',
@@ -611,6 +667,41 @@ void main() {
         lastMessageAt: DateTime.now().subtract(Duration(minutes: 30)),
       ),
       ChatRoom(
+        id: 'chat-hub',
+        orgId: 'org-1',
+        name: 'Calgary - General',
+        type: ChatRoomType.league,
+        leagueId: 'league-1',
+        hubId: 'hub-1',
+        participants: const [],
+        createdAt: DateTime(2026, 1, 1),
+        isArchived: false,
+      ),
+      ChatRoom(
+        id: 'chat-team',
+        orgId: 'org-1',
+        name: 'Calgary U18 - General',
+        type: ChatRoomType.league,
+        leagueId: 'league-1',
+        hubId: 'hub-1',
+        teamId: 'team-1',
+        participants: const [],
+        createdAt: DateTime(2026, 1, 1),
+        isArchived: false,
+      ),
+      ChatRoom(
+        id: 'chat-hub-group',
+        orgId: 'org-1',
+        name: 'Hub GMs',
+        type: ChatRoomType.event,
+        roomPurpose: ChatRoomPurpose.group,
+        leagueId: 'league-1',
+        hubId: 'hub-1',
+        participants: const [],
+        createdAt: DateTime(2026, 1, 1),
+        isArchived: false,
+      ),
+      ChatRoom(
         id: 'chat-3',
         orgId: 'org-1',
         name: 'Direct Message',
@@ -662,6 +753,7 @@ void main() {
       List<AppUser>? orgUsers,
       List<Announcement> announcements = const [],
       bool includePinnedAnnouncements = false,
+      TextScaler? textScaler,
     }) {
       return ProviderScope(
         overrides: [
@@ -690,6 +782,14 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          builder: textScaler == null
+              ? null
+              : (context, child) => MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler: textScaler,
+                    ),
+                    child: child!,
+                  ),
           home: ChatListScreen(
             includePinnedAnnouncements: includePinnedAnnouncements,
           ),
@@ -794,6 +894,24 @@ void main() {
         300,
         scrollable: find.byType(Scrollable).last,
       );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> selectRoomFilter(
+      WidgetTester tester,
+      ChatRoomListFilter filter,
+    ) async {
+      final finder = find.byKey(ValueKey('chat-type-filter-${filter.name}'));
+      await tester.scrollUntilVisible(
+        finder,
+        250,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('chat-type-selector')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(finder);
       await tester.pumpAndSettle();
     }
 
@@ -972,11 +1090,12 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('New Conversation'), findsOneWidget);
+        expect(find.text('Group Room'), findsNothing);
         expect(find.text('Event Room'), findsNothing);
         expect(find.text('Direct Message'), findsOneWidget);
       });
 
-      testWidgets('manager sees managed event room option',
+      testWidgets('manager sees managed shared room options',
           (WidgetTester tester) async {
         await tester.pumpWidget(createRoutedTestWidget(user: managerUser));
         await tester.pumpAndSettle();
@@ -984,8 +1103,59 @@ void main() {
         await tester.tap(find.byIcon(Icons.add));
         await tester.pumpAndSettle();
 
+        expect(find.text('Group Room'), findsOneWidget);
         expect(find.text('Event Room'), findsOneWidget);
         expect(find.text('Direct Message'), findsOneWidget);
+      });
+
+      for (final role in [
+        UserRole.platformOwner,
+        UserRole.superAdmin,
+        UserRole.managerAdmin,
+        UserRole.staff,
+      ]) {
+        testWidgets('${role.name} receives the correct room creation choices',
+            (WidgetTester tester) async {
+          final user = AppUser(
+            id: role.name,
+            email: '${role.name}@example.com',
+            displayName: role.name,
+            role: role,
+            orgId: 'org-1',
+            leagueIds: const ['league-1'],
+            hubIds: const ['hub-1'],
+            teamIds: const ['team-1'],
+            createdAt: DateTime(2024),
+            isActive: true,
+          );
+
+          await tester.pumpWidget(createRoutedTestWidget(user: user));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byIcon(Icons.add));
+          await tester.pumpAndSettle();
+
+          final canCreateSharedRooms = role != UserRole.staff;
+          expect(find.text('Group Room'),
+              canCreateSharedRooms ? findsOneWidget : findsNothing);
+          expect(find.text('Event Room'),
+              canCreateSharedRooms ? findsOneWidget : findsNothing);
+          expect(find.text('Direct Message'), findsOneWidget);
+        });
+      }
+
+      testWidgets('group option opens group room form',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createRoutedTestWidget(user: managerUser));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Group Room').last);
+        await tester.pumpAndSettle();
+
+        expect(find.text('New Group Room'), findsOneWidget);
+        expect(find.text('Coaches and Managers'), findsOneWidget);
+        expect(find.text('ROOM SCOPE'), findsOneWidget);
       });
 
       testWidgets('event option opens event room form',
@@ -1159,6 +1329,7 @@ void main() {
             leagueId: 'league-1',
             participants: [managerUser.id, testUser.id],
             roomIconName: 'event',
+            roomPurpose: ChatRoomPurpose.event,
           ),
         ).thenAnswer((_) async => 'created-room');
 
@@ -1181,6 +1352,41 @@ void main() {
         expect(find.text('Chat Route created-room'), findsOneWidget);
       });
 
+      testWidgets('group room persists its purpose for category placement',
+          (WidgetTester tester) async {
+        final service = MockAuthorizedFirestoreService();
+        when(
+          service.createChatRoom(
+            managerUser,
+            'org-1',
+            'Hub Leadership',
+            ChatRoomType.event,
+            leagueId: 'league-1',
+            participants: [managerUser.id, testUser.id],
+            roomIconName: 'group',
+            roomPurpose: ChatRoomPurpose.group,
+          ),
+        ).thenAnswer((_) async => 'group-room');
+
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            user: managerUser,
+            authorizedFirestoreService: service,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Group Room').last);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).last, 'Hub Leadership');
+        await tester.tap(find.text('Create Room'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Chat Route group-room'), findsOneWidget);
+      });
+
       testWidgets('create room uses selected league id',
           (WidgetTester tester) async {
         final service = MockAuthorizedFirestoreService();
@@ -1193,6 +1399,7 @@ void main() {
             leagueId: 'league-1',
             participants: [managerUser.id, testUser.id],
             roomIconName: 'event',
+            roomPurpose: ChatRoomPurpose.event,
           ),
         ).thenAnswer((_) async => 'created-room');
 
@@ -1252,6 +1459,7 @@ void main() {
             leagueId: 'league-1',
             participants: [managerUser.id, testUser.id],
             roomIconName: 'event',
+            roomPurpose: ChatRoomPurpose.event,
           ),
         ).thenThrow(
           PermissionDeniedException(
@@ -1303,21 +1511,68 @@ void main() {
         final all = find.byKey(const ValueKey('chat-type-filter-all'));
         final leagueRooms =
             find.byKey(const ValueKey('chat-type-filter-leagueRooms'));
-        final events =
-            find.byKey(const ValueKey('chat-type-filter-eventsAndTournaments'));
+        final hubRooms =
+            find.byKey(const ValueKey('chat-type-filter-hubRooms'));
+        final teamRooms =
+            find.byKey(const ValueKey('chat-type-filter-teamRooms'));
+        final events = find.byKey(const ValueKey('chat-type-filter-events'));
         final directMessages =
             find.byKey(const ValueKey('chat-type-filter-directMessages'));
 
         expect(all, findsOneWidget);
         expect(leagueRooms, findsOneWidget);
+        expect(hubRooms, findsOneWidget);
+        expect(teamRooms, findsOneWidget);
         expect(events, findsOneWidget);
         expect(directMessages, findsOneWidget);
         expect(tester.getTopLeft(all).dx,
             lessThan(tester.getTopLeft(leagueRooms).dx));
         expect(tester.getTopLeft(leagueRooms).dx,
+            lessThan(tester.getTopLeft(hubRooms).dx));
+        expect(tester.getTopLeft(hubRooms).dx,
+            lessThan(tester.getTopLeft(teamRooms).dx));
+        expect(tester.getTopLeft(teamRooms).dx,
             lessThan(tester.getTopLeft(events).dx));
         expect(tester.getTopLeft(events).dx,
             lessThan(tester.getTopLeft(directMessages).dx));
+      });
+
+      testWidgets('selector remains usable on a small phone with large text',
+          (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(375, 812);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          createTestWidget(textScaler: const TextScaler.linear(2)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(
+          tester
+              .getSize(find.byKey(const ValueKey('chat-type-selector')))
+              .height,
+          greaterThanOrEqualTo(44),
+        );
+        await selectRoomFilter(tester, ChatRoomListFilter.directMessages);
+        expect(find.text('Direct Message'), findsOneWidget);
+      });
+
+      testWidgets('selector remains usable in phone landscape',
+          (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(812, 375);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        await selectRoomFilter(tester, ChatRoomListFilter.teamRooms);
+        expect(find.text('Calgary U18 - General'), findsOneWidget);
       });
 
       testWidgets('selector defaults to all rooms',
@@ -1336,13 +1591,37 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        await tester
-            .tap(find.byKey(const ValueKey('chat-type-filter-leagueRooms')));
-        await tester.pumpAndSettle();
+        await selectRoomFilter(tester, ChatRoomListFilter.leagueRooms);
 
         expect(find.text('Spring League Hub'), findsOneWidget);
+        expect(find.text('Calgary - General'), findsNothing);
+        expect(find.text('Calgary U18 - General'), findsNothing);
         expect(find.text('Tournament Bracket'), findsNothing);
         expect(find.text('Direct Message'), findsNothing);
+      });
+
+      testWidgets('selector filters to Hub rooms', (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+
+        await selectRoomFilter(tester, ChatRoomListFilter.hubRooms);
+
+        expect(find.text('Calgary - General'), findsOneWidget);
+        expect(find.text('Hub GMs'), findsOneWidget);
+        expect(find.text('Calgary U18 - General'), findsNothing);
+        expect(find.text('Tournament Bracket'), findsNothing);
+      });
+
+      testWidgets('selector filters to Team rooms',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+
+        await selectRoomFilter(tester, ChatRoomListFilter.teamRooms);
+
+        expect(find.text('Calgary U18 - General'), findsOneWidget);
+        expect(find.text('Calgary - General'), findsNothing);
+        expect(find.text('Tournament Bracket'), findsNothing);
       });
 
       testWidgets('selector filters to events and tournaments',
@@ -1350,12 +1629,11 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        await tester.tap(find
-            .byKey(const ValueKey('chat-type-filter-eventsAndTournaments')));
-        await tester.pumpAndSettle();
+        await selectRoomFilter(tester, ChatRoomListFilter.events);
 
         expect(find.text('Spring League Hub'), findsNothing);
         expect(find.text('Tournament Bracket'), findsOneWidget);
+        expect(find.text('Hub GMs'), findsNothing);
         expect(find.text('Direct Message'), findsNothing);
       });
 
@@ -1364,9 +1642,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        await tester
-            .tap(find.byKey(const ValueKey('chat-type-filter-directMessages')));
-        await tester.pumpAndSettle();
+        await selectRoomFilter(tester, ChatRoomListFilter.directMessages);
 
         expect(find.text('Spring League Hub'), findsNothing);
         expect(find.text('Tournament Bracket'), findsNothing);
@@ -1387,7 +1663,7 @@ void main() {
         await tester.pumpWidget(createTestWidget());
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(Icons.forum), findsOneWidget); // League room
+        expect(find.byIcon(Icons.forum), findsWidgets); // Shared rooms
         await scrollRoomsUntilVisible(tester, find.text('Tournament Bracket'));
         expect(find.byIcon(Icons.event_outlined), findsOneWidget); // Event room
         await scrollRoomsUntilVisible(tester, find.text('Direct Message'));
@@ -1486,8 +1762,11 @@ void main() {
             find.byKey(const ValueKey('chat-type-filter-all')), findsOneWidget);
         expect(find.byKey(const ValueKey('chat-type-filter-leagueRooms')),
             findsOneWidget);
-        expect(
-            find.byKey(const ValueKey('chat-type-filter-eventsAndTournaments')),
+        expect(find.byKey(const ValueKey('chat-type-filter-hubRooms')),
+            findsOneWidget);
+        expect(find.byKey(const ValueKey('chat-type-filter-teamRooms')),
+            findsOneWidget);
+        expect(find.byKey(const ValueKey('chat-type-filter-events')),
             findsOneWidget);
         expect(find.byKey(const ValueKey('chat-type-filter-directMessages')),
             findsOneWidget);

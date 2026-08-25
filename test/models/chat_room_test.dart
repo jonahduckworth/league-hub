@@ -13,8 +13,9 @@ void main() {
         final json = {
           'id': 'room1',
           'orgId': 'org1',
-          'name': 'League Chat',
-          'type': 'league',
+          'name': 'Coaches Room',
+          'type': 'event',
+          'roomPurpose': 'group',
           'leagueId': 'league1',
           'participants': ['user1', 'user2', 'user3'],
           'createdAt': testDateStr,
@@ -31,8 +32,9 @@ void main() {
 
         expect(room.id, 'room1');
         expect(room.orgId, 'org1');
-        expect(room.name, 'League Chat');
-        expect(room.type, ChatRoomType.league);
+        expect(room.name, 'Coaches Room');
+        expect(room.type, ChatRoomType.event);
+        expect(room.roomPurpose, ChatRoomPurpose.group);
         expect(room.leagueId, 'league1');
         expect(room.participants, ['user1', 'user2', 'user3']);
         expect(room.createdAt, testDate);
@@ -72,6 +74,39 @@ void main() {
         };
 
         expect(ChatRoom.fromJson(json).type, ChatRoomType.league);
+      });
+
+      test('keeps legacy event rooms categorized as events', () {
+        final room = ChatRoom.fromJson({
+          'id': 'legacy-event',
+          'orgId': 'org1',
+          'name': 'Legacy Event',
+          'type': 'event',
+          'participants': [],
+          'createdAt': testDateStr,
+          'isArchived': false,
+        });
+
+        expect(room.roomPurpose, isNull);
+        expect(room.isEventRoom, isTrue);
+        expect(room.isGroupRoom, isFalse);
+      });
+
+      test('parses group room purpose', () {
+        final room = ChatRoom.fromJson({
+          'id': 'group-room',
+          'orgId': 'org1',
+          'name': 'Coaches',
+          'type': 'event',
+          'roomPurpose': 'group',
+          'participants': [],
+          'createdAt': testDateStr,
+          'isArchived': false,
+        });
+
+        expect(room.roomPurpose, ChatRoomPurpose.group);
+        expect(room.isGroupRoom, isTrue);
+        expect(room.isEventRoom, isFalse);
       });
 
       test('defaults isArchived to false', () {
@@ -127,8 +162,9 @@ void main() {
         final room = ChatRoom(
           id: 'room1',
           orgId: 'org1',
-          name: 'DM Room',
-          type: ChatRoomType.direct,
+          name: 'Coaches Room',
+          type: ChatRoomType.event,
+          roomPurpose: ChatRoomPurpose.group,
           participants: ['userA', 'userB'],
           createdAt: testDate,
           isArchived: true,
@@ -144,8 +180,9 @@ void main() {
 
         expect(json['id'], 'room1');
         expect(json['orgId'], 'org1');
-        expect(json['name'], 'DM Room');
-        expect(json['type'], 'direct');
+        expect(json['name'], 'Coaches Room');
+        expect(json['type'], 'event');
+        expect(json['roomPurpose'], 'group');
         expect(json['participants'], ['userA', 'userB']);
         expect(json['createdAt'], testDateStr);
         expect(json['isArchived'], true);
@@ -170,6 +207,7 @@ void main() {
 
         final json = room.toJson();
 
+        expect(json.containsKey('roomPurpose'), isFalse);
         expect(json['leagueId'], isNull);
         expect(json['lastMessage'], isNull);
         expect(json['lastMessageAt'], isNull);

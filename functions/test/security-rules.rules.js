@@ -1086,6 +1086,45 @@ test("Structure-managed General room identity is server-owned", async () => {
     { type: "league" },
   ));
 
+  const groupRoomRef = doc(
+    testEnv.authenticatedContext("manager").firestore(),
+    "organizations/org-1/chatRooms/group-room",
+  );
+  await assertSucceeds(setDoc(groupRoomRef, {
+    ...generalRoom,
+    id: "group-room",
+    type: "event",
+    roomPurpose: "group",
+    name: "Hub Leadership",
+  }));
+  await assertFails(setDoc(
+    doc(
+      testEnv.authenticatedContext("manager").firestore(),
+      "organizations/org-1/chatRooms/invalid-purpose",
+    ),
+    {
+      ...generalRoom,
+      id: "invalid-purpose",
+      type: "event",
+      roomPurpose: "private",
+      name: "Invalid purpose",
+    },
+  ));
+  await assertFails(setDoc(
+    doc(
+      testEnv.authenticatedContext("manager").firestore(),
+      "organizations/org-1/chatRooms/invalid-purpose-type",
+    ),
+    {
+      ...generalRoom,
+      id: "invalid-purpose-type",
+      type: "league",
+      roomPurpose: "group",
+      name: "Invalid purpose type",
+    },
+  ));
+  await assertFails(updateDoc(groupRoomRef, { roomPurpose: "event" }));
+
   const legacyRoom = {
     orgId: "org-1",
     name: "Calgary – General",

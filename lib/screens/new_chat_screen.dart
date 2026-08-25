@@ -9,6 +9,7 @@ import '../core/picked_file.dart';
 import '../core/scope_defaults.dart';
 import '../core/utils.dart';
 import '../models/app_user.dart';
+import '../models/chat_room.dart';
 import '../models/hub.dart';
 import '../models/team.dart';
 import '../providers/auth_provider.dart';
@@ -25,9 +26,9 @@ import '../widgets/chat_room_avatar.dart';
 import '../widgets/glass_form_widgets.dart';
 import 'chat_list_screen.dart';
 
-enum _NewChatStep { choose, eventRoom, directMessage }
+enum _NewChatStep { choose, groupRoom, eventRoom, directMessage }
 
-enum _EventRoomScope { league, hub, team }
+enum _SharedRoomScope { league, hub, team }
 
 class NewChatScreen extends ConsumerStatefulWidget {
   const NewChatScreen({super.key});
@@ -40,7 +41,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
   final _nameController = TextEditingController();
 
   _NewChatStep _step = _NewChatStep.choose;
-  _EventRoomScope _eventRoomScope = _EventRoomScope.league;
+  _SharedRoomScope _sharedRoomScope = _SharedRoomScope.league;
   String? _selectedLeagueId;
   String? _selectedHubId;
   String? _selectedTeamId;
@@ -59,6 +60,8 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
     switch (_step) {
       case _NewChatStep.choose:
         return 'New Conversation';
+      case _NewChatStep.groupRoom:
+        return 'New Group Room';
       case _NewChatStep.eventRoom:
         return 'New Event Room';
       case _NewChatStep.directMessage:
@@ -91,7 +94,22 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
     });
   }
 
-  Future<void> _createEventRoom(String orgId) async {
+  ChatRoomPurpose get _roomPurpose => _step == _NewChatStep.groupRoom
+      ? ChatRoomPurpose.group
+      : ChatRoomPurpose.event;
+
+  void _openSharedRoom(ChatRoomPurpose purpose) {
+    setState(() {
+      _step = purpose == ChatRoomPurpose.group
+          ? _NewChatStep.groupRoom
+          : _NewChatStep.eventRoom;
+      _selectedIconName = purpose == ChatRoomPurpose.group ? 'group' : 'event';
+      _selectedImageBytes = null;
+      _selectedImageName = null;
+    });
+  }
+
+  Future<void> _createSharedRoom(String orgId) async {
     if (_nameController.text.trim().isEmpty) {
       AppUtils.showInfoSnackBar(context, 'Please enter a room name.');
       return;
@@ -100,13 +118,13 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       AppUtils.showInfoSnackBar(context, 'Please select a league.');
       return;
     }
-    if ((_eventRoomScope == _EventRoomScope.hub ||
-            _eventRoomScope == _EventRoomScope.team) &&
+    if ((_sharedRoomScope == _SharedRoomScope.hub ||
+            _sharedRoomScope == _SharedRoomScope.team) &&
         _selectedHubId == null) {
       AppUtils.showInfoSnackBar(context, 'Please select a hub.');
       return;
     }
-    if (_eventRoomScope == _EventRoomScope.team && _selectedTeamId == null) {
+    if (_sharedRoomScope == _SharedRoomScope.team && _selectedTeamId == null) {
       AppUtils.showInfoSnackBar(context, 'Please select a team.');
       return;
     }
@@ -134,25 +152,26 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       }
 
       final orgUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
-      final participantIds = eventRoomParticipantIds(
+      final participantIds = sharedRoomParticipantIds(
         creator: currentUser,
         users: orgUsers,
         leagueId: _selectedLeagueId!,
         hubId:
-            _eventRoomScope == _EventRoomScope.league ? null : _selectedHubId,
+            _sharedRoomScope == _SharedRoomScope.league ? null : _selectedHubId,
         teamId:
-            _eventRoomScope == _EventRoomScope.team ? _selectedTeamId : null,
+            _sharedRoomScope == _SharedRoomScope.team ? _selectedTeamId : null,
       );
 
-      final roomId = await createEventChatRoom(
+      final roomId = await createSharedChatRoom(
         currentUser: currentUser,
         orgId: orgId,
         roomName: _nameController.text,
+        roomPurpose: _roomPurpose,
         selectedLeagueId: _selectedLeagueId!,
         selectedHubId:
-            _eventRoomScope == _EventRoomScope.league ? null : _selectedHubId,
+            _sharedRoomScope == _SharedRoomScope.league ? null : _selectedHubId,
         selectedTeamId:
-            _eventRoomScope == _EventRoomScope.team ? _selectedTeamId : null,
+            _sharedRoomScope == _SharedRoomScope.team ? _selectedTeamId : null,
         roomIconName: _selectedIconName,
         participantIds: participantIds,
         createRoom: ref.read(authorizedFirestoreServiceProvider).createChatRoom,
@@ -178,15 +197,10 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
           );
           await ref
               .read(authorizedFirestoreServiceProvider)
-              .updateChatRoomFields(
-            currentUser,
-            orgId,
-            roomId,
-            {
-              'roomIconName': null,
-              'roomImageUrl': roomImageUrl,
-            },
-          );
+              .updateChatRoomFields(currentUser, orgId, roomId, {
+            'roomIconName': null,
+            'roomImageUrl': roomImageUrl,
+          });
         } catch (_) {
           if (mounted) {
             AppUtils.showErrorSnackBar(
@@ -246,13 +260,14 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       _selectedLeagueId = null;
       _selectedHubId = null;
       _selectedTeamId = null;
-      _eventRoomScope = _EventRoomScope.league;
+      _sharedRoomScope = _SharedRoomScope.league;
     }
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
     final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
     final headerIcon = switch (_step) {
       _NewChatStep.choose => Icons.forum_outlined,
+      _NewChatStep.groupRoom => Icons.groups_2_outlined,
       _NewChatStep.eventRoom => Icons.event_outlined,
       _NewChatStep.directMessage => Icons.person_outline,
     };
@@ -302,20 +317,23 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                     key: const ValueKey('choose'),
                     topPadding: topContentPadding,
                     bottomPadding: bottomContentPadding,
-                    onEventRoom: () =>
-                        setState(() => _step = _NewChatStep.eventRoom),
-                    canCreateEventRoom: currentUser != null &&
+                    onGroupRoom: () => _openSharedRoom(ChatRoomPurpose.group),
+                    onEventRoom: () => _openSharedRoom(ChatRoomPurpose.event),
+                    canCreateSharedRoom: currentUser != null &&
                         const PermissionService()
                             .canCreateChatRoom(currentUser),
                     onDirectMessage: () =>
                         setState(() => _step = _NewChatStep.directMessage),
                   ),
-                _NewChatStep.eventRoom => _EventRoomForm(
-                    key: const ValueKey('event'),
+                _NewChatStep.groupRoom ||
+                _NewChatStep.eventRoom =>
+                  _SharedRoomForm(
+                    key: ValueKey(_roomPurpose.name),
                     topPadding: topContentPadding,
                     bottomPadding: bottomContentPadding,
                     nameController: _nameController,
-                    selectedScope: _eventRoomScope,
+                    roomPurpose: _roomPurpose,
+                    selectedScope: _sharedRoomScope,
                     selectedLeagueId: _selectedLeagueId,
                     selectedHubId: _selectedHubId,
                     selectedTeamId: _selectedTeamId,
@@ -323,11 +341,11 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                     selectedImageName: _selectedImageName,
                     isCreating: _isCreating,
                     onScopeSelected: (scope) => setState(() {
-                      _eventRoomScope = scope;
-                      if (scope == _EventRoomScope.league) {
+                      _sharedRoomScope = scope;
+                      if (scope == _SharedRoomScope.league) {
                         _selectedHubId = null;
                         _selectedTeamId = null;
-                      } else if (scope == _EventRoomScope.hub) {
+                      } else if (scope == _SharedRoomScope.hub) {
                         _selectedTeamId = null;
                       }
                     }),
@@ -335,7 +353,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                       _selectedLeagueId = id;
                       _selectedHubId = null;
                       _selectedTeamId = null;
-                      _eventRoomScope = _EventRoomScope.league;
+                      _sharedRoomScope = _SharedRoomScope.league;
                     }),
                     onHubSelected: (id) => setState(() {
                       _selectedHubId = id;
@@ -349,7 +367,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                       _selectedImageName = null;
                     }),
                     onPickImage: _pickRoomImage,
-                    onCreate: () => _createEventRoom(orgId),
+                    onCreate: () => _createSharedRoom(orgId),
                   ),
                 _NewChatStep.directMessage => _DirectMessagePicker(
                     key: const ValueKey('dm'),
@@ -363,7 +381,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
   }
 }
 
-List<String> eventRoomParticipantIds({
+List<String> sharedRoomParticipantIds({
   required AppUser creator,
   required List<AppUser> users,
   required String leagueId,
@@ -376,26 +394,25 @@ List<String> eventRoomParticipantIds({
     if (hubId != null) return user.hubIds.contains(hubId);
     return user.leagueIds.contains(leagueId);
   });
-  return {
-    creator.id,
-    ...matchingUsers.map((user) => user.id),
-  }.toList();
+  return {creator.id, ...matchingUsers.map((user) => user.id)}.toList();
 }
 
 class _ChooseConversationType extends StatelessWidget {
   final double topPadding;
   final double bottomPadding;
+  final VoidCallback onGroupRoom;
   final VoidCallback onEventRoom;
   final VoidCallback onDirectMessage;
-  final bool canCreateEventRoom;
+  final bool canCreateSharedRoom;
 
   const _ChooseConversationType({
     super.key,
     required this.topPadding,
     required this.bottomPadding,
+    required this.onGroupRoom,
     required this.onEventRoom,
     required this.onDirectMessage,
-    required this.canCreateEventRoom,
+    required this.canCreateSharedRoom,
   });
 
   @override
@@ -413,8 +430,8 @@ class _ChooseConversationType extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          canCreateEventRoom
-              ? 'Create an event room for a group or start a private conversation.'
+          canCreateSharedRoom
+              ? 'Create a shared room for ongoing communication or an event.'
               : 'Start a private conversation with another member.',
           style: const TextStyle(
             fontSize: 14,
@@ -423,9 +440,20 @@ class _ChooseConversationType extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        if (canCreateEventRoom) ...[
+        if (canCreateSharedRoom) ...[
           AppMotionReveal(
             index: 1,
+            child: _ConversationTypeCard(
+              icon: Icons.groups_2_outlined,
+              title: 'Group Room',
+              subtitle: 'An ongoing room for a league, Hub, or team.',
+              color: AppGlassColors.aqua,
+              onTap: onGroupRoom,
+            ),
+          ),
+          const SizedBox(height: 12),
+          AppMotionReveal(
+            index: 2,
             child: _ConversationTypeCard(
               icon: Icons.event_outlined,
               title: 'Event Room',
@@ -437,7 +465,7 @@ class _ChooseConversationType extends StatelessWidget {
           const SizedBox(height: 12),
         ],
         AppMotionReveal(
-          index: 2,
+          index: 3,
           child: _ConversationTypeCard(
             icon: Icons.person_outline,
             title: 'Direct Message',
@@ -516,18 +544,19 @@ class _ConversationTypeCard extends StatelessWidget {
   }
 }
 
-class _EventRoomForm extends ConsumerWidget {
+class _SharedRoomForm extends ConsumerWidget {
   final double topPadding;
   final double bottomPadding;
   final TextEditingController nameController;
-  final _EventRoomScope selectedScope;
+  final ChatRoomPurpose roomPurpose;
+  final _SharedRoomScope selectedScope;
   final String? selectedLeagueId;
   final String? selectedHubId;
   final String? selectedTeamId;
   final String selectedIconName;
   final String? selectedImageName;
   final bool isCreating;
-  final ValueChanged<_EventRoomScope> onScopeSelected;
+  final ValueChanged<_SharedRoomScope> onScopeSelected;
   final ValueChanged<String?> onLeagueSelected;
   final ValueChanged<String?> onHubSelected;
   final ValueChanged<String?> onTeamSelected;
@@ -535,11 +564,12 @@ class _EventRoomForm extends ConsumerWidget {
   final VoidCallback onPickImage;
   final VoidCallback onCreate;
 
-  const _EventRoomForm({
+  const _SharedRoomForm({
     super.key,
     required this.topPadding,
     required this.bottomPadding,
     required this.nameController,
+    required this.roomPurpose,
     required this.selectedScope,
     required this.selectedLeagueId,
     required this.selectedHubId,
@@ -560,8 +590,10 @@ class _EventRoomForm extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final leaguesAsync = ref.watch(leaguesProvider);
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
-    final leagues =
-        manageableLeaguesForUser(currentUser, leaguesAsync.valueOrNull ?? []);
+    final leagues = manageableLeaguesForUser(
+      currentUser,
+      leaguesAsync.valueOrNull ?? [],
+    );
     final hubsAsync = selectedLeagueId == null
         ? const AsyncValue<List<Hub>>.data([])
         : ref.watch(hubsProvider(selectedLeagueId!));
@@ -573,15 +605,15 @@ class _EventRoomForm extends ConsumerWidget {
           );
     final teams = teamsAsync.valueOrNull ?? [];
 
-    if ((selectedScope == _EventRoomScope.hub ||
-            selectedScope == _EventRoomScope.team) &&
+    if ((selectedScope == _SharedRoomScope.hub ||
+            selectedScope == _SharedRoomScope.team) &&
         selectedHubId == null &&
         hubs.length == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) onHubSelected(hubs.first.id);
       });
     }
-    if (selectedScope == _EventRoomScope.team &&
+    if (selectedScope == _SharedRoomScope.team &&
         selectedTeamId == null &&
         teams.length == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -598,8 +630,12 @@ class _EventRoomForm extends ConsumerWidget {
         GlassTextFormField(
           controller: nameController,
           labelText: 'Room Name',
-          hintText: 'Spring Tournament',
-          leadingIcon: Icons.event_outlined,
+          hintText: roomPurpose == ChatRoomPurpose.group
+              ? 'Coaches and Managers'
+              : 'Spring Tournament',
+          leadingIcon: roomPurpose == ChatRoomPurpose.group
+              ? Icons.groups_2_outlined
+              : Icons.event_outlined,
           textInputAction: TextInputAction.done,
         ),
         const SizedBox(height: 18),
@@ -649,30 +685,30 @@ class _EventRoomForm extends ConsumerWidget {
           const SizedBox(height: 18),
           const GlassFormSectionLabel('Room Scope'),
           const SizedBox(height: 8),
-          GlassScopeSelector<_EventRoomScope>(
+          GlassScopeSelector<_SharedRoomScope>(
             selected: selectedScope,
             onChanged: isCreating ? null : onScopeSelected,
             options: const [
               GlassChoiceOption(
-                value: _EventRoomScope.league,
+                value: _SharedRoomScope.league,
                 label: 'League',
                 icon: Icons.emoji_events_outlined,
               ),
               GlassChoiceOption(
-                value: _EventRoomScope.hub,
+                value: _SharedRoomScope.hub,
                 label: 'Hub',
                 icon: Icons.location_on_outlined,
               ),
               GlassChoiceOption(
-                value: _EventRoomScope.team,
+                value: _SharedRoomScope.team,
                 label: 'Team',
                 icon: Icons.groups_2_outlined,
               ),
             ],
           ),
         ],
-        if ((selectedScope == _EventRoomScope.hub ||
-                selectedScope == _EventRoomScope.team) &&
+        if ((selectedScope == _SharedRoomScope.hub ||
+                selectedScope == _SharedRoomScope.team) &&
             selectedLeagueId != null) ...[
           const SizedBox(height: 18),
           const GlassFormSectionLabel('Hub'),
@@ -691,7 +727,8 @@ class _EventRoomForm extends ConsumerWidget {
             onChanged: isCreating ? null : onHubSelected,
           ),
         ],
-        if (selectedScope == _EventRoomScope.team && selectedHubId != null) ...[
+        if (selectedScope == _SharedRoomScope.team &&
+            selectedHubId != null) ...[
           const SizedBox(height: 18),
           const GlassFormSectionLabel('Team'),
           const SizedBox(height: 8),
@@ -757,14 +794,17 @@ class _DirectMessagePicker extends ConsumerWidget {
           padding: EdgeInsets.zero,
           onTap: () => onUserSelected(user),
           child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 7,
+            ),
             leading: AvatarWidget(
               imageUrl: user.avatarUrl,
               name: user.displayName,
               size: 48,
-              backgroundColor:
-                  AppUtils.roleColor(user.role).withValues(alpha: 0.22),
+              backgroundColor: AppUtils.roleColor(
+                user.role,
+              ).withValues(alpha: 0.22),
             ),
             title: Text(
               user.displayName,
@@ -782,8 +822,10 @@ class _DirectMessagePicker extends ConsumerWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            trailing:
-                const Icon(Icons.chevron_right, color: AppGlassColors.inkMuted),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: AppGlassColors.inkMuted,
+            ),
           ),
         );
       },

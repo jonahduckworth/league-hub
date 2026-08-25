@@ -47,7 +47,8 @@ class MockFirestoreService extends Mock implements FirestoreService {
           String? teamId,
           List<String> participants = const [],
           String? roomIconName,
-          String? roomImageUrl}) =>
+          String? roomImageUrl,
+          ChatRoomPurpose? roomPurpose}) =>
       (super.noSuchMethod(
           Invocation.method(#createChatRoom, [
             orgId,
@@ -60,6 +61,7 @@ class MockFirestoreService extends Mock implements FirestoreService {
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
+            #roomPurpose: roomPurpose,
           }),
           returnValue: Future<String>.value('')) as Future<String>);
 

@@ -111,7 +111,7 @@ class ChatRoomInfoScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                _GlassBadge(_roomTypeLabel(room.type), AppGlassColors.aqua),
+                _GlassBadge(_roomTypeLabel(room), AppGlassColors.aqua),
                 const SizedBox(height: 12),
                 Text(
                   'Created ${AppUtils.formatDate(room.createdAt)}',
@@ -192,12 +192,12 @@ class ChatRoomInfoScreen extends ConsumerWidget {
     );
   }
 
-  String _roomTypeLabel(ChatRoomType type) {
-    switch (type) {
+  String _roomTypeLabel(ChatRoom room) {
+    switch (room.type) {
       case ChatRoomType.direct:
         return 'Direct Message';
       case ChatRoomType.event:
-        return 'Event Chat';
+        return room.isGroupRoom ? 'Group Chat' : 'Event Chat';
       case ChatRoomType.league:
         return 'League Chat';
     }
@@ -561,7 +561,8 @@ class _EditRoomDialogState extends ConsumerState<_EditRoomDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.room.name);
-    _selectedIconName = widget.room.roomIconName ?? 'event';
+    _selectedIconName = widget.room.roomIconName ??
+        (widget.room.isGroupRoom ? 'group' : 'event');
     _useImage = widget.room.roomImageUrl != null &&
         widget.room.roomImageUrl!.isNotEmpty;
   }

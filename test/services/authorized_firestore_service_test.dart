@@ -156,7 +156,8 @@ class MockFirestoreService extends Mock implements FirestoreService {
           String? teamId,
           List<String> participants = const [],
           String? roomIconName,
-          String? roomImageUrl}) =>
+          String? roomImageUrl,
+          ChatRoomPurpose? roomPurpose}) =>
       (super.noSuchMethod(
           Invocation.method(#createChatRoom, [
             orgId,
@@ -169,6 +170,7 @@ class MockFirestoreService extends Mock implements FirestoreService {
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
+            #roomPurpose: roomPurpose,
           }),
           returnValue: Future<String>.value('')) as Future<String>);
 
@@ -1259,8 +1261,10 @@ void main() {
         final superAdmin = makeUser(role: UserRole.superAdmin);
 
         when(mockFs.createChatRoom('org1', 'Room 2', ChatRoomType.event,
-            leagueId: 'l1',
-            participants: ['u1', 'u2'])).thenAnswer((_) async => 'roomId2');
+                leagueId: 'l1',
+                participants: ['u1', 'u2'],
+                roomPurpose: ChatRoomPurpose.group))
+            .thenAnswer((_) async => 'roomId2');
 
         final result = await afs.createChatRoom(
           superAdmin,
@@ -1269,9 +1273,15 @@ void main() {
           ChatRoomType.event,
           leagueId: 'l1',
           participants: ['u1', 'u2'],
+          roomPurpose: ChatRoomPurpose.group,
         );
 
         expect(result, equals('roomId2'));
+        verify(mockFs.createChatRoom('org1', 'Room 2', ChatRoomType.event,
+                leagueId: 'l1',
+                participants: ['u1', 'u2'],
+                roomPurpose: ChatRoomPurpose.group))
+            .called(1);
       });
 
       test('rejects client creation of Structure-managed General rooms', () {

@@ -3051,7 +3051,7 @@ function chatRoomViewLabel(room: ChatRoom): string {
   if (view === "direct") return "Direct message";
   if (view === "team") return "Team room";
   if (view === "hub") return "Hub room";
-  return room.type === "event" ? "Event room" : "League room";
+  return room.type === "event" && room.roomPurpose !== "group" ? "Event room" : "League room";
 }
 
 function ChatRoomsSection({
