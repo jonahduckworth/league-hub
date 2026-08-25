@@ -48,9 +48,13 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
-  "storage": {
-    "rules": "storage.rules"
-  },
+  "storage": [
+    {
+      "bucket": "jdb-league-hub.firebasestorage.app",
+      "rules": "storage.rules",
+      "target": "primary"
+    }
+  ],
   "hosting": [
     {
       "target": "admin",
