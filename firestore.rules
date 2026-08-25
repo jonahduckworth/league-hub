@@ -887,21 +887,21 @@ service cloud.firestore {
 
       match /chatRooms/{roomId} {
         allow get, list: if roomIsReadable(resource.data);
-        allow create: if (
-          validDirectRoomCreate(orgId, request.resource.data)
-          || (
-            canManageContent(orgId)
-            && request.resource.data.orgId == orgId
-            && request.resource.data.type in ['league', 'event']
-            && validOptionalRoomPurpose(request.resource.data)
-            && (
-              !isStructureManagedRoom(request.resource.data)
-              || isLegacyHubGeneralRoomCreate(orgId, request.resource.data)
+        allow create: if validOptionalRoomPurpose(request.resource.data)
+          && (
+            validDirectRoomCreate(orgId, request.resource.data)
+            || (
+              canManageContent(orgId)
+              && request.resource.data.orgId == orgId
+              && request.resource.data.type in ['league', 'event']
+              && (
+                !isStructureManagedRoom(request.resource.data)
+                || isLegacyHubGeneralRoomCreate(orgId, request.resource.data)
+              )
+              && canManageScopedTarget(request.resource.data)
+              && scopedTargetExists(orgId, request.resource.data)
             )
-            && canManageScopedTarget(request.resource.data)
-            && scopedTargetExists(orgId, request.resource.data)
-          )
-        );
+          );
         allow update: if canManageContent(orgId)
             && resource.data.type in ['league', 'event']
             && request.resource.data.type in ['league', 'event']

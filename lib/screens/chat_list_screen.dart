@@ -23,9 +23,20 @@ import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/pinned_announcements_carousel.dart';
 
-const double _chatTypeSelectorHeight = 44;
+const double _chatTypeSelectorMinHeight = 44;
+const double _chatTypeLabelSize = 13;
+const double _chatTypeVerticalInsets = 20;
 const double _leagueFilterHeight = 38;
 const double _stickyFilterGap = 8;
+
+double chatTypeSelectorHeight(BuildContext context) {
+  final accessibleHeight =
+      MediaQuery.textScalerOf(context).scale(_chatTypeLabelSize) +
+          _chatTypeVerticalInsets;
+  return accessibleHeight > _chatTypeSelectorMinHeight
+      ? accessibleHeight
+      : _chatTypeSelectorMinHeight;
+}
 
 enum ChatRoomListFilter {
   all('All'),
@@ -407,7 +418,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final showLeagueFilter = leagues.length > 1;
     final stickyHeight = widget.includePinnedAnnouncements
         ? 0.0
-        : _chatTypeSelectorHeight +
+        : chatTypeSelectorHeight(context) +
             (showLeagueFilter ? _stickyFilterGap + _leagueFilterHeight : 0);
     final topContentPadding = appShellTopPadding(
       context,
@@ -727,8 +738,9 @@ class _ChatTypeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectorHeight = chatTypeSelectorHeight(context);
     return SizedBox(
-      height: _chatTypeSelectorHeight,
+      height: selectorHeight,
       child: ListView(
         key: const ValueKey('chat-type-selector'),
         scrollDirection: Axis.horizontal,
@@ -761,6 +773,7 @@ class _ChatTypePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectorHeight = chatTypeSelectorHeight(context);
     return Semantics(
       button: true,
       selected: isSelected,
@@ -769,7 +782,7 @@ class _ChatTypePill extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
-          height: _chatTypeSelectorHeight,
+          height: selectorHeight,
           alignment: Alignment.center,
           margin: const EdgeInsets.only(right: 8),
           child: AnimatedContainer(
@@ -793,7 +806,7 @@ class _ChatTypePill extends StatelessWidget {
               style: TextStyle(
                 color:
                     isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
-                fontSize: 13,
+                fontSize: _chatTypeLabelSize,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                 height: 1,
               ),

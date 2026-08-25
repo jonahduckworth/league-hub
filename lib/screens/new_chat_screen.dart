@@ -342,12 +342,8 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                     isCreating: _isCreating,
                     onScopeSelected: (scope) => setState(() {
                       _sharedRoomScope = scope;
-                      if (scope == _SharedRoomScope.league) {
-                        _selectedHubId = null;
-                        _selectedTeamId = null;
-                      } else if (scope == _SharedRoomScope.hub) {
-                        _selectedTeamId = null;
-                      }
+                      _selectedHubId = null;
+                      _selectedTeamId = null;
                     }),
                     onLeagueSelected: (id) => setState(() {
                       _selectedLeagueId = id;
@@ -395,6 +391,55 @@ List<String> sharedRoomParticipantIds({
     return user.leagueIds.contains(leagueId);
   });
   return {creator.id, ...matchingUsers.map((user) => user.id)}.toList();
+}
+
+List<Hub> manageableSharedRoomHubs({
+  required AppUser? user,
+  required List<Hub> hubs,
+  required List<Team> organizationTeams,
+  required bool forTeamScope,
+}) {
+  if (user == null) return const [];
+  const permissions = PermissionService();
+  return hubs.where((hub) {
+    if (permissions.canManageContentScope(
+      user,
+      leagueId: hub.leagueId,
+      hubId: hub.id,
+    )) {
+      return true;
+    }
+    if (!forTeamScope) return false;
+    return organizationTeams.any(
+      (team) =>
+          team.leagueId == hub.leagueId &&
+          team.hubId == hub.id &&
+          permissions.canManageContentScope(
+            user,
+            leagueId: team.leagueId,
+            hubId: team.hubId,
+            teamId: team.id,
+          ),
+    );
+  }).toList();
+}
+
+List<Team> manageableSharedRoomTeams({
+  required AppUser? user,
+  required List<Team> teams,
+}) {
+  if (user == null) return const [];
+  const permissions = PermissionService();
+  return teams
+      .where(
+        (team) => permissions.canManageContentScope(
+          user,
+          leagueId: team.leagueId,
+          hubId: team.hubId,
+          teamId: team.id,
+        ),
+      )
+      .toList();
 }
 
 class _ChooseConversationType extends StatelessWidget {
@@ -594,16 +639,44 @@ class _SharedRoomForm extends ConsumerWidget {
       currentUser,
       leaguesAsync.valueOrNull ?? [],
     );
+    final organizationTeamsAsync = currentUser?.role == UserRole.managerAdmin &&
+            currentUser!.teamIds.isNotEmpty
+        ? ref.watch(organizationTeamsProvider)
+        : const AsyncValue<List<Team>>.data([]);
+    final organizationTeams = organizationTeamsAsync.valueOrNull ?? [];
     final hubsAsync = selectedLeagueId == null
         ? const AsyncValue<List<Hub>>.data([])
         : ref.watch(hubsProvider(selectedLeagueId!));
-    final hubs = hubsAsync.valueOrNull ?? [];
-    final teamsAsync = selectedLeagueId == null || selectedHubId == null
+    final hubs = manageableSharedRoomHubs(
+      user: currentUser,
+      hubs: hubsAsync.valueOrNull ?? [],
+      organizationTeams: organizationTeams,
+      forTeamScope: selectedScope == _SharedRoomScope.team,
+    );
+    final effectiveHubId =
+        hubs.any((hub) => hub.id == selectedHubId) ? selectedHubId : null;
+    final teamsAsync = selectedLeagueId == null || effectiveHubId == null
         ? const AsyncValue<List<Team>>.data([])
         : ref.watch(
-            teamsProvider((leagueId: selectedLeagueId!, hubId: selectedHubId!)),
+            teamsProvider((leagueId: selectedLeagueId!, hubId: effectiveHubId)),
           );
-    final teams = teamsAsync.valueOrNull ?? [];
+    final teams = manageableSharedRoomTeams(
+      user: currentUser,
+      teams: teamsAsync.valueOrNull ?? [],
+    );
+    final effectiveTeamId =
+        teams.any((team) => team.id == selectedTeamId) ? selectedTeamId : null;
+
+    if (selectedHubId != null && effectiveHubId == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) onHubSelected(null);
+      });
+    }
+    if (selectedTeamId != null && effectiveTeamId == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) onTeamSelected(null);
+      });
+    }
 
     if ((selectedScope == _SharedRoomScope.hub ||
             selectedScope == _SharedRoomScope.team) &&
@@ -714,7 +787,7 @@ class _SharedRoomForm extends ConsumerWidget {
           const GlassFormSectionLabel('Hub'),
           const SizedBox(height: 8),
           GlassDropdownField<String>(
-            value: selectedHubId,
+            value: effectiveHubId,
             hintText: 'Select hub',
             items: hubs
                 .map(
@@ -728,12 +801,12 @@ class _SharedRoomForm extends ConsumerWidget {
           ),
         ],
         if (selectedScope == _SharedRoomScope.team &&
-            selectedHubId != null) ...[
+            effectiveHubId != null) ...[
           const SizedBox(height: 18),
           const GlassFormSectionLabel('Team'),
           const SizedBox(height: 8),
           GlassDropdownField<String>(
-            value: selectedTeamId,
+            value: effectiveTeamId,
             hintText: 'Select team',
             items: teams
                 .map(

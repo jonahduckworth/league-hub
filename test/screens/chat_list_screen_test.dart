@@ -7,8 +7,10 @@ import 'package:go_router/go_router.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/chat_room.dart';
+import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/organization.dart';
+import 'package:league_hub/models/team.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/chat_list_screen.dart';
@@ -501,6 +503,94 @@ void main() {
       );
     });
 
+    test('shared room choices stay inside a manager assigned scope', () {
+      final manager = AppUser(
+        id: 'manager',
+        email: 'manager@example.com',
+        displayName: 'Manager',
+        role: UserRole.managerAdmin,
+        orgId: 'org-1',
+        leagueIds: const ['league-1'],
+        hubIds: const ['hub-1'],
+        teamIds: const ['team-3'],
+        createdAt: baseTime,
+        isActive: true,
+      );
+      final hubs = [
+        Hub(
+          id: 'hub-1',
+          leagueId: 'league-1',
+          orgId: 'org-1',
+          name: 'Assigned Hub',
+          createdAt: baseTime,
+        ),
+        Hub(
+          id: 'hub-2',
+          leagueId: 'league-1',
+          orgId: 'org-1',
+          name: 'Outside Hub',
+          createdAt: baseTime,
+        ),
+        Hub(
+          id: 'hub-3',
+          leagueId: 'league-1',
+          orgId: 'org-1',
+          name: 'Assigned Team Hub',
+          createdAt: baseTime,
+        ),
+      ];
+      final teams = [
+        Team(
+          id: 'team-1',
+          hubId: 'hub-1',
+          leagueId: 'league-1',
+          orgId: 'org-1',
+          name: 'Hub Team',
+          createdAt: baseTime,
+        ),
+        Team(
+          id: 'team-2',
+          hubId: 'hub-2',
+          leagueId: 'league-1',
+          orgId: 'org-1',
+          name: 'Outside Team',
+          createdAt: baseTime,
+        ),
+        Team(
+          id: 'team-3',
+          hubId: 'hub-3',
+          leagueId: 'league-1',
+          orgId: 'org-1',
+          name: 'Directly Assigned Team',
+          createdAt: baseTime,
+        ),
+      ];
+
+      expect(
+        manageableSharedRoomHubs(
+          user: manager,
+          hubs: hubs,
+          organizationTeams: teams,
+          forTeamScope: false,
+        ).map((hub) => hub.id),
+        ['hub-1'],
+      );
+      expect(
+        manageableSharedRoomHubs(
+          user: manager,
+          hubs: hubs,
+          organizationTeams: teams,
+          forTeamScope: true,
+        ).map((hub) => hub.id),
+        ['hub-1', 'hub-3'],
+      );
+      expect(
+        manageableSharedRoomTeams(user: manager, teams: teams)
+            .map((team) => team.id),
+        ['team-1', 'team-3'],
+      );
+    });
+
     test('opens direct message room when current user is available', () async {
       final currentUser = AppUser(
         id: 'user-1',
@@ -809,6 +899,9 @@ void main() {
       List<League>? leagues,
       List<ChatRoom>? chatRooms,
       List<AppUser>? orgUsers,
+      List<Hub> hubs = const [],
+      List<Team> teams = const [],
+      List<Team> organizationTeams = const [],
       AuthorizedFirestoreService? authorizedFirestoreService,
       FirestoreService? firestoreService,
       int unreadCount = 0,
@@ -865,6 +958,25 @@ void main() {
           ),
           orgUsersProvider.overrideWith(
             (ref) => Stream.value(orgUsers ?? [testUser]),
+          ),
+          hubsProvider.overrideWith(
+            (ref, leagueId) => Stream.value(
+              hubs.where((hub) => hub.leagueId == leagueId).toList(),
+            ),
+          ),
+          teamsProvider.overrideWith(
+            (ref, params) => Stream.value(
+              teams
+                  .where(
+                    (team) =>
+                        team.leagueId == params.leagueId &&
+                        team.hubId == params.hubId,
+                  )
+                  .toList(),
+            ),
+          ),
+          organizationTeamsProvider.overrideWith(
+            (ref) async => organizationTeams,
           ),
           if (authorizedFirestoreService != null)
             authorizedFirestoreServiceProvider
@@ -1106,6 +1218,98 @@ void main() {
         expect(find.text('Group Room'), findsOneWidget);
         expect(find.text('Event Room'), findsOneWidget);
         expect(find.text('Direct Message'), findsOneWidget);
+      });
+
+      testWidgets('manager room form hides out-of-scope hubs and teams',
+          (WidgetTester tester) async {
+        final scopedManager = AppUser(
+          id: 'scoped-manager',
+          email: 'scoped@example.com',
+          displayName: 'Scoped Manager',
+          role: UserRole.managerAdmin,
+          orgId: 'org-1',
+          leagueIds: const ['league-1'],
+          hubIds: const ['hub-1'],
+          teamIds: const ['team-3'],
+          createdAt: DateTime(2024),
+          isActive: true,
+        );
+        final hubs = [
+          Hub(
+            id: 'hub-1',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'Assigned Hub',
+            createdAt: DateTime(2024),
+          ),
+          Hub(
+            id: 'hub-2',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'Outside Hub',
+            createdAt: DateTime(2024),
+          ),
+          Hub(
+            id: 'hub-3',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'Assigned Team Hub',
+            createdAt: DateTime(2024),
+          ),
+        ];
+        final teams = [
+          Team(
+            id: 'team-3',
+            hubId: 'hub-3',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'Assigned Team',
+            createdAt: DateTime(2024),
+          ),
+          Team(
+            id: 'team-4',
+            hubId: 'hub-3',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'Outside Team',
+            createdAt: DateTime(2024),
+          ),
+        ];
+
+        await tester.pumpWidget(
+          createRoutedTestWidget(
+            user: scopedManager,
+            hubs: hubs,
+            teams: teams,
+            organizationTeams: teams,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Group Room').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Team').last);
+        await tester.pumpAndSettle();
+
+        var dropdown = find.byType(DropdownButtonFormField<String>).last;
+        await tester.ensureVisible(dropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(dropdown);
+        await tester.pumpAndSettle();
+        expect(find.text('Assigned Hub'), findsOneWidget);
+        expect(find.text('Assigned Team Hub'), findsOneWidget);
+        expect(find.text('Outside Hub'), findsNothing);
+
+        await tester.tap(find.text('Assigned Team Hub'));
+        await tester.pumpAndSettle();
+        dropdown = find.byType(DropdownButtonFormField<String>).last;
+        await tester.ensureVisible(dropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(dropdown);
+        await tester.pumpAndSettle();
+        expect(find.text('Assigned Team'), findsWidgets);
+        expect(find.text('Outside Team'), findsNothing);
       });
 
       for (final role in [
@@ -1537,7 +1741,7 @@ void main() {
             lessThan(tester.getTopLeft(directMessages).dx));
       });
 
-      testWidgets('selector remains usable on a small phone with large text',
+      testWidgets('selector adapts to maximum text on a small phone',
           (WidgetTester tester) async {
         tester.view.physicalSize = const Size(375, 812);
         tester.view.devicePixelRatio = 1;
@@ -1545,17 +1749,24 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
 
         await tester.pumpWidget(
-          createTestWidget(textScaler: const TextScaler.linear(2)),
+          createTestWidget(textScaler: const TextScaler.linear(3.2)),
         );
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
+        final selector = find.byKey(const ValueKey('chat-type-selector'));
         expect(
-          tester
-              .getSize(find.byKey(const ValueKey('chat-type-selector')))
-              .height,
-          greaterThanOrEqualTo(44),
+          tester.getSize(selector).height,
+          greaterThan(44),
         );
+        final allLabel = find.descendant(
+          of: find.byKey(const ValueKey('chat-type-filter-all')),
+          matching: find.text('All'),
+        );
+        final selectorRect = tester.getRect(selector);
+        final labelRect = tester.getRect(allLabel);
+        expect(selectorRect.top, lessThanOrEqualTo(labelRect.top));
+        expect(selectorRect.bottom, greaterThanOrEqualTo(labelRect.bottom));
         await selectRoomFilter(tester, ChatRoomListFilter.directMessages);
         expect(find.text('Direct Message'), findsOneWidget);
       });
