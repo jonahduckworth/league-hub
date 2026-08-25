@@ -497,6 +497,27 @@ void main() {
       expect(doc.data()!['isArchived'], false);
       expect(doc.data()!['roomIconName'], 'trophy');
       expect(doc.data()!['roomImageUrl'], 'https://example.com/room.png');
+      expect(doc.data()!.containsKey('roomPurpose'), isFalse);
+    });
+
+    test('createChatRoom persists shared room purpose', () async {
+      final roomId = await svc.createChatRoom(
+        orgId,
+        'Hub Leadership',
+        ChatRoomType.event,
+        leagueId: 'lg-1',
+        hubId: 'hub-1',
+        roomPurpose: ChatRoomPurpose.group,
+      );
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.chatRoomsCollection)
+          .doc(roomId)
+          .get();
+
+      expect(doc.data()!['roomPurpose'], 'group');
     });
 
     test('archiveChatRoom sets isArchived true', () async {

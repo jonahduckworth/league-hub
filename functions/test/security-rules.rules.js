@@ -581,6 +581,42 @@ test("admin cannot mutate a direct-message room as managed content", async () =>
   ));
 });
 
+test("direct rooms reject shared-room purpose metadata", async () => {
+  await seedFirestore([
+    ["users/member", user({ id: "member" })],
+    ["users/peer", user({ id: "peer" })],
+  ]);
+  const db = testEnv.authenticatedContext("member").firestore();
+  const directRoom = {
+    id: "dm-1",
+    orgId: "org-1",
+    type: "direct",
+    participants: ["member", "peer"],
+    name: "Member & Peer",
+  };
+
+  await assertSucceeds(setDoc(
+    doc(db, "organizations/org-1/chatRooms/dm-1"),
+    directRoom,
+  ));
+  await assertFails(setDoc(
+    doc(db, "organizations/org-1/chatRooms/dm-invalid-purpose"),
+    {
+      ...directRoom,
+      id: "dm-invalid-purpose",
+      roomPurpose: "private",
+    },
+  ));
+  await assertFails(setDoc(
+    doc(db, "organizations/org-1/chatRooms/dm-shared-purpose"),
+    {
+      ...directRoom,
+      id: "dm-shared-purpose",
+      roomPurpose: "group",
+    },
+  ));
+});
+
 test("users can manage only their own chat safety settings", async () => {
   await seedFirestore([
     ["users/member", user({
@@ -1085,6 +1121,45 @@ test("Structure-managed General room identity is server-owned", async () => {
     ),
     { type: "league" },
   ));
+
+  const groupRoomRef = doc(
+    testEnv.authenticatedContext("manager").firestore(),
+    "organizations/org-1/chatRooms/group-room",
+  );
+  await assertSucceeds(setDoc(groupRoomRef, {
+    ...generalRoom,
+    id: "group-room",
+    type: "event",
+    roomPurpose: "group",
+    name: "Hub Leadership",
+  }));
+  await assertFails(setDoc(
+    doc(
+      testEnv.authenticatedContext("manager").firestore(),
+      "organizations/org-1/chatRooms/invalid-purpose",
+    ),
+    {
+      ...generalRoom,
+      id: "invalid-purpose",
+      type: "event",
+      roomPurpose: "private",
+      name: "Invalid purpose",
+    },
+  ));
+  await assertFails(setDoc(
+    doc(
+      testEnv.authenticatedContext("manager").firestore(),
+      "organizations/org-1/chatRooms/invalid-purpose-type",
+    ),
+    {
+      ...generalRoom,
+      id: "invalid-purpose-type",
+      type: "league",
+      roomPurpose: "group",
+      name: "Invalid purpose type",
+    },
+  ));
+  await assertFails(updateDoc(groupRoomRef, { roomPurpose: "event" }));
 
   const legacyRoom = {
     orgId: "org-1",

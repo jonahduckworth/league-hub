@@ -85,12 +85,20 @@ class ChatRoomAvatar extends StatelessWidget {
   }
 
   Widget _iconFallback() {
+    final fallbackIconName = room.isGroupRoom
+        ? 'group'
+        : room.type == ChatRoomType.event
+            ? 'event'
+            : 'forum';
+    final fallbackIcon = room.isGroupRoom
+        ? Icons.groups_2_outlined
+        : room.type == ChatRoomType.event
+            ? Icons.event_outlined
+            : Icons.forum;
     return EntityAvatar(
       name: displayName,
-      iconName: room.roomIconName ??
-          (room.type == ChatRoomType.event ? 'event' : 'forum'),
-      fallbackIcon:
-          room.type == ChatRoomType.event ? Icons.event_outlined : Icons.forum,
+      iconName: room.roomIconName ?? fallbackIconName,
+      fallbackIcon: fallbackIcon,
       size: size,
       borderRadius: borderRadius,
     );

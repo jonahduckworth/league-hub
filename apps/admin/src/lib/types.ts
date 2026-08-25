@@ -142,6 +142,7 @@ export type ChatRoom = {
   orgId: string;
   name: string;
   type: ChatRoomType;
+  roomPurpose?: "group" | "event" | null;
   leagueId?: string | null;
   hubId?: string | null;
   teamId?: string | null;

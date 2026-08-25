@@ -335,6 +335,7 @@ class AuthorizedFirestoreService {
     String? hubId,
     String? teamId,
     List<String> participants = const [],
+    ChatRoomPurpose? roomPurpose,
     String? roomIconName,
     String? roomImageUrl,
   }) {
@@ -359,6 +360,7 @@ class AuthorizedFirestoreService {
         hubId: hubId,
         teamId: teamId,
         participants: participants,
+        roomPurpose: roomPurpose,
         roomIconName: roomIconName,
         roomImageUrl: roomImageUrl);
   }

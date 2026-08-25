@@ -64,6 +64,16 @@ final teamsProvider =
       .getTeams(orgId, params.leagueId, params.hubId);
 });
 
+/// All teams in the signed-in user's organization.
+///
+/// Used when a manager is assigned directly to teams so scoped forms can
+/// resolve the parent hubs without exposing unrelated Structure choices.
+final organizationTeamsProvider = FutureProvider<List<Team>>((ref) async {
+  final org = await ref.watch(organizationProvider.future);
+  if (org == null) return const [];
+  return ref.read(firestoreServiceProvider).getAllTeamsFlat(org.id);
+});
+
 // --- Counts ---
 
 final hubCountProvider = FutureProvider<int>((ref) async {

@@ -285,6 +285,7 @@ class FirestoreService {
     String? hubId,
     String? teamId,
     List<String> participants = const [],
+    ChatRoomPurpose? roomPurpose,
     String? roomIconName,
     String? roomImageUrl,
   }) async {
@@ -293,6 +294,7 @@ class FirestoreService {
       'orgId': orgId,
       'name': name,
       'type': type.name,
+      if (roomPurpose != null) 'roomPurpose': roomPurpose.name,
       'leagueId': leagueId,
       'hubId': hubId,
       'teamId': teamId,

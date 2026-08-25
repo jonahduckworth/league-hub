@@ -1,10 +1,18 @@
 enum ChatRoomType { league, event, direct }
 
+/// Semantic purpose for user-created shared rooms.
+///
+/// Shared rooms retain [ChatRoomType.event] for compatibility with released
+/// clients and existing Firestore rules. A null purpose therefore represents
+/// a legacy event room.
+enum ChatRoomPurpose { group, event }
+
 class ChatRoom {
   final String id;
   final String orgId;
   final String name;
   final ChatRoomType type;
+  final ChatRoomPurpose? roomPurpose;
   final String? leagueId;
   final String? hubId;
   final String? teamId;
@@ -22,11 +30,17 @@ class ChatRoom {
   bool get isStructureManagedGeneral =>
       type == ChatRoomType.league && hubId?.isNotEmpty == true;
 
+  bool get isGroupRoom =>
+      type == ChatRoomType.event && roomPurpose == ChatRoomPurpose.group;
+
+  bool get isEventRoom => type == ChatRoomType.event && !isGroupRoom;
+
   ChatRoom({
     required this.id,
     required this.orgId,
     required this.name,
     required this.type,
+    this.roomPurpose,
     this.leagueId,
     this.hubId,
     this.teamId,
@@ -50,6 +64,11 @@ class ChatRoom {
           (e) => e.name == json['type'],
           orElse: () => ChatRoomType.league,
         ),
+        roomPurpose: switch (json['roomPurpose']) {
+          'group' => ChatRoomPurpose.group,
+          'event' => ChatRoomPurpose.event,
+          _ => null,
+        },
         leagueId: json['leagueId'] as String?,
         hubId: json['hubId'] as String?,
         teamId: json['teamId'] as String?,
@@ -64,8 +83,9 @@ class ChatRoom {
         lastMessageSenderId: json['lastMessageSenderId'] as String?,
         roomIconName: json['roomIconName'] as String?,
         roomImageUrl: json['roomImageUrl'] as String?,
-        participantNames:
-            Map<String, String>.from(json['participantNames'] as Map? ?? {}),
+        participantNames: Map<String, String>.from(
+          json['participantNames'] as Map? ?? {},
+        ),
       );
 
   Map<String, dynamic> toJson() => {
@@ -73,6 +93,7 @@ class ChatRoom {
         'orgId': orgId,
         'name': name,
         'type': type.name,
+        if (roomPurpose != null) 'roomPurpose': roomPurpose!.name,
         'leagueId': leagueId,
         'hubId': hubId,
         'teamId': teamId,

@@ -23,14 +23,27 @@ import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/pinned_announcements_carousel.dart';
 
-const double _chatTypeSelectorHeight = 44;
+const double _chatTypeSelectorMinHeight = 44;
+const double _chatTypeLabelSize = 13;
+const double _chatTypeVerticalInsets = 20;
 const double _leagueFilterHeight = 38;
 const double _stickyFilterGap = 8;
+
+double chatTypeSelectorHeight(BuildContext context) {
+  final accessibleHeight =
+      MediaQuery.textScalerOf(context).scale(_chatTypeLabelSize) +
+          _chatTypeVerticalInsets;
+  return accessibleHeight > _chatTypeSelectorMinHeight
+      ? accessibleHeight
+      : _chatTypeSelectorMinHeight;
+}
 
 enum ChatRoomListFilter {
   all('All'),
   leagueRooms('League Rooms'),
-  eventsAndTournaments('Events & Tournaments'),
+  hubRooms('Hub Rooms'),
+  teamRooms('Team Rooms'),
+  events('Events'),
   directMessages('Direct Messages');
 
   final String label;
@@ -38,19 +51,30 @@ enum ChatRoomListFilter {
   const ChatRoomListFilter(this.label);
 }
 
+ChatRoomListFilter chatRoomCategory(ChatRoom room) {
+  if (room.type == ChatRoomType.direct) {
+    return ChatRoomListFilter.directMessages;
+  }
+  if (room.isEventRoom) {
+    return ChatRoomListFilter.events;
+  }
+  if (room.teamId?.isNotEmpty == true) {
+    return ChatRoomListFilter.teamRooms;
+  }
+  if (room.hubId?.isNotEmpty == true) {
+    return ChatRoomListFilter.hubRooms;
+  }
+  return ChatRoomListFilter.leagueRooms;
+}
+
 class ChatRoomSectionData {
   final String title;
   final List<ChatRoom> rooms;
 
-  const ChatRoomSectionData({
-    required this.title,
-    required this.rooms,
-  });
+  const ChatRoomSectionData({required this.title, required this.rooms});
 }
 
-TextStyle chatLeagueChipLabelStyle({
-  required bool selected,
-}) {
+TextStyle chatLeagueChipLabelStyle({required bool selected}) {
   return TextStyle(
     color: selected ? AppColors.primary : AppColors.textSecondary,
     fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
@@ -87,19 +111,25 @@ List<ChatRoom> filterChatRooms({
   }
   if (selectedLeagueId != null) {
     filtered = filtered
-        .where((r) =>
-            r.leagueId == selectedLeagueId || r.type == ChatRoomType.direct)
+        .where(
+          (r) =>
+              r.leagueId == selectedLeagueId || r.type == ChatRoomType.direct,
+        )
         .toList();
   }
 
   filtered = switch (roomFilter) {
     ChatRoomListFilter.all => filtered,
     ChatRoomListFilter.leagueRooms =>
-      filtered.where((r) => r.type == ChatRoomType.league).toList(),
-    ChatRoomListFilter.eventsAndTournaments =>
-      filtered.where((r) => r.type == ChatRoomType.event).toList(),
+      filtered.where((r) => chatRoomCategory(r) == roomFilter).toList(),
+    ChatRoomListFilter.hubRooms =>
+      filtered.where((r) => chatRoomCategory(r) == roomFilter).toList(),
+    ChatRoomListFilter.teamRooms =>
+      filtered.where((r) => chatRoomCategory(r) == roomFilter).toList(),
+    ChatRoomListFilter.events =>
+      filtered.where((r) => chatRoomCategory(r) == roomFilter).toList(),
     ChatRoomListFilter.directMessages =>
-      filtered.where((r) => r.type == ChatRoomType.direct).toList(),
+      filtered.where((r) => chatRoomCategory(r) == roomFilter).toList(),
   };
 
   return filtered;
@@ -109,15 +139,35 @@ List<ChatRoomSectionData> buildChatRoomSections(List<ChatRoom> rooms) {
   final sections = <ChatRoomSectionData>[
     ChatRoomSectionData(
       title: 'League Rooms',
-      rooms: rooms.where((r) => r.type == ChatRoomType.league).toList(),
+      rooms: rooms
+          .where((r) => chatRoomCategory(r) == ChatRoomListFilter.leagueRooms)
+          .toList(),
     ),
     ChatRoomSectionData(
-      title: 'Events & Tournaments',
-      rooms: rooms.where((r) => r.type == ChatRoomType.event).toList(),
+      title: 'Hub Rooms',
+      rooms: rooms
+          .where((r) => chatRoomCategory(r) == ChatRoomListFilter.hubRooms)
+          .toList(),
+    ),
+    ChatRoomSectionData(
+      title: 'Team Rooms',
+      rooms: rooms
+          .where((r) => chatRoomCategory(r) == ChatRoomListFilter.teamRooms)
+          .toList(),
+    ),
+    ChatRoomSectionData(
+      title: 'Events',
+      rooms: rooms
+          .where((r) => chatRoomCategory(r) == ChatRoomListFilter.events)
+          .toList(),
     ),
     ChatRoomSectionData(
       title: 'Direct Messages',
-      rooms: rooms.where((r) => r.type == ChatRoomType.direct).toList(),
+      rooms: rooms
+          .where(
+            (r) => chatRoomCategory(r) == ChatRoomListFilter.directMessages,
+          )
+          .toList(),
     ),
   ];
 
@@ -131,8 +181,9 @@ DateTime chatRoomActivityAt(ChatRoom room) {
 List<ChatRoom> orderChatRoomsForDisplay(List<ChatRoom> rooms) {
   final ordered = [...rooms];
   ordered.sort((a, b) {
-    final activityCompare =
-        chatRoomActivityAt(b).compareTo(chatRoomActivityAt(a));
+    final activityCompare = chatRoomActivityAt(
+      b,
+    ).compareTo(chatRoomActivityAt(a));
     if (activityCompare != 0) return activityCompare;
     return a.name.compareTo(b.name);
   });
@@ -236,9 +287,11 @@ List<AppUser> chatRoomMembers(ChatRoom room, List<AppUser> users) {
   if (room.leagueId != null) {
     if (room.teamId != null) {
       return activeUsers
-          .where((user) =>
-              user.teamIds.contains(room.teamId) ||
-              (room.hubId != null && user.hubIds.contains(room.hubId)))
+          .where(
+            (user) =>
+                user.teamIds.contains(room.teamId) ||
+                (room.hubId != null && user.hubIds.contains(room.hubId)),
+          )
           .toList();
     }
     if (room.hubId != null) {
@@ -266,10 +319,11 @@ String formatUnreadBadgeCount(int unreadCount) {
   return unreadCount > 99 ? '99+' : '$unreadCount';
 }
 
-Future<String?> createEventChatRoom({
+Future<String?> createSharedChatRoom({
   required AppUser? currentUser,
   required String orgId,
   required String roomName,
+  required ChatRoomPurpose roomPurpose,
   required String selectedLeagueId,
   String? selectedHubId,
   String? selectedTeamId,
@@ -284,6 +338,7 @@ Future<String?> createEventChatRoom({
     List<String> participants,
     String? roomIconName,
     String? roomImageUrl,
+    ChatRoomPurpose? roomPurpose,
   }) createRoom,
   required VoidCallback onPermissionDenied,
   String? roomIconName,
@@ -304,6 +359,7 @@ Future<String?> createEventChatRoom({
       participants: participantIds ?? [currentUser.id],
       roomIconName: roomIconName,
       roomImageUrl: roomImageUrl,
+      roomPurpose: roomPurpose,
     );
   } on PermissionDeniedException {
     onPermissionDenied();
@@ -337,10 +393,7 @@ Future<String?> openDirectMessageRoom({
 class ChatListScreen extends ConsumerStatefulWidget {
   final bool includePinnedAnnouncements;
 
-  const ChatListScreen({
-    super.key,
-    this.includePinnedAnnouncements = false,
-  });
+  const ChatListScreen({super.key, this.includePinnedAnnouncements = false});
 
   @override
   ConsumerState<ChatListScreen> createState() => _ChatListScreenState();
@@ -365,7 +418,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final showLeagueFilter = leagues.length > 1;
     final stickyHeight = widget.includePinnedAnnouncements
         ? 0.0
-        : _chatTypeSelectorHeight +
+        : chatTypeSelectorHeight(context) +
             (showLeagueFilter ? _stickyFilterGap + _leagueFilterHeight : 0);
     final topContentPadding = appShellTopPadding(
       context,
@@ -436,7 +489,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
 
                 return ListView.builder(
                   padding: EdgeInsets.fromLTRB(
-                      16, topContentPadding, 16, bottomContentPadding),
+                    16,
+                    topContentPadding,
+                    16,
+                    bottomContentPadding,
+                  ),
                   itemCount: visibleRooms.length,
                   itemBuilder: (context, index) => AppMotionReveal(
                     index: index,
@@ -485,12 +542,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         key: const ValueKey('communication-scroll-view'),
         slivers: [
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              topContentPadding,
-              16,
-              0,
-            ),
+            padding: EdgeInsets.fromLTRB(16, topContentPadding, 16, 0),
             sliver: SliverList.list(children: fixedContent),
           ),
           const SliverFillRemaining(
@@ -503,12 +555,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         key: const ValueKey('communication-scroll-view'),
         slivers: [
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              topContentPadding,
-              16,
-              0,
-            ),
+            padding: EdgeInsets.fromLTRB(16, topContentPadding, 16, 0),
             sliver: SliverList.list(children: fixedContent),
           ),
           SliverFillRemaining(
@@ -534,22 +581,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
           key: const ValueKey('communication-scroll-view'),
           slivers: [
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                topContentPadding,
-                16,
-                0,
-              ),
+              padding: EdgeInsets.fromLTRB(16, topContentPadding, 16, 0),
               sliver: SliverList.list(children: fixedContent),
             ),
             if (visibleRooms.isEmpty)
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  0,
-                  16,
-                  bottomContentPadding,
-                ),
+                padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
                 sliver: const SliverToBoxAdapter(
                   child: SizedBox(
                     height: 220,
@@ -563,12 +600,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               )
             else
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  0,
-                  16,
-                  bottomContentPadding,
-                ),
+                padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
                 sliver: SliverList.builder(
                   itemCount: visibleRooms.length,
                   itemBuilder: (context, index) => AppMotionReveal(
@@ -706,9 +738,11 @@ class _ChatTypeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectorHeight = chatTypeSelectorHeight(context);
     return SizedBox(
-      height: _chatTypeSelectorHeight,
+      height: selectorHeight,
       child: ListView(
+        key: const ValueKey('chat-type-selector'),
         scrollDirection: Axis.horizontal,
         padding: horizontalPadding,
         children: [
@@ -739,6 +773,7 @@ class _ChatTypePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectorHeight = chatTypeSelectorHeight(context);
     return Semantics(
       button: true,
       selected: isSelected,
@@ -747,7 +782,7 @@ class _ChatTypePill extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
-          height: _chatTypeSelectorHeight,
+          height: selectorHeight,
           alignment: Alignment.center,
           margin: const EdgeInsets.only(right: 8),
           child: AnimatedContainer(
@@ -771,7 +806,7 @@ class _ChatTypePill extends StatelessWidget {
               style: TextStyle(
                 color:
                     isSelected ? AppGlassColors.aqua : AppGlassColors.inkMuted,
-                fontSize: 13,
+                fontSize: _chatTypeLabelSize,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                 height: 1,
               ),
@@ -797,8 +832,11 @@ class _ChatRoomTile extends ConsumerWidget {
     final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
     final displayName = chatRoomDisplayName(room, currentUser, users);
     final peer = directMessagePeer(room, currentUser, users);
-    final lastMessageIsBlocked =
-        chatRoomLastMessageIsBlocked(room, currentUser, users);
+    final lastMessageIsBlocked = chatRoomLastMessageIsBlocked(
+      room,
+      currentUser,
+      users,
+    );
     final preview = chatRoomPreviewText(
       room,
       currentUser: currentUser,
@@ -821,11 +859,14 @@ class _ChatRoomTile extends ConsumerWidget {
           displayName: displayName,
           directMessagePeer: peer,
         ),
-        title: Text(displayName,
-            style: TextStyle(
-                fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.w600,
-                color: AppGlassColors.ink,
-                fontSize: 14)),
+        title: Text(
+          displayName,
+          style: TextStyle(
+            fontWeight: unreadCount > 0 ? FontWeight.w700 : FontWeight.w600,
+            color: AppGlassColors.ink,
+            fontSize: 14,
+          ),
+        ),
         subtitle: Text(
           preview ?? 'No messages yet',
           maxLines: 1,
