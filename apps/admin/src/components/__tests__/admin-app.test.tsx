@@ -278,7 +278,7 @@ describe("AdminApp operations shell", () => {
     });
   });
 
-  it("keeps a partially created Event Room recoverable when its photo update fails", async () => {
+  it("retains the upload when a created room's photo update result is ambiguous", async () => {
     const runAction = vi.fn().mockImplementation(async (name: string) => {
       if (name === "createMultiTeamEventRoom") {
         return { ok: true, data: { roomId: "showcase-partial" } };
@@ -308,10 +308,39 @@ describe("AdminApp operations shell", () => {
     fireEvent.click(within(drawer).getByRole("button", { name: "Create Event Room" }));
 
     expect(await within(drawer).findByText("The Event Room has been created.")).toBeTruthy();
-    expect(within(drawer).getByRole("alert").textContent).toMatch(/photo could not be added/i);
+    expect(within(drawer).getByRole("alert").textContent).toMatch(/could not be confirmed/i);
     expect(within(drawer).queryByRole("button", { name: "Create Event Room" })).toBeNull();
-    expect(storageMocks.deleteObject).toHaveBeenCalledTimes(1);
+    expect(storageMocks.deleteObject).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("cleans up only when the room photo upload itself fails", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: { roomId: "showcase-upload-failed" } });
+    storageMocks.uploadBytes.mockRejectedValueOnce(new Error("Upload failed"));
+
+    render(
+      <CreateEventRoomDrawer
+        open
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "New Event Room" });
+    fireEvent.change(within(drawer).getByRole("textbox", { name: /Room name/i }), {
+      target: { value: "Provincial Showcase" }
+    });
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Calgary U11 AA/i }));
+    fireEvent.change(within(drawer).getByLabelText("Event Room photo"), {
+      target: { files: [new File(["photo"], "showcase.png", { type: "image/png" })] }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Create Event Room" }));
+
+    expect(await within(drawer).findByText(/photo could not be uploaded/i)).toBeTruthy();
+    expect(storageMocks.deleteObject).toHaveBeenCalledTimes(1);
+    expect(runAction).toHaveBeenCalledTimes(1);
   });
 
   it("replaces and removes an existing Event Room photo", async () => {
@@ -361,6 +390,46 @@ describe("AdminApp operations shell", () => {
       roomId: "showcase-room",
       patch: { roomIconName: "event", roomImageUrl: null }
     }));
+  });
+
+  it("retains an uploaded replacement when its room update result is ambiguous", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: false, error: "Audit write failed" });
+    const room = {
+      id: "showcase-room",
+      orgId: "org-demo",
+      name: "Provincial Showcase",
+      type: "event" as const,
+      roomPurpose: "event" as const,
+      leagueId: "league-winter",
+      hubId: "__multi_team__",
+      teamId: "__multi_team__",
+      hubIds: ["hub-calgary", "hub-reddeer"],
+      teamIds: ["team-u11-aa", "team-u13-a"],
+      participants: [],
+      isArchived: false,
+      roomImageUrl: null
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
+    fireEvent.change(within(drawer).getByLabelText("Room photo file"), {
+      target: { files: [new File(["replacement"], "showcase.webp", { type: "image/webp" })] }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Save photo" }));
+
+    expect(await within(drawer).findByText(/photo update could not be confirmed/i)).toBeTruthy();
+    expect(storageMocks.deleteObject).not.toHaveBeenCalled();
+    expect((within(drawer).getByLabelText("Room photo file") as HTMLInputElement).disabled).toBe(true);
+    expect(within(drawer).queryByRole("button", { name: "Save photo" })).toBeNull();
   });
 
   it("loads a shared-room conversation and posts as the signed-in administrator", async () => {

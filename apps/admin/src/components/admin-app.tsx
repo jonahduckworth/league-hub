@@ -3435,18 +3435,27 @@ export function CreateEventRoomDrawer({
         userId: currentUser.id,
         fileName: imageFile.name
       }));
+      let roomImageUrl: string;
       try {
         await uploadBytes(fileRef, imageFile, { contentType: imageFile.type });
-        const roomImageUrl = await getDownloadURL(fileRef);
-        const updateResult = await runAction("adminUpdateChatRoom", {
-          roomId,
-          patch: { roomIconName: null, roomImageUrl }
-        });
-        if (!updateResult.ok) throw new Error(updateResult.error);
+        roomImageUrl = await getDownloadURL(fileRef);
       } catch {
         await deleteObject(fileRef).catch(() => undefined);
         setCreatedRoomId(roomId);
-        setFormError("The Event Room was created, but its photo could not be added. Open the room details to try the photo again.");
+        setFormError("The Event Room was created, but its photo could not be uploaded. Open the room details to try the photo again.");
+        setSubmitting(false);
+        return;
+      }
+      const updateResult = await runAction("adminUpdateChatRoom", {
+        roomId,
+        patch: { roomIconName: null, roomImageUrl }
+      });
+      if (!updateResult.ok) {
+        // A callable can fail after the room update commits (for example, while
+        // writing its audit entry). Keep the upload so a persisted URL never
+        // points at an object this client deleted.
+        setCreatedRoomId(roomId);
+        setFormError("The Event Room was created, but its photo update could not be confirmed. Refresh Chat Rooms before trying the photo again.");
         setSubmitting(false);
         return;
       }
@@ -3628,6 +3637,7 @@ export function ChatRoomDrawer({
   const [roomImageInputKey, setRoomImageInputKey] = useState(0);
   const [roomImageError, setRoomImageError] = useState<string | null>(null);
   const [roomImageSaving, setRoomImageSaving] = useState(false);
+  const [roomImageUncertain, setRoomImageUncertain] = useState(false);
   const archiveCancelRef = useRef<HTMLButtonElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
@@ -3644,6 +3654,7 @@ export function ChatRoomDrawer({
     setRoomImageInputKey((current) => current + 1);
     setRoomImageError(null);
     setRoomImageSaving(false);
+    setRoomImageUncertain(false);
   }, [room]);
 
   useEffect(() => {
@@ -3739,23 +3750,34 @@ export function ChatRoomDrawer({
       userId: currentUser.id,
       fileName: roomImageFile.name
     }));
+    let nextRoomImageUrl: string;
     try {
       await uploadBytes(fileRef, roomImageFile, { contentType: roomImageFile.type });
-      const nextRoomImageUrl = await getDownloadURL(fileRef);
-      const result = await runAction("adminUpdateChatRoom", {
-        roomId: room.id,
-        patch: { roomIconName: null, roomImageUrl: nextRoomImageUrl }
-      });
-      if (!result.ok) throw new Error(result.error);
-      setRoomImageUrl(nextRoomImageUrl);
-      setRoomImageFile(null);
-      setRoomImageInputKey((current) => current + 1);
+      nextRoomImageUrl = await getDownloadURL(fileRef);
     } catch (caught) {
       await deleteObject(fileRef).catch(() => undefined);
-      setRoomImageError(caught instanceof Error ? caught.message : "The room photo could not be saved.");
-    } finally {
+      setRoomImageError(caught instanceof Error ? caught.message : "The room photo could not be uploaded.");
       setRoomImageSaving(false);
+      return;
     }
+    const result = await runAction("adminUpdateChatRoom", {
+      roomId: room.id,
+      patch: { roomIconName: null, roomImageUrl: nextRoomImageUrl }
+    });
+    if (!result.ok) {
+      // Do not delete after an ambiguous callable failure; the URL may already
+      // be committed even if a later audit or response step failed.
+      setRoomImageFile(null);
+      setRoomImageInputKey((current) => current + 1);
+      setRoomImageUncertain(true);
+      setRoomImageError("The photo update could not be confirmed. Close this room and refresh Chat Rooms before trying again.");
+      setRoomImageSaving(false);
+      return;
+    }
+    setRoomImageUrl(nextRoomImageUrl);
+    setRoomImageFile(null);
+    setRoomImageInputKey((current) => current + 1);
+    setRoomImageSaving(false);
   }
 
   async function removeRoomImage() {
@@ -3852,21 +3874,21 @@ export function ChatRoomDrawer({
                     className="sr-only"
                     aria-label="Room photo file"
                     accept="image/png,image/jpeg,image/webp"
-                    disabled={roomImageSaving}
+                    disabled={roomImageSaving || roomImageUncertain}
                     onChange={(event) => chooseRoomImage(event.target.files?.[0])}
                   />
                 </label>
                 {roomImageFile ? (
-                  <Button disabled={roomImageSaving} onClick={saveRoomImage}>
+                  <Button disabled={roomImageSaving || roomImageUncertain} onClick={saveRoomImage}>
                     {roomImageSaving ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <Save className="size-4" aria-hidden />}
                     {roomImageSaving ? "Saving photo…" : "Save photo"}
                   </Button>
                 ) : roomImageUrl ? (
-                  <Button variant="secondary" disabled={roomImageSaving} onClick={removeRoomImage}>Remove photo</Button>
+                  <Button variant="secondary" disabled={roomImageSaving || roomImageUncertain} onClick={removeRoomImage}>Remove photo</Button>
                 ) : null}
               </div>
               {roomImageFile && (
-                <Button variant="ghost" disabled={roomImageSaving} onClick={() => {
+                <Button variant="ghost" disabled={roomImageSaving || roomImageUncertain} onClick={() => {
                   setRoomImageFile(null);
                   setRoomImageInputKey((current) => current + 1);
                   setRoomImageError(null);
