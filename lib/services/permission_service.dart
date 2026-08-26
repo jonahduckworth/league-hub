@@ -558,7 +558,8 @@ class PermissionService {
     }
     if (room.hasMultiTeamAudience) {
       return room.teamIds.any(user.teamIds.contains) ||
-          room.hubIds.any(user.hubIds.contains);
+          (user.role == UserRole.managerAdmin &&
+              room.hubIds.any(user.hubIds.contains));
     }
     // League rooms: visible to users in hubs belonging to that league.
     if (room.type == ChatRoomType.league && room.leagueId != null) {

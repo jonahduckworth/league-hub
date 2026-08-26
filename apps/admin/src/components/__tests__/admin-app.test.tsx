@@ -181,6 +181,7 @@ describe("AdminApp operations shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open Provincial Showcase chat room details" }));
     const showcaseDrawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
     expect(within(showcaseDrawer).getAllByText("Event room")).toHaveLength(2);
+    expect(within(showcaseDrawer).getByText("Calgary, Red Deer")).toBeTruthy();
     expect(within(showcaseDrawer).getByText("Calgary U11 AA, Red Deer U13 A")).toBeTruthy();
     fireEvent.click(within(showcaseDrawer).getByRole("button", { name: "Close drawer" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Provincial Showcase" })).toBeNull());

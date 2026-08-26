@@ -14,6 +14,7 @@ import '../models/hub.dart';
 import '../models/team.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/chat_room_functions_service.dart';
 import '../services/permission_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/app_glass.dart';
@@ -137,6 +138,14 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       AppUtils.showInfoSnackBar(context, 'Please select a team.');
       return;
     }
+    if (usesMultiTeamAudience &&
+        _selectedTeamIds.length > maximumMultiTeamEventRoomTeams) {
+      AppUtils.showInfoSnackBar(
+        context,
+        'Event Rooms can include up to $maximumMultiTeamEventRoomTeams teams.',
+      );
+      return;
+    }
 
     setState(() => _isCreating = true);
 
@@ -184,13 +193,6 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
         }
       }
 
-      final selectedTeamIds =
-          selectedMultiTeams.map((team) => team.id).toList();
-      final selectedHubIds =
-          selectedMultiTeams.map((team) => team.hubId).toSet().toList();
-      final legacyTeam =
-          selectedMultiTeams.isEmpty ? null : selectedMultiTeams.first;
-
       final orgUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final participantIds = sharedRoomParticipantIds(
         creator: currentUser,
@@ -200,36 +202,41 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
             _sharedRoomScope == _SharedRoomScope.league ? null : _selectedHubId,
         teamId:
             _sharedRoomScope == _SharedRoomScope.team ? _selectedTeamId : null,
-        teamIds: selectedTeamIds,
       );
 
-      final roomId = await createSharedChatRoom(
-        currentUser: currentUser,
-        orgId: orgId,
-        roomName: _nameController.text,
-        roomPurpose: _roomPurpose,
-        selectedLeagueId: _selectedLeagueId!,
-        selectedHubId: usesMultiTeamAudience
-            ? legacyTeam?.hubId
-            : _sharedRoomScope == _SharedRoomScope.league
-                ? null
-                : _selectedHubId,
-        selectedTeamId:
-            usesMultiTeamAudience ? legacyTeam?.id : _selectedTeamId,
-        selectedHubIds: selectedHubIds,
-        selectedTeamIds: selectedTeamIds,
-        roomIconName: _selectedIconName,
-        participantIds: participantIds,
-        createRoom: ref.read(authorizedFirestoreServiceProvider).createChatRoom,
-        onPermissionDenied: () {
-          if (mounted) {
-            AppUtils.showErrorSnackBar(
-              context,
-              'You do not have permission to create chat rooms',
+      final roomId = usesMultiTeamAudience
+          ? await ref
+              .read(chatRoomFunctionsServiceProvider)
+              .createMultiTeamEventRoom(
+                orgId: orgId,
+                name: _nameController.text,
+                leagueId: _selectedLeagueId!,
+                teams: selectedMultiTeams,
+                roomIconName: _selectedIconName,
+              )
+          : await createSharedChatRoom(
+              currentUser: currentUser,
+              orgId: orgId,
+              roomName: _nameController.text,
+              roomPurpose: _roomPurpose,
+              selectedLeagueId: _selectedLeagueId!,
+              selectedHubId: _sharedRoomScope == _SharedRoomScope.league
+                  ? null
+                  : _selectedHubId,
+              selectedTeamId: _selectedTeamId,
+              roomIconName: _selectedIconName,
+              participantIds: participantIds,
+              createRoom:
+                  ref.read(authorizedFirestoreServiceProvider).createChatRoom,
+              onPermissionDenied: () {
+                if (mounted) {
+                  AppUtils.showErrorSnackBar(
+                    context,
+                    'You do not have permission to create chat rooms',
+                  );
+                }
+              },
             );
-          }
-        },
-      );
 
       if (roomId != null && _selectedImageBytes != null) {
         try {
@@ -439,13 +446,9 @@ List<String> sharedRoomParticipantIds({
   required String leagueId,
   String? hubId,
   String? teamId,
-  List<String> teamIds = const [],
 }) {
   final matchingUsers = users.where((user) {
     if (!user.isActive) return false;
-    if (teamIds.isNotEmpty) {
-      return user.teamIds.any(teamIds.contains);
-    }
     if (teamId != null) return user.teamIds.contains(teamId);
     if (hubId != null) return user.hubIds.contains(hubId);
     return user.leagueIds.contains(leagueId);
@@ -917,8 +920,11 @@ class _SharedRoomForm extends ConsumerWidget {
           const SizedBox(height: 6),
           Text(
             effectiveSelectedTeamIds.isEmpty
-                ? 'Select one or more teams from any Hub in this league.'
-                : '${effectiveSelectedTeamIds.length} ${effectiveSelectedTeamIds.length == 1 ? 'team' : 'teams'} selected across $selectedHubCount ${selectedHubCount == 1 ? 'Hub' : 'Hubs'}.',
+                ? 'Select one or more teams from any Hub in this league. Up to $maximumMultiTeamEventRoomTeams teams.'
+                : effectiveSelectedTeamIds.length ==
+                        maximumMultiTeamEventRoomTeams
+                    ? '$maximumMultiTeamEventRoomTeams-team limit reached across $selectedHubCount ${selectedHubCount == 1 ? 'Hub' : 'Hubs'}.'
+                    : '${effectiveSelectedTeamIds.length} ${effectiveSelectedTeamIds.length == 1 ? 'team' : 'teams'} selected across $selectedHubCount ${selectedHubCount == 1 ? 'Hub' : 'Hubs'}. Up to $maximumMultiTeamEventRoomTeams teams.',
             style: const TextStyle(
               color: AppGlassColors.inkMuted,
               fontSize: 13,
@@ -1039,7 +1045,10 @@ class _MultiTeamPicker extends StatelessWidget {
                     .where((value) => value?.trim().isNotEmpty == true)
                     .join(' · '),
                 value: selectedTeamIds.contains(team.id),
-                onChanged: !enabled
+                onChanged: !enabled ||
+                        (!selectedTeamIds.contains(team.id) &&
+                            selectedTeamIds.length >=
+                                maximumMultiTeamEventRoomTeams)
                     ? null
                     : (checked) {
                         final next = {...selectedTeamIds};

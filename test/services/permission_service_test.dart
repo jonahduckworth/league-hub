@@ -1103,6 +1103,10 @@ void main() {
         isTrue,
       );
       expect(
+        service.canViewChatRoom(staff(hubIds: const ['hub-2']), room),
+        isFalse,
+      );
+      expect(
         service.canViewChatRoom(staff(leagueIds: const ['league-1']), room),
         isFalse,
       );

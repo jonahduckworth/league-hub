@@ -284,8 +284,6 @@ class FirestoreService {
     String? leagueId,
     String? hubId,
     String? teamId,
-    List<String> hubIds = const [],
-    List<String> teamIds = const [],
     List<String> participants = const [],
     ChatRoomPurpose? roomPurpose,
     String? roomIconName,
@@ -300,8 +298,6 @@ class FirestoreService {
       'leagueId': leagueId,
       'hubId': hubId,
       'teamId': teamId,
-      if (hubIds.isNotEmpty) 'hubIds': hubIds,
-      if (teamIds.isNotEmpty) 'teamIds': teamIds,
       'participants': participants,
       'isArchived': false,
       'createdAt': FieldValue.serverTimestamp(),
@@ -464,14 +460,16 @@ class FirestoreService {
           .where('type', whereIn: const ['league', 'event']).where('hubId',
               whereIn: ids),
     );
-    addBatchedQueries(
-      viewer.hubIds,
-      (ids) => _chatRoomsRef(orgId)
-          .where('orgId', isEqualTo: orgId)
-          .where('isArchived', isEqualTo: false)
-          .where('type', isEqualTo: 'event')
-          .where('hubIds', arrayContainsAny: ids),
-    );
+    if (viewer.role == UserRole.managerAdmin) {
+      addBatchedQueries(
+        viewer.hubIds,
+        (ids) => _chatRoomsRef(orgId)
+            .where('orgId', isEqualTo: orgId)
+            .where('isArchived', isEqualTo: false)
+            .where('type', isEqualTo: 'event')
+            .where('hubIds', arrayContainsAny: ids),
+      );
+    }
     addBatchedQueries(
       viewer.teamIds,
       (ids) => _chatRoomsRef(orgId)

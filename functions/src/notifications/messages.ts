@@ -47,6 +47,8 @@ export const onMessageCreated = onFirestoreCreated(
     const hubId = roomData.hubId as string | undefined;
     const leagueId = roomData.leagueId as string | undefined;
     const teamId = roomData.teamId as string | undefined;
+    const hubIds = Array.isArray(roomData.hubIds) ? roomData.hubIds as string[] : [];
+    const teamIds = Array.isArray(roomData.teamIds) ? roomData.teamIds as string[] : [];
 
     // Explicit participants win. Open rooms use the same room visibility
     // criteria as Firestore rules so scoped rooms do not notify outsiders.
@@ -64,6 +66,7 @@ export const onMessageCreated = onFirestoreCreated(
         .filter((user) => user.id !== senderId)
         .filter((user) => canReceiveMessageNotification(
           user.data(), senderId, roomType, hubId, leagueId, orgId, teamId,
+          hubIds, teamIds,
         ))
         .map((user) => user.id);
     } else {
@@ -82,6 +85,8 @@ export const onMessageCreated = onFirestoreCreated(
             leagueId,
             orgId,
             teamId,
+            hubIds,
+            teamIds,
           ),
         )
         .map((d) => d.id)

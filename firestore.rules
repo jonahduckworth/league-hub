@@ -736,6 +736,8 @@ service cloud.firestore {
                   && room.teamIds.hasAny(currentUser().teamIds)
                 )
                 || (
+                  currentUser().role == 'managerAdmin'
+                  &&
                   'hubIds' in currentUser()
                   && room.hubIds.hasAny(currentUser().hubIds)
                 )
@@ -956,6 +958,7 @@ service cloud.firestore {
               canManageContent(orgId)
               && request.resource.data.orgId == orgId
               && request.resource.data.type in ['league', 'event']
+              && !hasMultiTeamAudience(request.resource.data)
               && (
                 !isStructureManagedRoom(request.resource.data)
                 || isLegacyHubGeneralRoomCreate(orgId, request.resource.data)
@@ -974,6 +977,14 @@ service cloud.firestore {
               'hubIds',
               'teamIds'
             ])
+            && (
+              !hasMultiTeamAudience(resource.data)
+              || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                'leagueId',
+                'hubId',
+                'teamId'
+              ])
+            )
             && canManageRoomTarget(resource.data)
             && canManageRoomTarget(request.resource.data)
             && scopedTargetExists(orgId, request.resource.data)

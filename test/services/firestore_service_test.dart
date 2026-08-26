@@ -520,29 +520,6 @@ void main() {
       expect(doc.data()!['roomPurpose'], 'group');
     });
 
-    test('createChatRoom persists a multi-team Event Room audience', () async {
-      final roomId = await svc.createChatRoom(
-        orgId,
-        'Provincial Showcase',
-        ChatRoomType.event,
-        leagueId: 'lg-1',
-        hubId: 'hub-ab',
-        teamId: 'team-ab',
-        hubIds: const ['hub-ab', 'hub-bc'],
-        teamIds: const ['team-ab', 'team-bc'],
-        roomPurpose: ChatRoomPurpose.event,
-      );
-
-      final doc = await fakeFirestore
-          .collection(AppConstants.orgsCollection)
-          .doc(orgId)
-          .collection(AppConstants.chatRoomsCollection)
-          .doc(roomId)
-          .get();
-      expect(doc.data()!['hubIds'], ['hub-ab', 'hub-bc']);
-      expect(doc.data()!['teamIds'], ['team-ab', 'team-bc']);
-    });
-
     test('archiveChatRoom sets isArchived true', () async {
       final roomId =
           await svc.createChatRoom(orgId, 'To Archive', ChatRoomType.league);
@@ -684,6 +661,22 @@ void main() {
         'unscoped',
         'league',
       ]);
+
+      final hubOnlyStaff = AppUser(
+        id: 'hub-only-staff',
+        email: 'hub@example.com',
+        displayName: 'Hub Staff',
+        role: UserRole.staff,
+        orgId: orgId,
+        leagueIds: const [],
+        hubIds: const ['hub-1'],
+        teamIds: const [],
+        createdAt: DateTime(2026),
+        isActive: true,
+      );
+      final hubOnlyRooms =
+          await svc.getVisibleChatRooms(orgId, hubOnlyStaff).first;
+      expect(hubOnlyRooms.map((room) => room.id), isNot(contains('multi-team')));
     });
 
     test('getVisibleChatRooms supports staff with no assignments', () async {

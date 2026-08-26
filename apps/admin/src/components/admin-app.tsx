@@ -3318,6 +3318,7 @@ function ChatRoomDrawer({
   const league = room?.leagueId ? data.leagues.find((item) => item.id === room.leagueId) : undefined;
   const hub = room?.hubId ? data.hubs.find((item) => item.id === room.hubId) : undefined;
   const team = room?.teamId ? data.teams.find((item) => item.id === room.teamId) : undefined;
+  const audienceHubs = room?.hubIds?.map((hubId) => data.hubs.find((item) => item.id === hubId)?.name).filter(Boolean) ?? [];
   const audienceTeams = room?.teamIds?.map((teamId) => data.teams.find((item) => item.id === teamId)?.name).filter(Boolean) ?? [];
   const structureSynced = Boolean(room?.type === "league" && room.hubId);
 
@@ -3428,7 +3429,7 @@ function ChatRoomDrawer({
           <DrawerSection title="Scope">
             <div className="grid gap-3 sm:grid-cols-2">
               <InfoRow label="League" value={league?.name} />
-              <InfoRow label="Hub" value={hub?.name} />
+              <InfoRow label={audienceHubs.length === 1 ? "Hub" : "Hubs"} value={audienceHubs.length > 0 ? audienceHubs.join(", ") : hub?.name} />
               <InfoRow label={audienceTeams.length === 1 ? "Team" : "Teams"} value={audienceTeams.length > 0 ? audienceTeams.join(", ") : team?.name} />
               <InfoRow label="Participants" value={room.type === "direct" ? room.participants.length : "Scope-based access"} />
             </div>

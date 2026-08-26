@@ -1096,6 +1096,11 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
       role: "managerAdmin",
       hubIds: ["hub-2"],
     })],
+    ["users/hub-staff", user({
+      id: "hub-staff",
+      role: "staff",
+      hubIds: ["hub-2"],
+    })],
     ["users/all-hubs-manager", user({
       id: "all-hubs-manager",
       role: "managerAdmin",
@@ -1132,6 +1137,10 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
     testEnv.authenticatedContext("league-only").firestore(),
     roomPath,
   )));
+  await assertFails(getDoc(doc(
+    testEnv.authenticatedContext("hub-staff").firestore(),
+    roomPath,
+  )));
 
   const selectedTeamRooms = collection(
     testEnv.authenticatedContext("team-2-member").firestore(),
@@ -1150,7 +1159,9 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
   );
 
   const managerDb = testEnv.authenticatedContext("all-hubs-manager").firestore();
-  await assertSucceeds(setDoc(
+  // Multi-team creation must go through the server-authoritative callable,
+  // even when all submitted Hub IDs appear to be assigned.
+  await assertFails(setDoc(
     doc(managerDb, "organizations/org-1/chatRooms/manager-showcase"),
     {...multiTeamRoom, id: "manager-showcase"},
   ));
@@ -1160,6 +1171,15 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
       "organizations/org-1/chatRooms/partial-manager-showcase",
     ),
     {...multiTeamRoom, id: "partial-manager-showcase"},
+  ));
+  await assertFails(setDoc(
+    doc(managerDb, "organizations/org-1/chatRooms/forged-team-showcase"),
+    {
+      ...multiTeamRoom,
+      id: "forged-team-showcase",
+      hubIds: ["hub-1", "hub-2"],
+      teamIds: ["team-1", "outside-team"],
+    },
   ));
   await assertFails(setDoc(
     doc(managerDb, "organizations/org-1/chatRooms/group-with-team-arrays"),
@@ -1187,6 +1207,23 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
       "orgs/org-1/chat/showcase/room-images/team-2-member/showcase.png",
     ),
     new Uint8Array([1]),
+    {contentType: "image/png"},
+  ));
+  await assertFails(uploadBytes(
+    ref(
+      teamTwoStorage,
+      "orgs/org-1/chat/showcase/room-images/team-1-member/wrong-user.png",
+    ),
+    new Uint8Array([1]),
+    {contentType: "image/png"},
+  ));
+  await assertFails(uploadBytes(
+    ref(
+      teamTwoStorage,
+      "orgs/org-1/chat/showcase/room-images/team-2-member/not-an-image.txt",
+    ),
+    new Uint8Array([1]),
+    {contentType: "text/plain"},
   ));
   await assertFails(uploadBytes(
     ref(
@@ -1194,6 +1231,14 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
       "orgs/org-1/chat/showcase/attachments/league-only/forbidden.txt",
     ),
     new Uint8Array([1]),
+  ));
+  await assertFails(uploadBytes(
+    ref(
+      testEnv.authenticatedContext("hub-staff").storage(),
+      "orgs/org-1/chat/showcase/room-images/hub-staff/forbidden.png",
+    ),
+    new Uint8Array([1]),
+    {contentType: "image/png"},
   ));
 });
 

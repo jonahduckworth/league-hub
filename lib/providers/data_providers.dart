@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/firestore_service.dart';
 import '../services/authorized_firestore_service.dart';
+import '../services/chat_room_functions_service.dart';
 
 import 'permission_provider.dart';
 export 'permission_provider.dart';
@@ -27,6 +28,9 @@ final authorizedFirestoreServiceProvider =
           ref.read(firestoreServiceProvider),
           ref.read(permissionServiceProvider),
         ));
+
+final chatRoomFunctionsServiceProvider =
+    Provider<ChatRoomFunctionsClient>((ref) => ChatRoomFunctionsService());
 
 final selectedLeagueProvider = StateProvider<String?>((ref) => null);
 final selectedPolicyCategoryProvider = StateProvider<String>((ref) => 'All');

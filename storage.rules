@@ -88,6 +88,8 @@ service firebase.storage {
                   && room.teamIds.hasAny(userDoc().teamIds)
                 )
                 || (
+                  userDoc().role == 'managerAdmin'
+                  &&
                   'hubIds' in userDoc()
                   && room.hubIds.hasAny(userDoc().hubIds)
                 )
@@ -230,7 +232,7 @@ service firebase.storage {
         && isImageUpload(10 * 1024 * 1024);
     }
 
-    match /orgs/{orgId}/chat/{roomId}/{fileName=**} {
+    match /orgs/{orgId}/chat/{roomId}/{fileName} {
       allow read: if canReadRoom(orgId, roomId);
       allow write: if canReadRoom(orgId, roomId)
         && request.resource != null

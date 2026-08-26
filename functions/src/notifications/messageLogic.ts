@@ -22,6 +22,8 @@ export function canReceiveMessageNotification(
   leagueId?: string,
   expectedOrgId?: string,
   teamId?: string,
+  hubIds: string[] = [],
+  teamIds: string[] = [],
 ): boolean {
   if (user.isActive === false) return false;
   if (expectedOrgId && user.orgId !== expectedOrgId) return false;
@@ -29,6 +31,11 @@ export function canReceiveMessageNotification(
   if (roomType === "direct") return true;
   if (elevatedRoles.has(user.role ?? "")) return true;
   if (roomType !== "league" && roomType !== "event") return false;
+  if (teamIds.length > 0) {
+    return teamIds.some((id) => hasId(user.teamIds, id)) ||
+      (user.role === "managerAdmin" &&
+        hubIds.some((id) => hasId(user.hubIds, id)));
+  }
   if (teamId) {
     return hasId(user.teamIds, teamId) ||
       (hubId !== undefined && hasId(user.hubIds, hubId));

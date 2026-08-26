@@ -16,6 +16,7 @@ import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/chat_list_screen.dart';
 import 'package:league_hub/screens/new_chat_screen.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
+import 'package:league_hub/services/chat_room_functions_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/app_shell_header.dart';
@@ -25,6 +26,22 @@ import 'package:league_hub/widgets/chat_room_avatar.dart';
 import 'package:league_hub/widgets/empty_state.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 import 'package:mockito/mockito.dart';
+
+class FakeChatRoomFunctionsClient implements ChatRoomFunctionsClient {
+  List<Team> createdTeams = const [];
+
+  @override
+  Future<String> createMultiTeamEventRoom({
+    required String orgId,
+    required String name,
+    required String leagueId,
+    required List<Team> teams,
+    required String roomIconName,
+  }) async {
+    createdTeams = List.of(teams);
+    return 'multi-team-room';
+  }
+}
 
 class MockAuthorizedFirestoreService extends Mock
     implements AuthorizedFirestoreService {
@@ -37,8 +54,6 @@ class MockAuthorizedFirestoreService extends Mock
     String? leagueId,
     String? hubId,
     String? teamId,
-    List<String> hubIds = const [],
-    List<String> teamIds = const [],
     List<String> participants = const [],
     String? roomIconName,
     String? roomImageUrl,
@@ -52,8 +67,6 @@ class MockAuthorizedFirestoreService extends Mock
             #leagueId: leagueId,
             #hubId: hubId,
             #teamId: teamId,
-            #hubIds: hubIds,
-            #teamIds: teamIds,
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
@@ -507,41 +520,6 @@ void main() {
       );
     });
 
-    test('multi-team participant ids include teams across different hubs', () {
-      AppUser member(String id, String teamId,
-              {UserRole role = UserRole.staff}) =>
-          AppUser(
-            id: id,
-            email: '$id@example.com',
-            displayName: id,
-            role: role,
-            orgId: 'org-1',
-            leagueIds: const ['league-1'],
-            hubIds: const [],
-            teamIds: [teamId],
-            createdAt: baseTime,
-            isActive: true,
-          );
-      final creator = member(
-        'creator',
-        'team-ab',
-        role: UserRole.managerAdmin,
-      );
-      final albertaMember = member('alberta-member', 'team-ab');
-      final bcMember = member('bc-member', 'team-bc');
-      final outsider = member('outsider', 'team-on');
-
-      expect(
-        sharedRoomParticipantIds(
-          creator: creator,
-          users: [albertaMember, bcMember, outsider],
-          leagueId: 'league-1',
-          teamIds: const ['team-ab', 'team-bc'],
-        ),
-        [creator.id, 'alberta-member', 'bc-member'],
-      );
-    });
-
     test('shared room choices stay inside a manager assigned scope', () {
       final manager = AppUser(
         id: 'manager',
@@ -943,6 +921,7 @@ void main() {
       List<Team> organizationTeams = const [],
       AuthorizedFirestoreService? authorizedFirestoreService,
       FirestoreService? firestoreService,
+      ChatRoomFunctionsClient? chatRoomFunctionsService,
       int unreadCount = 0,
       List<Announcement> announcements = const [],
       bool includePinnedAnnouncements = false,
@@ -1022,6 +1001,9 @@ void main() {
                 .overrideWithValue(authorizedFirestoreService),
           if (firestoreService != null)
             firestoreServiceProvider.overrideWithValue(firestoreService),
+          if (chatRoomFunctionsService != null)
+            chatRoomFunctionsServiceProvider
+                .overrideWithValue(chatRoomFunctionsService),
           unreadCountProvider.overrideWith(
             (ref, roomId) => Stream.value(unreadCount),
           ),
@@ -1419,6 +1401,7 @@ void main() {
 
       testWidgets('Event Room selects teams across different Hubs',
           (WidgetTester tester) async {
+        final chatRoomFunctions = FakeChatRoomFunctionsClient();
         final admin = AppUser(
           id: 'admin-1',
           email: 'admin@example.com',
@@ -1471,6 +1454,7 @@ void main() {
           hubs: hubs,
           teams: teams,
           organizationTeams: teams,
+          chatRoomFunctionsService: chatRoomFunctions,
         ));
         await tester.pumpAndSettle();
 
@@ -1478,6 +1462,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Event Room').last);
         await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField).first, 'Showcase');
         await tester.drag(
           find.byType(Scrollable).last,
           const Offset(0, -500),
@@ -1503,7 +1488,23 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('2 teams selected across 2 Hubs.'), findsOneWidget);
+        expect(
+          find.text('2 teams selected across 2 Hubs. Up to 50 teams.'),
+          findsOneWidget,
+        );
+        await tester.drag(
+          find.byType(Scrollable).last,
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Create Room'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Chat Route multi-team-room'), findsOneWidget);
+        expect(
+          chatRoomFunctions.createdTeams.map((team) => team.id),
+          ['team-ab', 'team-bc'],
+        );
       });
 
       testWidgets('event room page hides league chips while leagues load',
