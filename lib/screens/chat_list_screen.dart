@@ -284,6 +284,16 @@ List<AppUser> chatRoomMembers(ChatRoom room, List<AppUser> users) {
         .where((user) => room.participants.contains(user.id))
         .toList();
   }
+  if (room.hasMultiTeamAudience) {
+    return activeUsers
+        .where(
+          (user) =>
+              room.teamIds.any(user.teamIds.contains) ||
+              (user.role == UserRole.managerAdmin &&
+                  room.hubIds.any(user.hubIds.contains)),
+        )
+        .toList();
+  }
   if (room.leagueId != null) {
     if (room.teamId != null) {
       return activeUsers

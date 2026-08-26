@@ -1,5 +1,5 @@
 {
-  "all": true,
-  "targets": [],
-  "reason": "Deploy all Functions because Structure-driven General room creation and reconciliation update shared admin logic and add hub, team, and released-client compatibility triggers."
+  "all": false,
+  "targets": ["createMultiTeamEventRoom", "onMessageCreated"],
+  "reason": "Deploy the authoritative multi-team Event Room creator and its array-aware message notification trigger before the mobile release."
 }

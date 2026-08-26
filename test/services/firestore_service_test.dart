@@ -642,14 +642,42 @@ void main() {
         'hubId': 'hub-2',
         'teamId': 'team-2',
       });
+      await seedRoom('multi-team', {
+        'type': 'event',
+        'roomPurpose': 'event',
+        'leagueId': 'league-1',
+        'hubId': '__multi_team__',
+        'teamId': '__multi_team__',
+        'hubIds': ['hub-2', 'hub-1'],
+        'teamIds': ['team-2', 'team-1'],
+        'lastMessageAt': DateTime(2026, 3).toIso8601String(),
+      });
 
       final rooms = await svc.getVisibleChatRooms(orgId, viewer).first;
 
       expect(rooms.map((room) => room.id), [
+        'multi-team',
         'hub-team',
         'unscoped',
         'league',
       ]);
+
+      final hubOnlyStaff = AppUser(
+        id: 'hub-only-staff',
+        email: 'hub@example.com',
+        displayName: 'Hub Staff',
+        role: UserRole.staff,
+        orgId: orgId,
+        leagueIds: const [],
+        hubIds: const ['hub-1'],
+        teamIds: const [],
+        createdAt: DateTime(2026),
+        isActive: true,
+      );
+      final hubOnlyRooms =
+          await svc.getVisibleChatRooms(orgId, hubOnlyStaff).first;
+      expect(
+          hubOnlyRooms.map((room) => room.id), isNot(contains('multi-team')));
     });
 
     test('getVisibleChatRooms supports staff with no assignments', () async {

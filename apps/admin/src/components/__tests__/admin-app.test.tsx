@@ -9,13 +9,20 @@ const adminDataMocks = vi.hoisted(() => ({
   useAdminData: vi.fn()
 }));
 
+const storageMocks = vi.hoisted(() => ({
+  deleteObject: vi.fn(),
+  getDownloadURL: vi.fn(),
+  ref: vi.fn(),
+  uploadBytes: vi.fn()
+}));
+
 vi.mock("@/lib/firebase", () => ({
   auth: null,
   db: null,
   demoMode: true,
   firebaseProjectId: "league-hub-test",
   hasFirebaseConfig: () => true,
-  storage: null
+  storage: { bucket: "test" }
 }));
 
 vi.mock("@/lib/firestore", () => ({
@@ -41,13 +48,13 @@ vi.mock("firebase/firestore", () => ({
 }));
 
 vi.mock("firebase/storage", () => ({
-  deleteObject: vi.fn(),
-  getDownloadURL: vi.fn(),
-  ref: vi.fn(),
-  uploadBytes: vi.fn()
+  deleteObject: storageMocks.deleteObject,
+  getDownloadURL: storageMocks.getDownloadURL,
+  ref: storageMocks.ref,
+  uploadBytes: storageMocks.uploadBytes
 }));
 
-import { AdminApp } from "../admin-app";
+import { AdminApp, ChatRoomDrawer, CreateEventRoomDrawer } from "../admin-app";
 import { demoData, demoUser } from "@/lib/demo-data";
 
 const secondOrganization = {
@@ -79,6 +86,10 @@ describe("AdminApp operations shell", () => {
       selectedOrgId: "org-demo",
       setSelectedOrgId: adminDataMocks.setSelectedOrgId
     });
+    storageMocks.deleteObject.mockReset().mockResolvedValue(undefined);
+    storageMocks.getDownloadURL.mockReset().mockResolvedValue("https://cdn.example.com/showcase.png");
+    storageMocks.ref.mockReset().mockImplementation((_storage, path) => ({ path }));
+    storageMocks.uploadBytes.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -148,6 +159,20 @@ describe("AdminApp operations shell", () => {
             type: "direct",
             participants: ["demo-owner", "admin-1"],
             isArchived: false
+          },
+          {
+            id: "showcase-room",
+            orgId: "org-demo",
+            name: "Provincial Showcase",
+            type: "event",
+            roomPurpose: "event",
+            leagueId: "league-winter",
+            hubId: "__multi_team__",
+            teamId: "__multi_team__",
+            hubIds: ["hub-calgary", "hub-reddeer"],
+            teamIds: ["team-u11-aa", "team-u13-a"],
+            participants: [],
+            isArchived: false
           }
         ]
       },
@@ -163,6 +188,14 @@ describe("AdminApp operations shell", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Chat Rooms" })).toBeTruthy();
     expect(screen.getAllByText("1/2")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Review Room Setup" })).toBeTruthy();
+    expect(screen.getByText("2 teams")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open Provincial Showcase chat room details" }));
+    const showcaseDrawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
+    expect(within(showcaseDrawer).getAllByText("Event room")).toHaveLength(2);
+    expect(within(showcaseDrawer).getByText("Calgary, Red Deer")).toBeTruthy();
+    expect(within(showcaseDrawer).getByText("Calgary U11 AA, Red Deer U13 A")).toBeTruthy();
+    fireEvent.click(within(showcaseDrawer).getByRole("button", { name: "Close drawer" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Provincial Showcase" })).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Open Private conversation chat room details" }));
     const drawer = await screen.findByRole("dialog", { name: "Private conversation" });
     expect(within(drawer).getByText(/private conversations/i)).toBeTruthy();
@@ -182,6 +215,221 @@ describe("AdminApp operations shell", () => {
     fireEvent.click(within(managedDrawer).getByRole("button", { name: "Archive room" }));
     const cancelArchive = within(managedDrawer).getByRole("button", { name: "Cancel" });
     await waitFor(() => expect(document.activeElement).toBe(cancelArchive));
+  });
+
+  it("creates a cross-Hub Event Room with an optional photo", async () => {
+    const runAction = vi.fn().mockImplementation(async (name: string) => {
+      if (name === "createMultiTeamEventRoom") {
+        return { ok: true, data: { roomId: "showcase-new" } };
+      }
+      return { ok: true, data: {} };
+    });
+    const onClose = vi.fn();
+
+    render(
+      <CreateEventRoomDrawer
+        open
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={onClose}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "New Event Room" });
+    fireEvent.change(within(drawer).getByRole("textbox", { name: /Room name/i }), {
+      target: { value: "Provincial Showcase" }
+    });
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Calgary U11 AA/i }));
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Red Deer U13 A/i }));
+    expect(within(drawer).getByText("2 teams across 2 Hubs")).toBeTruthy();
+
+    const photo = new File(["photo"], "Provincial Showcase.png", { type: "image/png" });
+    fireEvent.change(within(drawer).getByLabelText("Event Room photo"), {
+      target: { files: [photo] }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Create Event Room" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(runAction).toHaveBeenNthCalledWith(1, "createMultiTeamEventRoom", {
+      name: "Provincial Showcase",
+      leagueId: "league-winter",
+      teams: [
+        { hubId: "hub-calgary", teamId: "team-u11-aa" },
+        { hubId: "hub-reddeer", teamId: "team-u13-a" }
+      ],
+      roomIconName: "event"
+    });
+    expect(storageMocks.ref).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringMatching(/^orgs\/org-demo\/chat\/showcase-new\/room-images\/demo-owner\/\d+_Provincial_Showcase\.png$/)
+    );
+    expect(storageMocks.uploadBytes).toHaveBeenCalledWith(
+      expect.anything(),
+      photo,
+      { contentType: "image/png" }
+    );
+    expect(runAction).toHaveBeenNthCalledWith(2, "adminUpdateChatRoom", {
+      roomId: "showcase-new",
+      patch: {
+        roomIconName: null,
+        roomImageUrl: "https://cdn.example.com/showcase.png"
+      }
+    });
+  });
+
+  it("retains the upload when a created room's photo update result is ambiguous", async () => {
+    const runAction = vi.fn().mockImplementation(async (name: string) => {
+      if (name === "createMultiTeamEventRoom") {
+        return { ok: true, data: { roomId: "showcase-partial" } };
+      }
+      return { ok: false, error: "Photo update failed" };
+    });
+    const onClose = vi.fn();
+
+    render(
+      <CreateEventRoomDrawer
+        open
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={onClose}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "New Event Room" });
+    fireEvent.change(within(drawer).getByRole("textbox", { name: /Room name/i }), {
+      target: { value: "Provincial Showcase" }
+    });
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Calgary U11 AA/i }));
+    fireEvent.change(within(drawer).getByLabelText("Event Room photo"), {
+      target: { files: [new File(["photo"], "showcase.png", { type: "image/png" })] }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Create Event Room" }));
+
+    expect(await within(drawer).findByText("The Event Room has been created.")).toBeTruthy();
+    expect(within(drawer).getByRole("alert").textContent).toMatch(/could not be confirmed/i);
+    expect(within(drawer).queryByRole("button", { name: "Create Event Room" })).toBeNull();
+    expect(storageMocks.deleteObject).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("cleans up only when the room photo upload itself fails", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: { roomId: "showcase-upload-failed" } });
+    storageMocks.uploadBytes.mockRejectedValueOnce(new Error("Upload failed"));
+
+    render(
+      <CreateEventRoomDrawer
+        open
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "New Event Room" });
+    fireEvent.change(within(drawer).getByRole("textbox", { name: /Room name/i }), {
+      target: { value: "Provincial Showcase" }
+    });
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Calgary U11 AA/i }));
+    fireEvent.change(within(drawer).getByLabelText("Event Room photo"), {
+      target: { files: [new File(["photo"], "showcase.png", { type: "image/png" })] }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Create Event Room" }));
+
+    expect(await within(drawer).findByText(/photo could not be uploaded/i)).toBeTruthy();
+    expect(storageMocks.deleteObject).toHaveBeenCalledTimes(1);
+    expect(runAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("replaces and removes an existing Event Room photo", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: {} });
+    const room = {
+      id: "showcase-room",
+      orgId: "org-demo",
+      name: "Provincial Showcase",
+      type: "event" as const,
+      roomPurpose: "event" as const,
+      leagueId: "league-winter",
+      hubId: "__multi_team__",
+      teamId: "__multi_team__",
+      hubIds: ["hub-calgary", "hub-reddeer"],
+      teamIds: ["team-u11-aa", "team-u13-a"],
+      participants: [],
+      isArchived: false,
+      roomImageUrl: null
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
+    const photo = new File(["replacement"], "showcase.webp", { type: "image/webp" });
+    fireEvent.change(within(drawer).getByLabelText("Room photo file"), {
+      target: { files: [photo] }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Save photo" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("adminUpdateChatRoom", {
+      roomId: "showcase-room",
+      patch: {
+        roomIconName: null,
+        roomImageUrl: "https://cdn.example.com/showcase.png"
+      }
+    }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Remove photo" }));
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("adminUpdateChatRoom", {
+      roomId: "showcase-room",
+      patch: { roomIconName: "event", roomImageUrl: null }
+    }));
+  });
+
+  it("retains an uploaded replacement when its room update result is ambiguous", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: false, error: "Audit write failed" });
+    const room = {
+      id: "showcase-room",
+      orgId: "org-demo",
+      name: "Provincial Showcase",
+      type: "event" as const,
+      roomPurpose: "event" as const,
+      leagueId: "league-winter",
+      hubId: "__multi_team__",
+      teamId: "__multi_team__",
+      hubIds: ["hub-calgary", "hub-reddeer"],
+      teamIds: ["team-u11-aa", "team-u13-a"],
+      participants: [],
+      isArchived: false,
+      roomImageUrl: null
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
+    fireEvent.change(within(drawer).getByLabelText("Room photo file"), {
+      target: { files: [new File(["replacement"], "showcase.webp", { type: "image/webp" })] }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Save photo" }));
+
+    expect(await within(drawer).findByText(/photo update could not be confirmed/i)).toBeTruthy();
+    expect(storageMocks.deleteObject).not.toHaveBeenCalled();
+    expect((within(drawer).getByLabelText("Room photo file") as HTMLInputElement).disabled).toBe(true);
+    expect(within(drawer).queryByRole("button", { name: "Save photo" })).toBeNull();
   });
 
   it("loads a shared-room conversation and posts as the signed-in administrator", async () => {

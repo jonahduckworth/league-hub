@@ -1047,6 +1047,244 @@ test("scoped room list query shapes return only readable metadata", async () => 
   )));
 });
 
+test("multi-team Event Rooms are limited to selected teams and Hub managers", async () => {
+  const multiTeamRoom = {
+    id: "showcase",
+    orgId: "org-1",
+    type: "event",
+    roomPurpose: "event",
+    leagueId: "league-1",
+    // Singular sentinels keep released client queries fail-closed.
+    hubId: "__multi_team__",
+    teamId: "__multi_team__",
+    hubIds: ["hub-1", "hub-2"],
+    teamIds: ["team-1", "team-2"],
+    participants: ["admin", "team-1-member", "team-2-member"],
+    name: "Provincial Showcase",
+    isArchived: false,
+  };
+  await seedFirestore([
+    ["organizations/org-1/leagues/league-1", {
+      id: "league-1",
+      orgId: "org-1",
+    }],
+    ["organizations/org-1/leagues/league-1/hubs/hub-1", {
+      id: "hub-1",
+      leagueId: "league-1",
+      orgId: "org-1",
+    }],
+    ["organizations/org-1/leagues/league-1/hubs/hub-2", {
+      id: "hub-2",
+      leagueId: "league-1",
+      orgId: "org-1",
+    }],
+    ["organizations/org-1/leagues/league-1/hubs/hub-1/teams/team-1", {
+      id: "team-1",
+      hubId: "hub-1",
+      leagueId: "league-1",
+      orgId: "org-1",
+    }],
+    ["organizations/org-1/leagues/league-1/hubs/hub-2/teams/team-2", {
+      id: "team-2",
+      hubId: "hub-2",
+      leagueId: "league-1",
+      orgId: "org-1",
+    }],
+    ["users/admin", user({id: "admin", role: "superAdmin"})],
+    ["users/hub-manager", user({
+      id: "hub-manager",
+      role: "managerAdmin",
+      hubIds: ["hub-2"],
+    })],
+    ["users/hub-staff", user({
+      id: "hub-staff",
+      role: "staff",
+      hubIds: ["hub-1"],
+    })],
+    ["users/all-hubs-manager", user({
+      id: "all-hubs-manager",
+      role: "managerAdmin",
+      hubIds: ["hub-1", "hub-2"],
+    })],
+    ["users/team-1-member", user({
+      id: "team-1-member",
+      leagueIds: ["league-1"],
+      teamIds: ["team-1"],
+    })],
+    ["users/team-2-member", user({
+      id: "team-2-member",
+      leagueIds: ["league-1"],
+      teamIds: ["team-2"],
+    })],
+    ["users/league-only", user({
+      id: "league-only",
+      leagueIds: ["league-1"],
+    })],
+    ["organizations/org-1/chatRooms/showcase", multiTeamRoom],
+  ]);
+
+  const roomPath = "organizations/org-1/chatRooms/showcase";
+  for (const userId of [
+    "admin",
+    "hub-manager",
+    "team-1-member",
+    "team-2-member",
+  ]) {
+    const db = testEnv.authenticatedContext(userId).firestore();
+    await assertSucceeds(getDoc(doc(db, roomPath)));
+  }
+  await assertFails(getDoc(doc(
+    testEnv.authenticatedContext("league-only").firestore(),
+    roomPath,
+  )));
+  await assertFails(getDoc(doc(
+    testEnv.authenticatedContext("hub-staff").firestore(),
+    roomPath,
+  )));
+
+  const legacyHubRooms = collection(
+    testEnv.authenticatedContext("hub-staff").firestore(),
+    "organizations/org-1/chatRooms",
+  );
+  const legacyHubSnapshot = await assertSucceeds(getDocs(query(
+    legacyHubRooms,
+    where("orgId", "==", "org-1"),
+    where("isArchived", "==", false),
+    where("type", "in", ["league", "event"]),
+    where("hubId", "in", ["hub-1"]),
+  )));
+  assert.deepEqual(
+    legacyHubSnapshot.docs.map((item) => item.id),
+    [],
+  );
+
+  const legacyTeamRooms = collection(
+    testEnv.authenticatedContext("team-1-member").firestore(),
+    "organizations/org-1/chatRooms",
+  );
+  const legacyTeamSnapshot = await assertSucceeds(getDocs(query(
+    legacyTeamRooms,
+    where("orgId", "==", "org-1"),
+    where("isArchived", "==", false),
+    where("type", "in", ["league", "event"]),
+    where("teamId", "in", ["team-1"]),
+  )));
+  assert.deepEqual(
+    legacyTeamSnapshot.docs.map((item) => item.id),
+    [],
+  );
+
+  const selectedTeamRooms = collection(
+    testEnv.authenticatedContext("team-2-member").firestore(),
+    "organizations/org-1/chatRooms",
+  );
+  const selectedTeamSnapshot = await assertSucceeds(getDocs(query(
+    selectedTeamRooms,
+    where("orgId", "==", "org-1"),
+    where("isArchived", "==", false),
+    where("type", "==", "event"),
+    where("teamIds", "array-contains-any", ["team-2"]),
+  )));
+  assert.deepEqual(
+    selectedTeamSnapshot.docs.map((item) => item.id),
+    ["showcase"],
+  );
+
+  const managerDb = testEnv.authenticatedContext("all-hubs-manager").firestore();
+  // Multi-team creation must go through the server-authoritative callable,
+  // even when all submitted Hub IDs appear to be assigned.
+  await assertFails(setDoc(
+    doc(managerDb, "organizations/org-1/chatRooms/manager-showcase"),
+    {...multiTeamRoom, id: "manager-showcase"},
+  ));
+  await assertFails(setDoc(
+    doc(
+      testEnv.authenticatedContext("hub-manager").firestore(),
+      "organizations/org-1/chatRooms/partial-manager-showcase",
+    ),
+    {...multiTeamRoom, id: "partial-manager-showcase"},
+  ));
+  await assertFails(setDoc(
+    doc(managerDb, "organizations/org-1/chatRooms/forged-team-showcase"),
+    {
+      ...multiTeamRoom,
+      id: "forged-team-showcase",
+      hubIds: ["hub-1", "hub-2"],
+      teamIds: ["team-1", "outside-team"],
+    },
+  ));
+  await assertFails(setDoc(
+    doc(managerDb, "organizations/org-1/chatRooms/group-with-team-arrays"),
+    {
+      ...multiTeamRoom,
+      id: "group-with-team-arrays",
+      roomPurpose: "group",
+    },
+  ));
+  await assertFails(setDoc(
+    doc(managerDb, "organizations/org-1/chatRooms/mismatched-sentinel"),
+    {
+      ...multiTeamRoom,
+      id: "mismatched-sentinel",
+      teamId: "other-team",
+    },
+  ));
+  await assertSucceeds(updateDoc(
+    doc(managerDb, roomPath),
+    {name: "Renamed Provincial Showcase"},
+  ));
+  await assertFails(updateDoc(
+    doc(
+      testEnv.authenticatedContext("hub-manager").firestore(),
+      roomPath,
+    ),
+    {name: "Out-of-scope rename"},
+  ));
+
+  const teamTwoStorage = testEnv
+    .authenticatedContext("team-2-member")
+    .storage();
+  await assertSucceeds(uploadBytes(
+    ref(
+      teamTwoStorage,
+      "orgs/org-1/chat/showcase/room-images/team-2-member/showcase.png",
+    ),
+    new Uint8Array([1]),
+    {contentType: "image/png"},
+  ));
+  await assertFails(uploadBytes(
+    ref(
+      teamTwoStorage,
+      "orgs/org-1/chat/showcase/room-images/team-1-member/wrong-user.png",
+    ),
+    new Uint8Array([1]),
+    {contentType: "image/png"},
+  ));
+  await assertFails(uploadBytes(
+    ref(
+      teamTwoStorage,
+      "orgs/org-1/chat/showcase/room-images/team-2-member/not-an-image.txt",
+    ),
+    new Uint8Array([1]),
+    {contentType: "text/plain"},
+  ));
+  await assertFails(uploadBytes(
+    ref(
+      testEnv.authenticatedContext("league-only").storage(),
+      "orgs/org-1/chat/showcase/attachments/league-only/forbidden.txt",
+    ),
+    new Uint8Array([1]),
+  ));
+  await assertFails(uploadBytes(
+    ref(
+      testEnv.authenticatedContext("hub-staff").storage(),
+      "orgs/org-1/chat/showcase/room-images/hub-staff/forbidden.png",
+    ),
+    new Uint8Array([1]),
+    {contentType: "image/png"},
+  ));
+});
+
 test("Structure-managed General room identity is server-owned", async () => {
   const generalRoom = {
     id: "hub-general",

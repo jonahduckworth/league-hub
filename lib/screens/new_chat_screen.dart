@@ -14,6 +14,7 @@ import '../models/hub.dart';
 import '../models/team.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/chat_room_functions_service.dart';
 import '../services/permission_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/app_glass.dart';
@@ -23,6 +24,7 @@ import '../widgets/app_motion.dart';
 import '../core/design_system.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/chat_room_avatar.dart';
+import '../widgets/entity_avatar.dart';
 import '../widgets/glass_form_widgets.dart';
 import 'chat_list_screen.dart';
 
@@ -45,6 +47,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
   String? _selectedLeagueId;
   String? _selectedHubId;
   String? _selectedTeamId;
+  final Set<String> _selectedTeamIds = {};
   String _selectedIconName = 'event';
   Uint8List? _selectedImageBytes;
   String? _selectedImageName;
@@ -106,6 +109,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       _selectedIconName = purpose == ChatRoomPurpose.group ? 'group' : 'event';
       _selectedImageBytes = null;
       _selectedImageName = null;
+      _selectedTeamIds.clear();
     });
   }
 
@@ -118,14 +122,28 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       AppUtils.showInfoSnackBar(context, 'Please select a league.');
       return;
     }
+    final usesMultiTeamAudience = _roomPurpose == ChatRoomPurpose.event &&
+        _sharedRoomScope == _SharedRoomScope.team;
     if ((_sharedRoomScope == _SharedRoomScope.hub ||
-            _sharedRoomScope == _SharedRoomScope.team) &&
+            (_sharedRoomScope == _SharedRoomScope.team &&
+                !usesMultiTeamAudience)) &&
         _selectedHubId == null) {
       AppUtils.showInfoSnackBar(context, 'Please select a hub.');
       return;
     }
-    if (_sharedRoomScope == _SharedRoomScope.team && _selectedTeamId == null) {
+    if (_sharedRoomScope == _SharedRoomScope.team &&
+        (usesMultiTeamAudience
+            ? _selectedTeamIds.isEmpty
+            : _selectedTeamId == null)) {
       AppUtils.showInfoSnackBar(context, 'Please select a team.');
+      return;
+    }
+    if (usesMultiTeamAudience &&
+        _selectedTeamIds.length > maximumMultiTeamEventRoomTeams) {
+      AppUtils.showInfoSnackBar(
+        context,
+        'Event Rooms can include up to $maximumMultiTeamEventRoomTeams teams.',
+      );
       return;
     }
 
@@ -151,6 +169,51 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
         return;
       }
 
+      var selectedMultiTeams = const <Team>[];
+      if (usesMultiTeamAudience) {
+        final organizationTeams = await ref.read(
+          organizationTeamsProvider.future,
+        );
+        selectedMultiTeams = organizationTeams
+            .where(
+              (team) =>
+                  team.leagueId == _selectedLeagueId &&
+                  _selectedTeamIds.contains(team.id),
+            )
+            .toList();
+        if (selectedMultiTeams.length != _selectedTeamIds.length) {
+          if (mounted) {
+            AppUtils.showErrorSnackBar(
+              context,
+              'Some selected teams are no longer available. Please review the room scope.',
+            );
+            setState(() => _isCreating = false);
+          }
+          return;
+        }
+        final selectedHubIds = selectedMultiTeams
+            .map((team) => team.hubId)
+            .toSet()
+            .toList(growable: false);
+        final selectedTeamIds =
+            selectedMultiTeams.map((team) => team.id).toList(growable: false);
+        if (!const PermissionService().canManageMultiTeamChatRoomScope(
+          currentUser,
+          leagueId: _selectedLeagueId,
+          hubIds: selectedHubIds,
+          teamIds: selectedTeamIds,
+        )) {
+          if (mounted) {
+            AppUtils.showErrorSnackBar(
+              context,
+              'Select teams that are all directly assigned to you or all within your assigned Hubs.',
+            );
+            setState(() => _isCreating = false);
+          }
+          return;
+        }
+      }
+
       final orgUsers = ref.read(orgUsersProvider).valueOrNull ?? [];
       final participantIds = sharedRoomParticipantIds(
         creator: currentUser,
@@ -162,28 +225,39 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
             _sharedRoomScope == _SharedRoomScope.team ? _selectedTeamId : null,
       );
 
-      final roomId = await createSharedChatRoom(
-        currentUser: currentUser,
-        orgId: orgId,
-        roomName: _nameController.text,
-        roomPurpose: _roomPurpose,
-        selectedLeagueId: _selectedLeagueId!,
-        selectedHubId:
-            _sharedRoomScope == _SharedRoomScope.league ? null : _selectedHubId,
-        selectedTeamId:
-            _sharedRoomScope == _SharedRoomScope.team ? _selectedTeamId : null,
-        roomIconName: _selectedIconName,
-        participantIds: participantIds,
-        createRoom: ref.read(authorizedFirestoreServiceProvider).createChatRoom,
-        onPermissionDenied: () {
-          if (mounted) {
-            AppUtils.showErrorSnackBar(
-              context,
-              'You do not have permission to create chat rooms',
+      final roomId = usesMultiTeamAudience
+          ? await ref
+              .read(chatRoomFunctionsServiceProvider)
+              .createMultiTeamEventRoom(
+                orgId: orgId,
+                name: _nameController.text,
+                leagueId: _selectedLeagueId!,
+                teams: selectedMultiTeams,
+                roomIconName: _selectedIconName,
+              )
+          : await createSharedChatRoom(
+              currentUser: currentUser,
+              orgId: orgId,
+              roomName: _nameController.text,
+              roomPurpose: _roomPurpose,
+              selectedLeagueId: _selectedLeagueId!,
+              selectedHubId: _sharedRoomScope == _SharedRoomScope.league
+                  ? null
+                  : _selectedHubId,
+              selectedTeamId: _selectedTeamId,
+              roomIconName: _selectedIconName,
+              participantIds: participantIds,
+              createRoom:
+                  ref.read(authorizedFirestoreServiceProvider).createChatRoom,
+              onPermissionDenied: () {
+                if (mounted) {
+                  AppUtils.showErrorSnackBar(
+                    context,
+                    'You do not have permission to create chat rooms',
+                  );
+                }
+              },
             );
-          }
-        },
-      );
 
       if (roomId != null && _selectedImageBytes != null) {
         try {
@@ -260,6 +334,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       _selectedLeagueId = null;
       _selectedHubId = null;
       _selectedTeamId = null;
+      _selectedTeamIds.clear();
       _sharedRoomScope = _SharedRoomScope.league;
     }
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
@@ -344,19 +419,28 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                       _sharedRoomScope = scope;
                       _selectedHubId = null;
                       _selectedTeamId = null;
+                      _selectedTeamIds.clear();
                     }),
                     onLeagueSelected: (id) => setState(() {
                       _selectedLeagueId = id;
                       _selectedHubId = null;
                       _selectedTeamId = null;
+                      _selectedTeamIds.clear();
                       _sharedRoomScope = _SharedRoomScope.league;
                     }),
                     onHubSelected: (id) => setState(() {
                       _selectedHubId = id;
                       _selectedTeamId = null;
+                      _selectedTeamIds.clear();
                     }),
                     onTeamSelected: (id) =>
                         setState(() => _selectedTeamId = id),
+                    selectedTeamIds: _selectedTeamIds,
+                    onTeamSelectionChanged: (ids) => setState(() {
+                      _selectedTeamIds
+                        ..clear()
+                        ..addAll(ids);
+                    }),
                     onIconSelected: (name) => setState(() {
                       _selectedIconName = name;
                       _selectedImageBytes = null;
@@ -598,6 +682,7 @@ class _SharedRoomForm extends ConsumerWidget {
   final String? selectedLeagueId;
   final String? selectedHubId;
   final String? selectedTeamId;
+  final Set<String> selectedTeamIds;
   final String selectedIconName;
   final String? selectedImageName;
   final bool isCreating;
@@ -605,6 +690,7 @@ class _SharedRoomForm extends ConsumerWidget {
   final ValueChanged<String?> onLeagueSelected;
   final ValueChanged<String?> onHubSelected;
   final ValueChanged<String?> onTeamSelected;
+  final ValueChanged<Set<String>> onTeamSelectionChanged;
   final ValueChanged<String> onIconSelected;
   final VoidCallback onPickImage;
   final VoidCallback onCreate;
@@ -619,6 +705,7 @@ class _SharedRoomForm extends ConsumerWidget {
     required this.selectedLeagueId,
     required this.selectedHubId,
     required this.selectedTeamId,
+    required this.selectedTeamIds,
     required this.selectedIconName,
     required this.selectedImageName,
     required this.isCreating,
@@ -626,6 +713,7 @@ class _SharedRoomForm extends ConsumerWidget {
     required this.onLeagueSelected,
     required this.onHubSelected,
     required this.onTeamSelected,
+    required this.onTeamSelectionChanged,
     required this.onIconSelected,
     required this.onPickImage,
     required this.onCreate,
@@ -639,8 +727,11 @@ class _SharedRoomForm extends ConsumerWidget {
       currentUser,
       leaguesAsync.valueOrNull ?? [],
     );
-    final organizationTeamsAsync = currentUser?.role == UserRole.managerAdmin &&
-            currentUser!.teamIds.isNotEmpty
+    final usesMultiTeamAudience = roomPurpose == ChatRoomPurpose.event &&
+        selectedScope == _SharedRoomScope.team;
+    final organizationTeamsAsync = usesMultiTeamAudience ||
+            (currentUser?.role == UserRole.managerAdmin &&
+                currentUser!.teamIds.isNotEmpty)
         ? ref.watch(organizationTeamsProvider)
         : const AsyncValue<List<Team>>.data([]);
     final organizationTeams = organizationTeamsAsync.valueOrNull ?? [];
@@ -666,6 +757,20 @@ class _SharedRoomForm extends ConsumerWidget {
     );
     final effectiveTeamId =
         teams.any((team) => team.id == selectedTeamId) ? selectedTeamId : null;
+    final multiTeamChoices = manageableSharedRoomTeams(
+      user: currentUser,
+      teams: organizationTeams
+          .where((team) => team.leagueId == selectedLeagueId)
+          .toList(),
+    );
+    final effectiveSelectedTeamIds = selectedTeamIds.intersection(
+      multiTeamChoices.map((team) => team.id).toSet(),
+    );
+    final selectedHubCount = multiTeamChoices
+        .where((team) => effectiveSelectedTeamIds.contains(team.id))
+        .map((team) => team.hubId)
+        .toSet()
+        .length;
 
     if (selectedHubId != null && effectiveHubId == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -677,9 +782,17 @@ class _SharedRoomForm extends ConsumerWidget {
         if (context.mounted) onTeamSelected(null);
       });
     }
+    if (selectedTeamIds.length != effectiveSelectedTeamIds.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          onTeamSelectionChanged(effectiveSelectedTeamIds);
+        }
+      });
+    }
 
     if ((selectedScope == _SharedRoomScope.hub ||
-            selectedScope == _SharedRoomScope.team) &&
+            (selectedScope == _SharedRoomScope.team &&
+                !usesMultiTeamAudience)) &&
         selectedHubId == null &&
         hubs.length == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -687,6 +800,7 @@ class _SharedRoomForm extends ConsumerWidget {
       });
     }
     if (selectedScope == _SharedRoomScope.team &&
+        !usesMultiTeamAudience &&
         selectedTeamId == null &&
         teams.length == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -761,27 +875,28 @@ class _SharedRoomForm extends ConsumerWidget {
           GlassScopeSelector<_SharedRoomScope>(
             selected: selectedScope,
             onChanged: isCreating ? null : onScopeSelected,
-            options: const [
-              GlassChoiceOption(
+            options: [
+              const GlassChoiceOption(
                 value: _SharedRoomScope.league,
                 label: 'League',
                 icon: Icons.emoji_events_outlined,
               ),
-              GlassChoiceOption(
+              const GlassChoiceOption(
                 value: _SharedRoomScope.hub,
                 label: 'Hub',
                 icon: Icons.location_on_outlined,
               ),
               GlassChoiceOption(
                 value: _SharedRoomScope.team,
-                label: 'Team',
+                label: roomPurpose == ChatRoomPurpose.event ? 'Teams' : 'Team',
                 icon: Icons.groups_2_outlined,
               ),
             ],
           ),
         ],
         if ((selectedScope == _SharedRoomScope.hub ||
-                selectedScope == _SharedRoomScope.team) &&
+                (selectedScope == _SharedRoomScope.team &&
+                    !usesMultiTeamAudience)) &&
             selectedLeagueId != null) ...[
           const SizedBox(height: 18),
           const GlassFormSectionLabel('Hub'),
@@ -801,6 +916,7 @@ class _SharedRoomForm extends ConsumerWidget {
           ),
         ],
         if (selectedScope == _SharedRoomScope.team &&
+            !usesMultiTeamAudience &&
             effectiveHubId != null) ...[
           const SizedBox(height: 18),
           const GlassFormSectionLabel('Team'),
@@ -819,12 +935,155 @@ class _SharedRoomForm extends ConsumerWidget {
             onChanged: isCreating ? null : onTeamSelected,
           ),
         ],
+        if (usesMultiTeamAudience) ...[
+          const SizedBox(height: 18),
+          const GlassFormSectionLabel('Teams'),
+          const SizedBox(height: 6),
+          Text(
+            effectiveSelectedTeamIds.isEmpty
+                ? 'Select one or more teams from any Hub in this league. Up to $maximumMultiTeamEventRoomTeams teams.'
+                : effectiveSelectedTeamIds.length ==
+                        maximumMultiTeamEventRoomTeams
+                    ? '$maximumMultiTeamEventRoomTeams-team limit reached across $selectedHubCount ${selectedHubCount == 1 ? 'Hub' : 'Hubs'}.'
+                    : '${effectiveSelectedTeamIds.length} ${effectiveSelectedTeamIds.length == 1 ? 'team' : 'teams'} selected across $selectedHubCount ${selectedHubCount == 1 ? 'Hub' : 'Hubs'}. Up to $maximumMultiTeamEventRoomTeams teams.',
+            style: const TextStyle(
+              color: AppGlassColors.inkMuted,
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          switch (organizationTeamsAsync) {
+            AsyncLoading() => const AppGlassSurface(
+                radius: 20,
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppGlassColors.aqua),
+                ),
+              ),
+            AsyncError() => AppGlassSurface(
+                radius: 20,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Teams could not be loaded. Please try again.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppGlassColors.inkSecondary),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: isCreating
+                          ? null
+                          : () => ref.invalidate(organizationTeamsProvider),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            _ when multiTeamChoices.isEmpty => const AppGlassSurface(
+                radius: 20,
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'No teams are available in your managed scope.',
+                  style: TextStyle(color: AppGlassColors.inkMuted),
+                ),
+              ),
+            _ => _MultiTeamPicker(
+                hubs: hubsAsync.valueOrNull ?? const [],
+                teams: multiTeamChoices,
+                selectedTeamIds: effectiveSelectedTeamIds,
+                enabled: !isCreating,
+                onChanged: onTeamSelectionChanged,
+              ),
+          },
+        ],
         const SizedBox(height: 24),
         GlassSubmitButton(
           onTap: isCreating ? null : onCreate,
           label: isCreating ? 'Creating...' : 'Create Room',
         ),
       ],
+    );
+  }
+}
+
+class _MultiTeamPicker extends StatelessWidget {
+  final List<Hub> hubs;
+  final List<Team> teams;
+  final Set<String> selectedTeamIds;
+  final bool enabled;
+  final ValueChanged<Set<String>> onChanged;
+
+  const _MultiTeamPicker({
+    required this.hubs,
+    required this.teams,
+    required this.selectedTeamIds,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hubNames = {for (final hub in hubs) hub.id: hub.name};
+    final teamsByHub = <String, List<Team>>{};
+    for (final team in teams) {
+      teamsByHub.putIfAbsent(team.hubId, () => []).add(team);
+    }
+
+    return AppGlassSurface(
+      radius: 20,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final entry in teamsByHub.entries) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                hubNames[entry.key] ?? 'Hub',
+                style: const TextStyle(
+                  color: AppGlassColors.inkMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+            for (final team in entry.value)
+              GlassCheckTile(
+                leading: EntityAvatar(
+                  name: team.name,
+                  imageUrl: team.logoUrl,
+                  iconName: team.iconName,
+                  fallbackIcon: Icons.groups_2_outlined,
+                  size: 34,
+                  color: AppGlassColors.aqua,
+                ),
+                title: team.name,
+                subtitle: [team.ageGroup, team.division]
+                    .where((value) => value?.trim().isNotEmpty == true)
+                    .join(' · '),
+                value: selectedTeamIds.contains(team.id),
+                onChanged: !enabled ||
+                        (!selectedTeamIds.contains(team.id) &&
+                            selectedTeamIds.length >=
+                                maximumMultiTeamEventRoomTeams)
+                    ? null
+                    : (checked) {
+                        final next = {...selectedTeamIds};
+                        if (checked == true) {
+                          next.add(team.id);
+                        } else {
+                          next.remove(team.id);
+                        }
+                        onChanged(next);
+                      },
+              ),
+          ],
+        ],
+      ),
     );
   }
 }

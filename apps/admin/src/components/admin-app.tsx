@@ -12,6 +12,7 @@ import {
   ExternalLink,
   FileText,
   FolderOpen,
+  ImagePlus,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -58,6 +59,7 @@ import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignment
 import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, dateTimeLabel, timeAgo, toDate } from "@/lib/format";
+import { eventRoomImageStoragePath, validateEventRoomImageFile } from "@/lib/event-room-image";
 import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES, runReservedPolicyUpload } from "@/lib/policy-upload";
 import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
 import { structureLogoStoragePath, validateStructureLogoFile } from "@/lib/structure-logo";
@@ -3041,6 +3043,7 @@ type ChatRoomSetupPreview = {
 
 function chatRoomView(room: ChatRoom): Exclude<ChatRoomView, "all"> {
   if (room.type === "direct") return "direct";
+  if (room.type === "event") return "league";
   if (room.teamId) return "team";
   if (room.hubId) return "hub";
   return "league";
@@ -3067,6 +3070,7 @@ function ChatRoomsSection({
   const [view, setView] = useState<ChatRoomView>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<ChatRoomSetupPreview | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const selectedRoom = selectedId ? data.chatRooms.find((room) => room.id === selectedId) ?? null : null;
@@ -3089,7 +3093,8 @@ function ChatRoomsSection({
       chatRoomViewLabel(room),
       room.leagueId ? leagueById.get(room.leagueId)?.name : undefined,
       room.hubId ? hubById.get(room.hubId)?.name : undefined,
-      room.teamId ? teamById.get(room.teamId)?.name : undefined
+      room.teamId ? teamById.get(room.teamId)?.name : undefined,
+      ...(room.teamIds ?? []).map((teamId) => teamById.get(teamId)?.name)
     ], query))
     .sort((left, right) => left.name.localeCompare(right.name));
   const filters: Array<WorkspaceFilterItem<ChatRoomView>> = [
@@ -3145,9 +3150,15 @@ function ChatRoomsSection({
           { label: "Direct messages", value: data.chatRooms.filter((room) => room.type === "direct").length }
         ]}
         action={
-          <ToolbarActionButton icon={ClipboardList} onClick={loadPreview} disabled={previewLoading}>
-            {previewLoading ? "Checking setup…" : "Review Room Setup"}
-          </ToolbarActionButton>
+          <div className="grid gap-2 sm:flex sm:justify-end">
+            <Button variant="secondary" onClick={loadPreview} disabled={previewLoading}>
+              {previewLoading ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <ClipboardList className="size-4" aria-hidden />}
+              {previewLoading ? "Checking setup…" : "Review Room Setup"}
+            </Button>
+            <ToolbarActionButton icon={Plus} onClick={() => setCreateOpen(true)}>
+              New Event Room
+            </ToolbarActionButton>
+          </div>
         }
         filters={filters}
         selectedFilterId={view}
@@ -3168,8 +3179,10 @@ function ChatRoomsSection({
         {filteredRooms.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {filteredRooms.map((room) => {
-              const targetName = room.teamId
-                ? teamById.get(room.teamId)?.name
+              const targetName = room.teamIds?.length
+                ? `${room.teamIds.length} ${room.teamIds.length === 1 ? "team" : "teams"}`
+                : room.teamId
+                  ? teamById.get(room.teamId)?.name
                 : room.hubId
                   ? hubById.get(room.hubId)?.name
                   : room.leagueId
@@ -3208,6 +3221,13 @@ function ChatRoomsSection({
           />
         )}
       </ManagementWorkspace>
+      <CreateEventRoomDrawer
+        open={createOpen}
+        data={data}
+        currentUser={currentUser}
+        runAction={runAction}
+        onClose={() => setCreateOpen(false)}
+      />
       <ChatRoomDrawer room={selectedRoom} data={data} currentUser={currentUser} runAction={runAction} onClose={() => setSelectedId(null)} />
       <SideDrawer
         open={Boolean(preview)}
@@ -3266,7 +3286,333 @@ function ChatRoomsSection({
   );
 }
 
-function ChatRoomDrawer({
+export function CreateEventRoomDrawer({
+  open,
+  data,
+  currentUser,
+  runAction,
+  onClose
+}: {
+  open: boolean;
+  data: AdminData;
+  currentUser: AppUser;
+  runAction: ActionRunner;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [leagueId, setLeagueId] = useState("");
+  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set());
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageInputKey, setImageInputKey] = useState(0);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
+  const defaultLeagueId = data.leagues[0]?.id ?? "";
+
+  useEffect(() => {
+    if (!open) return;
+    setName("");
+    setLeagueId(defaultLeagueId);
+    setSelectedTeamIds(new Set());
+    setImageFile(null);
+    setImageInputKey((current) => current + 1);
+    setFormError(null);
+    setSubmitting(false);
+    setCreatedRoomId(null);
+  }, [data.selectedOrg?.id, defaultLeagueId, open]);
+
+  const leagueTeams = data.teams
+    .filter((team) => team.leagueId === leagueId)
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const leagueHubs = data.hubs
+    .filter((hub) => hub.leagueId === leagueId)
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const selectedTeams = leagueTeams.filter((team) => selectedTeamIds.has(team.id));
+  const selectedHubIds = new Set(selectedTeams.map((team) => team.hubId));
+
+  function toggleTeam(teamId: string, checked: boolean) {
+    if (checked && !selectedTeamIds.has(teamId) && selectedTeamIds.size >= 50) {
+      setFormError("Event Rooms can include up to 50 teams.");
+      return;
+    }
+    setFormError(null);
+    setSelectedTeamIds((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(teamId);
+      } else {
+        next.delete(teamId);
+      }
+      return next;
+    });
+  }
+
+  function selectHubTeams(hubId: string) {
+    const hubTeams = leagueTeams.filter((team) => team.hubId === hubId);
+    const unselectedHubTeams = hubTeams.filter((team) => !selectedTeamIds.has(team.id));
+    const availableSlots = 50 - selectedTeamIds.size;
+    setFormError(unselectedHubTeams.length > availableSlots ? "Only the first 50 selected teams were added." : null);
+    setSelectedTeamIds((current) => {
+      const next = new Set(current);
+      for (const team of hubTeams) {
+        if (next.size >= 50) break;
+        next.add(team.id);
+      }
+      return next;
+    });
+  }
+
+  function clearHubTeams(hubId: string) {
+    setFormError(null);
+    setSelectedTeamIds((current) => {
+      const next = new Set(current);
+      leagueTeams.filter((team) => team.hubId === hubId).forEach((team) => next.delete(team.id));
+      return next;
+    });
+  }
+
+  function chooseImage(file?: File) {
+    setFormError(null);
+    if (!file) return;
+    const validationError = validateEventRoomImageFile(file);
+    if (validationError) {
+      setImageFile(null);
+      setImageInputKey((current) => current + 1);
+      setFormError(validationError);
+      return;
+    }
+    setImageFile(file);
+  }
+
+  async function createRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError(null);
+    const orgId = data.selectedOrg?.id;
+    if (!orgId) {
+      setFormError("Select an organization first.");
+      return;
+    }
+    if (!name.trim()) {
+      setFormError("Enter a room name.");
+      return;
+    }
+    if (!leagueId) {
+      setFormError("Select a league.");
+      return;
+    }
+    if (selectedTeams.length === 0) {
+      setFormError("Select at least one team.");
+      return;
+    }
+    if (imageFile && !storage) {
+      setFormError("Firebase Storage is not configured for this environment.");
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await runAction("createMultiTeamEventRoom", {
+      name: name.trim(),
+      leagueId,
+      teams: selectedTeams.map((team) => ({ hubId: team.hubId, teamId: team.id })),
+      roomIconName: "event"
+    });
+    if (!result.ok) {
+      setFormError(result.error);
+      setSubmitting(false);
+      return;
+    }
+    const roomId = (result.data as { roomId?: unknown })?.roomId;
+    if (typeof roomId !== "string" || !roomId) {
+      setFormError("The room was created without a valid identifier. Refresh Chat Rooms before trying again.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (imageFile && storage) {
+      const fileRef = storageRef(storage, eventRoomImageStoragePath({
+        orgId,
+        roomId,
+        userId: currentUser.id,
+        fileName: imageFile.name
+      }));
+      let roomImageUrl: string;
+      try {
+        await uploadBytes(fileRef, imageFile, { contentType: imageFile.type });
+        roomImageUrl = await getDownloadURL(fileRef);
+      } catch {
+        await deleteObject(fileRef).catch(() => undefined);
+        setCreatedRoomId(roomId);
+        setFormError("The Event Room was created, but its photo could not be uploaded. Open the room details to try the photo again.");
+        setSubmitting(false);
+        return;
+      }
+      const updateResult = await runAction("adminUpdateChatRoom", {
+        roomId,
+        patch: { roomIconName: null, roomImageUrl }
+      });
+      if (!updateResult.ok) {
+        // A callable can fail after the room update commits (for example, while
+        // writing its audit entry). Keep the upload so a persisted URL never
+        // points at an object this client deleted.
+        setCreatedRoomId(roomId);
+        setFormError("The Event Room was created, but its photo update could not be confirmed. Refresh Chat Rooms before trying the photo again.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    setSubmitting(false);
+    onClose();
+  }
+
+  return (
+    <SideDrawer
+      open={open}
+      title="New Event Room"
+      description="Choose one or more teams across Hubs and add an optional room photo."
+      icon={MessageSquare}
+      onClose={() => !submitting && onClose()}
+    >
+      <form className="grid gap-5" onSubmit={createRoom}>
+        <DrawerSection title="Room details">
+          <Field label="Room name" hint={`${name.length}/120`}>
+            <Input
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setFormError(null);
+              }}
+              maxLength={120}
+              placeholder="Provincial Showcase"
+              required
+              disabled={submitting || Boolean(createdRoomId)}
+            />
+          </Field>
+          <Field label="League">
+            <Select
+              value={leagueId}
+              onChange={(event) => {
+                setLeagueId(event.target.value);
+                setSelectedTeamIds(new Set());
+                setFormError(null);
+              }}
+              required
+              disabled={submitting || Boolean(createdRoomId)}
+            >
+              {data.leagues.map((league) => <option key={league.id} value={league.id}>{league.name}</option>)}
+            </Select>
+          </Field>
+        </DrawerSection>
+
+        <DrawerSection title="Audience">
+          <div role="status" aria-live="polite" className="rounded-2xl border border-teal/20 bg-teal/[0.055] px-4 py-3">
+            <p className="text-sm font-extrabold text-ink">
+              {selectedTeams.length === 0
+                ? "No teams selected"
+                : `${pluralize(selectedTeams.length, "team")} across ${pluralize(selectedHubIds.size, "Hub")}`}
+            </p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-muted">
+              Selected team members and managers assigned to a selected Hub will have access. Maximum 50 teams.
+            </p>
+          </div>
+          {leagueHubs.length > 0 ? (
+            <fieldset className="grid gap-3">
+              <legend className="sr-only">Teams included in this Event Room</legend>
+              {leagueHubs.map((hub) => {
+                const hubTeams = leagueTeams.filter((team) => team.hubId === hub.id);
+                if (hubTeams.length === 0) return null;
+                const selectedInHub = hubTeams.filter((team) => selectedTeamIds.has(team.id)).length;
+                return (
+                  <div key={hub.id} className="overflow-hidden rounded-2xl border border-line bg-white">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/70 bg-[#f8fafc] px-4 py-3">
+                      <div>
+                        <p className="text-sm font-extrabold text-ink">{hub.name}</p>
+                        <p className="mt-0.5 text-xs font-semibold text-muted">{selectedInHub}/{hubTeams.length} selected</p>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Button type="button" variant="ghost" className="min-h-9 px-2.5 py-1.5 text-xs" disabled={submitting || Boolean(createdRoomId)} onClick={() => selectHubTeams(hub.id)}>Select all</Button>
+                        {selectedInHub > 0 && <Button type="button" variant="ghost" className="min-h-9 px-2.5 py-1.5 text-xs" disabled={submitting || Boolean(createdRoomId)} onClick={() => clearHubTeams(hub.id)}>Clear</Button>}
+                      </div>
+                    </div>
+                    <div className="grid gap-1 p-2">
+                      {hubTeams.map((team) => (
+                        <label key={team.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-[#f8fafc] focus-within:bg-teal/[0.04]">
+                          <input
+                            type="checkbox"
+                            className="size-5 shrink-0 accent-teal"
+                            checked={selectedTeamIds.has(team.id)}
+                            onChange={(event) => toggleTeam(team.id, event.target.checked)}
+                            disabled={submitting || Boolean(createdRoomId)}
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-bold text-ink">{team.name}</span>
+                            {(team.ageGroup || team.division) && <span className="mt-0.5 block text-xs font-semibold text-muted">{[team.ageGroup, team.division].filter(Boolean).join(" · ")}</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </fieldset>
+          ) : (
+            <div role="note" className="rounded-2xl border border-amber/25 bg-amber/[0.08] p-4 text-sm font-semibold leading-6 text-[#854d0e]">
+              This league has no teams yet. Add teams in Structure before creating an Event Room.
+            </div>
+          )}
+        </DrawerSection>
+
+        <DrawerSection title="Room photo">
+          <div className="flex items-center gap-3 rounded-2xl border border-line bg-white p-3.5">
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-teal/10 text-teal ring-1 ring-teal/15">
+              <ImagePlus className="size-5" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-extrabold text-ink">{imageFile?.name ?? "Optional room photo"}</p>
+              <p className="mt-0.5 text-xs font-semibold text-muted">PNG, JPG, or WebP up to 10 MB.</p>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink shadow-sm transition-colors hover:border-[#b8c4d2] hover:bg-[#f8fafc] focus-within:ring-4 focus-within:ring-teal/20">
+              <UploadCloud className="size-4" aria-hidden />
+              {imageFile ? "Replace photo" : "Choose photo"}
+              <input
+                key={imageInputKey}
+                type="file"
+                className="sr-only"
+                aria-label="Event Room photo"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={submitting || Boolean(createdRoomId)}
+                onChange={(event) => chooseImage(event.target.files?.[0])}
+              />
+            </label>
+            {imageFile && (
+              <Button type="button" variant="secondary" disabled={submitting || Boolean(createdRoomId)} onClick={() => {
+                setImageFile(null);
+                setImageInputKey((current) => current + 1);
+                setFormError(null);
+              }}>Remove selected photo</Button>
+            )}
+          </div>
+        </DrawerSection>
+
+        {createdRoomId && <StatusNotice tone="success" message="The Event Room has been created." />}
+        {formError && <StatusNotice tone="error" message={formError} />}
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button type="button" variant="secondary" disabled={submitting} onClick={onClose}>{createdRoomId ? "Close" : "Cancel"}</Button>
+          {!createdRoomId && (
+            <Button type="submit" disabled={submitting || !name.trim() || !leagueId || selectedTeams.length === 0}>
+              {submitting ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <MessageSquare className="size-4" aria-hidden />}
+              {submitting ? "Creating Event Room…" : "Create Event Room"}
+            </Button>
+          )}
+        </div>
+      </form>
+    </SideDrawer>
+  );
+}
+
+export function ChatRoomDrawer({
   room,
   data,
   currentUser,
@@ -3286,6 +3632,12 @@ function ChatRoomDrawer({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [messageError, setMessageError] = useState<string | null>(null);
+  const [roomImageUrl, setRoomImageUrl] = useState<string | null>(null);
+  const [roomImageFile, setRoomImageFile] = useState<File | null>(null);
+  const [roomImageInputKey, setRoomImageInputKey] = useState(0);
+  const [roomImageError, setRoomImageError] = useState<string | null>(null);
+  const [roomImageSaving, setRoomImageSaving] = useState(false);
+  const [roomImageUncertain, setRoomImageUncertain] = useState(false);
   const archiveCancelRef = useRef<HTMLButtonElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
@@ -3297,6 +3649,12 @@ function ChatRoomDrawer({
     setDraft("");
     setSending(false);
     setMessageError(null);
+    setRoomImageUrl(room?.roomImageUrl ?? null);
+    setRoomImageFile(null);
+    setRoomImageInputKey((current) => current + 1);
+    setRoomImageError(null);
+    setRoomImageSaving(false);
+    setRoomImageUncertain(false);
   }, [room]);
 
   useEffect(() => {
@@ -3314,6 +3672,8 @@ function ChatRoomDrawer({
   const league = room?.leagueId ? data.leagues.find((item) => item.id === room.leagueId) : undefined;
   const hub = room?.hubId ? data.hubs.find((item) => item.id === room.hubId) : undefined;
   const team = room?.teamId ? data.teams.find((item) => item.id === room.teamId) : undefined;
+  const audienceHubs = room?.hubIds?.map((hubId) => data.hubs.find((item) => item.id === hubId)?.name).filter(Boolean) ?? [];
+  const audienceTeams = room?.teamIds?.map((teamId) => data.teams.find((item) => item.id === teamId)?.name).filter(Boolean) ?? [];
   const structureSynced = Boolean(room?.type === "league" && room.hubId);
 
   useEffect(() => {
@@ -3361,6 +3721,81 @@ function ChatRoomDrawer({
     } finally {
       setArchiving(false);
     }
+  }
+
+  function chooseRoomImage(file?: File) {
+    setRoomImageError(null);
+    if (!file) return;
+    const validationError = validateEventRoomImageFile(file);
+    if (validationError) {
+      setRoomImageFile(null);
+      setRoomImageInputKey((current) => current + 1);
+      setRoomImageError(validationError);
+      return;
+    }
+    setRoomImageFile(file);
+  }
+
+  async function saveRoomImage() {
+    if (!room || room.type !== "event" || !orgId || !roomImageFile) return;
+    if (!storage) {
+      setRoomImageError("Firebase Storage is not configured for this environment.");
+      return;
+    }
+    setRoomImageSaving(true);
+    setRoomImageError(null);
+    const fileRef = storageRef(storage, eventRoomImageStoragePath({
+      orgId,
+      roomId: room.id,
+      userId: currentUser.id,
+      fileName: roomImageFile.name
+    }));
+    let nextRoomImageUrl: string;
+    try {
+      await uploadBytes(fileRef, roomImageFile, { contentType: roomImageFile.type });
+      nextRoomImageUrl = await getDownloadURL(fileRef);
+    } catch (caught) {
+      await deleteObject(fileRef).catch(() => undefined);
+      setRoomImageError(caught instanceof Error ? caught.message : "The room photo could not be uploaded.");
+      setRoomImageSaving(false);
+      return;
+    }
+    const result = await runAction("adminUpdateChatRoom", {
+      roomId: room.id,
+      patch: { roomIconName: null, roomImageUrl: nextRoomImageUrl }
+    });
+    if (!result.ok) {
+      // Do not delete after an ambiguous callable failure; the URL may already
+      // be committed even if a later audit or response step failed.
+      setRoomImageFile(null);
+      setRoomImageInputKey((current) => current + 1);
+      setRoomImageUncertain(true);
+      setRoomImageError("The photo update could not be confirmed. Close this room and refresh Chat Rooms before trying again.");
+      setRoomImageSaving(false);
+      return;
+    }
+    setRoomImageUrl(nextRoomImageUrl);
+    setRoomImageFile(null);
+    setRoomImageInputKey((current) => current + 1);
+    setRoomImageSaving(false);
+  }
+
+  async function removeRoomImage() {
+    if (!room || room.type !== "event") return;
+    setRoomImageSaving(true);
+    setRoomImageError(null);
+    const result = await runAction("adminUpdateChatRoom", {
+      roomId: room.id,
+      patch: { roomIconName: "event", roomImageUrl: null }
+    });
+    if (result.ok) {
+      setRoomImageUrl(null);
+      setRoomImageFile(null);
+      setRoomImageInputKey((current) => current + 1);
+    } else {
+      setRoomImageError(result.error);
+    }
+    setRoomImageSaving(false);
   }
 
   return (
@@ -3420,11 +3855,53 @@ function ChatRoomDrawer({
               <InfoRow label="Messages" value={room.lastMessageAt ? <RelativeTime value={room.lastMessageAt} /> : "No messages yet"} />
             </div>
           </DrawerSection>
+          {room.type === "event" && (
+            <DrawerSection title="Room photo">
+              <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+                <EntityAvatar name={room.name} imageUrl={roomImageUrl} />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-extrabold text-ink">{roomImageFile?.name ?? (roomImageUrl ? "Custom room photo" : "Default Event Room icon")}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-muted">PNG, JPG, or WebP up to 10 MB.</p>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink shadow-sm transition-colors hover:border-[#b8c4d2] hover:bg-[#f8fafc] focus-within:ring-4 focus-within:ring-teal/20">
+                  <UploadCloud className="size-4" aria-hidden />
+                  {roomImageUrl || roomImageFile ? "Replace photo" : "Upload photo"}
+                  <input
+                    key={roomImageInputKey}
+                    type="file"
+                    className="sr-only"
+                    aria-label="Room photo file"
+                    accept="image/png,image/jpeg,image/webp"
+                    disabled={roomImageSaving || roomImageUncertain}
+                    onChange={(event) => chooseRoomImage(event.target.files?.[0])}
+                  />
+                </label>
+                {roomImageFile ? (
+                  <Button disabled={roomImageSaving || roomImageUncertain} onClick={saveRoomImage}>
+                    {roomImageSaving ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <Save className="size-4" aria-hidden />}
+                    {roomImageSaving ? "Saving photo…" : "Save photo"}
+                  </Button>
+                ) : roomImageUrl ? (
+                  <Button variant="secondary" disabled={roomImageSaving || roomImageUncertain} onClick={removeRoomImage}>Remove photo</Button>
+                ) : null}
+              </div>
+              {roomImageFile && (
+                <Button variant="ghost" disabled={roomImageSaving || roomImageUncertain} onClick={() => {
+                  setRoomImageFile(null);
+                  setRoomImageInputKey((current) => current + 1);
+                  setRoomImageError(null);
+                }}>Clear selected photo</Button>
+              )}
+              {roomImageError && <StatusNotice tone="error" message={roomImageError} />}
+            </DrawerSection>
+          )}
           <DrawerSection title="Scope">
             <div className="grid gap-3 sm:grid-cols-2">
               <InfoRow label="League" value={league?.name} />
-              <InfoRow label="Hub" value={hub?.name} />
-              <InfoRow label="Team" value={team?.name} />
+              <InfoRow label={audienceHubs.length === 1 ? "Hub" : "Hubs"} value={audienceHubs.length > 0 ? audienceHubs.join(", ") : hub?.name} />
+              <InfoRow label={audienceTeams.length === 1 ? "Team" : "Teams"} value={audienceTeams.length > 0 ? audienceTeams.join(", ") : team?.name} />
               <InfoRow label="Participants" value={room.type === "direct" ? room.participants.length : "Scope-based access"} />
             </div>
           </DrawerSection>

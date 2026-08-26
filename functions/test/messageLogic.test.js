@@ -3,6 +3,7 @@ const test = require("node:test");
 const {
   canReceiveMessageNotification,
   participantLookupBatches,
+  shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
 } = require("../lib/notifications/messageLogic");
 
@@ -74,4 +75,60 @@ test("participant notification lookups stay within Firestore limits", () => {
   const batches = participantLookupBatches([...ids, "user-1"]);
   assert.deepEqual(batches.map((batch) => batch.length), [30, 30, 5]);
   assert.equal(new Set(batches.flat()).size, 65);
+});
+
+test("multi-team rooms resolve recipients from current organization assignments", () => {
+  assert.equal(
+    shouldUseExplicitParticipantRecipients(["original-member"], ["team-1"]),
+    false,
+  );
+  assert.equal(
+    shouldUseExplicitParticipantRecipients(["direct-member"], []),
+    true,
+  );
+});
+
+test("multi-team notifications reach every selected team and selected-Hub managers", () => {
+  const hubIds = ["hub-1", "hub-2"];
+  const teamIds = ["team-1", "team-2"];
+  assert.equal(canReceiveMessageNotification(
+    {
+      role: "staff",
+      teamIds: ["team-2"],
+      orgId: "org-1",
+      isActive: true,
+    },
+    "sender", "event", "hub-1", "league-1", "org-1", "team-1",
+    hubIds, teamIds,
+  ), true);
+  assert.equal(canReceiveMessageNotification(
+    {
+      role: "managerAdmin",
+      hubIds: ["hub-2"],
+      orgId: "org-1",
+      isActive: true,
+    },
+    "sender", "event", "hub-1", "league-1", "org-1", "team-1",
+    hubIds, teamIds,
+  ), true);
+  assert.equal(canReceiveMessageNotification(
+    {
+      role: "staff",
+      hubIds: ["hub-2"],
+      orgId: "org-1",
+      isActive: true,
+    },
+    "sender", "event", "hub-1", "league-1", "org-1", "team-1",
+    hubIds, teamIds,
+  ), false);
+  assert.equal(canReceiveMessageNotification(
+    {
+      role: "staff",
+      teamIds: ["team-3"],
+      orgId: "org-1",
+      isActive: true,
+    },
+    "sender", "event", "hub-1", "league-1", "org-1", "team-1",
+    hubIds, teamIds,
+  ), false);
 });

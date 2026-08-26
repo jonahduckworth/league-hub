@@ -460,6 +460,16 @@ class FirestoreService {
           .where('type', whereIn: const ['league', 'event']).where('hubId',
               whereIn: ids),
     );
+    if (viewer.role == UserRole.managerAdmin) {
+      addBatchedQueries(
+        viewer.hubIds,
+        (ids) => _chatRoomsRef(orgId)
+            .where('orgId', isEqualTo: orgId)
+            .where('isArchived', isEqualTo: false)
+            .where('type', isEqualTo: 'event')
+            .where('hubIds', arrayContainsAny: ids),
+      );
+    }
     addBatchedQueries(
       viewer.teamIds,
       (ids) => _chatRoomsRef(orgId)
@@ -467,6 +477,14 @@ class FirestoreService {
           .where('isArchived', isEqualTo: false)
           .where('type', whereIn: const ['league', 'event']).where('teamId',
               whereIn: ids),
+    );
+    addBatchedQueries(
+      viewer.teamIds,
+      (ids) => _chatRoomsRef(orgId)
+          .where('orgId', isEqualTo: orgId)
+          .where('isArchived', isEqualTo: false)
+          .where('type', isEqualTo: 'event')
+          .where('teamIds', arrayContainsAny: ids),
     );
     addBatchedQueries(
       viewer.leagueIds,

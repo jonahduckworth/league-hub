@@ -345,8 +345,7 @@ class AuthorizedFirestoreService {
           !participants.contains(actor.id)) {
         _deny('createChatRoom', actor);
       }
-    } else if (
-        (type == ChatRoomType.league && hubId?.isNotEmpty == true) ||
+    } else if ((type == ChatRoomType.league && hubId?.isNotEmpty == true) ||
         !_ps.canCreateChatRoomInScope(
           actor,
           leagueId: leagueId,

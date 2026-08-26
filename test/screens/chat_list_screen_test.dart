@@ -16,6 +16,7 @@ import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/chat_list_screen.dart';
 import 'package:league_hub/screens/new_chat_screen.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
+import 'package:league_hub/services/chat_room_functions_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/widgets/app_shell_header.dart';
@@ -25,6 +26,22 @@ import 'package:league_hub/widgets/chat_room_avatar.dart';
 import 'package:league_hub/widgets/empty_state.dart';
 import 'package:league_hub/widgets/league_filter.dart';
 import 'package:mockito/mockito.dart';
+
+class FakeChatRoomFunctionsClient implements ChatRoomFunctionsClient {
+  List<Team> createdTeams = const [];
+
+  @override
+  Future<String> createMultiTeamEventRoom({
+    required String orgId,
+    required String name,
+    required String leagueId,
+    required List<Team> teams,
+    required String roomIconName,
+  }) async {
+    createdTeams = List.of(teams);
+    return 'multi-team-room';
+  }
+}
 
 class MockAuthorizedFirestoreService extends Mock
     implements AuthorizedFirestoreService {
@@ -904,6 +921,7 @@ void main() {
       List<Team> organizationTeams = const [],
       AuthorizedFirestoreService? authorizedFirestoreService,
       FirestoreService? firestoreService,
+      ChatRoomFunctionsClient? chatRoomFunctionsService,
       int unreadCount = 0,
       List<Announcement> announcements = const [],
       bool includePinnedAnnouncements = false,
@@ -983,6 +1001,9 @@ void main() {
                 .overrideWithValue(authorizedFirestoreService),
           if (firestoreService != null)
             firestoreServiceProvider.overrideWithValue(firestoreService),
+          if (chatRoomFunctionsService != null)
+            chatRoomFunctionsServiceProvider
+                .overrideWithValue(chatRoomFunctionsService),
           unreadCountProvider.overrideWith(
             (ref, roomId) => Stream.value(unreadCount),
           ),
@@ -1376,6 +1397,114 @@ void main() {
         expect(find.text('LEAGUE'), findsOneWidget);
         expect(find.text('ROOM SCOPE'), findsOneWidget);
         expect(find.text('None'), findsNothing);
+      });
+
+      testWidgets('Event Room selects teams across different Hubs',
+          (WidgetTester tester) async {
+        final chatRoomFunctions = FakeChatRoomFunctionsClient();
+        final admin = AppUser(
+          id: 'admin-1',
+          email: 'admin@example.com',
+          displayName: 'Admin User',
+          role: UserRole.superAdmin,
+          orgId: 'org-1',
+          hubIds: const [],
+          leagueIds: const [],
+          teamIds: const [],
+          createdAt: DateTime(2024),
+          isActive: true,
+        );
+        final hubs = [
+          Hub(
+            id: 'hub-ab',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'Alberta',
+            createdAt: DateTime(2024),
+          ),
+          Hub(
+            id: 'hub-bc',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'British Columbia',
+            createdAt: DateTime(2024),
+          ),
+        ];
+        final teams = [
+          Team(
+            id: 'team-ab',
+            hubId: 'hub-ab',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'Alberta Selects',
+            createdAt: DateTime(2024),
+          ),
+          Team(
+            id: 'team-bc',
+            hubId: 'hub-bc',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'BC Selects',
+            createdAt: DateTime(2024),
+          ),
+        ];
+        await tester.pumpWidget(createRoutedTestWidget(
+          user: admin,
+          leagues: [testLeagues.first],
+          hubs: hubs,
+          teams: teams,
+          organizationTeams: teams,
+          chatRoomFunctionsService: chatRoomFunctions,
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Event Room').last);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField).first, 'Showcase');
+        await tester.drag(
+          find.byType(Scrollable).last,
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Teams').first);
+        await tester.pumpAndSettle();
+
+        await tester.drag(
+          find.byType(Scrollable).last,
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Alberta'), findsOneWidget);
+        expect(find.text('British Columbia'), findsOneWidget);
+        await tester.tap(find.text('Alberta Selects'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('BC Selects'));
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find.byType(Scrollable).last,
+          const Offset(0, 250),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('2 teams selected across 2 Hubs. Up to 50 teams.'),
+          findsOneWidget,
+        );
+        await tester.drag(
+          find.byType(Scrollable).last,
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Create Room'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Chat Route multi-team-room'), findsOneWidget);
+        expect(
+          chatRoomFunctions.createdTeams.map((team) => team.id),
+          ['team-ab', 'team-bc'],
+        );
       });
 
       testWidgets('event room page hides league chips while leagues load',
