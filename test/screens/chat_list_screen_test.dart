@@ -37,6 +37,8 @@ class MockAuthorizedFirestoreService extends Mock
     String? leagueId,
     String? hubId,
     String? teamId,
+    List<String> hubIds = const [],
+    List<String> teamIds = const [],
     List<String> participants = const [],
     String? roomIconName,
     String? roomImageUrl,
@@ -50,6 +52,8 @@ class MockAuthorizedFirestoreService extends Mock
             #leagueId: leagueId,
             #hubId: hubId,
             #teamId: teamId,
+            #hubIds: hubIds,
+            #teamIds: teamIds,
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
@@ -500,6 +504,41 @@ void main() {
           leagueId: 'league-1',
         ),
         ['creator', 'sam'],
+      );
+    });
+
+    test('multi-team participant ids include teams across different hubs', () {
+      AppUser member(String id, String teamId,
+              {UserRole role = UserRole.staff}) =>
+          AppUser(
+            id: id,
+            email: '$id@example.com',
+            displayName: id,
+            role: role,
+            orgId: 'org-1',
+            leagueIds: const ['league-1'],
+            hubIds: const [],
+            teamIds: [teamId],
+            createdAt: baseTime,
+            isActive: true,
+          );
+      final creator = member(
+        'creator',
+        'team-ab',
+        role: UserRole.managerAdmin,
+      );
+      final albertaMember = member('alberta-member', 'team-ab');
+      final bcMember = member('bc-member', 'team-bc');
+      final outsider = member('outsider', 'team-on');
+
+      expect(
+        sharedRoomParticipantIds(
+          creator: creator,
+          users: [albertaMember, bcMember, outsider],
+          leagueId: 'league-1',
+          teamIds: const ['team-ab', 'team-bc'],
+        ),
+        [creator.id, 'alberta-member', 'bc-member'],
       );
     });
 
@@ -1376,6 +1415,95 @@ void main() {
         expect(find.text('LEAGUE'), findsOneWidget);
         expect(find.text('ROOM SCOPE'), findsOneWidget);
         expect(find.text('None'), findsNothing);
+      });
+
+      testWidgets('Event Room selects teams across different Hubs',
+          (WidgetTester tester) async {
+        final admin = AppUser(
+          id: 'admin-1',
+          email: 'admin@example.com',
+          displayName: 'Admin User',
+          role: UserRole.superAdmin,
+          orgId: 'org-1',
+          hubIds: const [],
+          leagueIds: const [],
+          teamIds: const [],
+          createdAt: DateTime(2024),
+          isActive: true,
+        );
+        final hubs = [
+          Hub(
+            id: 'hub-ab',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'Alberta',
+            createdAt: DateTime(2024),
+          ),
+          Hub(
+            id: 'hub-bc',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'British Columbia',
+            createdAt: DateTime(2024),
+          ),
+        ];
+        final teams = [
+          Team(
+            id: 'team-ab',
+            hubId: 'hub-ab',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'Alberta Selects',
+            createdAt: DateTime(2024),
+          ),
+          Team(
+            id: 'team-bc',
+            hubId: 'hub-bc',
+            leagueId: 'league-1',
+            orgId: 'org-1',
+            name: 'BC Selects',
+            createdAt: DateTime(2024),
+          ),
+        ];
+        await tester.pumpWidget(createRoutedTestWidget(
+          user: admin,
+          leagues: [testLeagues.first],
+          hubs: hubs,
+          teams: teams,
+          organizationTeams: teams,
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Event Room').last);
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find.byType(Scrollable).last,
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Teams').first);
+        await tester.pumpAndSettle();
+
+        await tester.drag(
+          find.byType(Scrollable).last,
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Alberta'), findsOneWidget);
+        expect(find.text('British Columbia'), findsOneWidget);
+        await tester.tap(find.text('Alberta Selects'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('BC Selects'));
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find.byType(Scrollable).last,
+          const Offset(0, 250),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('2 teams selected across 2 Hubs.'), findsOneWidget);
       });
 
       testWidgets('event room page hides league chips while leagues load',

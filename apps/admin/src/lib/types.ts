@@ -146,6 +146,8 @@ export type ChatRoom = {
   leagueId?: string | null;
   hubId?: string | null;
   teamId?: string | null;
+  hubIds?: string[];
+  teamIds?: string[];
   participants: string[];
   createdAt?: unknown;
   isArchived: boolean;

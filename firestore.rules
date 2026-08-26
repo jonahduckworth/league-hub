@@ -65,6 +65,8 @@ service cloud.firestore {
             'leagueId',
             'hubId',
             'teamId',
+            'hubIds',
+            'teamIds',
             'roomIconName',
             'roomImageUrl',
             'managedScope'
@@ -175,6 +177,33 @@ service cloud.firestore {
         && teamId in currentUser().teamIds;
     }
 
+    function hasMultiTeamAudience(room) {
+      return room.keys().hasAll(['teamIds', 'hubIds'])
+        && room.teamIds is list
+        && room.teamIds.size() > 0
+        && room.hubIds is list
+        && room.hubIds.size() > 0;
+    }
+
+    function validMultiTeamAudience(room) {
+      return room.type == 'event'
+        && room.roomPurpose == 'event'
+        && room.teamIds.size() <= 50
+        && room.hubIds.size() <= 50
+        && room.teamId is string
+        && room.teamId in room.teamIds
+        && room.hubId is string
+        && room.hubId in room.hubIds;
+    }
+
+    function validOptionalMultiTeamAudience(room) {
+      return !room.keys().hasAny(['teamIds', 'hubIds'])
+        || (
+          hasMultiTeamAudience(room)
+          && validMultiTeamAudience(room)
+        );
+    }
+
     function canManageHub(orgId, hubId) {
       return sameOrg(orgId)
         && (
@@ -218,6 +247,27 @@ service cloud.firestore {
             )
           )
         );
+    }
+
+    function canManageRoomTarget(data) {
+      return hasMultiTeamAudience(data)
+        ? (
+          isSuperAdmin()
+          || (
+            currentUser().role == 'managerAdmin'
+            && (
+              (
+                'teamIds' in currentUser()
+                && data.teamIds.hasOnly(currentUser().teamIds)
+              )
+              || (
+                'hubIds' in currentUser()
+                && data.hubIds.hasOnly(currentUser().hubIds)
+              )
+            )
+          )
+        )
+        : canManageScopedTarget(data);
     }
 
     function scopedTargetExists(orgId, data) {
@@ -679,7 +729,18 @@ service cloud.firestore {
           || (room.type == 'direct' && request.auth.uid in room.participants)
           || (
             room.type in ['league', 'event']
-            && (
+            && (hasMultiTeamAudience(room)
+              ? (
+                (
+                  'teamIds' in currentUser()
+                  && room.teamIds.hasAny(currentUser().teamIds)
+                )
+                || (
+                  'hubIds' in currentUser()
+                  && room.hubIds.hasAny(currentUser().hubIds)
+                )
+              )
+              : (
               (
                 'teamId' in room
                 && room.teamId != null
@@ -708,7 +769,7 @@ service cloud.firestore {
                   || room.leagueId == null
                   || hasAssignedLeague(room.leagueId)
                 )
-              )
+              ))
             )
           )
         );
@@ -888,6 +949,7 @@ service cloud.firestore {
       match /chatRooms/{roomId} {
         allow get, list: if roomIsReadable(resource.data);
         allow create: if validOptionalRoomPurpose(request.resource.data)
+          && validOptionalMultiTeamAudience(request.resource.data)
           && (
             validDirectRoomCreate(orgId, request.resource.data)
             || (
@@ -898,7 +960,7 @@ service cloud.firestore {
                 !isStructureManagedRoom(request.resource.data)
                 || isLegacyHubGeneralRoomCreate(orgId, request.resource.data)
               )
-              && canManageScopedTarget(request.resource.data)
+              && canManageRoomTarget(request.resource.data)
               && scopedTargetExists(orgId, request.resource.data)
             )
           );
@@ -906,9 +968,14 @@ service cloud.firestore {
             && resource.data.type in ['league', 'event']
             && request.resource.data.type in ['league', 'event']
             && validOptionalRoomPurpose(request.resource.data)
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['roomPurpose'])
-            && canManageScopedTarget(resource.data)
-            && canManageScopedTarget(request.resource.data)
+            && validOptionalMultiTeamAudience(request.resource.data)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'roomPurpose',
+              'hubIds',
+              'teamIds'
+            ])
+            && canManageRoomTarget(resource.data)
+            && canManageRoomTarget(request.resource.data)
             && scopedTargetExists(orgId, request.resource.data)
             && structureManagedRoomFieldsUnchanged()
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([

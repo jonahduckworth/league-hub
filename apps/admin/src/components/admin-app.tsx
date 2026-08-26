@@ -3041,6 +3041,7 @@ type ChatRoomSetupPreview = {
 
 function chatRoomView(room: ChatRoom): Exclude<ChatRoomView, "all"> {
   if (room.type === "direct") return "direct";
+  if (room.type === "event") return "league";
   if (room.teamId) return "team";
   if (room.hubId) return "hub";
   return "league";
@@ -3089,7 +3090,8 @@ function ChatRoomsSection({
       chatRoomViewLabel(room),
       room.leagueId ? leagueById.get(room.leagueId)?.name : undefined,
       room.hubId ? hubById.get(room.hubId)?.name : undefined,
-      room.teamId ? teamById.get(room.teamId)?.name : undefined
+      room.teamId ? teamById.get(room.teamId)?.name : undefined,
+      ...(room.teamIds ?? []).map((teamId) => teamById.get(teamId)?.name)
     ], query))
     .sort((left, right) => left.name.localeCompare(right.name));
   const filters: Array<WorkspaceFilterItem<ChatRoomView>> = [
@@ -3168,8 +3170,10 @@ function ChatRoomsSection({
         {filteredRooms.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {filteredRooms.map((room) => {
-              const targetName = room.teamId
-                ? teamById.get(room.teamId)?.name
+              const targetName = room.teamIds?.length
+                ? `${room.teamIds.length} ${room.teamIds.length === 1 ? "team" : "teams"}`
+                : room.teamId
+                  ? teamById.get(room.teamId)?.name
                 : room.hubId
                   ? hubById.get(room.hubId)?.name
                   : room.leagueId
@@ -3314,6 +3318,7 @@ function ChatRoomDrawer({
   const league = room?.leagueId ? data.leagues.find((item) => item.id === room.leagueId) : undefined;
   const hub = room?.hubId ? data.hubs.find((item) => item.id === room.hubId) : undefined;
   const team = room?.teamId ? data.teams.find((item) => item.id === room.teamId) : undefined;
+  const audienceTeams = room?.teamIds?.map((teamId) => data.teams.find((item) => item.id === teamId)?.name).filter(Boolean) ?? [];
   const structureSynced = Boolean(room?.type === "league" && room.hubId);
 
   useEffect(() => {
@@ -3424,7 +3429,7 @@ function ChatRoomDrawer({
             <div className="grid gap-3 sm:grid-cols-2">
               <InfoRow label="League" value={league?.name} />
               <InfoRow label="Hub" value={hub?.name} />
-              <InfoRow label="Team" value={team?.name} />
+              <InfoRow label={audienceTeams.length === 1 ? "Team" : "Teams"} value={audienceTeams.length > 0 ? audienceTeams.join(", ") : team?.name} />
               <InfoRow label="Participants" value={room.type === "direct" ? room.participants.length : "Scope-based access"} />
             </div>
           </DrawerSection>

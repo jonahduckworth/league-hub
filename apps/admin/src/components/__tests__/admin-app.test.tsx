@@ -148,6 +148,20 @@ describe("AdminApp operations shell", () => {
             type: "direct",
             participants: ["demo-owner", "admin-1"],
             isArchived: false
+          },
+          {
+            id: "showcase-room",
+            orgId: "org-demo",
+            name: "Provincial Showcase",
+            type: "event",
+            roomPurpose: "event",
+            leagueId: "league-winter",
+            hubId: "hub-calgary",
+            teamId: "team-u11-aa",
+            hubIds: ["hub-calgary", "hub-reddeer"],
+            teamIds: ["team-u11-aa", "team-u13-a"],
+            participants: [],
+            isArchived: false
           }
         ]
       },
@@ -163,6 +177,13 @@ describe("AdminApp operations shell", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Chat Rooms" })).toBeTruthy();
     expect(screen.getAllByText("1/2")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Review Room Setup" })).toBeTruthy();
+    expect(screen.getByText("2 teams")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open Provincial Showcase chat room details" }));
+    const showcaseDrawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
+    expect(within(showcaseDrawer).getAllByText("Event room")).toHaveLength(2);
+    expect(within(showcaseDrawer).getByText("Calgary U11 AA, Red Deer U13 A")).toBeTruthy();
+    fireEvent.click(within(showcaseDrawer).getByRole("button", { name: "Close drawer" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Provincial Showcase" })).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Open Private conversation chat room details" }));
     const drawer = await screen.findByRole("dialog", { name: "Private conversation" });
     expect(within(drawer).getByText(/private conversations/i)).toBeTruthy();

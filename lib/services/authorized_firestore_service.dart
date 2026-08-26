@@ -334,6 +334,8 @@ class AuthorizedFirestoreService {
     String? leagueId,
     String? hubId,
     String? teamId,
+    List<String> hubIds = const [],
+    List<String> teamIds = const [],
     List<String> participants = const [],
     ChatRoomPurpose? roomPurpose,
     String? roomIconName,
@@ -345,20 +347,28 @@ class AuthorizedFirestoreService {
           !participants.contains(actor.id)) {
         _deny('createChatRoom', actor);
       }
-    } else if (
-        (type == ChatRoomType.league && hubId?.isNotEmpty == true) ||
-        !_ps.canCreateChatRoomInScope(
-          actor,
-          leagueId: leagueId,
-          hubId: hubId,
-          teamId: teamId,
-        )) {
+    } else if ((type == ChatRoomType.league && hubId?.isNotEmpty == true) ||
+        (teamIds.isNotEmpty
+            ? !_ps.canManageMultiTeamChatRoomScope(
+                actor,
+                leagueId: leagueId,
+                hubIds: hubIds,
+                teamIds: teamIds,
+              )
+            : !_ps.canCreateChatRoomInScope(
+                actor,
+                leagueId: leagueId,
+                hubId: hubId,
+                teamId: teamId,
+              ))) {
       _deny('createChatRoom', actor);
     }
     return _fs.createChatRoom(orgId, name, type,
         leagueId: leagueId,
         hubId: hubId,
         teamId: teamId,
+        hubIds: hubIds,
+        teamIds: teamIds,
         participants: participants,
         roomPurpose: roomPurpose,
         roomIconName: roomIconName,

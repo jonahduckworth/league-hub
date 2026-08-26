@@ -64,6 +64,14 @@ service firebase.storage {
       return 'teamIds' in userDoc() && teamId in userDoc().teamIds;
     }
 
+    function hasMultiTeamAudience(room) {
+      return room.keys().hasAll(['teamIds', 'hubIds'])
+        && room.teamIds is list
+        && room.teamIds.size() > 0
+        && room.hubIds is list
+        && room.hubIds.size() > 0;
+    }
+
     function canReadRoom(orgId, roomId) {
       let room = roomData(orgId, roomId);
       return sameOrg(orgId)
@@ -73,7 +81,18 @@ service firebase.storage {
           || (room.type == 'direct' && request.auth.uid in room.participants)
           || (
             room.type in ['league', 'event']
-            && (
+            && (hasMultiTeamAudience(room)
+              ? (
+                (
+                  'teamIds' in userDoc()
+                  && room.teamIds.hasAny(userDoc().teamIds)
+                )
+                || (
+                  'hubIds' in userDoc()
+                  && room.hubIds.hasAny(userDoc().hubIds)
+                )
+              )
+              : (
               (
                 'teamId' in room
                 && room.teamId != null
@@ -99,7 +118,7 @@ service firebase.storage {
                   || room.leagueId == null
                   || hasAssignedLeague(room.leagueId)
                 )
-              )
+              ))
             )
           )
         );
@@ -211,7 +230,7 @@ service firebase.storage {
         && isImageUpload(10 * 1024 * 1024);
     }
 
-    match /orgs/{orgId}/chat/{roomId}/{fileName} {
+    match /orgs/{orgId}/chat/{roomId}/{fileName=**} {
       allow read: if canReadRoom(orgId, roomId);
       allow write: if canReadRoom(orgId, roomId)
         && request.resource != null

@@ -16,6 +16,8 @@ class ChatRoom {
   final String? leagueId;
   final String? hubId;
   final String? teamId;
+  final List<String> hubIds;
+  final List<String> teamIds;
   final List<String> participants;
   final DateTime createdAt;
   final bool isArchived;
@@ -35,6 +37,11 @@ class ChatRoom {
 
   bool get isEventRoom => type == ChatRoomType.event && !isGroupRoom;
 
+  /// Multi-team Event Rooms retain [hubId] and [teamId] as a legacy anchor so
+  /// released clients do not mistake the room for a league-wide audience.
+  bool get hasMultiTeamAudience =>
+      type == ChatRoomType.event && teamIds.isNotEmpty;
+
   ChatRoom({
     required this.id,
     required this.orgId,
@@ -44,6 +51,8 @@ class ChatRoom {
     this.leagueId,
     this.hubId,
     this.teamId,
+    this.hubIds = const [],
+    this.teamIds = const [],
     required this.participants,
     required this.createdAt,
     required this.isArchived,
@@ -72,6 +81,8 @@ class ChatRoom {
         leagueId: json['leagueId'] as String?,
         hubId: json['hubId'] as String?,
         teamId: json['teamId'] as String?,
+        hubIds: List<String>.from(json['hubIds'] as List? ?? []),
+        teamIds: List<String>.from(json['teamIds'] as List? ?? []),
         participants: List<String>.from(json['participants'] as List? ?? []),
         createdAt: DateTime.parse(json['createdAt'] as String),
         isArchived: json['isArchived'] as bool? ?? false,
@@ -97,6 +108,8 @@ class ChatRoom {
         'leagueId': leagueId,
         'hubId': hubId,
         'teamId': teamId,
+        if (hubIds.isNotEmpty) 'hubIds': hubIds,
+        if (teamIds.isNotEmpty) 'teamIds': teamIds,
         'participants': participants,
         'createdAt': createdAt.toIso8601String(),
         'isArchived': isArchived,

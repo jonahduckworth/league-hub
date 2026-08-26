@@ -40,6 +40,8 @@ void main() {
     String? leagueId,
     String? hubId,
     String? teamId,
+    List<String> hubIds = const [],
+    List<String> teamIds = const [],
   }) =>
       ChatRoom(
         id: id,
@@ -49,6 +51,8 @@ void main() {
         leagueId: leagueId,
         hubId: hubId,
         teamId: teamId,
+        hubIds: hubIds,
+        teamIds: teamIds,
         participants: participants,
         createdAt: DateTime(2024),
         isArchived: false,
@@ -1075,6 +1079,45 @@ void main() {
               participants: ['ma', 'staff'],
             ),
           ),
+          isFalse);
+    });
+
+    test('multi-team Event Rooms honor every role and selected audience', () {
+      final room = makeRoom(
+        type: ChatRoomType.event,
+        leagueId: 'league-1',
+        hubId: 'hub-1',
+        teamId: 'team-1',
+        hubIds: const ['hub-1', 'hub-2'],
+        teamIds: const ['team-1', 'team-2'],
+      );
+
+      expect(service.canViewChatRoom(owner(), room), isTrue);
+      expect(service.canViewChatRoom(superAdmin(), room), isTrue);
+      expect(
+        service.canViewChatRoom(manager(hubIds: const ['hub-2']), room),
+        isTrue,
+      );
+      expect(
+        service.canViewChatRoom(staff(teamIds: const ['team-2']), room),
+        isTrue,
+      );
+      expect(
+        service.canViewChatRoom(staff(leagueIds: const ['league-1']), room),
+        isFalse,
+      );
+      expect(
+        service.canManageChatRoom(
+          manager(hubIds: const ['hub-1', 'hub-2']),
+          room,
+        ),
+        isTrue,
+      );
+      expect(
+        service.canManageChatRoom(manager(hubIds: const ['hub-1']), room),
+        isFalse,
+      );
+      expect(service.canManageChatRoom(staff(teamIds: const ['team-1']), room),
           isFalse);
     });
 

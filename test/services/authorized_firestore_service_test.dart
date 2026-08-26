@@ -154,6 +154,8 @@ class MockFirestoreService extends Mock implements FirestoreService {
           {String? leagueId,
           String? hubId,
           String? teamId,
+          List<String> hubIds = const [],
+          List<String> teamIds = const [],
           List<String> participants = const [],
           String? roomIconName,
           String? roomImageUrl,
@@ -167,6 +169,8 @@ class MockFirestoreService extends Mock implements FirestoreService {
             #leagueId: leagueId,
             #hubId: hubId,
             #teamId: teamId,
+            #hubIds: hubIds,
+            #teamIds: teamIds,
             #participants: participants,
             #roomIconName: roomIconName,
             #roomImageUrl: roomImageUrl,
@@ -1282,6 +1286,67 @@ void main() {
                 participants: ['u1', 'u2'],
                 roomPurpose: ChatRoomPurpose.group))
             .called(1);
+      });
+
+      test('manager can create a multi-team Event Room across assigned Hubs',
+          () async {
+        final managerAdmin = makeUser(
+          role: UserRole.managerAdmin,
+          hubIds: const ['h1', 'h2'],
+        );
+        when(mockFs.createChatRoom(
+          'org1',
+          'Showcase',
+          ChatRoomType.event,
+          leagueId: 'l1',
+          hubId: 'h1',
+          teamId: 't1',
+          hubIds: const ['h1', 'h2'],
+          teamIds: const ['t1', 't2'],
+          participants: const ['u1', 'u2'],
+          roomPurpose: ChatRoomPurpose.event,
+        )).thenAnswer((_) async => 'showcase-room');
+
+        final roomId = await afs.createChatRoom(
+          managerAdmin,
+          'org1',
+          'Showcase',
+          ChatRoomType.event,
+          leagueId: 'l1',
+          hubId: 'h1',
+          teamId: 't1',
+          hubIds: const ['h1', 'h2'],
+          teamIds: const ['t1', 't2'],
+          participants: const ['u1', 'u2'],
+          roomPurpose: ChatRoomPurpose.event,
+        );
+
+        expect(roomId, 'showcase-room');
+      });
+
+      test('manager cannot create a multi-team Event Room outside their scope',
+          () {
+        final managerAdmin = makeUser(
+          role: UserRole.managerAdmin,
+          hubIds: const ['h1'],
+        );
+
+        expect(
+          () => afs.createChatRoom(
+            managerAdmin,
+            'org1',
+            'Showcase',
+            ChatRoomType.event,
+            leagueId: 'l1',
+            hubId: 'h1',
+            teamId: 't1',
+            hubIds: const ['h1', 'h2'],
+            teamIds: const ['t1', 't2'],
+            roomPurpose: ChatRoomPurpose.event,
+          ),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
       });
 
       test('rejects client creation of Structure-managed General rooms', () {

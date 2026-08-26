@@ -515,6 +515,14 @@ class PermissionService {
     if (!canUpdateChatRoom(user) || room.type == ChatRoomType.direct) {
       return false;
     }
+    if (room.hasMultiTeamAudience) {
+      return canManageMultiTeamChatRoomScope(
+        user,
+        leagueId: room.leagueId,
+        hubIds: room.hubIds,
+        teamIds: room.teamIds,
+      );
+    }
     return canManageContentScope(
       user,
       leagueId: room.leagueId,
@@ -547,6 +555,10 @@ class PermissionService {
     // DMs: only participants.
     if (room.type == ChatRoomType.direct) {
       return room.participants.contains(user.id);
+    }
+    if (room.hasMultiTeamAudience) {
+      return room.teamIds.any(user.teamIds.contains) ||
+          room.hubIds.any(user.hubIds.contains);
     }
     // League rooms: visible to users in hubs belonging to that league.
     if (room.type == ChatRoomType.league && room.leagueId != null) {
@@ -592,6 +604,21 @@ class PermissionService {
     if (hubId != null) return user.hubIds.contains(hubId);
     if (leagueId == null) return false;
     return user.leagueIds.contains(leagueId);
+  }
+
+  bool canManageMultiTeamChatRoomScope(
+    AppUser user, {
+    required String? leagueId,
+    required List<String> hubIds,
+    required List<String> teamIds,
+  }) {
+    if (!isActiveUser(user) || leagueId == null || teamIds.isEmpty) {
+      return false;
+    }
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
+    if (user.role != UserRole.managerAdmin || hubIds.isEmpty) return false;
+    return teamIds.every(user.teamIds.contains) ||
+        hubIds.every(user.hubIds.contains);
   }
 
   bool canViewRolesPermissions(AppUser user) =>

@@ -109,6 +109,28 @@ void main() {
         expect(room.isEventRoom, isFalse);
       });
 
+      test('parses a multi-team Event Room audience', () {
+        final room = ChatRoom.fromJson({
+          'id': 'showcase',
+          'orgId': 'org1',
+          'name': 'Provincial Showcase',
+          'type': 'event',
+          'roomPurpose': 'event',
+          'leagueId': 'league1',
+          'hubId': 'alberta',
+          'teamId': 'team-ab',
+          'hubIds': ['alberta', 'bc'],
+          'teamIds': ['team-ab', 'team-bc'],
+          'participants': [],
+          'createdAt': testDateStr,
+          'isArchived': false,
+        });
+
+        expect(room.hasMultiTeamAudience, isTrue);
+        expect(room.hubIds, ['alberta', 'bc']);
+        expect(room.teamIds, ['team-ab', 'team-bc']);
+      });
+
       test('defaults isArchived to false', () {
         final json = {
           'id': 'room1',
@@ -215,6 +237,27 @@ void main() {
         expect(json['roomIconName'], isNull);
         expect(json['roomImageUrl'], isNull);
         expect(json['participantNames'], isEmpty);
+      });
+
+      test('serializes multi-team arrays only when populated', () {
+        final room = ChatRoom(
+          id: 'showcase',
+          orgId: 'org1',
+          name: 'Provincial Showcase',
+          type: ChatRoomType.event,
+          roomPurpose: ChatRoomPurpose.event,
+          leagueId: 'league1',
+          hubId: 'alberta',
+          teamId: 'team-ab',
+          hubIds: const ['alberta', 'bc'],
+          teamIds: const ['team-ab', 'team-bc'],
+          participants: const [],
+          createdAt: testDate,
+          isArchived: false,
+        );
+
+        expect(room.toJson()['hubIds'], ['alberta', 'bc']);
+        expect(room.toJson()['teamIds'], ['team-ab', 'team-bc']);
       });
     });
 

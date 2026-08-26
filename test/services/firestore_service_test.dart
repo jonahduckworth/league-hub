@@ -520,6 +520,29 @@ void main() {
       expect(doc.data()!['roomPurpose'], 'group');
     });
 
+    test('createChatRoom persists a multi-team Event Room audience', () async {
+      final roomId = await svc.createChatRoom(
+        orgId,
+        'Provincial Showcase',
+        ChatRoomType.event,
+        leagueId: 'lg-1',
+        hubId: 'hub-ab',
+        teamId: 'team-ab',
+        hubIds: const ['hub-ab', 'hub-bc'],
+        teamIds: const ['team-ab', 'team-bc'],
+        roomPurpose: ChatRoomPurpose.event,
+      );
+
+      final doc = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.chatRoomsCollection)
+          .doc(roomId)
+          .get();
+      expect(doc.data()!['hubIds'], ['hub-ab', 'hub-bc']);
+      expect(doc.data()!['teamIds'], ['team-ab', 'team-bc']);
+    });
+
     test('archiveChatRoom sets isArchived true', () async {
       final roomId =
           await svc.createChatRoom(orgId, 'To Archive', ChatRoomType.league);
@@ -642,10 +665,21 @@ void main() {
         'hubId': 'hub-2',
         'teamId': 'team-2',
       });
+      await seedRoom('multi-team', {
+        'type': 'event',
+        'roomPurpose': 'event',
+        'leagueId': 'league-1',
+        'hubId': 'hub-2',
+        'teamId': 'team-2',
+        'hubIds': ['hub-2', 'hub-1'],
+        'teamIds': ['team-2', 'team-1'],
+        'lastMessageAt': DateTime(2026, 3).toIso8601String(),
+      });
 
       final rooms = await svc.getVisibleChatRooms(orgId, viewer).first;
 
       expect(rooms.map((room) => room.id), [
+        'multi-team',
         'hub-team',
         'unscoped',
         'league',

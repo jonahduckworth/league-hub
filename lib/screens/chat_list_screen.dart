@@ -284,6 +284,15 @@ List<AppUser> chatRoomMembers(ChatRoom room, List<AppUser> users) {
         .where((user) => room.participants.contains(user.id))
         .toList();
   }
+  if (room.hasMultiTeamAudience) {
+    return activeUsers
+        .where(
+          (user) =>
+              room.teamIds.any(user.teamIds.contains) ||
+              room.hubIds.any(user.hubIds.contains),
+        )
+        .toList();
+  }
   if (room.leagueId != null) {
     if (room.teamId != null) {
       return activeUsers
@@ -327,6 +336,8 @@ Future<String?> createSharedChatRoom({
   required String selectedLeagueId,
   String? selectedHubId,
   String? selectedTeamId,
+  List<String> selectedHubIds = const [],
+  List<String> selectedTeamIds = const [],
   required Future<String> Function(
     AppUser actor,
     String orgId,
@@ -335,6 +346,8 @@ Future<String?> createSharedChatRoom({
     String? leagueId,
     String? hubId,
     String? teamId,
+    List<String> hubIds,
+    List<String> teamIds,
     List<String> participants,
     String? roomIconName,
     String? roomImageUrl,
@@ -356,6 +369,8 @@ Future<String?> createSharedChatRoom({
       leagueId: selectedLeagueId,
       hubId: selectedHubId,
       teamId: selectedTeamId,
+      hubIds: selectedHubIds,
+      teamIds: selectedTeamIds,
       participants: participantIds ?? [currentUser.id],
       roomIconName: roomIconName,
       roomImageUrl: roomImageUrl,
