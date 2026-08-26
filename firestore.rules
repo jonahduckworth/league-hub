@@ -191,9 +191,9 @@ service cloud.firestore {
         && room.teamIds.size() <= 50
         && room.hubIds.size() <= 50
         && room.teamId is string
-        && room.teamId in room.teamIds
+        && room.teamId == '__multi_team__'
         && room.hubId is string
-        && room.hubId in room.hubIds;
+        && room.hubId == '__multi_team__';
     }
 
     function validOptionalMultiTeamAudience(room) {
@@ -271,7 +271,12 @@ service cloud.firestore {
     }
 
     function scopedTargetExists(orgId, data) {
-      return (
+      return hasMultiTeamAudience(data)
+        ? (
+          data.leagueId is string
+          && exists(leaguePath(orgId, data.leagueId))
+        )
+        : (
           !('leagueId' in data)
           || data.leagueId == null
         )

@@ -646,8 +646,8 @@ void main() {
         'type': 'event',
         'roomPurpose': 'event',
         'leagueId': 'league-1',
-        'hubId': 'hub-2',
-        'teamId': 'team-2',
+        'hubId': '__multi_team__',
+        'teamId': '__multi_team__',
         'hubIds': ['hub-2', 'hub-1'],
         'teamIds': ['team-2', 'team-1'],
         'lastMessageAt': DateTime(2026, 3).toIso8601String(),
@@ -676,7 +676,8 @@ void main() {
       );
       final hubOnlyRooms =
           await svc.getVisibleChatRooms(orgId, hubOnlyStaff).first;
-      expect(hubOnlyRooms.map((room) => room.id), isNot(contains('multi-team')));
+      expect(
+          hubOnlyRooms.map((room) => room.id), isNot(contains('multi-team')));
     });
 
     test('getVisibleChatRooms supports staff with no assignments', () async {

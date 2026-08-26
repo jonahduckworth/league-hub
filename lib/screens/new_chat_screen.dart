@@ -191,6 +191,27 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
           }
           return;
         }
+        final selectedHubIds = selectedMultiTeams
+            .map((team) => team.hubId)
+            .toSet()
+            .toList(growable: false);
+        final selectedTeamIds =
+            selectedMultiTeams.map((team) => team.id).toList(growable: false);
+        if (!const PermissionService().canManageMultiTeamChatRoomScope(
+          currentUser,
+          leagueId: _selectedLeagueId,
+          hubIds: selectedHubIds,
+          teamIds: selectedTeamIds,
+        )) {
+          if (mounted) {
+            AppUtils.showErrorSnackBar(
+              context,
+              'Select teams that are all directly assigned to you or all within your assigned Hubs.',
+            );
+            setState(() => _isCreating = false);
+          }
+          return;
+        }
       }
 
       final orgUsers = ref.read(orgUsersProvider).valueOrNull ?? [];

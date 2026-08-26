@@ -6,6 +6,7 @@ import {
   belongsToMultiTeamEventRoomAudience,
   canCreateMultiTeamEventRoom,
   maximumMultiTeamEventRoomTeams,
+  multiTeamLegacyScopeSentinel,
 } from "./multiTeamEventRoomLogic";
 
 type RequestRecord = Record<string, unknown>;
@@ -107,7 +108,7 @@ export const createMultiTeamEventRoom = onCall(runtime, async (request: Callable
   if (!canCreateMultiTeamEventRoom(actor ?? {}, targets)) {
     throw new HttpsError(
       "permission-denied",
-      "Every selected team must be within your assigned Team or Hub scope.",
+      "Select teams that are all directly assigned to you or all within your assigned Hubs.",
     );
   }
 
@@ -134,8 +135,10 @@ export const createMultiTeamEventRoom = onCall(runtime, async (request: Callable
     type: "event",
     roomPurpose: "event",
     leagueId,
-    hubId: targets[0].hubId,
-    teamId: targets[0].teamId,
+    // Released clients query singular scope fields. Sentinels keep this room
+    // out of those queries instead of leaking a broader or partial audience.
+    hubId: multiTeamLegacyScopeSentinel,
+    teamId: multiTeamLegacyScopeSentinel,
     hubIds,
     teamIds,
     participants: participantIds,

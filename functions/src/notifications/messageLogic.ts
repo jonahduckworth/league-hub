@@ -57,6 +57,13 @@ export function participantLookupBatches(
   return batches;
 }
 
+export function shouldUseExplicitParticipantRecipients(
+  participantIds: string[],
+  teamIds: string[],
+): boolean {
+  return participantIds.length > 0 && teamIds.length === 0;
+}
+
 export function shouldReplaceRoomPreview(
   currentTimeMillis: number | null,
   currentMessageId: string | null,

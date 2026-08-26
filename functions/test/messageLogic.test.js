@@ -3,6 +3,7 @@ const test = require("node:test");
 const {
   canReceiveMessageNotification,
   participantLookupBatches,
+  shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
 } = require("../lib/notifications/messageLogic");
 
@@ -74,6 +75,17 @@ test("participant notification lookups stay within Firestore limits", () => {
   const batches = participantLookupBatches([...ids, "user-1"]);
   assert.deepEqual(batches.map((batch) => batch.length), [30, 30, 5]);
   assert.equal(new Set(batches.flat()).size, 65);
+});
+
+test("multi-team rooms resolve recipients from current organization assignments", () => {
+  assert.equal(
+    shouldUseExplicitParticipantRecipients(["original-member"], ["team-1"]),
+    false,
+  );
+  assert.equal(
+    shouldUseExplicitParticipantRecipients(["direct-member"], []),
+    true,
+  );
 });
 
 test("multi-team notifications reach every selected team and selected-Hub managers", () => {

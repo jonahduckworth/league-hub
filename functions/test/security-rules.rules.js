@@ -1054,9 +1054,9 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
     type: "event",
     roomPurpose: "event",
     leagueId: "league-1",
-    // Legacy anchors keep released client queries fail-closed.
-    hubId: "hub-1",
-    teamId: "team-1",
+    // Singular sentinels keep released client queries fail-closed.
+    hubId: "__multi_team__",
+    teamId: "__multi_team__",
     hubIds: ["hub-1", "hub-2"],
     teamIds: ["team-1", "team-2"],
     participants: ["admin", "team-1-member", "team-2-member"],
@@ -1099,7 +1099,7 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
     ["users/hub-staff", user({
       id: "hub-staff",
       role: "staff",
-      hubIds: ["hub-2"],
+      hubIds: ["hub-1"],
     })],
     ["users/all-hubs-manager", user({
       id: "all-hubs-manager",
@@ -1141,6 +1141,38 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
     testEnv.authenticatedContext("hub-staff").firestore(),
     roomPath,
   )));
+
+  const legacyHubRooms = collection(
+    testEnv.authenticatedContext("hub-staff").firestore(),
+    "organizations/org-1/chatRooms",
+  );
+  const legacyHubSnapshot = await assertSucceeds(getDocs(query(
+    legacyHubRooms,
+    where("orgId", "==", "org-1"),
+    where("isArchived", "==", false),
+    where("type", "in", ["league", "event"]),
+    where("hubId", "in", ["hub-1"]),
+  )));
+  assert.deepEqual(
+    legacyHubSnapshot.docs.map((item) => item.id),
+    [],
+  );
+
+  const legacyTeamRooms = collection(
+    testEnv.authenticatedContext("team-1-member").firestore(),
+    "organizations/org-1/chatRooms",
+  );
+  const legacyTeamSnapshot = await assertSucceeds(getDocs(query(
+    legacyTeamRooms,
+    where("orgId", "==", "org-1"),
+    where("isArchived", "==", false),
+    where("type", "in", ["league", "event"]),
+    where("teamId", "in", ["team-1"]),
+  )));
+  assert.deepEqual(
+    legacyTeamSnapshot.docs.map((item) => item.id),
+    [],
+  );
 
   const selectedTeamRooms = collection(
     testEnv.authenticatedContext("team-2-member").firestore(),
@@ -1190,12 +1222,23 @@ test("multi-team Event Rooms are limited to selected teams and Hub managers", as
     },
   ));
   await assertFails(setDoc(
-    doc(managerDb, "organizations/org-1/chatRooms/mismatched-anchor"),
+    doc(managerDb, "organizations/org-1/chatRooms/mismatched-sentinel"),
     {
       ...multiTeamRoom,
-      id: "mismatched-anchor",
+      id: "mismatched-sentinel",
       teamId: "other-team",
     },
+  ));
+  await assertSucceeds(updateDoc(
+    doc(managerDb, roomPath),
+    {name: "Renamed Provincial Showcase"},
+  ));
+  await assertFails(updateDoc(
+    doc(
+      testEnv.authenticatedContext("hub-manager").firestore(),
+      roomPath,
+    ),
+    {name: "Out-of-scope rename"},
   ));
 
   const teamTwoStorage = testEnv

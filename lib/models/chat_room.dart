@@ -37,8 +37,8 @@ class ChatRoom {
 
   bool get isEventRoom => type == ChatRoomType.event && !isGroupRoom;
 
-  /// Multi-team Event Rooms retain [hubId] and [teamId] as a legacy anchor so
-  /// released clients do not mistake the room for a league-wide audience.
+  /// Multi-team Event Rooms use sentinel [hubId] and [teamId] values so
+  /// released clients fail closed instead of querying a partial audience.
   bool get hasMultiTeamAudience =>
       type == ChatRoomType.event && teamIds.isNotEmpty;
 

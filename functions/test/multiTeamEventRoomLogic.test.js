@@ -11,7 +11,7 @@ const targets = [
   {hubId: "hub-2", teamId: "team-2"},
 ];
 
-test("multi-team creation requires every exact Team or Hub assignment", () => {
+test("multi-team creation requires all Team assignments or all Hub assignments", () => {
   assert.equal(canCreateMultiTeamEventRoom({role: "superAdmin"}, targets), true);
   assert.equal(canCreateMultiTeamEventRoom({
     role: "managerAdmin",
@@ -25,7 +25,7 @@ test("multi-team creation requires every exact Team or Hub assignment", () => {
     role: "managerAdmin",
     hubIds: ["hub-1"],
     teamIds: ["team-2"],
-  }, targets), true);
+  }, targets), false);
   assert.equal(canCreateMultiTeamEventRoom({
     role: "managerAdmin",
     hubIds: ["hub-1"],

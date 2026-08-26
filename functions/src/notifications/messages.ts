@@ -4,6 +4,7 @@ import { db, getUserTokens, sendNotification } from "../helpers";
 import {
   canReceiveMessageNotification,
   participantLookupBatches,
+  shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
 } from "./messageLogic";
 
@@ -54,7 +55,7 @@ export const onMessageCreated = onFirestoreCreated(
     // criteria as Firestore rules so scoped rooms do not notify outsiders.
     let recipientIds: string[];
 
-    if (participants.length > 0) {
+    if (shouldUseExplicitParticipantRecipients(participants, teamIds)) {
       const participantUsers = await Promise.all(
         participantLookupBatches(participants).map((ids) =>
           db.collection("users")

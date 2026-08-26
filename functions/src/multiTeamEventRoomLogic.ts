@@ -1,4 +1,5 @@
 export const maximumMultiTeamEventRoomTeams = 50;
+export const multiTeamLegacyScopeSentinel = "__multi_team__";
 
 export type MultiTeamTarget = {
   hubId: string;
@@ -27,9 +28,8 @@ export function canCreateMultiTeamEventRoom(
 ): boolean {
   if (actor.role === "platformOwner" || actor.role === "superAdmin") return true;
   if (actor.role !== "managerAdmin") return false;
-  return targets.every((target) =>
-    hasId(actor.teamIds, target.teamId) || hasId(actor.hubIds, target.hubId),
-  );
+  return targets.every((target) => hasId(actor.teamIds, target.teamId)) ||
+    targets.every((target) => hasId(actor.hubIds, target.hubId));
 }
 
 export function belongsToMultiTeamEventRoomAudience(
