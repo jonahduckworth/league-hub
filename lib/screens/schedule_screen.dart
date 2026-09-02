@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../core/design_system.dart';
 import '../models/schedule_event.dart';
 import '../models/schedule_team_logos.dart';
+import '../models/app_user.dart';
 import '../providers/data_providers.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_motion.dart';
 import '../widgets/app_shell_header.dart';
@@ -310,6 +312,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                       ),
                     ],
                     const SizedBox(height: AppSpacing.lg),
+                    _ConfirmedCrewSection(eventId: event.id),
+                    const SizedBox(height: AppSpacing.lg),
                     FilledButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Done'),
@@ -326,6 +330,90 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
   String _timezoneLabel(String timezone) =>
       timezone == 'America/Edmonton' ? 'Mountain time' : timezone;
+}
+
+class _ConfirmedCrewSection extends ConsumerWidget {
+  final String eventId;
+
+  const _ConfirmedCrewSection({required this.eventId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final canView = user?.role == UserRole.platformOwner ||
+        user?.role == UserRole.superAdmin ||
+        user?.role == UserRole.managerAdmin;
+    if (!canView) return const SizedBox.shrink();
+    final crew = ref.watch(scheduleCrewProvider(eventId));
+    return Semantics(
+      container: true,
+      label: 'Confirmed officiating crew',
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppGlassColors.aqua.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppRadius.control),
+          border: Border.all(
+            color: AppGlassColors.aqua.withValues(alpha: 0.22),
+          ),
+        ),
+        child: crew.when(
+          loading: () => const Row(
+            children: [
+              SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: AppSpacing.sm),
+              Text('Loading confirmed crew…'),
+            ],
+          ),
+          error: (_, __) => Row(
+            children: [
+              const Expanded(
+                  child: Text('Confirmed crew could not be loaded.')),
+              TextButton(
+                onPressed: () => ref.invalidate(scheduleCrewProvider(eventId)),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+          data: (value) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'CONFIRMED CREW',
+                style: TextStyle(
+                  color: AppGlassColors.aqua,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              if (value.members.isEmpty)
+                const Text(
+                  'No confirmed officials are available to show yet.',
+                  style: TextStyle(color: AppGlassColors.inkMuted),
+                )
+              else
+                for (final member in value.members)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '${member.name} · ${member.role}',
+                      style: const TextStyle(
+                        color: AppGlassColors.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DetailTeam extends StatelessWidget {

@@ -17,6 +17,7 @@ import '../models/app_user.dart';
 import '../models/invitation.dart';
 import '../models/schedule_event.dart';
 import '../models/schedule_team_logos.dart';
+import '../models/schedule_crew.dart';
 import 'auth_provider.dart';
 
 final firestoreServiceProvider =
@@ -229,6 +230,19 @@ final scheduleTeamLogosProvider = FutureProvider<ScheduleTeamLogos>((ref) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return const ScheduleTeamLogos();
   return ref.watch(firestoreServiceProvider).getScheduleTeamLogos(orgId);
+});
+
+final scheduleCrewProvider =
+    FutureProvider.family<ScheduleCrew, String>((ref, eventId) async {
+  final orgId = ref.watch(organizationProvider).valueOrNull?.id;
+  final appUser = ref.watch(currentUserProvider).valueOrNull;
+  final canView = appUser?.role == UserRole.platformOwner ||
+      appUser?.role == UserRole.superAdmin ||
+      appUser?.role == UserRole.managerAdmin;
+  if (orgId == null || !canView) {
+    return ScheduleCrew(eventId: eventId, members: const []);
+  }
+  return ref.read(firestoreServiceProvider).getScheduleCrew(orgId, eventId);
 });
 
 // --- User Management ---

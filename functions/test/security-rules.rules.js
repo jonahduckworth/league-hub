@@ -87,6 +87,30 @@ after(async () => {
   await testEnv.cleanup();
 });
 
+test("confirmed schedule crews are limited to scoped admins and managers", async () => {
+  await seedFirestore([
+    ["users/admin", user({ id: "admin", role: "superAdmin" })],
+    ["users/manager", user({ id: "manager", role: "managerAdmin", teamIds: ["team-1"] })],
+    ["users/other-manager", user({ id: "other-manager", role: "managerAdmin", teamIds: ["team-2"] })],
+    ["users/staff", user({ id: "staff", role: "staff", teamIds: ["team-1"] })],
+    ["organizations/org-1/scheduleCrews/refbuddy-game-1", {
+      orgId: "org-1",
+      eventId: "refbuddy-game-1",
+      teamIds: ["team-1"],
+      hubIds: ["hub-1"],
+      leagueIds: ["league-1"],
+      members: [{ name: "Confirmed Official", role: "Referee" }],
+    }],
+  ]);
+
+  const crewPath = "organizations/org-1/scheduleCrews/refbuddy-game-1";
+  await assertSucceeds(getDoc(doc(testEnv.authenticatedContext("admin").firestore(), crewPath)));
+  await assertSucceeds(getDoc(doc(testEnv.authenticatedContext("manager").firestore(), crewPath)));
+  await assertFails(getDoc(doc(testEnv.authenticatedContext("other-manager").firestore(), crewPath)));
+  await assertFails(getDoc(doc(testEnv.authenticatedContext("staff").firestore(), crewPath)));
+  await assertFails(getDocs(collection(testEnv.authenticatedContext("admin").firestore(), "organizations/org-1/scheduleCrews")));
+});
+
 test("invitation acceptance rejects forged league assignments", async () => {
   const expiresAt = Timestamp.fromMillis(Date.now() + 60 * 60 * 1000);
   const invite = {

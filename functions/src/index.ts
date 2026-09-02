@@ -46,6 +46,7 @@ export {
   adminUpdateScheduleIntegration,
 } from "./admin";
 export { syncRampSchedules } from "./schedule/rampSync";
+export { syncRefBuddySchedules } from "./schedule/refBuddySync";
 export { submitLandingContact } from "./landingContact";
 export { deleteOwnAccount } from "./accountDeletion";
 export { onMessageReportCreated } from "./messageReports";
