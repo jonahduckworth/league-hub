@@ -14,6 +14,7 @@ import '../models/announcement.dart';
 import '../models/invitation.dart';
 import '../models/schedule_event.dart';
 import '../models/schedule_team_logos.dart';
+import '../models/schedule_crew.dart';
 import '../core/constants.dart';
 
 class FirestoreService {
@@ -964,6 +965,22 @@ class FirestoreService {
                 }))
             .where((event) => event.isActive)
             .toList());
+  }
+
+  Future<ScheduleCrew> getScheduleCrew(String orgId, String eventId) async {
+    final snapshot = await _db
+        .collection(AppConstants.orgsCollection)
+        .doc(orgId)
+        .collection('scheduleCrews')
+        .doc(eventId)
+        .get();
+    if (!snapshot.exists) {
+      return ScheduleCrew(eventId: eventId, members: const []);
+    }
+    return ScheduleCrew.fromJson({
+      'eventId': eventId,
+      ...snapshot.data() as Map<String, dynamic>,
+    });
   }
 
   Future<ScheduleTeamLogos> getScheduleTeamLogos(String orgId) async {

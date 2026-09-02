@@ -1126,6 +1126,17 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
+      match /scheduleCrews/{eventId} {
+        allow get: if canManageContent(orgId)
+          && (
+            isSuperAdmin()
+            || resource.data.teamIds.hasAny(currentUser().teamIds)
+            || resource.data.hubIds.hasAny(currentUser().hubIds)
+            || resource.data.leagueIds.hasAny(currentUser().leagueIds)
+          );
+        allow list, create, update, delete: if false;
+      }
+
       match /scheduleSync/{documentId} {
         allow get, list: if sameOrg(orgId);
         allow create, update, delete: if false;
