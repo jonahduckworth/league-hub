@@ -5,9 +5,7 @@ import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/theme.dart';
 import '../core/utils.dart';
-import '../navigation/announcement_navigation_source.dart';
 import '../models/app_user.dart';
-import '../models/announcement.dart';
 import '../models/chat_room.dart';
 import '../models/league.dart';
 import '../providers/auth_provider.dart';
@@ -21,7 +19,6 @@ import '../widgets/app_states.dart';
 import '../widgets/chat_room_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/league_filter.dart';
-import '../widgets/pinned_announcements_carousel.dart';
 
 const double _chatTypeSelectorMinHeight = 44;
 const double _chatTypeLabelSize = 13;
@@ -401,9 +398,7 @@ Future<String?> openDirectMessageRoom({
 }
 
 class ChatListScreen extends ConsumerStatefulWidget {
-  final bool includePinnedAnnouncements;
-
-  const ChatListScreen({super.key, this.includePinnedAnnouncements = false});
+  const ChatListScreen({super.key});
 
   @override
   ConsumerState<ChatListScreen> createState() => _ChatListScreenState();
@@ -417,19 +412,14 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   Widget build(BuildContext context) {
     final bottomContentPadding = appShellBottomPadding(context);
     final chatRoomsAsync = ref.watch(chatRoomsProvider);
-    final announcementsAsync = widget.includePinnedAnnouncements
-        ? ref.watch(announcementsProvider)
-        : null;
     final leaguesAsync = ref.watch(leaguesProvider);
     final org = ref.watch(organizationProvider).valueOrNull;
     final orgId = org?.id;
     final leagues = leaguesAsync.valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, _selectedLeagueId);
     final showLeagueFilter = leagues.length > 1;
-    final stickyHeight = widget.includePinnedAnnouncements
-        ? 0.0
-        : chatTypeSelectorHeight(context) +
-            (showLeagueFilter ? _stickyFilterGap + _leagueFilterHeight : 0);
+    final stickyHeight = chatTypeSelectorHeight(context) +
+        (showLeagueFilter ? _stickyFilterGap + _leagueFilterHeight : 0);
     final topContentPadding = appShellTopPadding(
       context,
       stickyHeight: stickyHeight,
@@ -448,249 +438,57 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         leadingIcon: Icons.forum_outlined,
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',
-        title: widget.includePinnedAnnouncements ? 'Communication' : 'Messages',
+        title: 'Messages',
       ),
-      stickyContent: widget.includePinnedAnnouncements
-          ? null
-          : _ChatListStickyFilters(
-              selectedRoomFilter: _selectedRoomFilter,
-              onRoomFilterSelected: (filter) {
-                setState(() => _selectedRoomFilter = filter);
-              },
-              showLeagueFilter: showLeagueFilter,
-              leagues: leagues,
-              selectedLeagueId: _selectedLeagueId,
-              onLeagueSelected: (id) => setState(() => _selectedLeagueId = id),
-            ),
-      stickySpacing: 8,
-      child: widget.includePinnedAnnouncements
-          ? _buildCommunicationContent(
-              announcementsAsync: announcementsAsync!,
-              chatRoomsAsync: chatRoomsAsync,
-              leagues: leagues,
-              showLeagueFilter: showLeagueFilter,
-              topContentPadding: topContentPadding,
-              bottomContentPadding: bottomContentPadding,
-            )
-          : chatRoomsAsync.when(
-              loading: () =>
-                  const AppLoadingState(label: 'Loading conversations…'),
-              error: (e, _) => AppErrorState(
-                title: 'Unable to load conversations',
-                message: 'Check your connection and try again.',
-                onRetry: () => ref.invalidate(chatRoomsProvider),
-              ),
-              data: (rooms) {
-                final filtered = filterChatRooms(
-                  rooms: rooms,
-                  searchText: '',
-                  selectedLeagueId: _selectedLeagueId,
-                  roomFilter: _selectedRoomFilter,
-                );
-                final visibleRooms = orderChatRoomsForDisplay(filtered);
-
-                if (filtered.isEmpty) {
-                  return const EmptyState(
-                    icon: Icons.forum_outlined,
-                    title: 'No chat rooms yet',
-                    subtitle: 'Tap + to start a conversation',
-                  );
-                }
-
-                return ListView.builder(
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    topContentPadding,
-                    16,
-                    bottomContentPadding,
-                  ),
-                  itemCount: visibleRooms.length,
-                  itemBuilder: (context, index) => AppMotionReveal(
-                    index: index,
-                    child: _ChatRoomTile(room: visibleRooms[index]),
-                  ),
-                );
-              },
-            ),
-    );
-  }
-
-  Widget _buildCommunicationContent({
-    required AsyncValue<List<Announcement>> announcementsAsync,
-    required AsyncValue<List<ChatRoom>> chatRoomsAsync,
-    required List<League> leagues,
-    required bool showLeagueFilter,
-    required double topContentPadding,
-    required double bottomContentPadding,
-  }) {
-    final fixedContent = <Widget>[
-      _buildAnnouncementSection(announcementsAsync),
-      const SizedBox(height: AppSpacing.lg),
-      const _CommunicationChatsHeading(),
-      const SizedBox(height: AppSpacing.sm),
-      _ChatTypeSelector(
-        selected: _selectedRoomFilter,
-        horizontalPadding: EdgeInsets.zero,
-        onSelected: (filter) {
+      stickyContent: _ChatListStickyFilters(
+        selectedRoomFilter: _selectedRoomFilter,
+        onRoomFilterSelected: (filter) {
           setState(() => _selectedRoomFilter = filter);
         },
+        showLeagueFilter: showLeagueFilter,
+        leagues: leagues,
+        selectedLeagueId: _selectedLeagueId,
+        onLeagueSelected: (id) => setState(() => _selectedLeagueId = id),
       ),
-      if (showLeagueFilter) ...[
-        const SizedBox(height: _stickyFilterGap),
-        LeagueFilter(
-          leagues: leagues,
-          selectedLeagueId: _selectedLeagueId,
-          padding: EdgeInsets.zero,
-          onSelected: (id) => setState(() => _selectedLeagueId = id),
+      stickySpacing: 8,
+      child: chatRoomsAsync.when(
+        loading: () => const AppLoadingState(label: 'Loading conversations…'),
+        error: (e, _) => AppErrorState(
+          title: 'Unable to load conversations',
+          message: 'Check your connection and try again.',
+          onRetry: () => ref.invalidate(chatRoomsProvider),
         ),
-      ],
-      const SizedBox(height: AppSpacing.md),
-    ];
+        data: (rooms) {
+          final filtered = filterChatRooms(
+            rooms: rooms,
+            searchText: '',
+            selectedLeagueId: _selectedLeagueId,
+            roomFilter: _selectedRoomFilter,
+          );
+          final visibleRooms = orderChatRoomsForDisplay(filtered);
 
-    return chatRoomsAsync.when(
-      loading: () => CustomScrollView(
-        key: const ValueKey('communication-scroll-view'),
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, topContentPadding, 16, 0),
-            sliver: SliverList.list(children: fixedContent),
-          ),
-          const SliverFillRemaining(
-            hasScrollBody: false,
-            child: AppLoadingState(label: 'Loading conversations…'),
-          ),
-        ],
-      ),
-      error: (e, _) => CustomScrollView(
-        key: const ValueKey('communication-scroll-view'),
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, topContentPadding, 16, 0),
-            sliver: SliverList.list(children: fixedContent),
-          ),
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: AppErrorState(
-              title: 'Unable to load conversations',
-              message: 'Check your connection and try again.',
-              onRetry: () => ref.invalidate(chatRoomsProvider),
+          if (filtered.isEmpty) {
+            return const EmptyState(
+              icon: Icons.forum_outlined,
+              title: 'No chat rooms yet',
+              subtitle: 'Tap + to start a conversation',
+            );
+          }
+
+          return ListView.builder(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              topContentPadding,
+              16,
+              bottomContentPadding,
             ),
-          ),
-        ],
-      ),
-      data: (rooms) {
-        final filtered = filterChatRooms(
-          rooms: rooms,
-          searchText: '',
-          selectedLeagueId: _selectedLeagueId,
-          roomFilter: _selectedRoomFilter,
-        );
-        final visibleRooms = orderChatRoomsForDisplay(filtered);
-
-        return CustomScrollView(
-          key: const ValueKey('communication-scroll-view'),
-          slivers: [
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, topContentPadding, 16, 0),
-              sliver: SliverList.list(children: fixedContent),
+            itemCount: visibleRooms.length,
+            itemBuilder: (context, index) => AppMotionReveal(
+              index: index,
+              child: _ChatRoomTile(room: visibleRooms[index]),
             ),
-            if (visibleRooms.isEmpty)
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
-                sliver: const SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 220,
-                    child: EmptyState(
-                      icon: Icons.forum_outlined,
-                      title: 'No chat rooms yet',
-                      subtitle: 'Tap + to start a conversation',
-                    ),
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
-                sliver: SliverList.builder(
-                  itemCount: visibleRooms.length,
-                  itemBuilder: (context, index) => AppMotionReveal(
-                    index: index,
-                    child: _ChatRoomTile(room: visibleRooms[index]),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildAnnouncementSection(
-    AsyncValue<List<Announcement>> announcementsAsync,
-  ) {
-    final announcements = announcementsAsync.valueOrNull;
-    if (announcements == null && announcementsAsync.isLoading) {
-      return const _PinnedAnnouncementsLoading();
-    }
-
-    return PinnedAnnouncementsCarousel(
-      announcements: announcements ?? const [],
-      onViewAll: () => context.push(
-        '/announcements',
-        extra: AnnouncementNavigationSource.communicationHub,
-      ),
-      onAnnouncementTap: (announcement) =>
-          context.push('/announcements/${announcement.id}'),
-    );
-  }
-}
-
-class _CommunicationChatsHeading extends StatelessWidget {
-  const _CommunicationChatsHeading();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Icon(Icons.forum_outlined, color: AppGlassColors.aqua, size: 21),
-        SizedBox(width: 9),
-        Text(
-          'Chats',
-          style: TextStyle(
-            color: AppGlassColors.ink,
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PinnedAnnouncementsLoading extends StatelessWidget {
-  const _PinnedAnnouncementsLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return AppGlassSurface(
-      key: const ValueKey('pinned-announcements-loading'),
-      radius: 20,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: const Row(
-        children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              'Loading pinned announcements…',
-              style: TextStyle(color: AppGlassColors.inkSecondary),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -738,12 +536,10 @@ class _ChatListStickyFilters extends StatelessWidget {
 class _ChatTypeSelector extends StatelessWidget {
   final ChatRoomListFilter selected;
   final ValueChanged<ChatRoomListFilter> onSelected;
-  final EdgeInsetsGeometry horizontalPadding;
 
   const _ChatTypeSelector({
     required this.selected,
     required this.onSelected,
-    this.horizontalPadding = const EdgeInsets.symmetric(horizontal: 16),
   });
 
   @override
@@ -754,7 +550,7 @@ class _ChatTypeSelector extends StatelessWidget {
       child: ListView(
         key: const ValueKey('chat-type-selector'),
         scrollDirection: Axis.horizontal,
-        padding: horizontalPadding,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           for (final filter in ChatRoomListFilter.values)
             _ChatTypePill(

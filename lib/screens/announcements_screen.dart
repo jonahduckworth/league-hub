@@ -150,10 +150,12 @@ List<AnnouncementActionData> buildAnnouncementActions({
 
 class AnnouncementsScreen extends ConsumerStatefulWidget {
   final bool returnToCommunication;
+  final bool returnToDashboard;
 
   const AnnouncementsScreen({
     super.key,
     this.returnToCommunication = false,
+    this.returnToDashboard = false,
   });
 
   @override
@@ -185,6 +187,11 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
       context,
       stickyHeight: showLeagueFilter ? 38 : 0,
     );
+    final returnLocation = widget.returnToDashboard
+        ? '/'
+        : widget.returnToCommunication
+            ? '/chat'
+            : null;
 
     return AppShellScaffold(
       floatingActionButton: canManage
@@ -199,9 +206,10 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',
         title: 'Announcements',
-        showBackButton: widget.returnToCommunication,
-        backFallbackLocation: '/chat',
-        onBack: widget.returnToCommunication ? () => context.go('/chat') : null,
+        showBackButton: returnLocation != null,
+        backFallbackLocation: returnLocation ?? '/announcements',
+        onBack:
+            returnLocation == null ? null : () => context.go(returnLocation),
       ),
       stickyContent: showLeagueFilter
           ? LeagueFilter(
