@@ -17,6 +17,11 @@ on:
         required: false
         default: false
         type: boolean
+      force:
+        description: Acknowledge a one-time Firebase failure-policy change.
+        required: false
+        default: false
+        type: boolean
     secrets:
       FIREBASE_SERVICE_ACCOUNT_JDB_LEAGUE_HUB:
         required: false
@@ -37,6 +42,11 @@ on:
         required: false
         default: false
         type: boolean
+      force:
+        description: Acknowledge a one-time Firebase failure-policy change.
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -54,6 +64,7 @@ jobs:
       SHOULD_DEPLOY: ${{ inputs.deploy }}
       REQUESTED_TARGETS: ${{ inputs.targets }}
       DEPLOY_ALL: ${{ inputs.all }}
+      FORCE_DEPLOY: ${{ inputs.force }}
 
     steps:
       - name: Check out repository
@@ -120,10 +131,15 @@ jobs:
             echo "::error::No validated Function deploy targets were resolved."
             exit 1
           fi
+          force_args=()
+          if [ "$FORCE_DEPLOY" = "true" ]; then
+            force_args+=(--force)
+          fi
           npx --yes firebase-tools@15.27.0 deploy \
             --project jdb-league-hub \
             --only "$FIREBASE_ONLY" \
-            --non-interactive
+            --non-interactive \
+            "${force_args[@]}"
 
       - name: Read deployed Functions
         if: env.SHOULD_DEPLOY == 'true'
@@ -153,6 +169,7 @@ jobs:
             echo "- Validation: npm lint, build, and tests"
             if [ "$SHOULD_DEPLOY" = "true" ]; then
               echo "- Deployment targets: $TARGET_NAMES"
+              echo "- Force acknowledgement: $FORCE_DEPLOY"
               echo "- Required state: ACTIVE / nodejs22 / us-central1"
             else
               echo "- Deployment: skipped for validation-only run"
