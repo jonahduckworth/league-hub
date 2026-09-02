@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:league_hub/core/design_system.dart';
 import 'package:league_hub/models/app_user.dart';
+import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/weather_snapshot.dart';
 import 'package:league_hub/models/organization.dart';
@@ -74,6 +75,36 @@ void main() {
       observedAt: DateTime(2026),
     );
 
+    final pinnedAnnouncement = Announcement(
+      id: 'announcement-1',
+      orgId: 'org-1',
+      scope: AnnouncementScope.league,
+      leagueId: 'league-1',
+      title: 'Weekend schedule update',
+      body: 'Please review the revised arrival times before Saturday.',
+      authorId: 'manager-1',
+      authorName: 'Manager User',
+      authorRole: 'Manager',
+      attachments: const [],
+      isPinned: true,
+      createdAt: DateTime(2026, 8, 10),
+    );
+
+    final fallPinnedAnnouncement = Announcement(
+      id: 'announcement-2',
+      orgId: 'org-1',
+      scope: AnnouncementScope.league,
+      leagueId: 'league-2',
+      title: 'Fall registration update',
+      body: 'Registration closes Friday.',
+      authorId: 'manager-1',
+      authorName: 'Manager User',
+      authorRole: 'Manager',
+      attachments: const [],
+      isPinned: true,
+      createdAt: DateTime(2026, 8, 11),
+    );
+
     Widget createTestWidget({
       AppUser? user,
       Organization? org,
@@ -83,6 +114,8 @@ void main() {
       int memberCount = 45,
       WeatherSnapshot? weather,
       List<ScheduleEvent> scheduleEvents = const [],
+      List<Announcement> announcements = const [],
+      Stream<List<Announcement>>? announcementsStream,
       TextScaler textScaler = TextScaler.noScaling,
     }) {
       return ProviderScope(
@@ -109,6 +142,9 @@ void main() {
           currentWeatherProvider.overrideWith((ref) => weather ?? testWeather),
           scheduleEventsProvider.overrideWith(
             (ref) => Stream.value(scheduleEvents),
+          ),
+          announcementsProvider.overrideWith(
+            (ref) => announcementsStream ?? Stream.value(announcements),
           ),
           scheduleTeamLogosProvider.overrideWith(
             (ref) => const ScheduleTeamLogos(
@@ -143,6 +179,7 @@ void main() {
       int teamCount = 12,
       int memberCount = 45,
       List<ScheduleEvent> scheduleEvents = const [],
+      List<Announcement> announcements = const [],
     }) {
       final router = GoRouter(
         initialLocation: '/',
@@ -165,6 +202,14 @@ void main() {
             path: '/announcements',
             builder: (context, state) =>
                 const Scaffold(body: Text('Announcements Route')),
+          ),
+          GoRoute(
+            path: '/announcements/:announcementId',
+            builder: (context, state) => Scaffold(
+              body: Text(
+                'Announcement ${state.pathParameters['announcementId']}',
+              ),
+            ),
           ),
           GoRoute(
             path: '/chat',
@@ -213,6 +258,9 @@ void main() {
           currentWeatherProvider.overrideWith((ref) => testWeather),
           scheduleEventsProvider.overrideWith(
             (ref) => Stream.value(scheduleEvents),
+          ),
+          announcementsProvider.overrideWith(
+            (ref) => Stream.value(announcements),
           ),
           scheduleTeamLogosProvider.overrideWith(
             (ref) => const ScheduleTeamLogos(
@@ -389,7 +437,7 @@ void main() {
         expect(find.text('Policy'), findsOneWidget);
         expect(find.text('Weather'), findsOneWidget);
         expect(find.text('Chats'), findsOneWidget);
-        expect(find.text('Chats & announcements'), findsOneWidget);
+        expect(find.text('Group and direct messages'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
       });
 
@@ -402,6 +450,97 @@ void main() {
         expect(find.text('Active Chats'), findsNothing);
         expect(find.text('General Discussion'), findsNothing);
         expect(find.text('Tournament Bracket'), findsNothing);
+      });
+
+      testWidgets('places pinned announcements before quick access',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createTestWidget(announcements: [pinnedAnnouncement]),
+        );
+        await tester.pumpAndSettle();
+
+        final nextGame = find.byKey(const ValueKey('next-game-card'));
+        final announcements =
+            find.byKey(const ValueKey('pinned-announcements-section'));
+        final quickAccess = find.text('Quick Access');
+
+        expect(find.text('Weekend schedule update'), findsOneWidget);
+        expect(tester.getTopLeft(announcements).dy,
+            greaterThan(tester.getBottomLeft(nextGame).dy));
+        expect(tester.getTopLeft(quickAccess).dy,
+            greaterThan(tester.getBottomLeft(announcements).dy));
+      });
+
+      testWidgets('opens announcement detail and full feed from home',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createRoutedTestWidget(announcements: [pinnedAnnouncement]),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Weekend schedule update'));
+        await tester.pumpAndSettle();
+        expect(find.text('Announcement announcement-1'), findsOneWidget);
+
+        GoRouter.of(tester.element(find.text('Announcement announcement-1')))
+            .go('/');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('view-all-announcements')));
+        await tester.pumpAndSettle();
+        expect(find.text('Announcements Route'), findsOneWidget);
+      });
+
+      testWidgets('shows a retry action when announcements fail to load',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createTestWidget(
+            announcementsStream: Stream.error(StateError('offline')),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Announcements unavailable'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('retry-pinned-announcements')),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('league selection scopes the pinned announcements on home',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createTestWidget(
+            announcements: [pinnedAnnouncement, fallPinnedAnnouncement],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('FL'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Fall registration update'), findsOneWidget);
+        expect(find.text('Weekend schedule update'), findsNothing);
+
+        await tester.tap(find.text('SL'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Weekend schedule update'), findsOneWidget);
+        expect(find.text('Fall registration update'), findsNothing);
+      });
+
+      testWidgets('announcement section stays usable in phone landscape',
+          (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(844, 390));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          createTestWidget(announcements: [pinnedAnnouncement]),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Pinned announcements'), findsOneWidget);
+        expect(find.text('Weekend schedule update'), findsOneWidget);
+        expect(tester.takeException(), isNull);
       });
     });
 
@@ -659,7 +798,7 @@ void main() {
         expect(find.text('Policies'), findsNothing);
         expect(find.text('Weather'), findsOneWidget);
         expect(find.text('Chats'), findsOneWidget);
-        expect(find.text('Chats & announcements'), findsOneWidget);
+        expect(find.text('Group and direct messages'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('18°'), findsOneWidget);
       });
@@ -864,6 +1003,7 @@ void main() {
         await tester.pumpWidget(createRoutedTestWidget());
         await tester.pumpAndSettle();
 
+        await tester.ensureVisible(find.text('Policy'));
         await tester.tap(find.text('Policy'));
         await tester.pumpAndSettle();
 
@@ -1038,6 +1178,7 @@ void main() {
         var scheduleLoads = 0;
         var logoLoads = 0;
         var weatherLoads = 0;
+        var announcementLoads = 0;
 
         await tester.pumpWidget(
           ProviderScope(
@@ -1066,6 +1207,10 @@ void main() {
                 weatherLoads += 1;
                 return testWeather;
               }),
+              announcementsProvider.overrideWith((ref) {
+                announcementLoads += 1;
+                return Stream.value(const []);
+              }),
               unreadCountProvider.overrideWith(
                 (ref, roomId) => Stream.value(0),
               ),
@@ -1090,6 +1235,7 @@ void main() {
           scheduleLoads,
           logoLoads,
           weatherLoads,
+          announcementLoads,
         ];
         final refreshFinder =
             find.byKey(const ValueKey('home-refresh-indicator'));
@@ -1111,6 +1257,7 @@ void main() {
         expect(scheduleLoads, greaterThan(initialLoads[3]));
         expect(logoLoads, greaterThan(initialLoads[4]));
         expect(weatherLoads, greaterThan(initialLoads[5]));
+        expect(announcementLoads, greaterThan(initialLoads[6]));
       });
 
       testWidgets('league filter stays outside the home content',

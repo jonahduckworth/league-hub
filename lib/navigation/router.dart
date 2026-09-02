@@ -379,7 +379,7 @@ final router = GoRouter(
               path: '/chat',
               pageBuilder: (context, state) => _shellTransitionPage(
                 state,
-                const ChatListScreen(includePinnedAnnouncements: true),
+                const ChatListScreen(),
                 animatePrimary: false,
               ),
               routes: [
@@ -459,6 +459,8 @@ final router = GoRouter(
                 AnnouncementsScreen(
                   returnToCommunication: state.extra ==
                       AnnouncementNavigationSource.communicationHub,
+                  returnToDashboard:
+                      state.extra == AnnouncementNavigationSource.dashboardCard,
                 ),
                 animatePrimary: false,
               ),

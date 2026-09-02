@@ -7,11 +7,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/design_system.dart';
 import '../core/league_branding.dart';
 import '../core/utils.dart';
+import '../models/announcement.dart';
 import '../models/app_user.dart';
 import '../models/league.dart';
 import '../models/schedule_event.dart';
 import '../models/schedule_team_logos.dart';
 import '../models/weather_snapshot.dart';
+import '../navigation/announcement_navigation_source.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../providers/weather_provider.dart';
@@ -23,6 +25,7 @@ import '../widgets/app_shell_scaffold.dart';
 import '../widgets/dashboard_empty_schedule_state.dart';
 import '../widgets/league_filter.dart';
 import '../widgets/profile_summary_card.dart';
+import '../widgets/pinned_announcements_carousel.dart';
 import '../widgets/schedule_game_card.dart';
 import '../widgets/schedule_team_logo.dart';
 
@@ -49,12 +52,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ref.invalidate(scheduleEventsProvider);
     ref.invalidate(scheduleTeamLogosProvider);
     ref.invalidate(currentWeatherProvider);
+    ref.invalidate(announcementsProvider);
 
     await Future.wait([
       _waitForDashboardRefresh(ref.read(leaguesProvider.future)),
       _waitForDashboardRefresh(ref.read(scheduleEventsProvider.future)),
       _waitForDashboardRefresh(ref.read(scheduleTeamLogosProvider.future)),
       _waitForDashboardRefresh(ref.read(currentWeatherProvider.future)),
+      _waitForDashboardRefresh(ref.read(announcementsProvider.future)),
     ]);
   }
 
@@ -64,6 +69,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final leaguesAsync = ref.watch(leaguesProvider);
     final org = ref.watch(organizationProvider).valueOrNull;
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final announcementsAsync = ref.watch(announcementsProvider);
     final visibleUpcoming = ref.watch(upcomingScheduleEventsProvider);
     final scheduleTeamLogos =
         ref.watch(scheduleTeamLogosProvider).valueOrNull ??
@@ -134,8 +140,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              const AppMotionReveal(
+              AppMotionReveal(
                 index: 2,
+                child: _HomeAnnouncements(
+                  announcementsAsync: announcementsAsync,
+                  selectedLeagueId: _selectedLeagueId,
+                  onRetry: () => ref.invalidate(announcementsProvider),
+                  onViewAll: () => context.push(
+                    '/announcements',
+                    extra: AnnouncementNavigationSource.dashboardCard,
+                  ),
+                  onAnnouncementTap: (announcement) => context.push(
+                    '/announcements/${announcement.id}',
+                    extra: AnnouncementNavigationSource.dashboardCard,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const AppMotionReveal(
+                index: 3,
                 child: _SectionHeading(
                   icon: Icons.grid_view_rounded,
                   label: 'Quick Access',
@@ -143,12 +166,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               const SizedBox(height: 12),
               AppMotionReveal(
-                index: 3,
+                index: 4,
                 child: _buildHomeGrid(context),
               ),
               const SizedBox(height: AppSpacing.md),
               AppMotionReveal(
-                index: 4,
+                index: 5,
                 child: _QuickLinksRow(
                   league: headerLeague,
                   fallbackLabel: headerLabel,
@@ -178,7 +201,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _CompactHomeTile(
         icon: Icons.mark_unread_chat_alt_outlined,
         label: 'Chats',
-        subtitle: 'Chats & announcements',
+        subtitle: 'Group and direct messages',
         accentColor: AppGlassColors.rose,
         height: tileHeight,
         onTap: () => context.go('/chat'),
@@ -223,6 +246,130 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _HomeAnnouncements extends StatelessWidget {
+  final AsyncValue<List<Announcement>> announcementsAsync;
+  final String? selectedLeagueId;
+  final VoidCallback onRetry;
+  final VoidCallback onViewAll;
+  final ValueChanged<Announcement> onAnnouncementTap;
+
+  const _HomeAnnouncements({
+    required this.announcementsAsync,
+    required this.selectedLeagueId,
+    required this.onRetry,
+    required this.onViewAll,
+    required this.onAnnouncementTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final announcements = announcementsAsync.valueOrNull;
+    if (announcements == null && announcementsAsync.isLoading) {
+      return const _PinnedAnnouncementsLoading();
+    }
+    if (announcements == null && announcementsAsync.hasError) {
+      return _PinnedAnnouncementsError(onRetry: onRetry);
+    }
+
+    final visibleAnnouncements = selectedLeagueId == null
+        ? announcements ?? const []
+        : (announcements ?? const [])
+            .where(
+              (announcement) => announcement.leagueId == selectedLeagueId,
+            )
+            .toList(growable: false);
+
+    return PinnedAnnouncementsCarousel(
+      announcements: visibleAnnouncements,
+      onViewAll: onViewAll,
+      onAnnouncementTap: onAnnouncementTap,
+    );
+  }
+}
+
+class _PinnedAnnouncementsLoading extends StatelessWidget {
+  const _PinnedAnnouncementsLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      key: const ValueKey('pinned-announcements-loading'),
+      radius: 20,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              'Loading pinned announcements…',
+              style: TextStyle(color: AppGlassColors.inkSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PinnedAnnouncementsError extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _PinnedAnnouncementsError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassSurface(
+      key: const ValueKey('pinned-announcements-error'),
+      radius: 20,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.cloud_off_outlined,
+            color: AppGlassColors.rose,
+            size: 24,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Announcements unavailable',
+                  style: TextStyle(
+                    color: AppGlassColors.ink,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Check your connection and try again.',
+                  style: TextStyle(
+                    color: AppGlassColors.inkMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            key: const ValueKey('retry-pinned-announcements'),
+            onPressed: onRetry,
+            style: TextButton.styleFrom(minimumSize: const Size(64, 44)),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 }
