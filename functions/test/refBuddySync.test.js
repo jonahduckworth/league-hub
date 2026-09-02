@@ -1,12 +1,29 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { integrationFromOrg, signedHeaders } = require("../lib/schedule/refBuddySync");
+const { integrationFromOrg, localFields, reconciliationPlan, signedHeaders } = require("../lib/schedule/refBuddySync");
 
 test("validates scoped Ref Buddy mappings", () => {
   assert.equal(integrationFromOrg({ refBuddyScheduleIntegration: { enabled: true, teamMappings: [] } }), undefined);
   assert.equal(integrationFromOrg({ refBuddyScheduleIntegration: { enabled: true, teamMappings: [{
     refBuddyLeagueId: "league-rb", refBuddyTeamId: "team-rb", leagueId: "league-lh", hubId: "hub", teamId: "team-lh",
   }] } }).teamMappings[0].teamId, "team-lh");
+});
+
+test("uses each canonical game timezone, including dates that differ by zone", () => {
+  const instant = new Date("2026-09-02T06:30:00Z");
+  assert.deepEqual(localFields(instant, "America/Vancouver"), {
+    localDate: "2026-09-01", localStartTime: "23:30",
+  });
+  assert.deepEqual(localFields(instant, "America/Edmonton"), {
+    localDate: "2026-09-02", localStartTime: "00:30",
+  });
+});
+
+test("reconciliation deactivates only Ref Buddy events absent from a complete response", () => {
+  assert.deepEqual(
+    reconciliationPlan(["refbuddy-old", "refbuddy-still"], ["refbuddy-still", "refbuddy-new"]),
+    ["refbuddy-old"],
+  );
 });
 
 test("signs the exact request body", () => {

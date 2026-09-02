@@ -37,6 +37,7 @@ type RefBuddyGame = {
   startTime: string;
   venueName: string;
   gameType: string;
+  timezone: string;
   confirmedCrew: ConfirmedCrewMember[];
 };
 
@@ -77,7 +78,7 @@ export function signedHeaders(secret: string, body: string, now = new Date()): R
   };
 }
 
-async function fetchCanonicalGames(integration: RefBuddyIntegration): Promise<RefBuddyGame[]> {
+async function fetchCanonicalGames(integration: RefBuddyIntegration): Promise<{ games: RefBuddyGame[]; complete: boolean }> {
   const now = new Date();
   const body = JSON.stringify({
     leagueIds: [...new Set(integration.teamMappings.map((item) => item.refBuddyLeagueId))],
@@ -95,16 +96,19 @@ async function fetchCanonicalGames(integration: RefBuddyIntegration): Promise<Re
       signal: controller.signal,
     });
     if (!response.ok) throw new Error(`Ref Buddy schedule returned HTTP ${response.status}`);
-    const payload = await response.json() as { games?: RefBuddyGame[] };
-    return Array.isArray(payload.games) ? payload.games : [];
+    const payload = await response.json() as { games?: RefBuddyGame[]; complete?: boolean };
+    if (!Array.isArray(payload.games) || payload.complete !== true) {
+      throw new Error("Ref Buddy schedule response was not explicitly complete.");
+    }
+    return { games: payload.games, complete: true };
   } finally {
     clearTimeout(timeout);
   }
 }
 
-function localFields(start: Date): { localDate: string; localStartTime: string } {
+export function localFields(start: Date, timezone: string): { localDate: string; localStartTime: string } {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Edmonton",
+    timeZone: timezone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -119,29 +123,63 @@ function localFields(start: Date): { localDate: string; localStartTime: string }
   };
 }
 
+export function reconciliationPlan(existingIds: string[], incomingIds: string[]): string[] {
+  const incoming = new Set(incomingIds);
+  return existingIds.filter((id) => !incoming.has(id));
+}
+
+async function refBuddyEventIds(
+  organization: FirebaseFirestore.DocumentReference,
+): Promise<string[]> {
+  const ids: string[] = [];
+  let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+  do {
+    let query = organization.collection("scheduleEvents")
+      .where("source", "==", "ref_buddy")
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(400);
+    if (cursor) query = query.startAfter(cursor);
+    const page = await query.get();
+    ids.push(...page.docs.map((item) => item.id));
+    cursor = page.docs.at(-1);
+    if (page.size < 400) break;
+  } while (cursor);
+  return ids;
+}
+
 export async function synchronizeRefBuddySchedule(orgId: string): Promise<{ games: number; crews: number }> {
   const organization = await db.collection("organizations").doc(orgId).get();
   const integration = integrationFromOrg(organization.data() ?? {});
   if (!integration) throw new Error("Ref Buddy schedule integration is not enabled or is incomplete.");
-  const games = await fetchCanonicalGames(integration);
+  const response = await fetchCanonicalGames(integration);
+  if (!response.complete) throw new Error("Ref Buddy schedule response was incomplete.");
+  const games = response.games;
   const mapping = new Map(integration.teamMappings.map((item) => [item.refBuddyTeamId, item]));
+  const preparedGames = games.map((game) => {
+    const start = new Date(game.startTime);
+    if (Number.isNaN(start.getTime()) || !optionalString(game.timezone)) {
+      throw new Error("Ref Buddy returned a game with an invalid start time or timezone.");
+    }
+    return { game, start, local: localFields(start, game.timezone) };
+  });
   let batch = db.batch();
   let pending = 0;
   let crewCount = 0;
+  const incomingEventIds = new Set<string>();
   const commit = async () => {
     if (pending === 0) return;
     await batch.commit();
     batch = db.batch();
     pending = 0;
   };
-  for (const game of games) {
+  for (const prepared of preparedGames) {
+    const { game, start, local } = prepared;
     const first = mapping.get(game.homeTeamId);
     const second = mapping.get(game.awayTeamId);
     const scoped = [first, second].filter((item): item is TeamMapping => item != null);
     if (scoped.length === 0) continue;
-    const start = new Date(game.startTime);
-    if (Number.isNaN(start.getTime())) continue;
     const eventId = `refbuddy-${game.id}`;
+    incomingEventIds.add(eventId);
     const teamIds = [...new Set(scoped.map((item) => item.teamId))];
     const hubIds = [...new Set(scoped.map((item) => item.hubId))];
     const leagueIds = [...new Set(scoped.map((item) => item.leagueId))];
@@ -161,8 +199,8 @@ export async function synchronizeRefBuddySchedule(orgId: string): Promise<{ game
       secondTeamName: game.awayTeamName,
       startsAt: admin.firestore.Timestamp.fromDate(start),
       endsAt: admin.firestore.Timestamp.fromDate(new Date(start.getTime() + 2 * 3600000)),
-      timezone: "America/Edmonton",
-      ...localFields(start),
+      timezone: game.timezone,
+      ...local,
       location: game.venueName,
       division: game.gameType,
       status: "scheduled",
@@ -185,6 +223,19 @@ export async function synchronizeRefBuddySchedule(orgId: string): Promise<{ game
     if (pending >= 440) await commit();
   }
   await commit();
+  const existingIds = await refBuddyEventIds(organization.ref);
+  const staleIds = reconciliationPlan(existingIds, [...incomingEventIds]);
+  for (const eventId of staleIds) {
+    batch.update(organization.ref.collection("scheduleEvents").doc(eventId), {
+      isActive: false,
+      status: "cancelled",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    batch.delete(organization.ref.collection("scheduleCrews").doc(eventId));
+    pending += 2;
+    if (pending >= 440) await commit();
+  }
+  await commit();
   await organization.ref.collection("scheduleSync").doc("refBuddy").set({
     status: "ok",
     message: `Ref Buddy supplied ${games.length} canonical games.`,
@@ -203,15 +254,28 @@ export const syncRefBuddySchedules = onSchedule({
   retryCount: 1,
   secrets: [REF_BUDDY_SERVICE_SECRET],
 }, async () => {
-  const organizations = await db.collection("organizations").get();
-  const configured = organizations.docs.filter((item) => integrationFromOrg(item.data()));
-  const results = await Promise.allSettled(configured.map((item) => synchronizeRefBuddySchedule(item.id)));
-  results.forEach((result, index) => {
-    if (result.status === "rejected") {
-      logger.error("Ref Buddy schedule sync failed", {
-        orgId: configured[index].id,
-        error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+  let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+  do {
+    let query = db.collection("organizations")
+      .where("refBuddyScheduleIntegration.enabled", "==", true)
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(100);
+    if (cursor) query = query.startAfter(cursor);
+    const page = await query.get();
+    const orgIds = page.docs.map((item) => item.id);
+    for (let offset = 0; offset < orgIds.length; offset += 4) {
+      const slice = orgIds.slice(offset, offset + 4);
+      const results = await Promise.allSettled(slice.map((orgId) => synchronizeRefBuddySchedule(orgId)));
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          logger.error("Ref Buddy schedule sync failed", {
+            orgId: slice[index],
+            errorCode: "ref_buddy_schedule_sync_failed",
+          });
+        }
       });
     }
-  });
+    cursor = page.docs.at(-1);
+    if (page.size < 100) break;
+  } while (cursor);
 });
