@@ -1,6 +1,13 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { integrationFromOrg, localFields, reconciliationPlan, scheduleWindow, signedHeaders } = require("../lib/schedule/refBuddySync");
+const {
+  integrationFromOrg,
+  isWithinResponseWindow,
+  localFields,
+  reconciliationPlan,
+  scheduleWindow,
+  signedHeaders,
+} = require("../lib/schedule/refBuddySync");
 
 test("validates scoped Ref Buddy mappings", () => {
   assert.equal(integrationFromOrg({ refBuddyScheduleIntegration: { enabled: true, teamMappings: [] } }), undefined);
@@ -31,6 +38,17 @@ test("canonical request window stays within the backend 400-day limit", () => {
   assert.equal((window.to.getTime() - window.from.getTime()) / 86400000, 399);
   assert.equal(window.from.toISOString(), "2026-03-05T12:00:00.000Z");
   assert.equal(window.to.toISOString(), "2027-04-08T12:00:00.000Z");
+});
+
+test("reconciliation uses the backend half-open response window", () => {
+  const window = {
+    from: new Date("2026-01-01T00:00:00.000Z"),
+    to: new Date("2026-02-01T00:00:00.000Z"),
+  };
+
+  assert.equal(isWithinResponseWindow(new Date("2026-01-01T00:00:00.000Z"), window), true);
+  assert.equal(isWithinResponseWindow(new Date("2026-01-31T23:59:59.999Z"), window), true);
+  assert.equal(isWithinResponseWindow(new Date("2026-02-01T00:00:00.000Z"), window), false);
 });
 
 test("signs the exact request body", () => {

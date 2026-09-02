@@ -137,6 +137,10 @@ export function reconciliationPlan(existingIds: string[], incomingIds: string[])
   return existingIds.filter((id) => !incoming.has(id));
 }
 
+export function isWithinResponseWindow(start: Date, window: ScheduleWindow): boolean {
+  return start >= window.from && start < window.to;
+}
+
 async function refBuddyEventIds(
   organization: FirebaseFirestore.DocumentReference,
   window: ScheduleWindow,
@@ -154,7 +158,7 @@ async function refBuddyEventIds(
       const startsAt = item.get("startsAt");
       if (!startsAt || typeof startsAt.toDate !== "function") return [];
       const start = startsAt.toDate() as Date;
-      return start >= window.from && start <= window.to ? [item.id] : [];
+      return isWithinResponseWindow(start, window) ? [item.id] : [];
     }));
     cursor = page.docs.at(-1);
     if (page.size < 400) break;
