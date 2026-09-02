@@ -13,7 +13,7 @@ import {
 } from "../invitationEmailLogic";
 
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
-const invitationSender = "League Hub <notifications@jdbuilds.ca>";
+const invitationSender = "League Hub <no-reply@leaguehub.ca>";
 
 function stringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";

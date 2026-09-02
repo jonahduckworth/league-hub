@@ -642,6 +642,29 @@ test("users can manage only their own chat safety settings", async () => {
   }));
 });
 
+test("users can select only a supported announcement delivery preference", async () => {
+  await seedFirestore([
+    ["users/member", user({id: "member"})],
+    ["users/other", user({id: "other"})],
+  ]);
+  const db = testEnv.authenticatedContext("member").firestore();
+
+  for (const delivery of ["both", "push", "email"]) {
+    await assertSucceeds(updateDoc(doc(db, "users/member"), {
+      announcementDelivery: delivery,
+    }));
+  }
+  await assertFails(updateDoc(doc(db, "users/member"), {
+    announcementDelivery: "none",
+  }));
+  await assertFails(updateDoc(doc(db, "users/member"), {
+    announcementDelivery: true,
+  }));
+  await assertFails(updateDoc(doc(db, "users/other"), {
+    announcementDelivery: "email",
+  }));
+});
+
 test("message reports must reference a readable real message", async () => {
   const room = {
     id: "room-1",

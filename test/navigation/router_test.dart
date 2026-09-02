@@ -83,7 +83,7 @@ void main() {
           location: '/settings',
           user: null,
         ),
-        '/login',
+        '/login?redirect=%2Fsettings',
       );
     });
 
@@ -95,6 +95,49 @@ void main() {
           user: staff(),
         ),
         '/',
+      );
+    });
+
+    test('preserves a safe announcement destination through sign in', () {
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: false,
+          location: '/announcements/announcement-1',
+          user: null,
+        ),
+        '/login?redirect=%2Fannouncements%2Fannouncement-1',
+      );
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: true,
+          location: '/login',
+          user: staff(),
+          requestedAfterLogin: '/announcements/announcement-1',
+        ),
+        '/announcements/announcement-1',
+      );
+    });
+
+    test('canonicalizes announcement web links and rejects unsafe redirects',
+        () {
+      expect(
+        canonicalAppLinkLocation('/app/announcements/announcement-1'),
+        '/announcements/announcement-1',
+      );
+      expect(safePostLoginLocation('https://attacker.example'), isNull);
+      expect(safePostLoginLocation('//attacker.example'), isNull);
+      expect(safePostLoginLocation('/login?redirect=%2Flogin'), isNull);
+    });
+
+    test('waits for the user profile before leaving login after sign in', () {
+      expect(
+        routeRedirectForAuthState(
+          isLoggedIn: true,
+          location: '/login',
+          user: null,
+          requestedAfterLogin: '/announcements/announcement-1',
+        ),
+        isNull,
       );
     });
 

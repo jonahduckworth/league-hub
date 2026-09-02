@@ -1,5 +1,23 @@
 enum UserRole { platformOwner, superAdmin, managerAdmin, staff }
 
+enum AnnouncementDelivery { both, push, email }
+
+extension AnnouncementDeliveryDetails on AnnouncementDelivery {
+  bool get sendsPush => this != AnnouncementDelivery.email;
+  bool get sendsEmail => this != AnnouncementDelivery.push;
+
+  String get label {
+    switch (this) {
+      case AnnouncementDelivery.both:
+        return 'Email and push';
+      case AnnouncementDelivery.push:
+        return 'Push only';
+      case AnnouncementDelivery.email:
+        return 'Email only';
+    }
+  }
+}
+
 class AppUser {
   final String id;
   final String email;
@@ -17,6 +35,7 @@ class AppUser {
   final bool isActive;
   final List<String> blockedUserIds;
   final bool hasAcceptedCommunityGuidelines;
+  final AnnouncementDelivery announcementDelivery;
 
   AppUser({
     required this.id,
@@ -35,6 +54,7 @@ class AppUser {
     required this.isActive,
     this.blockedUserIds = const [],
     this.hasAcceptedCommunityGuidelines = false,
+    this.announcementDelivery = AnnouncementDelivery.both,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
@@ -60,6 +80,10 @@ class AppUser {
             .toList(),
         hasAcceptedCommunityGuidelines:
             json['hasAcceptedCommunityGuidelines'] as bool? ?? false,
+        announcementDelivery: AnnouncementDelivery.values.firstWhere(
+          (delivery) => delivery.name == json['announcementDelivery'],
+          orElse: () => AnnouncementDelivery.both,
+        ),
       );
 
   Map<String, dynamic> toJson() {
@@ -77,6 +101,7 @@ class AppUser {
       'isActive': isActive,
       'blockedUserIds': blockedUserIds,
       'hasAcceptedCommunityGuidelines': hasAcceptedCommunityGuidelines,
+      'announcementDelivery': announcementDelivery.name,
     };
 
     final normalizedTitle = _optionalString(title);

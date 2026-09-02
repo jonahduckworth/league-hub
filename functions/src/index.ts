@@ -5,7 +5,10 @@
  * Each user stores their FCM tokens in /users/{uid}/fcmTokens.
  */
 
-export { onAnnouncementCreated } from "./notifications/announcements";
+export {
+  onAnnouncementCreated,
+  onAnnouncementEmailCreated,
+} from "./notifications/announcements";
 export {
   onMessageCreated,
   onMessagePreviewCreated,

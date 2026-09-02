@@ -29,7 +29,7 @@ League Hub is available to invited members of participating organizations. Sched
 
 ## Contact email
 
-jonah@jdbuilds.ca
+jonah@leaguehub.ca
 
 ## Website
 

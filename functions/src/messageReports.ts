@@ -9,8 +9,8 @@ import {
 } from "./messageReportsLogic";
 
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
-const destination = "jonah@jdbuilds.ca";
-const sender = "League Hub <notifications@jdbuilds.ca>";
+const destination = "jonah@leaguehub.ca";
+const sender = "League Hub <no-reply@leaguehub.ca>";
 
 function escapeHtml(value: string): string {
   return value

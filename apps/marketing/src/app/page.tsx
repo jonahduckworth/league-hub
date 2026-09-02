@@ -268,7 +268,7 @@ export default function Home() {
             <div><BellRing size={19} aria-hidden="true" /><span><strong>Personal response</strong><small>Usually within one business day</small></span></div>
             <div><ShieldCheck size={19} aria-hidden="true" /><span><strong>No-pressure conversation</strong><small>Clear answers about fit, rollout, and cost</small></span></div>
           </div>
-          <a href="mailto:jonah@jdbuilds.ca">jonah@jdbuilds.ca</a>
+          <a href="mailto:jonah@leaguehub.ca">jonah@leaguehub.ca</a>
         </div>
         <ContactForm />
       </section>

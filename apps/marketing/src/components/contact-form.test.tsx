@@ -35,6 +35,6 @@ describe("ContactForm", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send inquiry" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("jonah@jdbuilds.ca");
+    expect(await screen.findByRole("alert")).toHaveTextContent("jonah@leaguehub.ca");
   });
 });

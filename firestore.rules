@@ -521,7 +521,8 @@ service cloud.firestore {
         'avatarUrl',
         'fcmTokens',
         'blockedUserIds',
-        'hasAcceptedCommunityGuidelines'
+        'hasAcceptedCommunityGuidelines',
+        'announcementDelivery'
       ]);
     }
 
@@ -546,6 +547,14 @@ service cloud.firestore {
               || request.resource.data.hasAcceptedCommunityGuidelines == true
             )
           )
+        );
+    }
+
+    function validSelfNotificationPreferences() {
+      return !('announcementDelivery' in request.resource.data)
+        || (
+          request.resource.data.announcementDelivery is string
+          && request.resource.data.announcementDelivery in ['both', 'push', 'email']
         );
     }
 
@@ -892,6 +901,7 @@ service cloud.firestore {
         && resource.data.orgId == currentOrgId()
         && selfUpdateFieldsOnly()
         && validSelfSafetySettings()
+        && validSelfNotificationPreferences()
       ) || canAdminUpdateUser(resource.data);
       allow delete: if false;
     }
