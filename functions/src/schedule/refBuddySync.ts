@@ -41,6 +41,8 @@ type RefBuddyGame = {
   confirmedCrew: ConfirmedCrewMember[];
 };
 
+type ScheduleWindow = { from: Date; to: Date };
+
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -78,13 +80,20 @@ export function signedHeaders(secret: string, body: string, now = new Date()): R
   };
 }
 
-async function fetchCanonicalGames(integration: RefBuddyIntegration): Promise<{ games: RefBuddyGame[]; complete: boolean }> {
-  const now = new Date();
+export function scheduleWindow(now = new Date()): ScheduleWindow {
+  return {
+    from: new Date(now.getTime() - 180 * 86400000),
+    to: new Date(now.getTime() + 219 * 86400000),
+  };
+}
+
+async function fetchCanonicalGames(integration: RefBuddyIntegration): Promise<{ games: RefBuddyGame[]; complete: boolean; window: ScheduleWindow }> {
+  const window = scheduleWindow();
   const body = JSON.stringify({
     leagueIds: [...new Set(integration.teamMappings.map((item) => item.refBuddyLeagueId))],
     teamIds: integration.teamMappings.map((item) => item.refBuddyTeamId),
-    from: new Date(now.getTime() - 180 * 86400000).toISOString(),
-    to: new Date(now.getTime() + 399 * 86400000).toISOString(),
+    from: window.from.toISOString(),
+    to: window.to.toISOString(),
   });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
@@ -100,7 +109,7 @@ async function fetchCanonicalGames(integration: RefBuddyIntegration): Promise<{ 
     if (!Array.isArray(payload.games) || payload.complete !== true) {
       throw new Error("Ref Buddy schedule response was not explicitly complete.");
     }
-    return { games: payload.games, complete: true };
+    return { games: payload.games, complete: true, window };
   } finally {
     clearTimeout(timeout);
   }
@@ -130,6 +139,7 @@ export function reconciliationPlan(existingIds: string[], incomingIds: string[])
 
 async function refBuddyEventIds(
   organization: FirebaseFirestore.DocumentReference,
+  window: ScheduleWindow,
 ): Promise<string[]> {
   const ids: string[] = [];
   let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
@@ -140,7 +150,12 @@ async function refBuddyEventIds(
       .limit(400);
     if (cursor) query = query.startAfter(cursor);
     const page = await query.get();
-    ids.push(...page.docs.map((item) => item.id));
+    ids.push(...page.docs.flatMap((item) => {
+      const startsAt = item.get("startsAt");
+      if (!startsAt || typeof startsAt.toDate !== "function") return [];
+      const start = startsAt.toDate() as Date;
+      return start >= window.from && start <= window.to ? [item.id] : [];
+    }));
     cursor = page.docs.at(-1);
     if (page.size < 400) break;
   } while (cursor);
@@ -223,7 +238,7 @@ export async function synchronizeRefBuddySchedule(orgId: string): Promise<{ game
     if (pending >= 440) await commit();
   }
   await commit();
-  const existingIds = await refBuddyEventIds(organization.ref);
+  const existingIds = await refBuddyEventIds(organization.ref, response.window);
   const staleIds = reconciliationPlan(existingIds, [...incomingEventIds]);
   for (const eventId of staleIds) {
     batch.update(organization.ref.collection("scheduleEvents").doc(eventId), {
