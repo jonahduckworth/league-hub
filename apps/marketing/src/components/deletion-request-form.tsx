@@ -78,7 +78,7 @@ export function DeletionRequestForm() {
       </div>
       {state === "error" && (
         <p className="form-error" role="alert">
-          We couldn’t send that request. Email <a href="mailto:jonah@jdbuilds.ca">jonah@jdbuilds.ca</a> from your account address.
+          We couldn’t send that request. Email <a href="mailto:jonah@leaguehub.ca">jonah@leaguehub.ca</a> from your account address.
         </p>
       )}
       <button className="button button-primary button-form" type="submit" disabled={state === "sending"}>

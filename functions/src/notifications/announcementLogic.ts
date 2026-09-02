@@ -3,6 +3,7 @@ type AnnouncementAudienceUser = {
   leagueIds?: unknown;
   hubIds?: unknown;
   teamIds?: unknown;
+  announcementDelivery?: unknown;
 };
 
 type AnnouncementTarget = {
@@ -14,11 +15,32 @@ type AnnouncementTarget = {
 
 const elevatedRoles = new Set(["platformOwner", "superAdmin"]);
 
+export type AnnouncementDelivery = "both" | "push" | "email";
+
+export function announcementDeliveryForUser(
+  user: AnnouncementAudienceUser,
+): AnnouncementDelivery {
+  const delivery = user.announcementDelivery;
+  return delivery === "push" || delivery === "email" ? delivery : "both";
+}
+
+export function shouldSendAnnouncementPush(
+  user: AnnouncementAudienceUser,
+): boolean {
+  return announcementDeliveryForUser(user) !== "email";
+}
+
+export function shouldSendAnnouncementEmail(
+  user: AnnouncementAudienceUser,
+): boolean {
+  return announcementDeliveryForUser(user) !== "push";
+}
+
 function hasId(values: unknown, id: string): boolean {
   return Array.isArray(values) && values.includes(id);
 }
 
-/** Mirrors mobile announcement visibility when selecting push recipients. */
+/** Mirrors mobile announcement visibility when selecting channel recipients. */
 export function canReceiveAnnouncementNotification(
   user: AnnouncementAudienceUser,
   announcement: AnnouncementTarget,

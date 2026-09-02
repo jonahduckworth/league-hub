@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.leaguehub.league_hub",
+      "sha256_cert_fingerprints": [
+        "B1:89:BD:82:F8:35:04:DC:E5:50:5C:22:1D:0B:CA:16:4F:46:76:D3:85:62:52:E9:D4:39:DD:1B:25:96:22:AC"
+      ]
+    }
+  }
+]

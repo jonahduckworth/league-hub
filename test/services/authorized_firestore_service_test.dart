@@ -16,6 +16,13 @@ import 'package:league_hub/services/permission_service.dart';
 // Mockito's when() / verify() machinery works under sound null safety.
 class MockFirestoreService extends Mock implements FirestoreService {
   @override
+  Future<void> updateOwnNotificationPreferences(
+          String uid, Map<String, dynamic> data) =>
+      (super.noSuchMethod(
+          Invocation.method(#updateOwnNotificationPreferences, [uid, data]),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
   Future<void> updateOwnSafetySettings(String uid, Map<String, dynamic> data) =>
       (super.noSuchMethod(
           Invocation.method(#updateOwnSafetySettings, [uid, data]),
@@ -1190,6 +1197,46 @@ void main() {
             throwsA(isA<PermissionDeniedException>()),
           );
         }
+        verifyZeroInteractions(mockFs);
+      });
+    });
+
+    group('updateOwnNotificationPreferences', () {
+      test('active users at every role can update their announcement delivery',
+          () async {
+        for (final role in UserRole.values) {
+          final actor = makeUser(id: role.name, role: role);
+          when(mockFs.updateOwnNotificationPreferences(
+            role.name,
+            {'announcementDelivery': 'email'},
+          )).thenAnswer((_) async {});
+
+          await afs.updateOwnNotificationPreferences(
+            actor,
+            AnnouncementDelivery.email,
+          );
+
+          verify(mockFs.updateOwnNotificationPreferences(
+            role.name,
+            {'announcementDelivery': 'email'},
+          )).called(1);
+        }
+      });
+
+      test('inactive users cannot update their announcement delivery', () {
+        final actor = makeUser(
+          id: 'u1',
+          role: UserRole.staff,
+          isActive: false,
+        );
+
+        expect(
+          () => afs.updateOwnNotificationPreferences(
+            actor,
+            AnnouncementDelivery.push,
+          ),
+          throwsA(isA<PermissionDeniedException>()),
+        );
         verifyZeroInteractions(mockFs);
       });
     });

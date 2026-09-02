@@ -12,8 +12,8 @@ import {
 } from "./landingContactLogic";
 
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
-const destination = "jonah@jdbuilds.ca";
-const sender = "League Hub <notifications@jdbuilds.ca>";
+const destination = "jonah@leaguehub.ca";
+const sender = "League Hub <no-reply@leaguehub.ca>";
 
 async function consumeRateLimit(ip: string): Promise<boolean> {
   const id = createHash("sha256").update(`league-hub-contact:${ip}`).digest("hex");

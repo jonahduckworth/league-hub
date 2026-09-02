@@ -39,6 +39,7 @@ void main() {
         expect(user.teamIds, ['team1']);
         expect(user.createdAt, testDate);
         expect(user.isActive, true);
+        expect(user.announcementDelivery, AnnouncementDelivery.both);
       });
 
       test('parses all UserRole values', () {
@@ -100,6 +101,30 @@ void main() {
         };
 
         expect(AppUser.fromJson(json).isActive, true);
+      });
+
+      test('parses announcement delivery and defaults invalid values to both',
+          () {
+        final base = {
+          'id': 'user1',
+          'email': 'user@example.com',
+          'displayName': 'John',
+          'role': 'staff',
+          'hubIds': <String>[],
+          'teamIds': <String>[],
+          'createdAt': testDateStr,
+        };
+
+        expect(
+          AppUser.fromJson({...base, 'announcementDelivery': 'email'})
+              .announcementDelivery,
+          AnnouncementDelivery.email,
+        );
+        expect(
+          AppUser.fromJson({...base, 'announcementDelivery': 'invalid'})
+              .announcementDelivery,
+          AnnouncementDelivery.both,
+        );
       });
 
       test('avatarUrl and orgId are null when not provided', () {
@@ -192,6 +217,7 @@ void main() {
         expect(json['teamIds'], ['team1', 'team2']);
         expect(json['createdAt'], testDateStr);
         expect(json['isActive'], false);
+        expect(json['announcementDelivery'], 'both');
       });
     });
 
@@ -253,6 +279,18 @@ void main() {
       expect(restored.teamIds, original.teamIds);
       expect(restored.createdAt, original.createdAt);
       expect(restored.isActive, original.isActive);
+      expect(restored.announcementDelivery, original.announcementDelivery);
+    });
+  });
+
+  group('AnnouncementDelivery', () {
+    test('maps each choice to the intended channels', () {
+      expect(AnnouncementDelivery.both.sendsPush, isTrue);
+      expect(AnnouncementDelivery.both.sendsEmail, isTrue);
+      expect(AnnouncementDelivery.push.sendsPush, isTrue);
+      expect(AnnouncementDelivery.push.sendsEmail, isFalse);
+      expect(AnnouncementDelivery.email.sendsPush, isFalse);
+      expect(AnnouncementDelivery.email.sendsEmail, isTrue);
     });
   });
 }

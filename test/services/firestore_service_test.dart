@@ -875,6 +875,18 @@ void main() {
       expect(stored.blockedUserIds, ['blocked-user']);
     });
 
+    test('persists announcement delivery preferences', () async {
+      final user = makeUser('reader');
+      await svc.updateUser(user);
+
+      await svc.updateOwnNotificationPreferences(user.id, {
+        'announcementDelivery': 'email',
+      });
+
+      final stored = await svc.getUser(user.id);
+      expect(stored!.announcementDelivery, AnnouncementDelivery.email);
+    });
+
     test('reportMessage persists the moderation payload', () async {
       final reporter = makeUser('reporter');
       final message = Message(

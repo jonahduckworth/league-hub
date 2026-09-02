@@ -1,5 +1,11 @@
 {
   "all": false,
-  "targets": ["createMultiTeamEventRoom", "onMessageCreated"],
-  "reason": "Deploy the authoritative multi-team Event Room creator and its array-aware message notification trigger before the mobile release."
+  "targets": [
+    "onAnnouncementCreated",
+    "onAnnouncementEmailCreated",
+    "onInvitationEmailCreated",
+    "submitLandingContact",
+    "onMessageReportCreated"
+  ],
+  "reason": "Add preference-aware announcement push and email delivery, then migrate every existing League Hub Resend sender to no-reply@leaguehub.ca."
 }

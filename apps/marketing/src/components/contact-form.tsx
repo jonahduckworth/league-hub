@@ -49,7 +49,7 @@ export function ContactForm() {
     } catch {
       setState("error");
       setError(
-        "We couldn't send that right now. Please email jonah@jdbuilds.ca and we'll get back to you.",
+        "We couldn't send that right now. Please email jonah@leaguehub.ca and we'll get back to you.",
       );
     }
   }

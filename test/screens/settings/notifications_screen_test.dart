@@ -1,18 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/models/app_user.dart';
+import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings/notifications_screen.dart';
+import 'package:league_hub/services/authorized_firestore_service.dart';
 
-Widget _buildTestWidget({List<Override> overrides = const []}) {
+final _testUser = AppUser(
+  id: 'user-1',
+  email: 'user@example.com',
+  displayName: 'Test User',
+  role: UserRole.staff,
+  orgId: 'org-1',
+  hubIds: const [],
+  teamIds: const [],
+  createdAt: DateTime(2026),
+  isActive: true,
+);
+
+class _RecordingAuthorizedFirestoreService
+    implements AuthorizedFirestoreService {
+  AnnouncementDelivery? recordedDelivery;
+
+  @override
+  Future<void> updateOwnNotificationPreferences(
+    AppUser actor,
+    AnnouncementDelivery delivery,
+  ) async {
+    recordedDelivery = delivery;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+Widget _buildTestWidget({
+  List<Override> overrides = const [],
+  TextScaler? textScaler,
+}) {
   return ProviderScope(
     overrides: [
       organizationProvider.overrideWith((ref) async => null),
       leaguesProvider.overrideWith((ref) => Stream.value([])),
+      currentUserProvider.overrideWith((ref) async => _testUser),
       ...overrides,
     ],
-    child: const MaterialApp(
-      home: NotificationsScreen(),
+    child: MaterialApp(
+      builder: textScaler == null
+          ? null
+          : (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+                child: child!,
+              ),
+      home: const NotificationsScreen(),
     ),
   );
 }
@@ -25,7 +66,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Notifications'), findsOneWidget);
-      expect(find.text('PUSH NOTIFICATIONS'), findsOneWidget);
+      expect(find.text('ANNOUNCEMENT DELIVERY'), findsOneWidget);
+      expect(find.text('OTHER PUSH NOTIFICATIONS'), findsOneWidget);
       expect(find.text('DELIVERY'), findsOneWidget);
     });
 
@@ -34,7 +76,9 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('Announcements'), findsOneWidget);
+      expect(find.text('Email and push'), findsOneWidget);
+      expect(find.text('Push only'), findsOneWidget);
+      expect(find.text('Email only'), findsOneWidget);
       expect(find.text('Chat Messages'), findsOneWidget);
       expect(find.text('Policy Uploads'), findsOneWidget);
       expect(find.text('Team Updates'), findsOneWidget);
@@ -52,12 +96,27 @@ void main() {
       expect(find.text('Badge Count'), findsOneWidget);
     });
 
+    testWidgets('saves a selected announcement delivery option',
+        (tester) async {
+      final service = _RecordingAuthorizedFirestoreService();
+      await tester.pumpWidget(_buildTestWidget(overrides: [
+        authorizedFirestoreServiceProvider.overrideWithValue(service),
+      ]));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Email only'));
+      await tester.pumpAndSettle();
+
+      expect(service.recordedDelivery, AnnouncementDelivery.email);
+      expect(find.text('Announcement delivery updated.'), findsOneWidget);
+    });
+
     testWidgets('all toggles default to on', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
       await tester.pump();
       await tester.pumpAndSettle();
 
-      // All 9 Switch.adaptive widgets should be on (true)
+      // All 8 local push/device switches should be on (true).
       final switches = tester.widgetList<Switch>(find.byType(Switch));
       for (final sw in switches) {
         expect(sw.value, isTrue);
@@ -98,7 +157,10 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('New and pinned announcements'), findsOneWidget);
+      expect(
+        find.text('Get a push alert and a copy in your inbox.'),
+        findsOneWidget,
+      );
       expect(find.text('New messages in your chat rooms'), findsOneWidget);
       expect(find.text('New policies shared with you'), findsOneWidget);
       expect(find.text('Roster changes and team news'), findsOneWidget);
@@ -106,12 +168,12 @@ void main() {
       expect(find.text('User management and system alerts'), findsOneWidget);
     });
 
-    testWidgets('renders 9 switches total', (tester) async {
+    testWidgets('renders 8 switches total', (tester) async {
       await tester.pumpWidget(_buildTestWidget());
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.byType(Switch), findsNWidgets(9));
+      expect(find.byType(Switch), findsNWidgets(8));
     });
 
     testWidgets('renders correct icons for notification types', (tester) async {
@@ -120,7 +182,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify icons exist
-      expect(find.byIcon(Icons.campaign), findsOneWidget);
+      expect(find.byIcon(Icons.mark_email_unread_outlined), findsOneWidget);
       expect(find.byIcon(Icons.chat_bubble_outline), findsOneWidget);
       expect(find.byIcon(Icons.description_outlined), findsOneWidget);
       expect(find.byIcon(Icons.groups_outlined), findsOneWidget);
@@ -178,6 +240,24 @@ void main() {
 
       expect(find.byType(ListView), findsOneWidget);
     });
+
+    testWidgets('supports small phones, landscape, and large text',
+        (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.devicePixelRatio = 1;
+
+      for (final size in [const Size(375, 667), const Size(667, 375)]) {
+        tester.view.physicalSize = size;
+        await tester.pumpWidget(
+          _buildTestWidget(textScaler: const TextScaler.linear(2)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Email and push'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    });
   });
 
   group('NotificationPrefsNotifier', () {
@@ -187,7 +267,6 @@ void main() {
 
       final prefs = container.read(notificationPrefsProvider);
 
-      expect(prefs['announcements'], isTrue);
       expect(prefs['chat_messages'], isTrue);
       expect(prefs['policy_uploads'], isTrue);
       expect(prefs['team_updates'], isTrue);
@@ -198,12 +277,12 @@ void main() {
       expect(prefs['badge_count'], isTrue);
     });
 
-    test('initial state has 9 keys', () {
+    test('initial state has 8 keys', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       final prefs = container.read(notificationPrefsProvider);
-      expect(prefs.length, 9);
+      expect(prefs.length, 8);
     });
 
     test('toggle flips a preference value', () {
@@ -212,11 +291,11 @@ void main() {
 
       final notifier = container.read(notificationPrefsProvider.notifier);
       expect(
-          container.read(notificationPrefsProvider)['announcements'], isTrue);
+          container.read(notificationPrefsProvider)['chat_messages'], isTrue);
 
-      notifier.toggle('announcements');
+      notifier.toggle('chat_messages');
       expect(
-          container.read(notificationPrefsProvider)['announcements'], isFalse);
+          container.read(notificationPrefsProvider)['chat_messages'], isFalse);
     });
 
     test('toggle twice returns to original value', () {
@@ -240,7 +319,6 @@ void main() {
 
       final prefs = container.read(notificationPrefsProvider);
       expect(prefs['sound'], isFalse);
-      expect(prefs['announcements'], isTrue);
       expect(prefs['chat_messages'], isTrue);
       expect(prefs['vibration'], isTrue);
     });
@@ -261,16 +339,15 @@ void main() {
       addTearDown(container.dispose);
 
       final notifier = container.read(notificationPrefsProvider.notifier);
-      notifier.toggle('announcements');
+      notifier.toggle('chat_messages');
       notifier.toggle('team_updates');
       notifier.toggle('badge_count');
 
       final prefs = container.read(notificationPrefsProvider);
-      expect(prefs['announcements'], isFalse);
+      expect(prefs['chat_messages'], isFalse);
       expect(prefs['team_updates'], isFalse);
       expect(prefs['badge_count'], isFalse);
       // Untouched remain true
-      expect(prefs['chat_messages'], isTrue);
       expect(prefs['policy_uploads'], isTrue);
       expect(prefs['sound'], isTrue);
     });

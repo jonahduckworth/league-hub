@@ -313,6 +313,7 @@ final router = GoRouter(
       isLoggedIn: isLoggedIn,
       location: location,
       user: _cachedAppUser,
+      requestedAfterLogin: state.uri.queryParameters['redirect'],
     );
   },
   routes: [
@@ -339,6 +340,11 @@ final router = GoRouter(
         const AcceptInvitationScreen(),
         motion: _ShellPageMotion.sharedAxisForward,
       ),
+    ),
+    GoRoute(
+      path: '/app/announcements/:id',
+      redirect: (context, state) =>
+          '/announcements/${Uri.encodeComponent(state.pathParameters['id']!)}',
     ),
     GoRoute(
       path: '/unauthorized',

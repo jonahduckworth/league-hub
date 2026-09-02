@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "8TT87YYP54.ca.jdbuilds.leaguehub"
+        ],
+        "components": [
+          {
+            "/": "/app/announcements/*",
+            "comment": "Open announcement email links in the League Hub app."
+          }
+        ]
+      }
+    ]
+  }
+}

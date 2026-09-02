@@ -268,6 +268,12 @@ class FirestoreService {
   ) =>
       _db.collection(AppConstants.usersCollection).doc(uid).update(data);
 
+  Future<void> updateOwnNotificationPreferences(
+    String uid,
+    Map<String, dynamic> data,
+  ) =>
+      _db.collection(AppConstants.usersCollection).doc(uid).update(data);
+
   Future<void> deactivateUser(String uid) =>
       updateUserFields(uid, {'isActive': false});
 

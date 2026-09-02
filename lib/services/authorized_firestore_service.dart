@@ -229,6 +229,18 @@ class AuthorizedFirestoreService {
     return _fs.updateOwnSafetySettings(actor.id, data);
   }
 
+  Future<void> updateOwnNotificationPreferences(
+    AppUser actor,
+    AnnouncementDelivery delivery,
+  ) {
+    if (!actor.isActive) {
+      _deny('updateOwnNotificationPreferences', actor);
+    }
+    return _fs.updateOwnNotificationPreferences(actor.id, {
+      'announcementDelivery': delivery.name,
+    });
+  }
+
   Future<void> _assertCanUpdateUserFields(
       AppUser actor, AppUser target, Map<String, dynamic> data) async {
     final canManageFully = _ps.canManageUser(actor, target);
