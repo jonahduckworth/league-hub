@@ -36,6 +36,13 @@ export function shouldSendAnnouncementEmail(
   return announcementDeliveryForUser(user) !== "push";
 }
 
+/** Launch gate: email remains off until explicitly enabled for an organization. */
+export function isAnnouncementEmailEnabled(
+  organization: {announcementEmailEnabled?: unknown} | undefined,
+): boolean {
+  return organization?.announcementEmailEnabled === true;
+}
+
 function hasId(values: unknown, id: string): boolean {
   return Array.isArray(values) && values.includes(id);
 }

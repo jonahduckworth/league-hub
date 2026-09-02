@@ -5,6 +5,7 @@ import {onDocumentCreated as onFirestoreCreated} from "firebase-functions/v2/fir
 import { db, getUserTokens, sendNotification } from "../helpers";
 import {
   canReceiveAnnouncementNotification,
+  isAnnouncementEmailEnabled,
   shouldSendAnnouncementEmail,
   shouldSendAnnouncementPush,
 } from "./announcementLogic";
@@ -101,6 +102,18 @@ export const onAnnouncementEmailCreated = onFirestoreCreated(
     const announcement = snapshot.data();
     const orgId = event.params.orgId;
     const announcementId = event.params.announcementId;
+    const organizationDocument = await db.collection("organizations")
+      .doc(orgId)
+      .get();
+    const organization = organizationDocument.data();
+    if (!isAnnouncementEmailEnabled(organization)) {
+      logger.info("Announcement email delivery is disabled for organization", {
+        orgId,
+        announcementId,
+      });
+      return;
+    }
+
     const usersSnapshot = await db
       .collection("users")
       .where("orgId", "==", orgId)
@@ -139,10 +152,7 @@ export const onAnnouncementEmailCreated = onFirestoreCreated(
       }, {merge: true});
     }
 
-    const organizationDocument = await db.collection("organizations")
-      .doc(orgId)
-      .get();
-    const organizationName = stringValue(organizationDocument.data()?.name) ||
+    const organizationName = stringValue(organization?.name) ||
       "League Hub";
     let delivered = 0;
 

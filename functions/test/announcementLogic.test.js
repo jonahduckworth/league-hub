@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   announcementDeliveryForUser,
   canReceiveAnnouncementNotification,
+  isAnnouncementEmailEnabled,
   shouldSendAnnouncementEmail,
   shouldSendAnnouncementPush,
 } = require("../lib/notifications/announcementLogic");
@@ -63,4 +64,12 @@ test("announcement delivery defaults to both and honors every stored choice", ()
   assert.equal(shouldSendAnnouncementEmail({announcementDelivery: "push"}), false);
   assert.equal(shouldSendAnnouncementPush({announcementDelivery: "email"}), false);
   assert.equal(shouldSendAnnouncementEmail({announcementDelivery: "email"}), true);
+});
+
+test("announcement email launch gate is default-off and requires explicit enablement", () => {
+  assert.equal(isAnnouncementEmailEnabled(undefined), false);
+  assert.equal(isAnnouncementEmailEnabled({}), false);
+  assert.equal(isAnnouncementEmailEnabled({announcementEmailEnabled: false}), false);
+  assert.equal(isAnnouncementEmailEnabled({announcementEmailEnabled: "true"}), false);
+  assert.equal(isAnnouncementEmailEnabled({announcementEmailEnabled: true}), true);
 });
