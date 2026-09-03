@@ -1794,6 +1794,7 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
             <DrawerSection title="Invite">
               <div className="grid gap-3 sm:grid-cols-2">
                 <InfoRow label="Email" value={selectedInvite.email} />
+                <InfoRow label="Title" value={selectedInvite.title} />
                 <InfoRow label="Role" value={roleLabel(selectedInvite.role)} />
                 <InfoRow label="Created" value={dateLabel(selectedInvite.createdAt)} />
                 <InfoRow label="Expires" value={dateLabel(selectedInvite.expiresAt)} />
@@ -1823,7 +1824,7 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
   );
 }
 
-function UserAccessEditor({
+export function UserAccessEditor({
   data,
   currentUser,
   selectedUser,
@@ -1838,13 +1839,17 @@ function UserAccessEditor({
   const canManageAssignments = canManageUserAssignments(currentUser, selectedUser);
   const [hubIds, setHubIds] = useState(selectedUser.hubIds);
   const [teamIds, setTeamIds] = useState(selectedUser.teamIds);
+  const [profileTitle, setProfileTitle] = useState(selectedUser.title ?? "");
+  const [savingTitle, setSavingTitle] = useState(false);
   const [savingAssignments, setSavingAssignments] = useState(false);
 
   useEffect(() => {
     setHubIds(selectedUser.hubIds);
     setTeamIds(selectedUser.teamIds);
+    setProfileTitle(selectedUser.title ?? "");
+    setSavingTitle(false);
     setSavingAssignments(false);
-  }, [selectedUser.id, selectedUser.hubIds, selectedUser.teamIds]);
+  }, [selectedUser.id, selectedUser.hubIds, selectedUser.teamIds, selectedUser.title]);
 
   if (!canManageFully && !canManageAssignments) {
     return <EmptyLine label="You cannot manage this user from your current role" />;
@@ -1877,8 +1882,49 @@ function UserAccessEditor({
     }
   }
 
+  async function saveTitle() {
+    setSavingTitle(true);
+    try {
+      await runAction("adminUpdateUserAccess", {
+        targetUserId: selectedUser.id,
+        profilePatch: { title: profileTitle.trim() || null }
+      });
+    } finally {
+      setSavingTitle(false);
+    }
+  }
+
   return (
     <div className="grid gap-4">
+      {canManageFully && (
+        <div className="grid gap-3 rounded-2xl border border-line/80 bg-white p-4 shadow-sm">
+          <div>
+            <p className="text-sm font-extrabold text-ink">Profile title</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-muted">Shown in Contacts and on this member’s profile.</p>
+          </div>
+          <Field label="Title">
+            <Input
+              value={profileTitle}
+              maxLength={120}
+              autoComplete="organization-title"
+              placeholder="Director of Officiating"
+              disabled={savingTitle}
+              onChange={(event) => setProfileTitle(event.target.value)}
+            />
+          </Field>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={savingTitle || profileTitle.trim() === (selectedUser.title ?? "").trim()}
+              aria-busy={savingTitle}
+              onClick={saveTitle}
+            >
+              <Save className="size-4" aria-hidden />{savingTitle ? "Saving…" : "Save title"}
+            </Button>
+          </div>
+        </div>
+      )}
       {selectedUser.role === "superAdmin" && (
         <div className="rounded-xl border border-sky/20 bg-sky/[0.06] p-3.5 text-sm font-semibold leading-5 text-ink">
           Admins automatically have organization-wide access to every league, hub, and team. Recorded assignments are optional and can be useful if this person’s role changes later.
@@ -1962,7 +2008,7 @@ function UserAccessEditor({
   );
 }
 
-function CreateInviteDrawer({
+export function CreateInviteDrawer({
   open,
   data,
   currentUser,
@@ -1978,6 +2024,7 @@ function CreateInviteDrawer({
   const [inviteRole, setInviteRole] = useState<UserRole>("staff");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
+  const [inviteTitle, setInviteTitle] = useState("");
   const [inviteHubIds, setInviteHubIds] = useState<string[]>([]);
   const [inviteTeamIds, setInviteTeamIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -1989,6 +2036,7 @@ function CreateInviteDrawer({
       const result = await runAction("adminCreateInvitation", {
         email: inviteEmail,
         displayName: inviteName || undefined,
+        title: inviteTitle.trim() || undefined,
         role: inviteRole,
         hubIds: inviteHubIds,
         teamIds: inviteTeamIds
@@ -1996,6 +2044,7 @@ function CreateInviteDrawer({
       if (!result.ok) return;
       setInviteEmail("");
       setInviteName("");
+      setInviteTitle("");
       setInviteRole("staff");
       setInviteHubIds([]);
       setInviteTeamIds([]);
@@ -2010,6 +2059,7 @@ function CreateInviteDrawer({
       <form className="grid gap-4" onSubmit={submitInvite}>
         <Field label="Email"><Input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required /></Field>
         <Field label="Name" hint="Optional"><Input value={inviteName} onChange={(event) => setInviteName(event.target.value)} /></Field>
+        <Field label="Title" hint="Optional"><Input value={inviteTitle} maxLength={120} autoComplete="organization-title" placeholder="Director of Officiating" onChange={(event) => setInviteTitle(event.target.value)} /></Field>
         <RoleSelector
           roles={assignableRoles(currentUser)}
           value={inviteRole}

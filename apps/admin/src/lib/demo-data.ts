@@ -94,6 +94,7 @@ export const demoData: AdminData = {
       orgId: "org-demo",
       email: "coach@example.com",
       displayName: "Coach New",
+      title: "Head Coach",
       role: "managerAdmin",
       leagueIds: ["league-winter"],
       hubIds: ["hub-calgary"],

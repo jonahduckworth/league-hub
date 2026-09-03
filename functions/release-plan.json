@@ -1,11 +1,8 @@
 {
   "all": false,
   "targets": [
-    "onAnnouncementCreated",
-    "onAnnouncementEmailCreated",
-    "onInvitationEmailCreated",
-    "submitLandingContact",
-    "onMessageReportCreated"
+    "adminCreateInvitation",
+    "onUserCreatedFromInvitation"
   ],
-  "reason": "Add preference-aware announcement push and email delivery, then migrate every existing League Hub Resend sender to no-reply@leaguehub.ca."
+  "reason": "Capture invitation profile titles and copy them to new user profiles when invitations are accepted."
 }

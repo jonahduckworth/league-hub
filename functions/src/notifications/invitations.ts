@@ -8,6 +8,7 @@ import {
   classifyInvitationDeliveryFailure,
   invitationExpiresAt,
   invitationIdempotencyKey,
+  invitationProfileTitleForUser,
   normalizeInvitationRecipient,
   normalizeInvitationToken,
 } from "../invitationEmailLogic";
@@ -84,6 +85,7 @@ function sameInvitee(
 async function markInvitationAcceptedFromUser(
   orgId: string,
   invitationId: string,
+  userRef: FirebaseFirestore.DocumentReference,
   userData: FirebaseFirestore.DocumentData,
 ): Promise<void> {
   const invitationRef = db
@@ -97,17 +99,24 @@ async function markInvitationAcceptedFromUser(
     if (!invitationDoc.exists) return;
 
     const invitationData = invitationDoc.data() ?? {};
-    if (invitationData.status !== "pending") return;
+    if (invitationData.status !== "pending" && invitationData.status !== "accepted") return;
     if (!sameInvitee(userData, invitationData, orgId)) return;
 
-    transaction.update(invitationRef, { status: "accepted" });
-    const token = stringValue(invitationData.token);
-    if (token) {
-      transaction.set(
-        db.collection("invitationLookups").doc(token),
-        { status: "accepted" },
-        { merge: true },
-      );
+    if (invitationData.status === "pending") {
+      transaction.update(invitationRef, { status: "accepted" });
+      const token = stringValue(invitationData.token);
+      if (token) {
+        transaction.set(
+          db.collection("invitationLookups").doc(token),
+          { status: "accepted" },
+          { merge: true },
+        );
+      }
+    }
+
+    const title = invitationProfileTitleForUser(invitationData.title, userData.title);
+    if (title) {
+      transaction.update(userRef, { title });
     }
   });
 }
@@ -365,6 +374,11 @@ export const onUserCreatedFromInvitation = onFirestoreCreated(
     const acceptedInvitationId = stringValue(userData.acceptedInvitationId);
     if (!orgId || !acceptedInvitationId) return;
 
-    await markInvitationAcceptedFromUser(orgId, acceptedInvitationId, userData);
+    await markInvitationAcceptedFromUser(
+      orgId,
+      acceptedInvitationId,
+      snapshot.ref,
+      userData,
+    );
   },
 );

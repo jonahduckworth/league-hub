@@ -22,6 +22,7 @@ export type InvitationDeliveryFailure = {
 };
 
 export const invitationLifetimeMs = 7 * 24 * 60 * 60 * 1000;
+export const invitationProfileTitleMaxLength = 120;
 
 export function invitationExpiresAt(createdAt: Date): Date {
   return new Date(createdAt.getTime() + invitationLifetimeMs);
@@ -55,6 +56,25 @@ export function normalizeInvitationRecipient(value: unknown): string | null {
   if (email.length === 0 || email.length > 254) return null;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
   return email;
+}
+
+export function normalizeInvitationProfileTitle(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const title = value.trim();
+  if (title.length === 0 || title.length > invitationProfileTitleMaxLength) {
+    return null;
+  }
+  return title;
+}
+
+export function invitationProfileTitleForUser(
+  invitationTitle: unknown,
+  existingUserTitle: unknown,
+): string | null {
+  if (typeof existingUserTitle === "string" && existingUserTitle.trim().length > 0) {
+    return null;
+  }
+  return normalizeInvitationProfileTitle(invitationTitle);
 }
 
 export function normalizeInvitationToken(value: unknown): string | null {
