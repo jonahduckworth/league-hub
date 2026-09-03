@@ -5,8 +5,10 @@ import {
   MultiTeamTarget,
   belongsToMultiTeamEventRoomAudience,
   canCreateMultiTeamEventRoom,
+  canEditMultiTeamEventRoomAudience,
   maximumMultiTeamEventRoomTeams,
   multiTeamLegacyScopeSentinel,
+  sameMultiTeamAudience,
 } from "./multiTeamEventRoomLogic";
 
 type RequestRecord = Record<string, unknown>;
@@ -59,6 +61,21 @@ function parseTargets(value: unknown): MultiTeamTarget[] {
     throw new HttpsError("invalid-argument", "Each selected team must be unique.");
   }
   return targets;
+}
+
+function parseTeamIds(value: unknown, field: string): string[] {
+  if (!Array.isArray(value) || value.length === 0 ||
+      value.length > maximumMultiTeamEventRoomTeams) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${field} must contain between 1 and ${maximumMultiTeamEventRoomTeams} team IDs.`,
+    );
+  }
+  const ids = value.map((item, index) => requiredString(item, `${field}[${index}]`));
+  if (new Set(ids).size !== ids.length) {
+    throw new HttpsError("invalid-argument", `${field} must contain unique team IDs.`);
+  }
+  return ids;
 }
 
 export const createMultiTeamEventRoom = onCall(runtime, async (request: CallableRequest) => {
@@ -154,3 +171,144 @@ export const createMultiTeamEventRoom = onCall(runtime, async (request: Callable
 
   return {roomId: roomRef.id};
 });
+
+export const adminUpdateEventRoomAudience = onCall(
+  runtime,
+  async (request: CallableRequest) => {
+    const userId = request.auth?.uid;
+    if (!userId) throw new HttpsError("unauthenticated", "Sign in is required.");
+    if (request.data == null || typeof request.data !== "object" ||
+        Array.isArray(request.data)) {
+      throw new HttpsError("invalid-argument", "Room details are required.");
+    }
+
+    const data = request.data as RequestRecord;
+    const supportedFields = new Set([
+      "orgId", "roomId", "expectedTeamIds", "teams",
+    ]);
+    if (Object.keys(data).some((field) => !supportedFields.has(field))) {
+      throw new HttpsError("invalid-argument", "Room details include unsupported fields.");
+    }
+    const orgId = requiredString(data.orgId, "orgId");
+    const roomId = requiredString(data.roomId, "roomId");
+    const expectedTeamIds = parseTeamIds(data.expectedTeamIds, "expectedTeamIds");
+    const targets = parseTargets(data.teams);
+
+    const actorSnapshot = await db.collection("users").doc(userId).get();
+    const actor = actorSnapshot.data();
+    if (!actorSnapshot.exists ||
+        !canEditMultiTeamEventRoomAudience(actor ?? {}, orgId)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only a Platform Owner or organization Admin can edit Event Room teams.",
+      );
+    }
+
+    const roomRef = db.collection("organizations").doc(orgId)
+      .collection("chatRooms").doc(roomId);
+    const initialRoomSnapshot = await roomRef.get();
+    const initialRoom = initialRoomSnapshot.data();
+    const leagueId = typeof initialRoom?.leagueId === "string" ?
+      initialRoom.leagueId.trim() : "";
+    if (!initialRoomSnapshot.exists || initialRoom?.orgId !== orgId ||
+        initialRoom?.type !== "event" ||
+        (initialRoom?.roomPurpose != null && initialRoom.roomPurpose !== "event") ||
+        initialRoom?.isArchived === true || !leagueId ||
+        !Array.isArray(initialRoom?.teamIds)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Only active multi-team Event Rooms can have their teams edited.",
+      );
+    }
+    if (!sameMultiTeamAudience(initialRoom.teamIds, expectedTeamIds)) {
+      throw new HttpsError(
+        "aborted",
+        "This Event Room changed after it was opened. Refresh and try again.",
+      );
+    }
+
+    const teamRefs = targets.map((target) => db
+      .collection("organizations").doc(orgId)
+      .collection("leagues").doc(leagueId)
+      .collection("hubs").doc(target.hubId)
+      .collection("teams").doc(target.teamId));
+    const teamSnapshots = await db.getAll(...teamRefs);
+    for (let index = 0; index < teamSnapshots.length; index += 1) {
+      const team = teamSnapshots[index].data();
+      const target = targets[index];
+      if (!teamSnapshots[index].exists || team?.orgId !== orgId ||
+          team?.leagueId !== leagueId || team?.hubId !== target.hubId) {
+        throw new HttpsError(
+          "invalid-argument",
+          `Team ${target.teamId} is not in the Event Room league and Hub.`,
+        );
+      }
+    }
+
+    const usersSnapshot = await db.collection("users")
+      .where("orgId", "==", orgId)
+      .where("isActive", "==", true)
+      .get();
+    const participantIds = usersSnapshot.docs
+      .filter((snapshot) => belongsToMultiTeamEventRoomAudience(
+        {...snapshot.data(), id: snapshot.id},
+        orgId,
+        targets,
+      ))
+      .map((snapshot) => snapshot.id);
+    if (!participantIds.includes(userId)) participantIds.push(userId);
+
+    const hubIds = [...new Set(targets.map((target) => target.hubId))];
+    const teamIds = targets.map((target) => target.teamId);
+    const added = teamIds.filter((id) => !expectedTeamIds.includes(id));
+    const removed = expectedTeamIds.filter((id) => !teamIds.includes(id));
+    const auditRef = db.collection("organizations").doc(orgId)
+      .collection("auditLogs").doc();
+
+    await db.runTransaction(async (transaction) => {
+      const roomSnapshot = await transaction.get(roomRef);
+      const room = roomSnapshot.data();
+      if (!roomSnapshot.exists || room?.orgId !== orgId ||
+          room?.type !== "event" ||
+          (room?.roomPurpose != null && room.roomPurpose !== "event") ||
+          room?.leagueId !== leagueId || room?.isArchived === true ||
+          !Array.isArray(room?.teamIds)) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Only active multi-team Event Rooms can have their teams edited.",
+        );
+      }
+      if (!sameMultiTeamAudience(room.teamIds, expectedTeamIds)) {
+        throw new HttpsError(
+          "aborted",
+          "This Event Room changed after it was opened. Refresh and try again.",
+        );
+      }
+
+      transaction.update(roomRef, {
+        hubIds,
+        teamIds,
+        participants: participantIds,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: userId,
+      });
+      transaction.set(auditRef, {
+        action: "adminUpdateEventRoomAudience",
+        actorId: userId,
+        actorName: actor?.displayName ?? actor?.email ?? userId,
+        actorEmail: actor?.email ?? null,
+        actorRole: actor?.role,
+        request: {roomId, expectedTeamIds, teamIds},
+        result: {roomId, addedTeamIds: added, removedTeamIds: removed},
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    return {
+      roomId,
+      addedTeamIds: added,
+      removedTeamIds: removed,
+      participantCount: participantIds.length,
+    };
+  },
+);

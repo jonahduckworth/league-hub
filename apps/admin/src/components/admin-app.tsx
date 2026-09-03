@@ -3334,6 +3334,111 @@ function ChatRoomsSection({
   );
 }
 
+function EventRoomTeamSelector({
+  data,
+  leagueId,
+  selectedTeamIds,
+  disabled,
+  onChange,
+  onLimitMessage
+}: {
+  data: AdminData;
+  leagueId: string;
+  selectedTeamIds: Set<string>;
+  disabled: boolean;
+  onChange: (teamIds: Set<string>) => void;
+  onLimitMessage: (message: string | null) => void;
+}) {
+  const leagueTeams = data.teams
+    .filter((team) => team.leagueId === leagueId)
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const leagueHubs = data.hubs
+    .filter((hub) => hub.leagueId === leagueId)
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  function toggleTeam(teamId: string, checked: boolean) {
+    if (checked && !selectedTeamIds.has(teamId) && selectedTeamIds.size >= 50) {
+      onLimitMessage("Event Rooms can include up to 50 teams.");
+      return;
+    }
+    onLimitMessage(null);
+    const next = new Set(selectedTeamIds);
+    if (checked) next.add(teamId);
+    else next.delete(teamId);
+    onChange(next);
+  }
+
+  function selectHubTeams(hubId: string) {
+    const hubTeams = leagueTeams.filter((team) => team.hubId === hubId);
+    const unselectedHubTeams = hubTeams.filter((team) => !selectedTeamIds.has(team.id));
+    const availableSlots = 50 - selectedTeamIds.size;
+    onLimitMessage(unselectedHubTeams.length > availableSlots ? "Only the first 50 selected teams were added." : null);
+    const next = new Set(selectedTeamIds);
+    for (const team of hubTeams) {
+      if (next.size >= 50) break;
+      next.add(team.id);
+    }
+    onChange(next);
+  }
+
+  function clearHubTeams(hubId: string) {
+    onLimitMessage(null);
+    const next = new Set(selectedTeamIds);
+    leagueTeams.filter((team) => team.hubId === hubId).forEach((team) => next.delete(team.id));
+    onChange(next);
+  }
+
+  if (leagueHubs.length === 0) {
+    return (
+      <div role="note" className="rounded-2xl border border-amber/25 bg-amber/[0.08] p-4 text-sm font-semibold leading-6 text-[#854d0e]">
+        This league has no teams yet. Add teams in Structure before configuring an Event Room.
+      </div>
+    );
+  }
+
+  return (
+    <fieldset className="grid gap-3">
+      <legend className="sr-only">Teams included in this Event Room</legend>
+      {leagueHubs.map((hub) => {
+        const hubTeams = leagueTeams.filter((team) => team.hubId === hub.id);
+        if (hubTeams.length === 0) return null;
+        const selectedInHub = hubTeams.filter((team) => selectedTeamIds.has(team.id)).length;
+        return (
+          <div key={hub.id} className="overflow-hidden rounded-2xl border border-line bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/70 bg-[#f8fafc] px-4 py-3">
+              <div>
+                <p className="text-sm font-extrabold text-ink">{hub.name}</p>
+                <p className="mt-0.5 text-xs font-semibold text-muted">{selectedInHub}/{hubTeams.length} selected</p>
+              </div>
+              <div className="flex gap-1.5">
+                <Button type="button" variant="ghost" className="min-h-9 px-2.5 py-1.5 text-xs" disabled={disabled} onClick={() => selectHubTeams(hub.id)}>Select all</Button>
+                {selectedInHub > 0 && <Button type="button" variant="ghost" className="min-h-9 px-2.5 py-1.5 text-xs" disabled={disabled} onClick={() => clearHubTeams(hub.id)}>Clear</Button>}
+              </div>
+            </div>
+            <div className="grid gap-1 p-2">
+              {hubTeams.map((team) => (
+                <label key={team.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-[#f8fafc] focus-within:bg-teal/[0.04]">
+                  <input
+                    type="checkbox"
+                    className="size-5 shrink-0 accent-teal"
+                    checked={selectedTeamIds.has(team.id)}
+                    onChange={(event) => toggleTeam(team.id, event.target.checked)}
+                    disabled={disabled}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-ink">{team.name}</span>
+                    {(team.ageGroup || team.division) && <span className="mt-0.5 block text-xs font-semibold text-muted">{[team.ageGroup, team.division].filter(Boolean).join(" · ")}</span>}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </fieldset>
+  );
+}
+
 export function CreateEventRoomDrawer({
   open,
   data,
@@ -3372,52 +3477,8 @@ export function CreateEventRoomDrawer({
   const leagueTeams = data.teams
     .filter((team) => team.leagueId === leagueId)
     .sort((left, right) => left.name.localeCompare(right.name));
-  const leagueHubs = data.hubs
-    .filter((hub) => hub.leagueId === leagueId)
-    .sort((left, right) => left.name.localeCompare(right.name));
   const selectedTeams = leagueTeams.filter((team) => selectedTeamIds.has(team.id));
   const selectedHubIds = new Set(selectedTeams.map((team) => team.hubId));
-
-  function toggleTeam(teamId: string, checked: boolean) {
-    if (checked && !selectedTeamIds.has(teamId) && selectedTeamIds.size >= 50) {
-      setFormError("Event Rooms can include up to 50 teams.");
-      return;
-    }
-    setFormError(null);
-    setSelectedTeamIds((current) => {
-      const next = new Set(current);
-      if (checked) {
-        next.add(teamId);
-      } else {
-        next.delete(teamId);
-      }
-      return next;
-    });
-  }
-
-  function selectHubTeams(hubId: string) {
-    const hubTeams = leagueTeams.filter((team) => team.hubId === hubId);
-    const unselectedHubTeams = hubTeams.filter((team) => !selectedTeamIds.has(team.id));
-    const availableSlots = 50 - selectedTeamIds.size;
-    setFormError(unselectedHubTeams.length > availableSlots ? "Only the first 50 selected teams were added." : null);
-    setSelectedTeamIds((current) => {
-      const next = new Set(current);
-      for (const team of hubTeams) {
-        if (next.size >= 50) break;
-        next.add(team.id);
-      }
-      return next;
-    });
-  }
-
-  function clearHubTeams(hubId: string) {
-    setFormError(null);
-    setSelectedTeamIds((current) => {
-      const next = new Set(current);
-      leagueTeams.filter((team) => team.hubId === hubId).forEach((team) => next.delete(team.id));
-      return next;
-    });
-  }
 
   function chooseImage(file?: File) {
     setFormError(null);
@@ -3563,51 +3624,14 @@ export function CreateEventRoomDrawer({
               Selected team members and managers assigned to a selected Hub will have access. Maximum 50 teams.
             </p>
           </div>
-          {leagueHubs.length > 0 ? (
-            <fieldset className="grid gap-3">
-              <legend className="sr-only">Teams included in this Event Room</legend>
-              {leagueHubs.map((hub) => {
-                const hubTeams = leagueTeams.filter((team) => team.hubId === hub.id);
-                if (hubTeams.length === 0) return null;
-                const selectedInHub = hubTeams.filter((team) => selectedTeamIds.has(team.id)).length;
-                return (
-                  <div key={hub.id} className="overflow-hidden rounded-2xl border border-line bg-white">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/70 bg-[#f8fafc] px-4 py-3">
-                      <div>
-                        <p className="text-sm font-extrabold text-ink">{hub.name}</p>
-                        <p className="mt-0.5 text-xs font-semibold text-muted">{selectedInHub}/{hubTeams.length} selected</p>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <Button type="button" variant="ghost" className="min-h-9 px-2.5 py-1.5 text-xs" disabled={submitting || Boolean(createdRoomId)} onClick={() => selectHubTeams(hub.id)}>Select all</Button>
-                        {selectedInHub > 0 && <Button type="button" variant="ghost" className="min-h-9 px-2.5 py-1.5 text-xs" disabled={submitting || Boolean(createdRoomId)} onClick={() => clearHubTeams(hub.id)}>Clear</Button>}
-                      </div>
-                    </div>
-                    <div className="grid gap-1 p-2">
-                      {hubTeams.map((team) => (
-                        <label key={team.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-[#f8fafc] focus-within:bg-teal/[0.04]">
-                          <input
-                            type="checkbox"
-                            className="size-5 shrink-0 accent-teal"
-                            checked={selectedTeamIds.has(team.id)}
-                            onChange={(event) => toggleTeam(team.id, event.target.checked)}
-                            disabled={submitting || Boolean(createdRoomId)}
-                          />
-                          <span className="min-w-0">
-                            <span className="block text-sm font-bold text-ink">{team.name}</span>
-                            {(team.ageGroup || team.division) && <span className="mt-0.5 block text-xs font-semibold text-muted">{[team.ageGroup, team.division].filter(Boolean).join(" · ")}</span>}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </fieldset>
-          ) : (
-            <div role="note" className="rounded-2xl border border-amber/25 bg-amber/[0.08] p-4 text-sm font-semibold leading-6 text-[#854d0e]">
-              This league has no teams yet. Add teams in Structure before creating an Event Room.
-            </div>
-          )}
+          <EventRoomTeamSelector
+            data={data}
+            leagueId={leagueId}
+            selectedTeamIds={selectedTeamIds}
+            disabled={submitting || Boolean(createdRoomId)}
+            onChange={setSelectedTeamIds}
+            onLimitMessage={setFormError}
+          />
         </DrawerSection>
 
         <DrawerSection title="Room photo">
@@ -3686,7 +3710,14 @@ export function ChatRoomDrawer({
   const [roomImageError, setRoomImageError] = useState<string | null>(null);
   const [roomImageSaving, setRoomImageSaving] = useState(false);
   const [roomImageUncertain, setRoomImageUncertain] = useState(false);
+  const [audienceBaselineIds, setAudienceBaselineIds] = useState<string[]>([]);
+  const [audienceTeamIds, setAudienceTeamIds] = useState<Set<string>>(new Set());
+  const [audienceSaving, setAudienceSaving] = useState(false);
+  const [audienceError, setAudienceError] = useState<string | null>(null);
+  const [audienceSaved, setAudienceSaved] = useState(false);
+  const [confirmingAudienceRemoval, setConfirmingAudienceRemoval] = useState(false);
   const archiveCancelRef = useRef<HTMLButtonElement>(null);
+  const audienceCancelRef = useRef<HTMLButtonElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -3703,6 +3734,13 @@ export function ChatRoomDrawer({
     setRoomImageError(null);
     setRoomImageSaving(false);
     setRoomImageUncertain(false);
+    const initialTeamIds = room?.teamIds ?? [];
+    setAudienceBaselineIds(initialTeamIds);
+    setAudienceTeamIds(new Set(initialTeamIds));
+    setAudienceSaving(false);
+    setAudienceError(null);
+    setAudienceSaved(false);
+    setConfirmingAudienceRemoval(false);
   }, [room]);
 
   useEffect(() => {
@@ -3710,6 +3748,12 @@ export function ChatRoomDrawer({
     const focusFrame = window.requestAnimationFrame(() => archiveCancelRef.current?.focus({ preventScroll: true }));
     return () => window.cancelAnimationFrame(focusFrame);
   }, [confirmingArchive]);
+
+  useEffect(() => {
+    if (!confirmingAudienceRemoval) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => audienceCancelRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [confirmingAudienceRemoval]);
 
   const managed = room?.type !== "direct";
   const orgId = room?.orgId ?? data.selectedOrg?.id;
@@ -3723,6 +3767,21 @@ export function ChatRoomDrawer({
   const audienceHubs = room?.hubIds?.map((hubId) => data.hubs.find((item) => item.id === hubId)?.name).filter(Boolean) ?? [];
   const audienceTeams = room?.teamIds?.map((teamId) => data.teams.find((item) => item.id === teamId)?.name).filter(Boolean) ?? [];
   const structureSynced = Boolean(room?.type === "league" && room.hubId);
+  const editableEventAudience = Boolean(
+    room?.type === "event" &&
+    (room.roomPurpose == null || room.roomPurpose === "event") &&
+    room.leagueId &&
+    room.teamIds &&
+    currentUser.isActive &&
+    (currentUser.role === "platformOwner" || currentUser.role === "superAdmin")
+  );
+  const selectedAudienceTeams = data.teams
+    .filter((item) => item.leagueId === room?.leagueId && audienceTeamIds.has(item.id))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const effectiveAudienceIds = new Set(selectedAudienceTeams.map((item) => item.id));
+  const addedAudienceIds = [...effectiveAudienceIds].filter((id) => !audienceBaselineIds.includes(id));
+  const removedAudienceIds = audienceBaselineIds.filter((id) => !effectiveAudienceIds.has(id));
+  const audienceChanged = addedAudienceIds.length > 0 || removedAudienceIds.length > 0;
 
   useEffect(() => {
     if (conversation.loading || conversation.messages.length === 0) return;
@@ -3758,6 +3817,37 @@ export function ChatRoomDrawer({
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveAudience(confirmedRemoval = false) {
+    if (!room || !editableEventAudience || audienceSaving) return;
+    setAudienceError(null);
+    setAudienceSaved(false);
+    if (selectedAudienceTeams.length === 0) {
+      setAudienceError("Select at least one team. Event Rooms cannot have an empty audience.");
+      return;
+    }
+    if (removedAudienceIds.length > 0 && !confirmedRemoval) {
+      setConfirmingAudienceRemoval(true);
+      return;
+    }
+
+    setAudienceSaving(true);
+    setConfirmingAudienceRemoval(false);
+    const result = await runAction("adminUpdateEventRoomAudience", {
+      roomId: room.id,
+      expectedTeamIds: audienceBaselineIds,
+      teams: selectedAudienceTeams.map((item) => ({ hubId: item.hubId, teamId: item.id }))
+    });
+    if (result.ok) {
+      const nextIds = selectedAudienceTeams.map((item) => item.id);
+      setAudienceBaselineIds(nextIds);
+      setAudienceTeamIds(new Set(nextIds));
+      setAudienceSaved(true);
+    } else {
+      setAudienceError(result.error);
+    }
+    setAudienceSaving(false);
   }
 
   async function archive() {
@@ -3903,6 +3993,58 @@ export function ChatRoomDrawer({
               <InfoRow label="Messages" value={room.lastMessageAt ? <RelativeTime value={room.lastMessageAt} /> : "No messages yet"} />
             </div>
           </DrawerSection>
+          {editableEventAudience && room.leagueId && (
+            <DrawerSection title="Team access">
+              <div role="status" aria-live="polite" className="rounded-2xl border border-teal/20 bg-teal/[0.055] px-4 py-3">
+                <p className="text-sm font-extrabold text-ink">
+                  {pluralize(selectedAudienceTeams.length, "team")} selected
+                </p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-muted">
+                  Added teams can read the room’s complete message history. Removed teams lose access immediately; existing messages are not deleted.
+                </p>
+                {audienceChanged && (
+                  <p className="mt-2 text-xs font-extrabold text-teal">
+                    {pluralize(addedAudienceIds.length, "team")} added · {pluralize(removedAudienceIds.length, "team")} removed
+                  </p>
+                )}
+              </div>
+              <EventRoomTeamSelector
+                data={data}
+                leagueId={room.leagueId}
+                selectedTeamIds={audienceTeamIds}
+                disabled={audienceSaving}
+                onChange={(next) => {
+                  setAudienceTeamIds(next);
+                  setAudienceSaved(false);
+                  setConfirmingAudienceRemoval(false);
+                }}
+                onLimitMessage={setAudienceError}
+              />
+              {confirmingAudienceRemoval ? (
+                <div className="rounded-2xl border border-coral/25 bg-coral/[0.06] p-3.5">
+                  <p className="text-sm font-extrabold text-[#912f2a]">Remove access for {pluralize(removedAudienceIds.length, "team")}?</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#a14a45]">Their members will no longer be able to open this room. Message history stays intact.</p>
+                  <div className="mt-3 flex gap-2">
+                    <Button ref={audienceCancelRef} type="button" variant="secondary" className="flex-1" disabled={audienceSaving} onClick={() => setConfirmingAudienceRemoval(false)}>Cancel</Button>
+                    <Button type="button" variant="danger" className="flex-1" disabled={audienceSaving} onClick={() => saveAudience(true)}>
+                      {audienceSaving ? "Saving…" : "Confirm removal"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={audienceSaving || !audienceChanged || selectedAudienceTeams.length === 0}
+                  onClick={() => saveAudience()}
+                >
+                  {audienceSaving ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <Save className="size-4" aria-hidden />}
+                  {audienceSaving ? "Saving team access…" : "Save team access"}
+                </Button>
+              )}
+              {audienceSaved && <StatusNotice tone="success" message="Event Room team access updated. Message history was preserved." />}
+              {audienceError && <StatusNotice tone="error" message={audienceError} />}
+            </DrawerSection>
+          )}
           {room.type === "event" && (
             <DrawerSection title="Room photo">
               <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">

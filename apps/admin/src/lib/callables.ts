@@ -27,6 +27,7 @@ export type CallableName =
   | "adminDeleteMessage"
   | "adminSyncSchedule"
   | "adminUpdateScheduleIntegration"
+  | "adminUpdateEventRoomAudience"
   | "createMultiTeamEventRoom";
 
 export async function callAdmin<T = unknown>(name: CallableName, data: Record<string, unknown>): Promise<T> {

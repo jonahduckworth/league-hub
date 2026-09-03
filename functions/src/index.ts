@@ -52,7 +52,10 @@ export { syncRampSchedules } from "./schedule/rampSync";
 export { submitLandingContact } from "./landingContact";
 export { deleteOwnAccount } from "./accountDeletion";
 export { onMessageReportCreated } from "./messageReports";
-export { createMultiTeamEventRoom } from "./multiTeamEventRooms";
+export {
+  adminUpdateEventRoomAudience,
+  createMultiTeamEventRoom,
+} from "./multiTeamEventRooms";
 export {
   onHubStructureWritten,
   onStructureChatRoomCreated,
