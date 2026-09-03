@@ -3,7 +3,9 @@ const test = require("node:test");
 const {
   belongsToMultiTeamEventRoomAudience,
   canCreateMultiTeamEventRoom,
+  canEditMultiTeamEventRoomAudience,
   maximumMultiTeamEventRoomTeams,
+  sameMultiTeamAudience,
 } = require("../lib/multiTeamEventRoomLogic");
 
 const targets = [
@@ -67,4 +69,41 @@ test("multi-team audience includes selected teams and selected-Hub managers only
 
 test("multi-team Event Rooms use the documented 50-team limit", () => {
   assert.equal(maximumMultiTeamEventRoomTeams, 50);
+});
+
+test("only active Platform Owners and same-organization Admins can edit audiences", () => {
+  assert.equal(canEditMultiTeamEventRoomAudience({
+    role: "platformOwner",
+    isActive: true,
+  }, "org-1"), true);
+  assert.equal(canEditMultiTeamEventRoomAudience({
+    role: "superAdmin",
+    orgId: "org-1",
+    isActive: true,
+  }, "org-1"), true);
+  assert.equal(canEditMultiTeamEventRoomAudience({
+    role: "superAdmin",
+    orgId: "org-2",
+    isActive: true,
+  }, "org-1"), false);
+  assert.equal(canEditMultiTeamEventRoomAudience({
+    role: "managerAdmin",
+    orgId: "org-1",
+    isActive: true,
+  }, "org-1"), false);
+  assert.equal(canEditMultiTeamEventRoomAudience({
+    role: "staff",
+    orgId: "org-1",
+    isActive: true,
+  }, "org-1"), false);
+  assert.equal(canEditMultiTeamEventRoomAudience({
+    role: "platformOwner",
+    isActive: false,
+  }, "org-1"), false);
+});
+
+test("audience comparisons ignore ordering but reject drift and duplicates", () => {
+  assert.equal(sameMultiTeamAudience(["team-1", "team-2"], ["team-2", "team-1"]), true);
+  assert.equal(sameMultiTeamAudience(["team-1"], ["team-2"]), false);
+  assert.equal(sameMultiTeamAudience(["team-1", "team-1"], ["team-1", "team-2"]), false);
 });

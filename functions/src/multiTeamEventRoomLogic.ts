@@ -8,6 +8,8 @@ export type MultiTeamTarget = {
 
 export type MultiTeamActor = {
   role?: string;
+  orgId?: string;
+  isActive?: boolean;
   hubIds?: unknown;
   teamIds?: unknown;
 };
@@ -30,6 +32,24 @@ export function canCreateMultiTeamEventRoom(
   if (actor.role !== "managerAdmin") return false;
   return targets.every((target) => hasId(actor.teamIds, target.teamId)) ||
     targets.every((target) => hasId(actor.hubIds, target.hubId));
+}
+
+export function canEditMultiTeamEventRoomAudience(
+  actor: MultiTeamActor,
+  orgId: string,
+): boolean {
+  if (actor.isActive !== true) return false;
+  if (actor.role === "platformOwner") return true;
+  return actor.role === "superAdmin" && actor.orgId === orgId;
+}
+
+export function sameMultiTeamAudience(
+  left: string[],
+  right: string[],
+): boolean {
+  if (left.length !== right.length) return false;
+  const leftIds = new Set(left);
+  return leftIds.size === right.length && right.every((id) => leftIds.has(id));
 }
 
 export function belongsToMultiTeamEventRoomAudience(
