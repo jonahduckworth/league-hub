@@ -398,6 +398,92 @@ describe("AdminApp operations shell", () => {
     }));
   });
 
+  it("adds and removes teams from an existing Event Room with removal confirmation", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: {} });
+    const room = {
+      id: "showcase-room",
+      orgId: "org-demo",
+      name: "Provincial Showcase",
+      type: "event" as const,
+      roomPurpose: "event" as const,
+      leagueId: "league-winter",
+      hubId: "__multi_team__",
+      teamId: "__multi_team__",
+      hubIds: ["hub-calgary"],
+      teamIds: ["team-u11-aa"],
+      participants: [],
+      isArchived: false,
+      roomImageUrl: null
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
+    expect(within(drawer).getByText(/complete message history/i)).toBeTruthy();
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Red Deer U13 A/i }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Save team access" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("adminUpdateEventRoomAudience", {
+      roomId: "showcase-room",
+      expectedTeamIds: ["team-u11-aa"],
+      teams: [
+        { hubId: "hub-calgary", teamId: "team-u11-aa" },
+        { hubId: "hub-reddeer", teamId: "team-u13-a" }
+      ]
+    }));
+    expect(await within(drawer).findByText(/Message history was preserved/i)).toBeTruthy();
+
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Calgary U11 AA/i }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Save team access" }));
+    expect(within(drawer).getByText(/Remove access for 1 team/i)).toBeTruthy();
+    expect(runAction).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(drawer).getByRole("button", { name: "Confirm removal" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenLastCalledWith("adminUpdateEventRoomAudience", {
+      roomId: "showcase-room",
+      expectedTeamIds: ["team-u11-aa", "team-u13-a"],
+      teams: [{ hubId: "hub-reddeer", teamId: "team-u13-a" }]
+    }));
+  });
+
+  it("does not expose Event Room team editing to managers", async () => {
+    const manager = { ...demoUser, role: "managerAdmin" as const };
+    const room = {
+      id: "showcase-room",
+      orgId: "org-demo",
+      name: "Provincial Showcase",
+      type: "event" as const,
+      roomPurpose: "event" as const,
+      leagueId: "league-winter",
+      hubIds: ["hub-calgary"],
+      teamIds: ["team-u11-aa"],
+      participants: [],
+      isArchived: false
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={demoData}
+        currentUser={manager}
+        runAction={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
+    expect(within(drawer).queryByRole("button", { name: "Save team access" })).toBeNull();
+    expect(within(drawer).queryByText(/complete message history/i)).toBeNull();
+  });
+
   it("retains an uploaded replacement when its room update result is ambiguous", async () => {
     const runAction = vi.fn().mockResolvedValue({ ok: false, error: "Audit write failed" });
     const room = {
