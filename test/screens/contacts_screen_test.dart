@@ -25,7 +25,6 @@ void main() {
       required String email,
       String? title,
       String? phone,
-      String? address,
       UserRole role = UserRole.staff,
       bool isActive = true,
     }) {
@@ -35,7 +34,6 @@ void main() {
         displayName: name,
         title: title,
         phone: phone,
-        address: address,
         role: role,
         orgId: 'org-1',
         hubIds: const [],
@@ -82,29 +80,32 @@ void main() {
       );
     }
 
-    testWidgets('shows active contacts with titles and no emails',
-        (tester) async {
-      await tester.pumpWidget(buildScreen([
-        user(
-          id: '2',
-          name: 'Zoe Manager',
-          email: 'zoe@example.com',
-          title: 'Head Coach',
-          role: UserRole.managerAdmin,
-        ),
-        user(
-          id: '1',
-          name: 'Alex Staff',
-          email: 'alex@example.com',
-          title: 'Trainer',
-        ),
-        user(
-          id: '3',
-          name: 'Inactive Person',
-          email: 'inactive@example.com',
-          isActive: false,
-        ),
-      ]));
+    testWidgets('shows active contacts with titles and no emails', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildScreen([
+          user(
+            id: '2',
+            name: 'Zoe Manager',
+            email: 'zoe@example.com',
+            title: 'Head Coach',
+            role: UserRole.managerAdmin,
+          ),
+          user(
+            id: '1',
+            name: 'Alex Staff',
+            email: 'alex@example.com',
+            title: 'Trainer',
+          ),
+          user(
+            id: '3',
+            name: 'Inactive Person',
+            email: 'inactive@example.com',
+            isActive: false,
+          ),
+        ]),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Contacts'), findsOneWidget);
@@ -120,18 +121,20 @@ void main() {
       expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
     });
 
-    testWidgets('opens a contact profile with title and contact details',
-        (tester) async {
-      await tester.pumpWidget(buildScreen([
-        user(
-          id: '1',
-          name: 'Alex Staff',
-          email: 'alex@example.com',
-          title: 'Equipment Manager',
-          phone: '555-0144',
-          address: '12 Home Bench',
-        ),
-      ]));
+    testWidgets('opens a contact profile with title and contact details', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildScreen([
+          user(
+            id: '1',
+            name: 'Alex Staff',
+            email: 'alex@example.com',
+            title: 'Equipment Manager',
+            phone: '555-0144',
+          ),
+        ]),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Alex Staff'));
@@ -139,8 +142,8 @@ void main() {
 
       expect(find.text('Equipment Manager'), findsWidgets);
       expect(find.text('555-0144'), findsOneWidget);
-      expect(find.text('12 Home Bench'), findsOneWidget);
-      expect(find.text('alex@example.com'), findsNothing);
+      expect(find.text('alex@example.com'), findsOneWidget);
+      expect(find.text('Address'), findsNothing);
     });
 
     testWidgets('shows empty contact state', (tester) async {

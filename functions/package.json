@@ -8,6 +8,7 @@
     "test:rules": "cd .. && firebase emulators:exec --config firebase.rules-test.json --project demo-league-hub-rules --only firestore,storage \"node --test functions/test/*.rules.js\"",
     "backfill:invitation-expiry": "node scripts/backfill-invitation-expiry.js",
     "migrate:policy-scope": "node scripts/migrate-policy-scope.js",
+    "migrate:remove-profile-addresses": "node scripts/remove-profile-addresses.js",
     "migrate:jphl-structure": "node scripts/reconcile-jphl-structure.js",
     "seed:schedule-emulator": "node scripts/seed-schedule-emulator.js",
     "seed:store-review": "node scripts/seed-store-review-org.js",

@@ -11,19 +11,18 @@ import 'package:league_hub/services/auth_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
 
 AppUser _testUser() => AppUser(
-      id: 'u1',
-      email: 'test@example.com',
-      displayName: 'Test User',
-      title: 'Head Coach',
-      phone: '555-0101',
-      address: '1 Main Arena',
-      role: UserRole.platformOwner,
-      orgId: 'org-1',
-      hubIds: [],
-      teamIds: [],
-      createdAt: DateTime(2025, 1, 1),
-      isActive: true,
-    );
+  id: 'u1',
+  email: 'test@example.com',
+  displayName: 'Test User',
+  title: 'Head Coach',
+  phone: '555-0101',
+  role: UserRole.platformOwner,
+  orgId: 'org-1',
+  hubIds: [],
+  teamIds: [],
+  createdAt: DateTime(2025, 1, 1),
+  isActive: true,
+);
 
 Widget _buildTestWidget({required List<Override> overrides}) {
   return ProviderScope(
@@ -32,9 +31,7 @@ Widget _buildTestWidget({required List<Override> overrides}) {
       leaguesProvider.overrideWith((ref) => Stream.value([])),
       ...overrides,
     ],
-    child: const MaterialApp(
-      home: EditProfileScreen(),
-    ),
+    child: const MaterialApp(home: EditProfileScreen()),
   );
 }
 
@@ -65,40 +62,56 @@ void main() {
   group('EditProfileScreen', () {
     testWidgets('renders profile edit form with user data', (tester) async {
       final user = _testUser();
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider
-              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider.overrideWithValue(
-              AuthService(auth: mockAuth, firestore: fakeFirestore)),
-        ],
-      ));
+      await tester.pumpWidget(
+        _buildTestWidget(
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => user),
+            firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore),
+            ),
+            authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Edit Profile'), findsOneWidget);
       expect(find.text('Save'), findsOneWidget);
       expect(find.text('Display Name'), findsOneWidget);
       expect(find.text('Title'), findsOneWidget);
-      expect(find.text('Email'), findsNothing);
-      expect(find.text('test@example.com'), findsNothing);
+      await scrollToText(tester, 'Email address');
+      expect(find.text('Email address'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.widgetWithText(TextFormField, 'Email address'),
+            )
+            .initialValue,
+        'test@example.com',
+      );
       expect(find.text('Phone'), findsOneWidget);
-      expect(find.text('Address'), findsOneWidget);
+      expect(find.text('Address'), findsNothing);
       await scrollToRole(tester);
       expect(find.text('Role'), findsOneWidget);
     });
 
     testWidgets('shows change password button', (tester) async {
       final user = _testUser();
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider
-              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider.overrideWithValue(
-              AuthService(auth: mockAuth, firestore: fakeFirestore)),
-        ],
-      ));
+      await tester.pumpWidget(
+        _buildTestWidget(
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => user),
+            firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore),
+            ),
+            authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
       await scrollToChangePassword(tester);
@@ -107,15 +120,19 @@ void main() {
 
     testWidgets('tapping Change Password opens dialog', (tester) async {
       final user = _testUser();
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider
-              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider.overrideWithValue(
-              AuthService(auth: mockAuth, firestore: fakeFirestore)),
-        ],
-      ));
+      await tester.pumpWidget(
+        _buildTestWidget(
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => user),
+            firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore),
+            ),
+            authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
       await scrollToChangePassword(tester);
@@ -131,15 +148,19 @@ void main() {
 
     testWidgets('validates empty display name on save', (tester) async {
       final user = _testUser();
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider
-              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider.overrideWithValue(
-              AuthService(auth: mockAuth, firestore: fakeFirestore)),
-        ],
-      ));
+      await tester.pumpWidget(
+        _buildTestWidget(
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => user),
+            firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore),
+            ),
+            authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Clear the name field
@@ -154,35 +175,47 @@ void main() {
       expect(find.text('Display name is required'), findsOneWidget);
     });
 
-    testWidgets('does not render an email field', (tester) async {
+    testWidgets('renders the account email as read-only', (tester) async {
       final user = _testUser();
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider
-              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider.overrideWithValue(
-              AuthService(auth: mockAuth, firestore: fakeFirestore)),
-        ],
-      ));
+      await tester.pumpWidget(
+        _buildTestWidget(
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => user),
+            firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore),
+            ),
+            authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
-      final emailField = find.widgetWithText(TextFormField, 'Email');
-      expect(emailField, findsNothing);
-      expect(find.text('test@example.com'), findsNothing);
+      await scrollToText(tester, 'Email address');
+      final emailField = find.widgetWithText(TextFormField, 'Email address');
+      expect(emailField, findsOneWidget);
+      final emailWidget = tester.widget<TextFormField>(emailField);
+      expect(emailWidget.enabled, isFalse);
+      expect(emailWidget.initialValue, 'test@example.com');
+      expect(find.text('Address'), findsNothing);
     });
 
     testWidgets('renders AvatarWidget', (tester) async {
       final user = _testUser();
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider
-              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider.overrideWithValue(
-              AuthService(auth: mockAuth, firestore: fakeFirestore)),
-        ],
-      ));
+      await tester.pumpWidget(
+        _buildTestWidget(
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => user),
+            firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore),
+            ),
+            authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
       // The AvatarWidget should show initials
@@ -191,15 +224,19 @@ void main() {
 
     testWidgets('shows camera icon on avatar for photo upload', (tester) async {
       final user = _testUser();
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider
-              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider.overrideWithValue(
-              AuthService(auth: mockAuth, firestore: fakeFirestore)),
-        ],
-      ));
+      await tester.pumpWidget(
+        _buildTestWidget(
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => user),
+            firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore),
+            ),
+            authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.camera_alt), findsOneWidget);
@@ -207,23 +244,28 @@ void main() {
 
     testWidgets('avatar area is tappable', (tester) async {
       final user = _testUser();
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider
-              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider.overrideWithValue(
-              AuthService(auth: mockAuth, firestore: fakeFirestore)),
-        ],
-      ));
+      await tester.pumpWidget(
+        _buildTestWidget(
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => user),
+            firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore),
+            ),
+            authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
       // GestureDetector wrapping the avatar should exist
       expect(find.byType(GestureDetector), findsWidgets);
     });
 
-    testWidgets('avatar shows network image when avatarUrl present',
-        (tester) async {
+    testWidgets('avatar shows network image when avatarUrl present', (
+      tester,
+    ) async {
       final user = AppUser(
         id: 'u1',
         email: 'test@example.com',
@@ -236,15 +278,19 @@ void main() {
         createdAt: DateTime(2025, 1, 1),
         isActive: true,
       );
-      await tester.pumpWidget(_buildTestWidget(
-        overrides: [
-          currentUserProvider.overrideWith((ref) async => user),
-          firestoreServiceProvider
-              .overrideWithValue(FirestoreService(firestore: fakeFirestore)),
-          authServiceProvider.overrideWithValue(
-              AuthService(auth: mockAuth, firestore: fakeFirestore)),
-        ],
-      ));
+      await tester.pumpWidget(
+        _buildTestWidget(
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => user),
+            firestoreServiceProvider.overrideWithValue(
+              FirestoreService(firestore: fakeFirestore),
+            ),
+            authServiceProvider.overrideWithValue(
+              AuthService(auth: mockAuth, firestore: fakeFirestore),
+            ),
+          ],
+        ),
+      );
       await tester.pumpAndSettle();
 
       // The AvatarWidget should be present

@@ -17,10 +17,7 @@ import '../widgets/avatar_widget.dart';
 class ContactProfileScreen extends ConsumerWidget {
   final String userId;
 
-  const ContactProfileScreen({
-    super.key,
-    required this.userId,
-  });
+  const ContactProfileScreen({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,9 +63,7 @@ class ContactProfileScreen extends ConsumerWidget {
               if (contact == null)
                 const _ContactMessageCard(message: 'Profile not found.')
               else ...[
-                AppMotionReveal(
-                  child: _ContactProfileHero(user: contact),
-                ),
+                AppMotionReveal(child: _ContactProfileHero(user: contact)),
                 const SizedBox(height: 16),
                 if (assignments != null) ...[
                   AppMotionReveal(
@@ -185,8 +180,9 @@ class _ContactAssignmentDetailsData {
       );
     }
 
-    final selectedTeams =
-        teams.where((team) => user.teamIds.contains(team.id)).toList();
+    final selectedTeams = teams
+        .where((team) => user.teamIds.contains(team.id))
+        .toList();
     final selectedHubs = hubs
         .where(
           (hub) =>
@@ -260,36 +256,25 @@ class _ContactDetailsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasDetails = user.phone != null || user.address != null;
-
     return _ContactSectionCard(
       title: 'Contact',
-      child: hasDetails
-          ? Column(
-              children: [
-                if (user.phone != null)
-                  _ContactInfoRow(
-                    icon: Icons.phone_outlined,
-                    label: 'Phone',
-                    value: user.phone!,
-                  ),
-                if (user.phone != null && user.address != null)
-                  const SizedBox(height: 14),
-                if (user.address != null)
-                  _ContactInfoRow(
-                    icon: Icons.location_on_outlined,
-                    label: 'Address',
-                    value: user.address!,
-                  ),
-              ],
-            )
-          : const Text(
-              'No contact details shared yet.',
-              style: TextStyle(
-                color: AppGlassColors.inkMuted,
-                fontWeight: FontWeight.w600,
-              ),
+      child: Column(
+        children: [
+          _ContactInfoRow(
+            icon: Icons.email_outlined,
+            label: 'Email address',
+            value: user.email,
+          ),
+          if (user.phone != null) ...[
+            const SizedBox(height: 14),
+            _ContactInfoRow(
+              icon: Icons.phone_outlined,
+              label: 'Phone',
+              value: user.phone!,
             ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -298,10 +283,7 @@ class _ContactSectionCard extends StatelessWidget {
   final String title;
   final Widget child;
 
-  const _ContactSectionCard({
-    required this.title,
-    required this.child,
-  });
+  const _ContactSectionCard({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -324,10 +306,7 @@ class _ContactSectionCard extends StatelessWidget {
             ),
           ),
           Divider(height: 1, color: Colors.white.withValues(alpha: 0.1)),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
-          ),
+          Padding(padding: const EdgeInsets.all(16), child: child),
         ],
       ),
     );

@@ -20,7 +20,6 @@ void main() {
       displayName: 'Jonah Duckworth',
       title: 'Head Coach',
       phone: '555-0101',
-      address: '1 Main Arena',
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: ['hub-1'],
@@ -76,12 +75,13 @@ void main() {
         overrides: [
           currentUserProvider.overrideWith((ref) => user ?? testUser),
           leaguesProvider.overrideWith((ref) => Stream.value([testLeague])),
-          hubsProvider('league-1').overrideWith(
-            (ref) => Stream.value([testHub]),
-          ),
-          teamsProvider((leagueId: 'league-1', hubId: 'hub-1')).overrideWith(
-            (ref) => Stream.value([testTeam]),
-          ),
+          hubsProvider(
+            'league-1',
+          ).overrideWith((ref) => Stream.value([testHub])),
+          teamsProvider((
+            leagueId: 'league-1',
+            hubId: 'hub-1',
+          )).overrideWith((ref) => Stream.value([testTeam])),
         ],
         child: MaterialApp.router(
           routerConfig: router,
@@ -93,8 +93,9 @@ void main() {
       );
     }
 
-    testWidgets('uses home-style profile row and contact-only content',
-        (WidgetTester tester) async {
+    testWidgets('uses home-style profile row and contact-only content', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -107,20 +108,21 @@ void main() {
       expect(profileCard.actionIcon, Icons.edit_outlined);
       expect(find.text('Jonah Duckworth'), findsOneWidget);
       expect(find.text('Head Coach'), findsOneWidget);
-      expect(find.text('jonah@example.com'), findsNothing);
+      expect(find.text('jonah@example.com'), findsOneWidget);
       expect(find.text('LEAGUE DETAILS'), findsOneWidget);
       expect(find.text('Spring League'), findsOneWidget);
       expect(find.text('Calgary Hub'), findsOneWidget);
       expect(find.text('U15 Rockies'), findsOneWidget);
       expect(find.text('CONTACT'), findsOneWidget);
       expect(find.text('555-0101'), findsOneWidget);
-      expect(find.text('1 Main Arena'), findsOneWidget);
+      expect(find.text('Address'), findsNothing);
       expect(find.text('Edit Profile'), findsNothing);
       expect(find.text('Settings'), findsNothing);
     });
 
-    testWidgets('opens edit profile from the profile row action',
-        (WidgetTester tester) async {
+    testWidgets('opens edit profile from the profile row action', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 

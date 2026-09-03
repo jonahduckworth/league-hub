@@ -43,7 +43,11 @@ class ProfileScreen extends ConsumerWidget {
       ),
       child: ListView(
         padding: EdgeInsets.fromLTRB(
-            16, topContentPadding, 16, bottomContentPadding),
+          16,
+          topContentPadding,
+          16,
+          bottomContentPadding,
+        ),
         children: [
           if (user == null)
             _ProfileLoadingCard(
@@ -85,18 +89,15 @@ class _ProfileLoadingCard extends StatelessWidget {
   final bool isLoading;
   final Object? error;
 
-  const _ProfileLoadingCard({
-    required this.isLoading,
-    required this.error,
-  });
+  const _ProfileLoadingCard({required this.isLoading, required this.error});
 
   @override
   Widget build(BuildContext context) {
     final message = error != null
         ? 'Unable to load your profile.'
         : isLoading
-            ? 'Loading profile...'
-            : 'Profile setup is still finishing.';
+        ? 'Loading profile...'
+        : 'Profile setup is still finishing.';
 
     return AppGlassSurface(
       padding: const EdgeInsets.all(20),
@@ -159,8 +160,9 @@ class _ProfileAssignmentDetailsData {
       );
     }
 
-    final selectedTeams =
-        teams.where((team) => user.teamIds.contains(team.id)).toList();
+    final selectedTeams = teams
+        .where((team) => user.teamIds.contains(team.id))
+        .toList();
     final selectedHubs = hubs
         .where(
           (hub) =>
@@ -216,8 +218,10 @@ class _ProfileLeagueDetails extends StatelessWidget {
             _ProfileContactRow(
               icon: Icons.groups_outlined,
               label: 'Team',
-              value:
-                  _joinedOrFallback(assignments.teamNames, 'No team assigned'),
+              value: _joinedOrFallback(
+                assignments.teamNames,
+                'No team assigned',
+              ),
             ),
           ],
         ),
@@ -238,38 +242,27 @@ class _ProfileContactDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasDetails = user.phone != null || user.address != null;
-
     return _ProfileSectionShell(
       title: 'Contact',
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: hasDetails
-            ? Column(
-                children: [
-                  if (user.phone != null)
-                    _ProfileContactRow(
-                      icon: Icons.phone_outlined,
-                      label: 'Phone',
-                      value: user.phone!,
-                    ),
-                  if (user.phone != null && user.address != null)
-                    const SizedBox(height: 14),
-                  if (user.address != null)
-                    _ProfileContactRow(
-                      icon: Icons.location_on_outlined,
-                      label: 'Address',
-                      value: user.address!,
-                    ),
-                ],
-              )
-            : const Text(
-                'No contact details shared yet.',
-                style: TextStyle(
-                  color: AppGlassColors.inkMuted,
-                  fontWeight: FontWeight.w600,
-                ),
+        child: Column(
+          children: [
+            _ProfileContactRow(
+              icon: Icons.email_outlined,
+              label: 'Email address',
+              value: user.email,
+            ),
+            if (user.phone != null) ...[
+              const SizedBox(height: 14),
+              _ProfileContactRow(
+                icon: Icons.phone_outlined,
+                label: 'Phone',
+                value: user.phone!,
               ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -333,10 +326,7 @@ class _ProfileSectionShell extends StatelessWidget {
   final String title;
   final Widget child;
 
-  const _ProfileSectionShell({
-    required this.title,
-    required this.child,
-  });
+  const _ProfileSectionShell({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -355,11 +345,7 @@ class _ProfileSectionShell extends StatelessWidget {
             ),
           ),
         ),
-        AppGlassSurface(
-          padding: EdgeInsets.zero,
-          radius: 20,
-          child: child,
-        ),
+        AppGlassSurface(padding: EdgeInsets.zero, radius: 20, child: child),
       ],
     );
   }

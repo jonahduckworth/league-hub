@@ -1,8 +1,7 @@
 {
   "all": false,
   "targets": [
-    "onInvitationCreated",
-    "onInvitationEmailCreated"
+    "adminUpdateUserAccess"
   ],
-  "reason": "Use neutral invitation email copy and suppress bulk-import-only administrator push noise."
+  "reason": "Stop accepting physical-address profile updates after the field is removed from League Hub."
 }

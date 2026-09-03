@@ -17,7 +17,6 @@ void main() {
       displayName: 'Lily Carter',
       title: 'Head Coach',
       phone: '555-0101',
-      address: '1 Main Arena',
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: ['hub-1'],
@@ -57,12 +56,11 @@ void main() {
         overrides: [
           orgUsersProvider.overrideWith((ref) => Stream.value([contact])),
           leaguesProvider.overrideWith((ref) => Stream.value([league])),
-          hubsProvider('league-1').overrideWith(
-            (ref) => Stream.value([hub]),
-          ),
-          teamsProvider((leagueId: 'league-1', hubId: 'hub-1')).overrideWith(
-            (ref) => Stream.value([team]),
-          ),
+          hubsProvider('league-1').overrideWith((ref) => Stream.value([hub])),
+          teamsProvider((
+            leagueId: 'league-1',
+            hubId: 'hub-1',
+          )).overrideWith((ref) => Stream.value([team])),
         ],
         child: MaterialApp(
           home: const ContactProfileScreen(userId: 'user-1'),
@@ -74,21 +72,22 @@ void main() {
       );
     }
 
-    testWidgets('shows profile assignment and contact details',
-        (WidgetTester tester) async {
+    testWidgets('shows profile assignment and contact details', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       expect(find.text('Lily Carter'), findsOneWidget);
       expect(find.text('Head Coach'), findsOneWidget);
-      expect(find.text('lily@example.com'), findsNothing);
+      expect(find.text('lily@example.com'), findsOneWidget);
       expect(find.text('LEAGUE DETAILS'), findsOneWidget);
       expect(find.text('Spring League'), findsOneWidget);
       expect(find.text('Calgary Hub'), findsOneWidget);
       expect(find.text('U15 Rockies'), findsOneWidget);
       expect(find.text('CONTACT'), findsOneWidget);
       expect(find.text('555-0101'), findsOneWidget);
-      expect(find.text('1 Main Arena'), findsOneWidget);
+      expect(find.text('Address'), findsNothing);
     });
   });
 }

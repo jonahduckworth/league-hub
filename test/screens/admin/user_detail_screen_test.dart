@@ -19,9 +19,9 @@ class MockFirestoreService extends FirestoreService {
   final List<Team> teamsToReturn;
 
   MockFirestoreService({this.userToReturn, List<Hub>? hubs, List<Team>? teams})
-      : hubsToReturn = hubs ?? [],
-        teamsToReturn = teams ?? [],
-        super(firestore: FakeFirebaseFirestore());
+    : hubsToReturn = hubs ?? [],
+      teamsToReturn = teams ?? [],
+      super(firestore: FakeFirebaseFirestore());
 
   @override
   Future<AppUser?> getUserById(String userId) async {
@@ -69,7 +69,6 @@ void main() {
       displayName: 'John Doe',
       title: 'Head Coach',
       phone: '555-0112',
-      address: '34 Visitor Lane',
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: ['hub-1', 'hub-2'],
@@ -139,12 +138,8 @@ void main() {
     }) {
       return ProviderScope(
         overrides: [
-          currentUserProvider.overrideWith(
-            (ref) => currentUser ?? superAdmin,
-          ),
-          organizationProvider.overrideWith(
-            (ref) => testOrg,
-          ),
+          currentUserProvider.overrideWith((ref) => currentUser ?? superAdmin),
+          organizationProvider.overrideWith((ref) => testOrg),
           firestoreServiceProvider.overrideWithValue(
             MockFirestoreService(
               userToReturn: nullUser ? null : (targetUserData ?? targetUser),
@@ -157,9 +152,7 @@ void main() {
           home: UserDetailScreen(userId: targetUser.id),
           theme: ThemeData(
             useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: AppColors.primary,
-            ),
+            colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
           ),
         ),
       );
@@ -207,7 +200,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('staff@example.com'), findsOneWidget);
+        expect(find.text('staff@example.com'), findsWidgets);
       });
 
       testWidgets('shows user role', (WidgetTester tester) async {
@@ -228,14 +221,15 @@ void main() {
     });
 
     group('Profile Header', () {
-      testWidgets('displays profile header with user info',
-          (WidgetTester tester) async {
+      testWidgets('displays profile header with user info', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
         expect(find.text('John Doe'), findsOneWidget);
-        expect(find.text('staff@example.com'), findsOneWidget);
+        expect(find.text('staff@example.com'), findsWidgets);
         expect(find.text('Head Coach'), findsWidgets);
       });
 
@@ -250,18 +244,20 @@ void main() {
     });
 
     group('Contact Details', () {
-      testWidgets('shows phone and address', (WidgetTester tester) async {
+      testWidgets('shows email and phone', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
 
         expect(find.text('CONTACT'), findsOneWidget);
+        expect(find.text('staff@example.com'), findsWidgets);
         expect(find.text('555-0112'), findsOneWidget);
-        expect(find.text('34 Visitor Lane'), findsOneWidget);
+        expect(find.text('Address'), findsNothing);
       });
 
-      testWidgets('shows editable contact fields in edit mode',
-          (WidgetTester tester) async {
+      testWidgets('shows editable contact fields in edit mode', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -271,19 +267,21 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.widgetWithText(TextFormField, 'Title'), findsOneWidget);
+        expect(
+          find.widgetWithText(TextFormField, 'Email address'),
+          findsOneWidget,
+        );
         expect(find.widgetWithText(TextFormField, 'Phone'), findsOneWidget);
-        expect(find.widgetWithText(TextFormField, 'Address'), findsOneWidget);
+        expect(find.widgetWithText(TextFormField, 'Address'), findsNothing);
       });
     });
 
     group('Role Change Dropdown', () {
-      testWidgets('shows role dropdown when in edit mode for superAdmin',
-          (WidgetTester tester) async {
+      testWidgets('shows role dropdown when in edit mode for superAdmin', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(
-          createTestWidget(
-            currentUser: superAdmin,
-            targetUserData: targetUser,
-          ),
+          createTestWidget(currentUser: superAdmin, targetUserData: targetUser),
         );
         await tester.pump();
         await tester.pumpAndSettle();
@@ -298,8 +296,9 @@ void main() {
         expect(find.text('Manager'), findsOneWidget);
       });
 
-      testWidgets('role dropdown includes Manager option',
-          (WidgetTester tester) async {
+      testWidgets('role dropdown includes Manager option', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -311,8 +310,9 @@ void main() {
         expect(find.text('Manager'), findsOneWidget);
       });
 
-      testWidgets('role dropdown includes Staff option',
-          (WidgetTester tester) async {
+      testWidgets('role dropdown includes Staff option', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -326,8 +326,9 @@ void main() {
     });
 
     group('Hub Assignment Section', () {
-      testWidgets('displays hub assignments section',
-          (WidgetTester tester) async {
+      testWidgets('displays hub assignments section', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -358,8 +359,9 @@ void main() {
         expect(find.text('Edmonton Hub'), findsOneWidget);
       });
 
-      testWidgets('shows empty state when no hubs assigned',
-          (WidgetTester tester) async {
+      testWidgets('shows empty state when no hubs assigned', (
+        WidgetTester tester,
+      ) async {
         final noHubsUser = AppUser(
           id: 'user-2',
           email: 'nohubs@example.com',
@@ -372,9 +374,7 @@ void main() {
           isActive: true,
         );
 
-        await tester.pumpWidget(
-          createTestWidget(targetUserData: noHubsUser),
-        );
+        await tester.pumpWidget(createTestWidget(targetUserData: noHubsUser));
         await tester.pump();
         await tester.pumpAndSettle();
 
@@ -384,8 +384,9 @@ void main() {
     });
 
     group('Team Assignment Section', () {
-      testWidgets('displays team assignments section',
-          (WidgetTester tester) async {
+      testWidgets('displays team assignments section', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -394,8 +395,9 @@ void main() {
         expect(find.text('TEAM ASSIGNMENTS'), findsOneWidget);
       });
 
-      testWidgets('shows assigned teams with parent hub details',
-          (WidgetTester tester) async {
+      testWidgets('shows assigned teams with parent hub details', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -405,8 +407,9 @@ void main() {
         expect(find.text('Calgary Hub · U18 · AAA'), findsOneWidget);
       });
 
-      testWidgets('shows empty state when no teams assigned',
-          (WidgetTester tester) async {
+      testWidgets('shows empty state when no teams assigned', (
+        WidgetTester tester,
+      ) async {
         final noTeamsUser = AppUser(
           id: 'user-2',
           email: 'noteams@example.com',
@@ -419,9 +422,7 @@ void main() {
           isActive: true,
         );
 
-        await tester.pumpWidget(
-          createTestWidget(targetUserData: noTeamsUser),
-        );
+        await tester.pumpWidget(createTestWidget(targetUserData: noTeamsUser));
         await tester.pump();
         await tester.pumpAndSettle();
 
@@ -431,8 +432,9 @@ void main() {
     });
 
     group('Edit Mode', () {
-      testWidgets('shows Edit button when viewing own details',
-          (WidgetTester tester) async {
+      testWidgets('shows Edit button when viewing own details', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget(currentUser: superAdmin));
         await tester.pump();
         await tester.pumpAndSettle();
@@ -440,8 +442,9 @@ void main() {
         expect(find.text('Edit'), findsOneWidget);
       });
 
-      testWidgets('manager can edit Staff fully inside assigned scope',
-          (WidgetTester tester) async {
+      testWidgets('manager can edit Staff fully inside assigned scope', (
+        WidgetTester tester,
+      ) async {
         final manager = AppUser(
           id: 'manager-1',
           email: 'manager@example.com',
@@ -465,8 +468,9 @@ void main() {
         expect(find.byType(RadioListTile<UserRole>), findsNothing);
       });
 
-      testWidgets('manager cannot edit Staff with an outside hub',
-          (WidgetTester tester) async {
+      testWidgets('manager cannot edit Staff with an outside hub', (
+        WidgetTester tester,
+      ) async {
         final manager = AppUser(
           id: 'manager-1',
           email: 'manager@example.com',
@@ -486,8 +490,9 @@ void main() {
         expect(find.text('Edit'), findsNothing);
       });
 
-      testWidgets('shows Save and Cancel when in edit mode',
-          (WidgetTester tester) async {
+      testWidgets('shows Save and Cancel when in edit mode', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -500,8 +505,9 @@ void main() {
         expect(find.byIcon(Icons.close), findsOneWidget);
       });
 
-      testWidgets('can toggle hub assignment in edit mode',
-          (WidgetTester tester) async {
+      testWidgets('can toggle hub assignment in edit mode', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -515,8 +521,9 @@ void main() {
         expect(find.byType(CheckboxListTile), findsWidgets);
       });
 
-      testWidgets('can toggle team assignment in edit mode',
-          (WidgetTester tester) async {
+      testWidgets('can toggle team assignment in edit mode', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -529,8 +536,9 @@ void main() {
         expect(find.text('Edmonton U15'), findsOneWidget);
       });
 
-      testWidgets('shows only teams from selected hubs in edit mode',
-          (WidgetTester tester) async {
+      testWidgets('shows only teams from selected hubs in edit mode', (
+        WidgetTester tester,
+      ) async {
         final calgaryOnlyUser = AppUser(
           id: 'user-3',
           email: 'calgary@example.com',
@@ -560,8 +568,9 @@ void main() {
     });
 
     group('Deactivate Button', () {
-      testWidgets('shows Deactivate button for active users',
-          (WidgetTester tester) async {
+      testWidgets('shows Deactivate button for active users', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -570,8 +579,9 @@ void main() {
         expect(find.text('Deactivate User'), findsOneWidget);
       });
 
-      testWidgets('shows Reactivate button for inactive users',
-          (WidgetTester tester) async {
+      testWidgets('shows Reactivate button for inactive users', (
+        WidgetTester tester,
+      ) async {
         final inactiveUser = AppUser(
           id: 'user-2',
           email: 'inactive@example.com',
@@ -584,9 +594,7 @@ void main() {
           isActive: false,
         );
 
-        await tester.pumpWidget(
-          createTestWidget(targetUserData: inactiveUser),
-        );
+        await tester.pumpWidget(createTestWidget(targetUserData: inactiveUser));
         await tester.pump();
         await tester.pumpAndSettle();
         await scrollDown(tester);
@@ -594,11 +602,10 @@ void main() {
         expect(find.text('Reactivate User'), findsOneWidget);
       });
 
-      testWidgets('deactivate button is visible for superAdmin',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(
-          createTestWidget(currentUser: superAdmin),
-        );
+      testWidgets('deactivate button is visible for superAdmin', (
+        WidgetTester tester,
+      ) async {
+        await tester.pumpWidget(createTestWidget(currentUser: superAdmin));
         await tester.pump();
         await tester.pumpAndSettle();
         await scrollDown(tester);
@@ -629,8 +636,9 @@ void main() {
     });
 
     group('Section Cards', () {
-      testWidgets('displays Role & Access section',
-          (WidgetTester tester) async {
+      testWidgets('displays Role & Access section', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -638,8 +646,9 @@ void main() {
         expect(find.text('PROFILE'), findsOneWidget);
       });
 
-      testWidgets('displays Hub Assignments section',
-          (WidgetTester tester) async {
+      testWidgets('displays Hub Assignments section', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -658,11 +667,10 @@ void main() {
     });
 
     group('User Not Found', () {
-      testWidgets('shows error when user not found',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(
-          createTestWidget(nullUser: true),
-        );
+      testWidgets('shows error when user not found', (
+        WidgetTester tester,
+      ) async {
+        await tester.pumpWidget(createTestWidget(nullUser: true));
         await tester.pump();
         await tester.pumpAndSettle();
 
@@ -671,8 +679,9 @@ void main() {
     });
 
     group('Loading State', () {
-      testWidgets('shows loading indicator initially',
-          (WidgetTester tester) async {
+      testWidgets('shows loading indicator initially', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         // Don't pump - check loading state
         await tester.pump();
@@ -683,8 +692,9 @@ void main() {
     });
 
     group('Avatar Display', () {
-      testWidgets('displays user avatar in header',
-          (WidgetTester tester) async {
+      testWidgets('displays user avatar in header', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -695,8 +705,9 @@ void main() {
     });
 
     group('Inactive User Display', () {
-      testWidgets('shows inactive status for inactive users',
-          (WidgetTester tester) async {
+      testWidgets('shows inactive status for inactive users', (
+        WidgetTester tester,
+      ) async {
         final inactiveUser = AppUser(
           id: 'user-2',
           email: 'inactive@example.com',
@@ -709,9 +720,7 @@ void main() {
           isActive: false,
         );
 
-        await tester.pumpWidget(
-          createTestWidget(targetUserData: inactiveUser),
-        );
+        await tester.pumpWidget(createTestWidget(targetUserData: inactiveUser));
         await tester.pump();
         await tester.pumpAndSettle();
 
@@ -720,8 +729,9 @@ void main() {
     });
 
     group('Layout Structure', () {
-      testWidgets('uses ListView for main content',
-          (WidgetTester tester) async {
+      testWidgets('uses ListView for main content', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -729,8 +739,9 @@ void main() {
         expect(find.byType(ListView), findsOneWidget);
       });
 
-      testWidgets('displays sections in correct order',
-          (WidgetTester tester) async {
+      testWidgets('displays sections in correct order', (
+        WidgetTester tester,
+      ) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();
         await tester.pumpAndSettle();
@@ -777,9 +788,7 @@ void main() {
           isActive: true,
         );
 
-        await tester.pumpWidget(
-          createTestWidget(targetUserData: multiHubUser),
-        );
+        await tester.pumpWidget(createTestWidget(targetUserData: multiHubUser));
         await tester.pump();
         await tester.pumpAndSettle();
 

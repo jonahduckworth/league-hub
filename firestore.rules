@@ -517,7 +517,6 @@ service cloud.firestore {
         'email',
         'title',
         'phone',
-        'address',
         'avatarUrl',
         'fcmTokens',
         'blockedUserIds',
@@ -578,7 +577,6 @@ service cloud.firestore {
           'teamIds',
           'title',
           'phone',
-          'address',
           'isActive'
         ])
         && (
