@@ -1,9 +1,8 @@
 {
   "all": false,
   "targets": [
-    "adminCreateInvitation",
-    "adminUpdateUserAccess",
-    "onUserCreatedFromInvitation"
+    "onInvitationCreated",
+    "onInvitationEmailCreated"
   ],
-  "reason": "Capture invitation profile titles and copy them to new user profiles when invitations are accepted."
+  "reason": "Use neutral invitation email copy and suppress bulk-import-only administrator push noise."
 }

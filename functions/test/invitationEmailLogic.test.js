@@ -10,6 +10,7 @@ const {
   normalizeInvitationProfileTitle,
   normalizeInvitationRecipient,
   normalizeInvitationToken,
+  shouldNotifyInvitationAdmins,
 } = require("../lib/invitationEmailLogic");
 
 test("normalizes valid invitation recipients and rejects malformed addresses", () => {
@@ -58,13 +59,22 @@ test("builds a complete escaped invitation email with acceptance steps", () => {
 
   assert.equal(email.subject, "You're invited to join JPHL & Partners on League Hub");
   assert.match(email.text, /join JPHL & Partners as Manager/);
+  assert.doesNotMatch(email.text, /Jonah|administrator invited you/);
   assert.match(email.text, /abc123<unsafe>/);
   assert.match(email.text, /choose Accept Invitation/);
   assert.match(email.text, /expires on August 19, 2026 \(UTC\)/);
   assert.doesNotMatch(email.html, /Chris <Coach>/);
   assert.match(email.html, /Chris &lt;Coach&gt;/);
   assert.match(email.html, /JPHL &amp; Partners/);
+  assert.doesNotMatch(email.html, /Jonah|invited by/);
   assert.match(email.html, /abc123&lt;unsafe&gt;/);
+});
+
+test("suppresses only explicitly opted-out bulk invitation admin alerts", () => {
+  assert.equal(shouldNotifyInvitationAdmins(true), false);
+  assert.equal(shouldNotifyInvitationAdmins(false), true);
+  assert.equal(shouldNotifyInvitationAdmins(undefined), true);
+  assert.equal(shouldNotifyInvitationAdmins("true"), true);
 });
 
 test("derives the authoritative invitation expiry exactly seven days later", () => {
