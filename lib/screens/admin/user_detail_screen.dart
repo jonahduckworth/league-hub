@@ -34,8 +34,8 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   bool _editing = false;
   bool _saving = false;
   final _titleController = TextEditingController();
+  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
 
   // Edit state
   UserRole? _editRole;
@@ -59,8 +59,8 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   @override
   void dispose() {
     _titleController.dispose();
+    _emailController.dispose();
     _phoneController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
@@ -80,15 +80,12 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
             ..clear()
             ..addAll(user.teamIds);
           _titleController.text = user.title ?? '';
+          _emailController.text = user.email;
           _phoneController.text = user.phone ?? '';
-          _addressController.text = user.address ?? '';
         }
       });
       if (user != null) {
-        await Future.wait([
-          _loadHubs(),
-          _loadTeams(),
-        ]);
+        await Future.wait([_loadHubs(), _loadTeams()]);
       }
     }
   }
@@ -119,8 +116,9 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     }
     if (_loadedTeamsOrgId == orgId && !_teamsLoading) return;
 
-    final teams =
-        await ref.read(firestoreServiceProvider).getAllTeamsFlat(orgId);
+    final teams = await ref
+        .read(firestoreServiceProvider)
+        .getAllTeamsFlat(orgId);
     if (mounted) {
       setState(() {
         _allTeams = teams;
@@ -143,21 +141,24 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
 
       final authorizedSvc = ref.read(authorizedFirestoreServiceProvider);
       final fs = ref.read(firestoreServiceProvider);
-      final orgId = _user!.orgId ??
+      final orgId =
+          _user!.orgId ??
           ref.read(organizationProvider).valueOrNull?.id ??
           currentUser.orgId;
       if (orgId == null) return;
       final manageableHubs = currentUser.role == UserRole.managerAdmin
           ? _allHubs
-              .where((hub) => currentUser.hubIds.contains(hub.id))
-              .toList()
+                .where((hub) => currentUser.hubIds.contains(hub.id))
+                .toList()
           : _allHubs;
       final manageableHubIds = manageableHubs.map((hub) => hub.id).toSet();
       final manageableTeams = _allTeams
-          .where((team) =>
-              manageableHubIds.contains(team.hubId) &&
-              (currentUser.role != UserRole.managerAdmin ||
-                  currentUser.teamIds.contains(team.id)))
+          .where(
+            (team) =>
+                manageableHubIds.contains(team.hubId) &&
+                (currentUser.role != UserRole.managerAdmin ||
+                    currentUser.teamIds.contains(team.id)),
+          )
           .toList();
       final teamIdsList = _editableSelectedTeamIds(manageableTeams).toList();
       final hubIdsList = _editHubIds.intersection(manageableHubIds).toList();
@@ -180,12 +181,6 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
         field: 'phone',
         currentValue: _user!.phone,
         nextValue: _phoneController.text,
-      );
-      _putOptionalProfileUpdate(
-        updates,
-        field: 'address',
-        currentValue: _user!.address,
-        nextValue: _addressController.text,
       );
       await _syncTeamMemberships(
         authorizedSvc,
@@ -260,8 +255,9 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   }
 
   Set<String> _editableSelectedTeamIds(List<Team> availableTeams) {
-    final availableIds =
-        _teamsForSelectedHubs(availableTeams).map((team) => team.id).toSet();
+    final availableIds = _teamsForSelectedHubs(
+      availableTeams,
+    ).map((team) => team.id).toSet();
     return _editTeamIds.intersection(availableIds);
   }
 
@@ -274,9 +270,9 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
   void _removeTeamsForHub(String hubId) {
     _editTeamIds.removeWhere((teamId) {
       final team = _allTeams.cast<Team?>().firstWhere(
-            (team) => team?.id == teamId,
-            orElse: () => null,
-          );
+        (team) => team?.id == teamId,
+        orElse: () => null,
+      );
       return team?.hubId == hubId;
     });
   }
@@ -292,8 +288,9 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
     final selectedIds = selectedTeamIds.toSet();
     final touchedIds = <String>{...targetUser.teamIds, ...selectedIds};
 
-    for (final team
-        in manageableTeams.where((team) => touchedIds.contains(team.id))) {
+    for (final team in manageableTeams.where(
+      (team) => touchedIds.contains(team.id),
+    )) {
       final hasMember = team.memberIds.contains(targetUser.id);
       final shouldHaveMember = selectedIds.contains(team.id);
       if (hasMember == shouldHaveMember) continue;
@@ -378,10 +375,12 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
         : _allHubs;
     final editableHubIds = editableHubs.map((hub) => hub.id).toSet();
     final editableTeams = _allTeams
-        .where((team) =>
-            editableHubIds.contains(team.hubId) &&
-            (currentUser?.role != UserRole.managerAdmin ||
-                currentUser!.teamIds.contains(team.id)))
+        .where(
+          (team) =>
+              editableHubIds.contains(team.hubId) &&
+              (currentUser?.role != UserRole.managerAdmin ||
+                  currentUser!.teamIds.contains(team.id)),
+        )
         .toList();
 
     return AppShellScaffold(
@@ -420,8 +419,8 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                     ..clear()
                     ..addAll(user.teamIds);
                   _titleController.text = user.title ?? '';
+                  _emailController.text = user.email;
                   _phoneController.text = user.phone ?? '';
-                  _addressController.text = user.address ?? '';
                 });
               },
             ),
@@ -473,15 +472,22 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(user.displayName,
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppGlassColors.ink)),
+                Text(
+                  user.displayName,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppGlassColors.ink,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(user.email,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppGlassColors.inkSecondary)),
+                Text(
+                  user.email,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppGlassColors.inkSecondary,
+                  ),
+                ),
                 if (user.title != null) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -499,14 +505,14 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: StatusBadge(
-                      label: user.isActive ? 'Active' : 'Inactive',
-                      color:
-                          user.isActive ? AppColors.success : AppColors.danger,
-                      backgroundColor: user.isActive
-                          ? AppColors.success.withValues(alpha: 0.3)
-                          : AppColors.danger.withValues(alpha: 0.3),
-                      textColor: AppGlassColors.ink,
-                      showBorder: false),
+                    label: user.isActive ? 'Active' : 'Inactive',
+                    color: user.isActive ? AppColors.success : AppColors.danger,
+                    backgroundColor: user.isActive
+                        ? AppColors.success.withValues(alpha: 0.3)
+                        : AppColors.danger.withValues(alpha: 0.3),
+                    textColor: AppGlassColors.ink,
+                    showBorder: false,
+                  ),
                 ),
               ],
             ),
@@ -550,42 +556,27 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
           ? Column(
               children: [
                 GlassTextFormField(
+                  controller: _emailController,
+                  labelText: 'Email address',
+                  leadingIcon: Icons.email_outlined,
+                  enabled: false,
+                ),
+                const SizedBox(height: 16),
+                GlassTextFormField(
                   controller: _phoneController,
                   labelText: 'Phone',
                   leadingIcon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: 16),
-                GlassTextFormField(
-                  controller: _addressController,
-                  labelText: 'Address',
-                  leadingIcon: Icons.location_on_outlined,
-                  keyboardType: TextInputType.streetAddress,
-                  textInputAction: TextInputAction.newline,
-                  textCapitalization: TextCapitalization.words,
-                  minLines: 1,
-                  maxLines: 3,
-                ),
               ],
             )
           : Column(
               children: [
-                if (user.phone == null && user.address == null)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'No contact details shared.',
-                      style: TextStyle(color: AppGlassColors.inkMuted),
-                    ),
-                  )
-                else ...[
-                  if (user.phone != null)
-                    _InfoRow(label: 'Phone', value: user.phone!),
-                  if (user.phone != null && user.address != null)
-                    const SizedBox(height: 14),
-                  if (user.address != null)
-                    _InfoRow(label: 'Address', value: user.address!),
+                _InfoRow(label: 'Email address', value: user.email),
+                if (user.phone != null) ...[
+                  const SizedBox(height: 14),
+                  _InfoRow(label: 'Phone', value: user.phone!),
                 ],
               ],
             ),
@@ -602,10 +593,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
             label: 'Manager',
             value: UserRole.managerAdmin,
           ),
-          const GlassRadioTile<UserRole>(
-            label: 'Staff',
-            value: UserRole.staff,
-          ),
+          const GlassRadioTile<UserRole>(label: 'Staff', value: UserRole.staff),
         ],
       ),
     );
@@ -618,8 +606,10 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
         child: user.hubIds.isEmpty
             ? const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('No hubs assigned',
-                    style: TextStyle(color: AppGlassColors.inkMuted)),
+                child: Text(
+                  'No hubs assigned',
+                  style: TextStyle(color: AppGlassColors.inkMuted),
+                ),
               )
             : Column(
                 children: user.hubIds
@@ -633,29 +623,34 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       title: 'Hub Assignments',
       child: _hubsLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppGlassColors.aqua))
+              child: CircularProgressIndicator(color: AppGlassColors.aqua),
+            )
           : editableHubs.isEmpty
-              ? const Text('No hubs available',
-                  style: TextStyle(color: AppGlassColors.inkMuted))
-              : Column(
-                  children: editableHubs
-                      .map((hub) => GlassCheckTile(
-                            title: hub.name,
-                            subtitle: hub.location,
-                            value: _editHubIds.contains(hub.id),
-                            onChanged: (checked) {
-                              setState(() {
-                                if (checked == true) {
-                                  _editHubIds.add(hub.id);
-                                } else {
-                                  _editHubIds.remove(hub.id);
-                                  _removeTeamsForHub(hub.id);
-                                }
-                              });
-                            },
-                          ))
-                      .toList(),
-                ),
+          ? const Text(
+              'No hubs available',
+              style: TextStyle(color: AppGlassColors.inkMuted),
+            )
+          : Column(
+              children: editableHubs
+                  .map(
+                    (hub) => GlassCheckTile(
+                      title: hub.name,
+                      subtitle: hub.location,
+                      value: _editHubIds.contains(hub.id),
+                      onChanged: (checked) {
+                        setState(() {
+                          if (checked == true) {
+                            _editHubIds.add(hub.id);
+                          } else {
+                            _editHubIds.remove(hub.id);
+                            _removeTeamsForHub(hub.id);
+                          }
+                        });
+                      },
+                    ),
+                  )
+                  .toList(),
+            ),
     );
   }
 
@@ -666,16 +661,20 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
         child: user.teamIds.isEmpty
             ? const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('No teams assigned',
-                    style: TextStyle(color: AppGlassColors.inkMuted)),
+                child: Text(
+                  'No teams assigned',
+                  style: TextStyle(color: AppGlassColors.inkMuted),
+                ),
               )
             : Column(
                 children: user.teamIds
-                    .map((id) => _TeamChip(
-                          teamId: id,
-                          allTeams: _allTeams,
-                          allHubs: _allHubs,
-                        ))
+                    .map(
+                      (id) => _TeamChip(
+                        teamId: id,
+                        allTeams: _allTeams,
+                        allHubs: _allHubs,
+                      ),
+                    )
                     .toList(),
               ),
       );
@@ -687,39 +686,46 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
       title: 'Team Assignments',
       child: _teamsLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppGlassColors.aqua))
+              child: CircularProgressIndicator(color: AppGlassColors.aqua),
+            )
           : _editHubIds.isEmpty
-              ? const Text('Select hubs to manage team assignments.',
-                  style: TextStyle(color: AppGlassColors.inkMuted))
-              : availableTeams.isEmpty
-                  ? const Text('No teams available for the selected hubs.',
-                      style: TextStyle(color: AppGlassColors.inkMuted))
-                  : Column(
-                      children: availableTeams
-                          .map((team) => GlassCheckTile(
-                                leading: EntityAvatar(
-                                  name: team.name,
-                                  imageUrl: team.logoUrl,
-                                  iconName: team.iconName,
-                                  fallbackIcon: Icons.groups_2_outlined,
-                                  size: 34,
-                                  color: AppGlassColors.aqua,
-                                ),
-                                title: team.name,
-                                subtitle: _teamMeta(team, _allHubs),
-                                value: _editTeamIds.contains(team.id),
-                                onChanged: (checked) {
-                                  setState(() {
-                                    if (checked == true) {
-                                      _editTeamIds.add(team.id);
-                                    } else {
-                                      _editTeamIds.remove(team.id);
-                                    }
-                                  });
-                                },
-                              ))
-                          .toList(),
+          ? const Text(
+              'Select hubs to manage team assignments.',
+              style: TextStyle(color: AppGlassColors.inkMuted),
+            )
+          : availableTeams.isEmpty
+          ? const Text(
+              'No teams available for the selected hubs.',
+              style: TextStyle(color: AppGlassColors.inkMuted),
+            )
+          : Column(
+              children: availableTeams
+                  .map(
+                    (team) => GlassCheckTile(
+                      leading: EntityAvatar(
+                        name: team.name,
+                        imageUrl: team.logoUrl,
+                        iconName: team.iconName,
+                        fallbackIcon: Icons.groups_2_outlined,
+                        size: 34,
+                        color: AppGlassColors.aqua,
+                      ),
+                      title: team.name,
+                      subtitle: _teamMeta(team, _allHubs),
+                      value: _editTeamIds.contains(team.id),
+                      onChanged: (checked) {
+                        setState(() {
+                          if (checked == true) {
+                            _editTeamIds.add(team.id);
+                          } else {
+                            _editTeamIds.remove(team.id);
+                          }
+                        });
+                      },
                     ),
+                  )
+                  .toList(),
+            ),
     );
   }
 
@@ -778,18 +784,18 @@ class _SectionCard extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Text(title.toUpperCase(),
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppGlassColors.inkMuted,
-                    letterSpacing: 0.8)),
+            child: Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppGlassColors.inkMuted,
+                letterSpacing: 0.8,
+              ),
+            ),
           ),
           Divider(height: 1, color: Colors.white.withValues(alpha: 0.1)),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
-          ),
+          Padding(padding: const EdgeInsets.all(16), child: child),
         ],
       ),
     );
@@ -841,10 +847,7 @@ class _HeaderIconAction extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _HeaderIconAction({
-    required this.icon,
-    required this.onTap,
-  });
+  const _HeaderIconAction({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -870,9 +873,10 @@ class _InfoRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style:
-                const TextStyle(fontSize: 14, color: AppGlassColors.inkMuted)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, color: AppGlassColors.inkMuted),
+        ),
         const SizedBox(width: 16),
         Expanded(
           child: Text(
@@ -900,9 +904,9 @@ class _HubChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hub = allHubs.cast<Hub?>().firstWhere(
-          (h) => h?.id == hubId,
-          orElse: () => null,
-        );
+      (h) => h?.id == hubId,
+      orElse: () => null,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -933,9 +937,9 @@ class _TeamChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final team = allTeams.cast<Team?>().firstWhere(
-          (team) => team?.id == teamId,
-          orElse: () => null,
-        );
+      (team) => team?.id == teamId,
+      orElse: () => null,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -955,14 +959,18 @@ class _TeamChip extends StatelessWidget {
               children: [
                 Text(
                   team?.name ?? teamId,
-                  style:
-                      const TextStyle(fontSize: 14, color: AppGlassColors.ink),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppGlassColors.ink,
+                  ),
                 ),
                 if (team != null)
                   Text(
                     _teamMeta(team, allHubs),
                     style: const TextStyle(
-                        fontSize: 12, color: AppGlassColors.inkMuted),
+                      fontSize: 12,
+                      color: AppGlassColors.inkMuted,
+                    ),
                   ),
               ],
             ),
@@ -975,9 +983,9 @@ class _TeamChip extends StatelessWidget {
 
 String _teamMeta(Team team, List<Hub> allHubs) {
   final hub = allHubs.cast<Hub?>().firstWhere(
-        (hub) => hub?.id == team.hubId,
-        orElse: () => null,
-      );
+    (hub) => hub?.id == team.hubId,
+    orElse: () => null,
+  );
   final details = [
     hub?.name,
     team.ageGroup,

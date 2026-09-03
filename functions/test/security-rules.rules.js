@@ -642,6 +642,23 @@ test("users can manage only their own chat safety settings", async () => {
   }));
 });
 
+test("users cannot rewrite account email or restore the retired address field", async () => {
+  await seedFirestore([
+    ["users/member", user({id: "member"})],
+  ]);
+  const db = testEnv.authenticatedContext("member").firestore();
+
+  await assertSucceeds(updateDoc(doc(db, "users/member"), {
+    phone: "555-0100",
+  }));
+  await assertFails(updateDoc(doc(db, "users/member"), {
+    email: "replacement@example.com",
+  }));
+  await assertFails(updateDoc(doc(db, "users/member"), {
+    address: "123 Main Street",
+  }));
+});
+
 test("users can select only a supported announcement delivery preference", async () => {
   await seedFirestore([
     ["users/member", user({id: "member"})],

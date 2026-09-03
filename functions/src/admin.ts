@@ -781,7 +781,7 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
 
     const profilePatch = data.profilePatch === undefined ? undefined : objectValue(data.profilePatch, "profilePatch");
     if (profilePatch) {
-      for (const field of ["title", "phone", "address"] as const) {
+      for (const field of ["title", "phone"] as const) {
         if (field in profilePatch) {
           if (field === "title" &&
               typeof profilePatch[field] === "string" &&

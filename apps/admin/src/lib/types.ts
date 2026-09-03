@@ -9,7 +9,6 @@ export type AppUser = {
   displayName: string;
   title?: string | null;
   phone?: string | null;
-  address?: string | null;
   avatarUrl?: string | null;
   role: UserRole;
   orgId?: string | null;

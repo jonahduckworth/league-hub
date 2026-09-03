@@ -16,7 +16,7 @@ Prepared for owner review. Legal declarations and final submission remain owner 
 
 Data linked to the user and used for app functionality:
 
-- Contact Info: name, email address, optional phone number, optional physical address.
+- Contact Info: name, email address, and optional phone number.
 - User Content: messages, photos/files attached to messages, announcements, policies/documents.
 - Identifiers: Firebase user ID and device/push-notification token.
 - Location: precise location only when the user grants foreground permission for local weather; not used for tracking.
@@ -25,10 +25,10 @@ Not used for third-party advertising, developer advertising, or cross-app tracki
 
 ## Google Data Safety draft
 
-- Data collected: Name, email address, optional phone number, optional address, user IDs, app interactions, messages, photos/files, and optional precise location.
+- Data collected: Name, email address, optional phone number, user IDs, app interactions, messages, photos/files, and optional precise location.
 - Data shared: No, under Google’s service-provider definition.
 - Purposes: app functionality, account management, communications, fraud prevention/security, and support.
-- Optional data: phone, address, profile photo, message attachments, and location.
+- Optional data: phone, profile photo, message attachments, and location.
 - Data is encrypted in transit.
 - Users can request deletion in the app and on the web.
 

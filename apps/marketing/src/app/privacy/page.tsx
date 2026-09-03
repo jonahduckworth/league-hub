@@ -9,10 +9,10 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage eyebrow="Privacy" title="Your information should serve your league—not the other way around." intro="This policy explains what League Hub handles, why it is needed, and the choices available to members and organizations." updated="August 11, 2026">
+    <LegalPage eyebrow="Privacy" title="Your information should serve your league—not the other way around." intro="This policy explains what League Hub handles, why it is needed, and the choices available to members and organizations." updated="September 3, 2026">
       <section><h2>Who operates League Hub</h2><p>League Hub is a product of JD Builds, based in Alberta, Canada. Questions can be sent to <a href="mailto:jonah@leaguehub.ca">jonah@leaguehub.ca</a>.</p></section>
       <section><h2>Information we handle</h2><ul>
-        <li><strong>Account and profile information:</strong> name, email address, optional title, phone, address, profile photo, organization, role, and team or league assignments.</li>
+        <li><strong>Account and profile information:</strong> name, email address, optional title, phone, profile photo, organization, role, and team or league assignments.</li>
         <li><strong>Organization content:</strong> messages, chat attachments, announcements, policies, forms, schedules, results, team information, and contact-directory details supplied through your organization.</li>
         <li><strong>Device and service information:</strong> push-notification tokens, basic connection information, and diagnostic information produced by our hosting and security providers.</li>
         <li><strong>Location:</strong> only when you choose the weather feature and grant permission. Your current coordinates are sent to Open-Meteo to return local weather and are not saved to your League Hub profile.</li>

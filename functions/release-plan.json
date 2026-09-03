@@ -1,7 +1,7 @@
 {
   "all": false,
   "targets": [
-    "adminUpdateEventRoomAudience"
+    "adminUpdateUserAccess"
   ],
-  "reason": "Allow Platform Owners and organization Admins to update existing Event Room team access safely."
+  "reason": "Stop accepting physical-address profile updates after the field is removed from League Hub."
 }

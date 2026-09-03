@@ -14,7 +14,6 @@ void main() {
           'displayName': 'John Doe',
           'title': 'Head Coach',
           'phone': '555-0100',
-          'address': '123 Rink Road',
           'avatarUrl': 'https://example.com/avatar.png',
           'role': 'superAdmin',
           'orgId': 'org1',
@@ -31,7 +30,6 @@ void main() {
         expect(user.displayName, 'John Doe');
         expect(user.title, 'Head Coach');
         expect(user.phone, '555-0100');
-        expect(user.address, '123 Rink Road');
         expect(user.avatarUrl, 'https://example.com/avatar.png');
         expect(user.role, UserRole.superAdmin);
         expect(user.orgId, 'org1');
@@ -103,29 +101,35 @@ void main() {
         expect(AppUser.fromJson(json).isActive, true);
       });
 
-      test('parses announcement delivery and defaults invalid values to both',
-          () {
-        final base = {
-          'id': 'user1',
-          'email': 'user@example.com',
-          'displayName': 'John',
-          'role': 'staff',
-          'hubIds': <String>[],
-          'teamIds': <String>[],
-          'createdAt': testDateStr,
-        };
+      test(
+        'parses announcement delivery and defaults invalid values to both',
+        () {
+          final base = {
+            'id': 'user1',
+            'email': 'user@example.com',
+            'displayName': 'John',
+            'role': 'staff',
+            'hubIds': <String>[],
+            'teamIds': <String>[],
+            'createdAt': testDateStr,
+          };
 
-        expect(
-          AppUser.fromJson({...base, 'announcementDelivery': 'email'})
-              .announcementDelivery,
-          AnnouncementDelivery.email,
-        );
-        expect(
-          AppUser.fromJson({...base, 'announcementDelivery': 'invalid'})
-              .announcementDelivery,
-          AnnouncementDelivery.both,
-        );
-      });
+          expect(
+            AppUser.fromJson({
+              ...base,
+              'announcementDelivery': 'email',
+            }).announcementDelivery,
+            AnnouncementDelivery.email,
+          );
+          expect(
+            AppUser.fromJson({
+              ...base,
+              'announcementDelivery': 'invalid',
+            }).announcementDelivery,
+            AnnouncementDelivery.both,
+          );
+        },
+      );
 
       test('avatarUrl and orgId are null when not provided', () {
         final json = {
@@ -152,7 +156,6 @@ void main() {
           'displayName': 'John',
           'title': '   ',
           'phone': '',
-          'address': null,
           'role': 'staff',
           'hubIds': [],
           'teamIds': [],
@@ -164,24 +167,25 @@ void main() {
 
         expect(user.title, isNull);
         expect(user.phone, isNull);
-        expect(user.address, isNull);
       });
 
-      test('ignores malformed blocked user IDs instead of breaking the profile',
-          () {
-        final user = AppUser.fromJson({
-          'id': 'user1',
-          'email': 'user@example.com',
-          'displayName': 'John',
-          'role': 'staff',
-          'hubIds': [],
-          'teamIds': [],
-          'createdAt': testDateStr,
-          'blockedUserIds': ['blocked-user', 7, null],
-        });
+      test(
+        'ignores malformed blocked user IDs instead of breaking the profile',
+        () {
+          final user = AppUser.fromJson({
+            'id': 'user1',
+            'email': 'user@example.com',
+            'displayName': 'John',
+            'role': 'staff',
+            'hubIds': [],
+            'teamIds': [],
+            'createdAt': testDateStr,
+            'blockedUserIds': ['blocked-user', 7, null],
+          });
 
-        expect(user.blockedUserIds, ['blocked-user']);
-      });
+          expect(user.blockedUserIds, ['blocked-user']);
+        },
+      );
     });
 
     group('toJson', () {
@@ -192,7 +196,6 @@ void main() {
           displayName: 'Jane Doe',
           title: 'Assistant Coach',
           phone: '555-0123',
-          address: '456 Arena Avenue',
           avatarUrl: 'https://example.com/avatar.png',
           role: UserRole.managerAdmin,
           orgId: 'org1',
@@ -209,7 +212,7 @@ void main() {
         expect(json['displayName'], 'Jane Doe');
         expect(json['title'], 'Assistant Coach');
         expect(json['phone'], '555-0123');
-        expect(json['address'], '456 Arena Avenue');
+        expect(json.containsKey('address'), isFalse);
         expect(json['avatarUrl'], 'https://example.com/avatar.png');
         expect(json['role'], 'managerAdmin');
         expect(json['orgId'], 'org1');
@@ -253,7 +256,6 @@ void main() {
         displayName: 'Test User',
         title: 'Head Coach',
         phone: '555-0199',
-        address: '789 League Lane',
         avatarUrl: 'https://example.com/pic.jpg',
         role: UserRole.superAdmin,
         orgId: 'org42',
@@ -263,15 +265,16 @@ void main() {
         isActive: true,
       );
 
-      final restored =
-          AppUser.fromJson({'id': original.id, ...original.toJson()});
+      final restored = AppUser.fromJson({
+        'id': original.id,
+        ...original.toJson(),
+      });
 
       expect(restored.id, original.id);
       expect(restored.email, original.email);
       expect(restored.displayName, original.displayName);
       expect(restored.title, original.title);
       expect(restored.phone, original.phone);
-      expect(restored.address, original.address);
       expect(restored.avatarUrl, original.avatarUrl);
       expect(restored.role, original.role);
       expect(restored.orgId, original.orgId);

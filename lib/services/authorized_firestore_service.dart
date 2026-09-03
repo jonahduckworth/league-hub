@@ -41,17 +41,20 @@ class AuthorizedFirestoreService {
   // -------------------------------------------------------------------------
 
   Never _deny(String action, AppUser actor) => throw PermissionDeniedException(
-        action: action,
-        userId: actor.id,
-        role: actor.role,
-      );
+    action: action,
+    userId: actor.id,
+    role: actor.role,
+  );
 
   // -------------------------------------------------------------------------
   // Organizations
   // -------------------------------------------------------------------------
 
   Future<void> updateOrganization(
-      AppUser actor, String orgId, Map<String, dynamic> data) {
+    AppUser actor,
+    String orgId,
+    Map<String, dynamic> data,
+  ) {
     if (!_ps.canUpdateOrganization(actor)) _deny('updateOrganization', actor);
     const allowedFields = {
       'name',
@@ -76,7 +79,11 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> updateLeagueFields(
-      AppUser actor, String orgId, String leagueId, Map<String, dynamic> data) {
+    AppUser actor,
+    String orgId,
+    String leagueId,
+    Map<String, dynamic> data,
+  ) {
     if (!_ps.canUpdateLeague(actor)) _deny('updateLeagueFields', actor);
     return _fs.updateLeagueFields(orgId, leagueId, data);
   }
@@ -88,7 +95,10 @@ class AuthorizedFirestoreService {
 
   /// Cascade-delete a league and all its children (hubs, teams).
   Future<void> deleteLeagueCascade(
-      AppUser actor, String orgId, String leagueId) async {
+    AppUser actor,
+    String orgId,
+    String leagueId,
+  ) async {
     if (!_ps.canDeleteLeague(actor)) _deny('deleteLeagueCascade', actor);
     // Delete all teams in all hubs first.
     final hubs = await _fs.getHubs(orgId, leagueId).first;
@@ -113,8 +123,13 @@ class AuthorizedFirestoreService {
     return _fs.createHub(orgId, leagueId, hub);
   }
 
-  Future<void> updateHubFields(AppUser actor, String orgId, String leagueId,
-      String hubId, Map<String, dynamic> data) {
+  Future<void> updateHubFields(
+    AppUser actor,
+    String orgId,
+    String leagueId,
+    String hubId,
+    Map<String, dynamic> data,
+  ) {
     if (!_ps.canUpdateHub(actor, hubId: hubId)) {
       _deny('updateHubFields', actor);
     }
@@ -122,14 +137,22 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> deleteHub(
-      AppUser actor, String orgId, String leagueId, String hubId) {
+    AppUser actor,
+    String orgId,
+    String leagueId,
+    String hubId,
+  ) {
     if (!_ps.canDeleteHub(actor)) _deny('deleteHub', actor);
     return _fs.deleteHub(orgId, leagueId, hubId);
   }
 
   /// Cascade-delete a hub and all its teams.
   Future<void> deleteHubCascade(
-      AppUser actor, String orgId, String leagueId, String hubId) async {
+    AppUser actor,
+    String orgId,
+    String leagueId,
+    String hubId,
+  ) async {
     if (!_ps.canDeleteHub(actor)) _deny('deleteHubCascade', actor);
     final teams = await _fs.getTeams(orgId, leagueId, hubId).first;
     for (final team in teams) {
@@ -143,7 +166,12 @@ class AuthorizedFirestoreService {
   // -------------------------------------------------------------------------
 
   Future<void> createTeam(
-      AppUser actor, String orgId, String leagueId, String hubId, Team team) {
+    AppUser actor,
+    String orgId,
+    String leagueId,
+    String hubId,
+    Team team,
+  ) {
     if (!_ps.canCreateTeam(actor, hubId: hubId)) {
       _deny('createTeam', actor);
     }
@@ -153,22 +181,37 @@ class AuthorizedFirestoreService {
     return _fs.createTeam(orgId, leagueId, hubId, team);
   }
 
-  Future<void> deleteTeam(AppUser actor, String orgId, String leagueId,
-      String hubId, String teamId) {
+  Future<void> deleteTeam(
+    AppUser actor,
+    String orgId,
+    String leagueId,
+    String hubId,
+    String teamId,
+  ) {
     if (!_ps.canDeleteTeam(actor, hubId: hubId)) {
       _deny('deleteTeam', actor);
     }
     return _fs.deleteTeam(orgId, leagueId, hubId, teamId);
   }
 
-  Future<void> updateTeamFields(AppUser actor, String orgId, String leagueId,
-      String hubId, String teamId, Map<String, dynamic> data) {
+  Future<void> updateTeamFields(
+    AppUser actor,
+    String orgId,
+    String leagueId,
+    String hubId,
+    String teamId,
+    Map<String, dynamic> data,
+  ) {
     _assertCanUpdateTeamFields(actor, hubId, teamId, data);
     return _fs.updateTeamFields(orgId, leagueId, hubId, teamId, data);
   }
 
   void _assertCanUpdateTeamFields(
-      AppUser actor, String hubId, String teamId, Map<String, dynamic> data) {
+    AppUser actor,
+    String hubId,
+    String teamId,
+    Map<String, dynamic> data,
+  ) {
     if (!_ps.canCreateTeam(actor, hubId: hubId)) {
       _deny('updateTeamFields', actor);
     }
@@ -197,7 +240,10 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> updateUserFields(
-      AppUser actor, AppUser target, Map<String, dynamic> data) async {
+    AppUser actor,
+    AppUser target,
+    Map<String, dynamic> data,
+  ) async {
     await _assertCanUpdateUserFields(actor, target, data);
     return _fs.updateUserFields(target.id, data);
   }
@@ -206,10 +252,7 @@ class AuthorizedFirestoreService {
     AppUser actor,
     Map<String, dynamic> data,
   ) {
-    const allowedFields = {
-      'blockedUserIds',
-      'hasAcceptedCommunityGuidelines',
-    };
+    const allowedFields = {'blockedUserIds', 'hasAcceptedCommunityGuidelines'};
     if (!actor.isActive ||
         data.keys.any((key) => !allowedFields.contains(key))) {
       _deny('updateOwnSafetySettings', actor);
@@ -242,7 +285,10 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> _assertCanUpdateUserFields(
-      AppUser actor, AppUser target, Map<String, dynamic> data) async {
+    AppUser actor,
+    AppUser target,
+    Map<String, dynamic> data,
+  ) async {
     final canManageFully = _ps.canManageUser(actor, target);
     final canManageAssignments = _ps.canManageUserAssignments(actor, target);
     if (!canManageFully && !canManageAssignments) {
@@ -255,7 +301,6 @@ class AuthorizedFirestoreService {
       'teamIds',
       'title',
       'phone',
-      'address',
       'isActive',
     };
     if (data.keys.any((key) => !allowedFields.contains(key))) {
@@ -292,8 +337,9 @@ class AuthorizedFirestoreService {
       final selectedHubIds = hubIds.whereType<String>().toSet();
       final selectedTeamIds = teamIds.whereType<String>().toSet();
       if (selectedTeamIds.isNotEmpty) {
-        final teams =
-            await _fs.getAllTeamsFlat(target.orgId ?? actor.orgId ?? '');
+        final teams = await _fs.getAllTeamsFlat(
+          target.orgId ?? actor.orgId ?? '',
+        );
         final validTeamIds = teams
             .where((team) => selectedHubIds.contains(team.hubId))
             .map((team) => team.id)
@@ -366,14 +412,18 @@ class AuthorizedFirestoreService {
         )) {
       _deny('createChatRoom', actor);
     }
-    return _fs.createChatRoom(orgId, name, type,
-        leagueId: leagueId,
-        hubId: hubId,
-        teamId: teamId,
-        participants: participants,
-        roomPurpose: roomPurpose,
-        roomIconName: roomIconName,
-        roomImageUrl: roomImageUrl);
+    return _fs.createChatRoom(
+      orgId,
+      name,
+      type,
+      leagueId: leagueId,
+      hubId: hubId,
+      teamId: teamId,
+      participants: participants,
+      roomPurpose: roomPurpose,
+      roomIconName: roomIconName,
+      roomImageUrl: roomImageUrl,
+    );
   }
 
   Future<ChatRoom> getOrCreateDirectMessage(
@@ -398,7 +448,10 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> archiveChatRoom(
-      AppUser actor, String orgId, String roomId) async {
+    AppUser actor,
+    String orgId,
+    String roomId,
+  ) async {
     if (!_ps.canArchiveChatRoom(actor)) _deny('archiveChatRoom', actor);
     final room = await _fs.getChatRoom(orgId, roomId).first;
     if (room == null || !_ps.canManageChatRoom(actor, room)) {
@@ -465,12 +518,15 @@ class AuthorizedFirestoreService {
     String? caption,
   }) {
     if (!_ps.canSendMessage(actor)) _deny('sendMediaMessage', actor);
-    return _fs.sendMediaMessage(orgId, roomId,
-        senderId: actor.id,
-        senderName: actor.displayName,
-        mediaUrl: mediaUrl,
-        mediaType: mediaType,
-        caption: caption);
+    return _fs.sendMediaMessage(
+      orgId,
+      roomId,
+      senderId: actor.id,
+      senderName: actor.displayName,
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
+      caption: caption,
+    );
   }
 
   /// Updates a message — only the original sender may edit.
@@ -540,8 +596,11 @@ class AuthorizedFirestoreService {
   // -------------------------------------------------------------------------
 
   Future<String> createPolicy(
-      AppUser actor, String orgId, Map<String, dynamic> policyData,
-      {String? policyId}) {
+    AppUser actor,
+    String orgId,
+    Map<String, dynamic> policyData, {
+    String? policyId,
+  }) {
     if (!_ps.canUploadPolicyToScope(
       actor,
       leagueId: policyData['leagueId'] as String?,
@@ -554,8 +613,12 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> updatePolicy(
-      AppUser actor, String orgId, String policyId, Map<String, dynamic> data,
-      {required String uploadedBy}) {
+    AppUser actor,
+    String orgId,
+    String policyId,
+    Map<String, dynamic> data, {
+    required String uploadedBy,
+  }) {
     if (!_ps.canEditPolicy(actor, uploadedBy: uploadedBy)) {
       _deny('updatePolicy', actor);
     }
@@ -617,13 +680,17 @@ class AuthorizedFirestoreService {
     return _fs.createAnnouncement(orgId, data);
   }
 
-  Future<void> updateAnnouncement(AppUser actor, String orgId,
-      String announcementId, Map<String, dynamic> data,
-      {required String authorId,
-      required AnnouncementScope scope,
-      String? leagueId,
-      String? hubId,
-      String? teamId}) {
+  Future<void> updateAnnouncement(
+    AppUser actor,
+    String orgId,
+    String announcementId,
+    Map<String, dynamic> data, {
+    required String authorId,
+    required AnnouncementScope scope,
+    String? leagueId,
+    String? hubId,
+    String? teamId,
+  }) {
     if (!_ps.canEditAnnouncement(actor, authorId: authorId) ||
         !_ps.canCreateAnnouncementWithScope(
           actor,
@@ -642,7 +709,10 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> deleteAnnouncement(
-      AppUser actor, String orgId, String announcementId) {
+    AppUser actor,
+    String orgId,
+    String announcementId,
+  ) {
     if (!_ps.canDeleteAnnouncement(actor)) {
       _deny('deleteAnnouncement', actor);
     }
@@ -650,7 +720,11 @@ class AuthorizedFirestoreService {
   }
 
   Future<void> togglePin(
-      AppUser actor, String orgId, String announcementId, bool isPinned) {
+    AppUser actor,
+    String orgId,
+    String announcementId,
+    bool isPinned,
+  ) {
     if (!_ps.canTogglePin(actor)) _deny('togglePin', actor);
     return _fs.togglePin(orgId, announcementId, isPinned);
   }
@@ -660,7 +734,10 @@ class AuthorizedFirestoreService {
   // -------------------------------------------------------------------------
 
   Future<String> createInvitation(
-      AppUser actor, String orgId, Invitation invitation) async {
+    AppUser actor,
+    String orgId,
+    Invitation invitation,
+  ) async {
     if (!_ps.canCreateInvitation(actor)) {
       _deny('createInvitation', actor);
     }
@@ -709,8 +786,13 @@ class AuthorizedFirestoreService {
   }
 
   /// Validates and accepts an invitation, checking expiry.
-  Future<void> acceptInvitation(String orgId, String inviteId,
-      {required DateTime invitedAt, DateTime? expiresAt, int expiryDays = 7}) {
+  Future<void> acceptInvitation(
+    String orgId,
+    String inviteId, {
+    required DateTime invitedAt,
+    DateTime? expiresAt,
+    int expiryDays = 7,
+  }) {
     final expiry = expiresAt ?? invitedAt.add(Duration(days: expiryDays));
     if (DateTime.now().isAfter(expiry)) {
       throw StateError('Invitation has expired');

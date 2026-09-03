@@ -24,7 +24,6 @@ class AppUser {
   final String displayName;
   final String? title;
   final String? phone;
-  final String? address;
   final String? avatarUrl;
   final UserRole role;
   final String? orgId;
@@ -43,7 +42,6 @@ class AppUser {
     required this.displayName,
     this.title,
     this.phone,
-    this.address,
     this.avatarUrl,
     required this.role,
     this.orgId,
@@ -58,33 +56,32 @@ class AppUser {
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
-        id: json['id'] as String,
-        email: json['email'] as String,
-        displayName: json['displayName'] as String,
-        title: _optionalString(json['title']),
-        phone: _optionalString(json['phone']),
-        address: _optionalString(json['address']),
-        avatarUrl: json['avatarUrl'] as String?,
-        role: UserRole.values.firstWhere(
-          (e) => e.name == json['role'],
-          orElse: () => UserRole.staff,
-        ),
-        orgId: json['orgId'] as String?,
-        hubIds: List<String>.from(json['hubIds'] as List? ?? []),
-        leagueIds: List<String>.from(json['leagueIds'] as List? ?? []),
-        teamIds: List<String>.from(json['teamIds'] as List? ?? []),
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        isActive: json['isActive'] as bool? ?? true,
-        blockedUserIds: (json['blockedUserIds'] as List? ?? const [])
-            .whereType<String>()
-            .toList(),
-        hasAcceptedCommunityGuidelines:
-            json['hasAcceptedCommunityGuidelines'] as bool? ?? false,
-        announcementDelivery: AnnouncementDelivery.values.firstWhere(
-          (delivery) => delivery.name == json['announcementDelivery'],
-          orElse: () => AnnouncementDelivery.both,
-        ),
-      );
+    id: json['id'] as String,
+    email: json['email'] as String,
+    displayName: json['displayName'] as String,
+    title: _optionalString(json['title']),
+    phone: _optionalString(json['phone']),
+    avatarUrl: json['avatarUrl'] as String?,
+    role: UserRole.values.firstWhere(
+      (e) => e.name == json['role'],
+      orElse: () => UserRole.staff,
+    ),
+    orgId: json['orgId'] as String?,
+    hubIds: List<String>.from(json['hubIds'] as List? ?? []),
+    leagueIds: List<String>.from(json['leagueIds'] as List? ?? []),
+    teamIds: List<String>.from(json['teamIds'] as List? ?? []),
+    createdAt: DateTime.parse(json['createdAt'] as String),
+    isActive: json['isActive'] as bool? ?? true,
+    blockedUserIds: (json['blockedUserIds'] as List? ?? const [])
+        .whereType<String>()
+        .toList(),
+    hasAcceptedCommunityGuidelines:
+        json['hasAcceptedCommunityGuidelines'] as bool? ?? false,
+    announcementDelivery: AnnouncementDelivery.values.firstWhere(
+      (delivery) => delivery.name == json['announcementDelivery'],
+      orElse: () => AnnouncementDelivery.both,
+    ),
+  );
 
   Map<String, dynamic> toJson() {
     final data = <String, dynamic>{
@@ -106,10 +103,8 @@ class AppUser {
 
     final normalizedTitle = _optionalString(title);
     final normalizedPhone = _optionalString(phone);
-    final normalizedAddress = _optionalString(address);
     if (normalizedTitle != null) data['title'] = normalizedTitle;
     if (normalizedPhone != null) data['phone'] = normalizedPhone;
-    if (normalizedAddress != null) data['address'] = normalizedAddress;
     return data;
   }
 

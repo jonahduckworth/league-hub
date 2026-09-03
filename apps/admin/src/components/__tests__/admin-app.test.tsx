@@ -663,8 +663,7 @@ describe("AdminApp operations shell", () => {
         users: demoData.users.map((user) => user.id === "admin-1" ? {
           ...user,
           title: "League administrator",
-          phone: "403-555-0142",
-          address: "Calgary, AB"
+          phone: "403-555-0142"
         } : user)
       },
       error: undefined,
@@ -681,7 +680,6 @@ describe("AdminApp operations shell", () => {
     const memberButton = screen.getByRole("button", { name: "Open Avery Admin member details" });
     expect(within(memberButton).getByText("403-555-0142")).toBeTruthy();
     expect(within(memberButton).getByText("League administrator")).toBeTruthy();
-    expect(within(memberButton).getByText("Calgary, AB")).toBeTruthy();
     memberButton.focus();
     fireEvent.click(memberButton);
 
@@ -693,7 +691,6 @@ describe("AdminApp operations shell", () => {
     expect(within(drawer).getByRole("heading", { name: "Avery Admin" })).toBeTruthy();
     expect(within(drawer).getByText("403-555-0142")).toBeTruthy();
     expect(within(drawer).getByText("League administrator")).toBeTruthy();
-    expect(within(drawer).getByText("Calgary, AB")).toBeTruthy();
     const closeButton = within(drawer).getByRole("button", { name: "Close drawer" });
     await waitFor(() => expect(document.activeElement).toBe(closeButton));
 

@@ -28,7 +28,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _titleController;
   late TextEditingController _phoneController;
-  late TextEditingController _addressController;
   bool _isLoading = false;
   bool _isUploadingPhoto = false;
   bool _initialized = false;
@@ -39,7 +38,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _nameController.dispose();
     _titleController.dispose();
     _phoneController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
@@ -52,15 +50,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (user == null || user.id == _loadedUserId) return;
     if (_nameController.text.isNotEmpty ||
         _titleController.text.isNotEmpty ||
-        _phoneController.text.isNotEmpty ||
-        _addressController.text.isNotEmpty) {
+        _phoneController.text.isNotEmpty) {
       return;
     }
 
     _nameController.text = user.displayName;
     _titleController.text = user.title ?? '';
     _phoneController.text = user.phone ?? '';
-    _addressController.text = user.address ?? '';
     _loadedUserId = user.id;
   }
 
@@ -68,7 +64,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _nameController = TextEditingController(text: user?.displayName ?? '');
     _titleController = TextEditingController(text: user?.title ?? '');
     _phoneController = TextEditingController(text: user?.phone ?? '');
-    _addressController = TextEditingController(text: user?.address ?? '');
     _loadedUserId = user?.id;
     _initialized = true;
   }
@@ -82,7 +77,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (!permissionSvc.canEditProfile(user, user.id)) {
       if (mounted) {
         AppUtils.showErrorSnackBar(
-            context, 'You can only change your own profile photo');
+          context,
+          'You can only change your own profile photo',
+        );
       }
       return;
     }
@@ -110,9 +107,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         contentType: 'image/jpeg',
       );
 
-      await ref
-          .read(firestoreServiceProvider)
-          .updateUserFields(user.id, {'avatarUrl': downloadUrl});
+      await ref.read(firestoreServiceProvider).updateUserFields(user.id, {
+        'avatarUrl': downloadUrl,
+      });
 
       ref.invalidate(currentUserProvider);
 
@@ -152,13 +149,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         currentValue: user.phone,
         nextValue: _phoneController.text,
       );
-      _putOptionalProfileUpdate(
-        updates,
-        field: 'address',
-        currentValue: user.address,
-        nextValue: _addressController.text,
-      );
-
       if (updates.isNotEmpty) {
         // For profile self-edits, use raw FirestoreService with permission check
         try {
@@ -167,7 +157,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           if (!canEdit) {
             if (mounted) {
               AppUtils.showErrorSnackBar(
-                  context, 'You do not have permission to edit this profile');
+                context,
+                'You do not have permission to edit this profile',
+              );
             }
             return;
           }
@@ -265,8 +257,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           name: user?.displayName ?? '',
                           imageUrl: user?.avatarUrl,
                           size: 84,
-                          backgroundColor:
-                              AppGlassColors.aqua.withValues(alpha: 0.22),
+                          backgroundColor: AppGlassColors.aqua.withValues(
+                            alpha: 0.22,
+                          ),
                         ),
                       ),
                     ),
@@ -340,14 +333,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             ),
             const SizedBox(height: 16),
             _GlassTextFormField(
-              controller: _addressController,
-              labelText: 'Address',
-              icon: Icons.location_on_outlined,
-              keyboardType: TextInputType.streetAddress,
-              textInputAction: TextInputAction.newline,
-              textCapitalization: TextCapitalization.words,
-              minLines: 1,
-              maxLines: 3,
+              initialValue: user?.email ?? '',
+              labelText: 'Email address',
+              icon: Icons.email_outlined,
+              readOnly: true,
+              enabled: false,
             ),
             const SizedBox(height: 16),
             _GlassTextFormField(
@@ -460,13 +450,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         final newPass = newPasswordController.text;
                         final confirmPass = confirmPasswordController.text;
                         if (newPass.isEmpty || newPass.length < 6) {
-                          AppUtils.showErrorSnackBar(context,
-                              'Password must be at least 6 characters');
+                          AppUtils.showErrorSnackBar(
+                            context,
+                            'Password must be at least 6 characters',
+                          );
                           return;
                         }
                         if (newPass != confirmPass) {
                           AppUtils.showErrorSnackBar(
-                              context, 'Passwords do not match');
+                            context,
+                            'Passwords do not match',
+                          );
                           return;
                         }
                         try {
@@ -478,19 +472,24 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                               email: firebaseUser.email!,
                               password: currentPasswordController.text,
                             );
-                            await firebaseUser
-                                .reauthenticateWithCredential(cred);
+                            await firebaseUser.reauthenticateWithCredential(
+                              cred,
+                            );
                             await firebaseUser.updatePassword(newPass);
                           }
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (mounted) {
                             AppUtils.showSuccessSnackBar(
-                                context, 'Password updated successfully');
+                              context,
+                              'Password updated successfully',
+                            );
                           }
                         } catch (e) {
                           if (mounted) {
                             AppUtils.showErrorSnackBar(
-                                context, 'Failed to update password: $e');
+                              context,
+                              'Failed to update password: $e',
+                            );
                           }
                         }
                       },
@@ -574,8 +573,6 @@ class _GlassTextFormField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final TextCapitalization textCapitalization;
-  final int minLines;
-  final int maxLines;
   final FormFieldValidator<String>? validator;
 
   const _GlassTextFormField({
@@ -588,8 +585,6 @@ class _GlassTextFormField extends StatelessWidget {
     this.keyboardType,
     this.textInputAction,
     this.textCapitalization = TextCapitalization.none,
-    this.minLines = 1,
-    this.maxLines = 1,
     this.validator,
   });
 
@@ -620,8 +615,6 @@ class _GlassTextFormField extends StatelessWidget {
           keyboardType: keyboardType,
           textInputAction: textInputAction,
           textCapitalization: textCapitalization,
-          minLines: minLines,
-          maxLines: maxLines,
           cursorColor: AppGlassColors.aqua,
           style: TextStyle(
             color: fieldColor,

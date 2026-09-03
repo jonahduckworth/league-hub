@@ -514,10 +514,8 @@ service cloud.firestore {
     function selfUpdateFieldsOnly() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'displayName',
-        'email',
         'title',
         'phone',
-        'address',
         'avatarUrl',
         'fcmTokens',
         'blockedUserIds',
@@ -578,7 +576,6 @@ service cloud.firestore {
           'teamIds',
           'title',
           'phone',
-          'address',
           'isActive'
         ])
         && (

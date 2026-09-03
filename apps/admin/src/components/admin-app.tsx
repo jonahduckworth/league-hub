@@ -1606,7 +1606,7 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
     view === "managers" ? managers :
     view === "staff" ? staff :
     data.users;
-  const filteredUsers = usersForView.filter((user) => matchesQuery([user.displayName, user.email, user.title, user.phone, user.address], query));
+  const filteredUsers = usersForView.filter((user) => matchesQuery([user.displayName, user.email, user.title, user.phone], query));
   const filteredInvites = pendingInvitations.filter((invite) => matchesQuery([invite.displayName, invite.email, roleLabel(invite.role)], query));
   const selectedUser = selectedUserId ? data.users.find((user) => user.id === selectedUserId) ?? null : null;
   const selectedInvite = selectedInviteId ? pendingInvitations.find((invite) => invite.id === selectedInviteId) ?? null : null;
@@ -1743,7 +1743,6 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
                   <span className="min-w-0">
                     <span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Profile</span>
                     <span className="mt-1 block truncate text-xs font-bold text-ink">{user.title || "No title set"}</span>
-                    {user.address && <span className="mt-0.5 block truncate text-[11px] font-semibold text-muted">{user.address}</span>}
                   </span>
                   <span className="min-w-12"><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Hubs</span><span className="mt-1 block text-xs font-bold text-ink">{user.hubIds.length}</span></span>
                   <span className="min-w-12"><span className="block text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">Teams</span><span className="mt-1 block text-xs font-bold text-ink">{user.teamIds.length}</span></span>
@@ -1773,7 +1772,6 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
                 <InfoRow label="Email" value={selectedUser.email} />
                 <InfoRow label="Phone" value={selectedUser.phone} />
                 <InfoRow label="Title" value={selectedUser.title} />
-                <InfoRow label="Address" value={selectedUser.address} />
                 <InfoRow label="Status" value={<Badge tone={selectedUser.isActive ? "good" : "danger"}>{selectedUser.isActive ? "Active" : "Inactive"}</Badge>} />
                 <InfoRow label="Role" value={roleLabel(selectedUser.role)} />
                 <InfoRow label="Scope" value={`${selectedUser.hubIds.length} hubs · ${selectedUser.teamIds.length} teams`} />
