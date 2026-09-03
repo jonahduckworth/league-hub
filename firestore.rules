@@ -514,7 +514,6 @@ service cloud.firestore {
     function selfUpdateFieldsOnly() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'displayName',
-        'email',
         'title',
         'phone',
         'avatarUrl',
