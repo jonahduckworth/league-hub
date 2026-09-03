@@ -54,7 +54,13 @@ vi.mock("firebase/storage", () => ({
   uploadBytes: storageMocks.uploadBytes
 }));
 
-import { AdminApp, ChatRoomDrawer, CreateEventRoomDrawer } from "../admin-app";
+import {
+  AdminApp,
+  ChatRoomDrawer,
+  CreateEventRoomDrawer,
+  CreateInviteDrawer,
+  UserAccessEditor
+} from "../admin-app";
 import { demoData, demoUser } from "@/lib/demo-data";
 
 const secondOrganization = {
@@ -655,6 +661,71 @@ describe("AdminApp operations shell", () => {
     expect(within(drawer).getByText("Delivery")).toBeTruthy();
     expect(within(drawer).getByText("Email sent", { selector: "span" })).toBeTruthy();
     expect(within(drawer).getByText("Expires")).toBeTruthy();
+    expect(within(drawer).getByText("Head Coach")).toBeTruthy();
+  });
+
+  it("includes a profile title when creating an invitation", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: { invitationId: "invite-new" } });
+    const onClose = vi.fn();
+
+    render(
+      <CreateInviteDrawer
+        open
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={onClose}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Add Member" });
+    fireEvent.change(within(drawer).getByRole("textbox", { name: "Email" }), {
+      target: { value: "official@example.com" }
+    });
+    fireEvent.change(within(drawer).getByRole("textbox", { name: "Name Optional" }), {
+      target: { value: "Jamie Official" }
+    });
+    fireEvent.change(within(drawer).getByRole("textbox", { name: "Title Optional" }), {
+      target: { value: "Director of Officiating" }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Create Invite" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("adminCreateInvitation", {
+      email: "official@example.com",
+      displayName: "Jamie Official",
+      title: "Director of Officiating",
+      role: "staff",
+      hubIds: [],
+      teamIds: []
+    }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets an authorized administrator update a member profile title", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: {} });
+    const selectedUser = {
+      ...demoData.users.find((user) => user.id === "admin-1")!,
+      title: "League administrator"
+    };
+
+    render(
+      <UserAccessEditor
+        data={demoData}
+        currentUser={demoUser}
+        selectedUser={selectedUser}
+        runAction={runAction}
+      />
+    );
+
+    const titleInput = screen.getByRole("textbox", { name: "Title" });
+    expect((titleInput as HTMLInputElement).value).toBe("League administrator");
+    fireEvent.change(titleInput, { target: { value: "Operations Director" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save title" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("adminUpdateUserAccess", {
+      targetUserId: "admin-1",
+      profilePatch: { title: "Operations Director" }
+    }));
   });
 
   it("shows clear role choices and updates the selected access guidance", async () => {

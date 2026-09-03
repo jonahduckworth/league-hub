@@ -29,6 +29,8 @@ import {
 } from "./adminLogic";
 import {
   invitationExpiresAt,
+  invitationProfileTitleMaxLength,
+  normalizeInvitationProfileTitle,
   normalizeInvitationRecipient,
 } from "./invitationEmailLogic";
 import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
@@ -660,6 +662,16 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
     if (!email) {
       throw new HttpsError("invalid-argument", "Enter a valid email address.");
     }
+    if (data.title != null && typeof data.title !== "string") {
+      throw new HttpsError("invalid-argument", "title must be a string.");
+    }
+    const title = normalizeInvitationProfileTitle(data.title);
+    if (typeof data.title === "string" && data.title.trim().length > invitationProfileTitleMaxLength) {
+      throw new HttpsError(
+        "invalid-argument",
+        `title must be ${invitationProfileTitleMaxLength} characters or fewer.`,
+      );
+    }
     const role = requiredString(data.role, "role") as UserRole;
     if (!assignableRoles(actor.role).includes(role)) {
       throw new HttpsError("permission-denied", "You cannot invite users with that role.");
@@ -678,6 +690,7 @@ export const adminCreateInvitation = onCall(adminRuntime, async (request) => {
       orgId,
       email,
       displayName: optionalString(data.displayName) ?? null,
+      title: title ?? null,
       role,
       leagueIds,
       hubIds,
@@ -770,6 +783,14 @@ export const adminUpdateUserAccess = onCall(adminRuntime, async (request) => {
     if (profilePatch) {
       for (const field of ["title", "phone", "address"] as const) {
         if (field in profilePatch) {
+          if (field === "title" &&
+              typeof profilePatch[field] === "string" &&
+              profilePatch[field].trim().length > invitationProfileTitleMaxLength) {
+            throw new HttpsError(
+              "invalid-argument",
+              `title must be ${invitationProfileTitleMaxLength} characters or fewer.`,
+            );
+          }
           updates[field] = optionalString(profilePatch[field]) ?? admin.firestore.FieldValue.delete();
         }
       }

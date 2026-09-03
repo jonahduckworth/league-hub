@@ -5,6 +5,9 @@ const {
   classifyInvitationDeliveryFailure,
   invitationExpiresAt,
   invitationIdempotencyKey,
+  invitationProfileTitleForUser,
+  invitationProfileTitleMaxLength,
+  normalizeInvitationProfileTitle,
   normalizeInvitationRecipient,
   normalizeInvitationToken,
 } = require("../lib/invitationEmailLogic");
@@ -14,6 +17,26 @@ test("normalizes valid invitation recipients and rejects malformed addresses", (
   assert.equal(normalizeInvitationRecipient("coach"), null);
   assert.equal(normalizeInvitationRecipient("coach @example.com"), null);
   assert.equal(normalizeInvitationRecipient(null), null);
+});
+
+test("normalizes bounded invitation profile titles", () => {
+  assert.equal(
+    normalizeInvitationProfileTitle("  Director of Officiating  "),
+    "Director of Officiating",
+  );
+  assert.equal(normalizeInvitationProfileTitle("   "), null);
+  assert.equal(normalizeInvitationProfileTitle(null), null);
+  assert.equal(
+    normalizeInvitationProfileTitle("x".repeat(invitationProfileTitleMaxLength + 1)),
+    null,
+  );
+});
+
+test("only fills a blank user title from an invitation", () => {
+  assert.equal(invitationProfileTitleForUser(" Head Coach ", undefined), "Head Coach");
+  assert.equal(invitationProfileTitleForUser("Head Coach", ""), "Head Coach");
+  assert.equal(invitationProfileTitleForUser("Head Coach", "General Manager"), null);
+  assert.equal(invitationProfileTitleForUser("", undefined), null);
 });
 
 test("accepts only canonical invitation tokens", () => {

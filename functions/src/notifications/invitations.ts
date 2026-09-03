@@ -8,6 +8,7 @@ import {
   classifyInvitationDeliveryFailure,
   invitationExpiresAt,
   invitationIdempotencyKey,
+  invitationProfileTitleForUser,
   normalizeInvitationRecipient,
   normalizeInvitationToken,
 } from "../invitationEmailLogic";
@@ -84,7 +85,7 @@ function sameInvitee(
 async function markInvitationAcceptedFromUser(
   orgId: string,
   invitationId: string,
-  userData: FirebaseFirestore.DocumentData,
+  userRef: FirebaseFirestore.DocumentReference,
 ): Promise<void> {
   const invitationRef = db
     .collection("organizations")
@@ -96,18 +97,29 @@ async function markInvitationAcceptedFromUser(
     const invitationDoc = await transaction.get(invitationRef);
     if (!invitationDoc.exists) return;
 
-    const invitationData = invitationDoc.data() ?? {};
-    if (invitationData.status !== "pending") return;
-    if (!sameInvitee(userData, invitationData, orgId)) return;
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) return;
 
-    transaction.update(invitationRef, { status: "accepted" });
-    const token = stringValue(invitationData.token);
-    if (token) {
-      transaction.set(
-        db.collection("invitationLookups").doc(token),
-        { status: "accepted" },
-        { merge: true },
-      );
+    const invitationData = invitationDoc.data() ?? {};
+    const currentUserData = userDoc.data() ?? {};
+    if (invitationData.status !== "pending" && invitationData.status !== "accepted") return;
+    if (!sameInvitee(currentUserData, invitationData, orgId)) return;
+
+    if (invitationData.status === "pending") {
+      transaction.update(invitationRef, { status: "accepted" });
+      const token = stringValue(invitationData.token);
+      if (token) {
+        transaction.set(
+          db.collection("invitationLookups").doc(token),
+          { status: "accepted" },
+          { merge: true },
+        );
+      }
+    }
+
+    const title = invitationProfileTitleForUser(invitationData.title, currentUserData.title);
+    if (title) {
+      transaction.update(userRef, { title });
     }
   });
 }
@@ -365,6 +377,10 @@ export const onUserCreatedFromInvitation = onFirestoreCreated(
     const acceptedInvitationId = stringValue(userData.acceptedInvitationId);
     if (!orgId || !acceptedInvitationId) return;
 
-    await markInvitationAcceptedFromUser(orgId, acceptedInvitationId, userData);
+    await markInvitationAcceptedFromUser(
+      orgId,
+      acceptedInvitationId,
+      snapshot.ref,
+    );
   },
 );
