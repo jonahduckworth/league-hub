@@ -9,6 +9,7 @@ import {
   invitationExpiresAt,
   invitationIdempotencyKey,
   invitationProfileTitleForUser,
+  shouldNotifyInvitationAdmins,
   normalizeInvitationRecipient,
   normalizeInvitationToken,
 } from "../invitationEmailLogic";
@@ -154,35 +155,37 @@ export const onInvitationCreated = onFirestoreCreated(
       await ensureInvitationLookup(token, orgId, invitationId, data, expiresAt);
     }
 
-    // Notify admins in the org about the new invitation.
-    const adminsSnap = await db
-      .collection("users")
-      .where("orgId", "==", orgId)
-      .where("isActive", "==", true)
-      .where("role", "in", ["platformOwner", "superAdmin"])
-      .get();
+    if (shouldNotifyInvitationAdmins(data.suppressAdminNotification)) {
+      // Notify admins in the org about ordinary one-at-a-time invitations.
+      const adminsSnap = await db
+        .collection("users")
+        .where("orgId", "==", orgId)
+        .where("isActive", "==", true)
+        .where("role", "in", ["platformOwner", "superAdmin"])
+        .get();
 
-    const adminTokens: string[] = [];
-    for (const doc of adminsSnap.docs) {
-      const userData = doc.data();
-      const tokens = userData.fcmTokens as string[] | undefined;
-      if (tokens && tokens.length > 0) {
-        adminTokens.push(...tokens);
+      const adminTokens: string[] = [];
+      for (const doc of adminsSnap.docs) {
+        const userData = doc.data();
+        const tokens = userData.fcmTokens as string[] | undefined;
+        if (tokens && tokens.length > 0) {
+          adminTokens.push(...tokens);
+        }
       }
-    }
 
-    if (adminTokens.length > 0) {
-      await sendNotification(
-        adminTokens,
-        {
-          title: "New Invitation Sent",
-          body: `${invitedByName} invited ${inviteeName} to join the organization`,
-        },
-        {
-          type: "invitation",
-          orgId,
-        },
-      );
+      if (adminTokens.length > 0) {
+        await sendNotification(
+          adminTokens,
+          {
+            title: "New Invitation Sent",
+            body: `${invitedByName} invited ${inviteeName} to join the organization`,
+          },
+          {
+            type: "invitation",
+            orgId,
+          },
+        );
+      }
     }
 
     // If the invitee already has an account, notify them too.
@@ -283,7 +286,6 @@ export const onInvitationEmailCreated = onFirestoreCreated(
     const message = buildInvitationEmail({
       recipientName: stringValue(invitation.displayName) || null,
       organizationName,
-      invitedByName: stringValue(invitation.invitedByName),
       role: stringValue(invitation.role),
       token,
       expiresAt: expiresAt.toDate(),
