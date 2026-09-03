@@ -86,7 +86,6 @@ async function markInvitationAcceptedFromUser(
   orgId: string,
   invitationId: string,
   userRef: FirebaseFirestore.DocumentReference,
-  userData: FirebaseFirestore.DocumentData,
 ): Promise<void> {
   const invitationRef = db
     .collection("organizations")
@@ -98,9 +97,13 @@ async function markInvitationAcceptedFromUser(
     const invitationDoc = await transaction.get(invitationRef);
     if (!invitationDoc.exists) return;
 
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) return;
+
     const invitationData = invitationDoc.data() ?? {};
+    const currentUserData = userDoc.data() ?? {};
     if (invitationData.status !== "pending" && invitationData.status !== "accepted") return;
-    if (!sameInvitee(userData, invitationData, orgId)) return;
+    if (!sameInvitee(currentUserData, invitationData, orgId)) return;
 
     if (invitationData.status === "pending") {
       transaction.update(invitationRef, { status: "accepted" });
@@ -114,7 +117,7 @@ async function markInvitationAcceptedFromUser(
       }
     }
 
-    const title = invitationProfileTitleForUser(invitationData.title, userData.title);
+    const title = invitationProfileTitleForUser(invitationData.title, currentUserData.title);
     if (title) {
       transaction.update(userRef, { title });
     }
@@ -378,7 +381,6 @@ export const onUserCreatedFromInvitation = onFirestoreCreated(
       orgId,
       acceptedInvitationId,
       snapshot.ref,
-      userData,
     );
   },
 );
