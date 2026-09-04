@@ -1,5 +1,34 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/services/app_update_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+class _RecordingAdapter implements HttpClientAdapter {
+  RequestOptions? request;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    request = options;
+    return ResponseBody.fromString(
+      '{"resultCount":1,"results":[{"version":"1.0.7",'
+      '"trackViewUrl":"https://apps.apple.com/ca/app/league-hub/'
+      'id6774679631"}]}',
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
 
 void main() {
   group('compareAppVersions', () {
@@ -40,8 +69,7 @@ void main() {
     test('accepts the current or a newer installed version', () {
       final result = appStoreResultFromLookup(
         installedVersion: '1.0.4',
-        responseData:
-            '{"resultCount":1,"results":[{"version":"1.0.4",'
+        responseData: '{"resultCount":1,"results":[{"version":"1.0.4",'
             '"trackViewUrl":"https://apps.apple.com/app/id123"}]}',
       );
 
@@ -67,6 +95,37 @@ void main() {
 
       expect(missingApp.status, AppUpdateStatus.unavailable);
       expect(malformedVersion.status, AppUpdateStatus.unavailable);
+    });
+  });
+
+  group('StoreAppUpdateService iOS lookup', () {
+    test('uses the numeric App Store ID and a five-minute cache bucket',
+        () async {
+      final adapter = _RecordingAdapter();
+      final dio = Dio()..httpClientAdapter = adapter;
+      final now = DateTime.utc(2026, 9, 4, 15, 8, 44);
+      final service = StoreAppUpdateService(
+        dio: dio,
+        packageInfoLoader: () async => PackageInfo(
+          appName: 'League Hub',
+          packageName: 'ca.jdbuilds.leaguehub',
+          version: '1.0.6',
+          buildNumber: '17',
+        ),
+        platformResolver: () => AppUpdatePlatform.ios,
+        now: () => now,
+      );
+
+      final result = await service.checkForUpdate();
+
+      expect(result.status, AppUpdateStatus.updateRequired);
+      expect(adapter.request?.uri.queryParameters['id'], '6774679631');
+      expect(adapter.request?.uri.queryParameters, isNot(contains('bundleId')));
+      expect(
+        adapter.request?.uri.queryParameters['_cb'],
+        '${now.millisecondsSinceEpoch ~/ const Duration(minutes: 5).inMilliseconds}',
+      );
+      expect(adapter.request?.headers['Cache-Control'], 'no-cache');
     });
   });
 }
