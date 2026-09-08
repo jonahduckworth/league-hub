@@ -85,6 +85,15 @@ async function removeOrganizationIdentity(userId: string, orgId: string): Promis
     });
   }
 
+  const announcementReads = await db.collectionGroup("announcementReads")
+    .where("userId", "==", userId)
+    .get();
+  for (const read of announcementReads.docs) {
+    if (read.data().orgId === orgId) {
+      writer.delete(read.ref);
+    }
+  }
+
   const policies = await orgRef.collection("policies")
     .where("uploadedBy", "==", userId)
     .get();

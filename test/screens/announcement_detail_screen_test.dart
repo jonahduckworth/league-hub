@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/announcement_detail_screen.dart';
+import 'package:league_hub/services/authorized_firestore_service.dart';
+import 'package:league_hub/services/firestore_service.dart';
+import 'package:league_hub/services/permission_service.dart';
 import 'package:league_hub/core/theme.dart';
 
 void main() {
@@ -18,6 +22,7 @@ void main() {
       role: UserRole.staff,
       orgId: 'org-1',
       hubIds: ['hub-1'],
+      leagueIds: ['league-1'],
       teamIds: [],
       createdAt: DateTime(2024),
       isActive: true,
@@ -109,7 +114,10 @@ void main() {
       AppUser? user,
       List<Announcement>? announcements,
       List<League>? leagues,
+      FakeFirebaseFirestore? firestore,
     }) {
+      final database = firestore ?? FakeFirebaseFirestore();
+      final firestoreService = FirestoreService(firestore: database);
       return ProviderScope(
         overrides: [
           currentUserProvider.overrideWith(
@@ -120,6 +128,20 @@ void main() {
           ),
           leaguesProvider.overrideWith(
             (ref) => Stream.value(leagues ?? testLeagues),
+          ),
+          orgUsersProvider.overrideWith(
+            (ref) => Stream.value([
+              staffUser,
+              authorUser,
+              superAdminUser,
+            ]),
+          ),
+          firestoreServiceProvider.overrideWithValue(firestoreService),
+          authorizedFirestoreServiceProvider.overrideWithValue(
+            AuthorizedFirestoreService(
+              firestoreService,
+              const PermissionService(),
+            ),
           ),
         ],
         child: MaterialApp(
@@ -292,6 +314,57 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.delete_outline), findsNothing);
+      });
+    });
+
+    group('Read receipts', () {
+      testWidgets('records a receipt when a visible announcement is opened', (
+        tester,
+      ) async {
+        final firestore = FakeFirebaseFirestore();
+        await tester.pumpWidget(
+          createTestWidget(
+            announcementId: 'ann-1',
+            firestore: firestore,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final receipt = await firestore
+            .collection('organizations')
+            .doc('org-1')
+            .collection('announcements')
+            .doc('ann-1')
+            .collection('announcementReads')
+            .doc('user-1')
+            .get();
+        expect(receipt.exists, isTrue);
+      });
+
+      testWidgets('shows reader identities to league owners', (tester) async {
+        await tester.pumpWidget(
+          createTestWidget(
+            announcementId: 'ann-1',
+            user: superAdminUser,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Read by 1'), findsOneWidget);
+        await tester.tap(find.text('Tap to view readers'));
+        await tester.pumpAndSettle();
+        expect(find.text('Admin User'), findsOneWidget);
+      });
+
+      testWidgets('hides reader identities from managers and staff', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          createTestWidget(announcementId: 'ann-1'),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Read by'), findsNothing);
       });
     });
 

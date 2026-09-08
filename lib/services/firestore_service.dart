@@ -11,6 +11,7 @@ import '../models/chat_room.dart';
 import '../models/message.dart';
 import '../models/policy.dart';
 import '../models/announcement.dart';
+import '../models/announcement_read_receipt.dart';
 import '../models/invitation.dart';
 import '../models/schedule_event.dart';
 import '../models/schedule_team_logos.dart';
@@ -1030,6 +1031,14 @@ class FirestoreService {
       .doc(orgId)
       .collection('announcements');
 
+  CollectionReference _announcementReadsRef(
+    String orgId,
+    String announcementId,
+  ) =>
+      _announcementsRef(orgId)
+          .doc(announcementId)
+          .collection('announcementReads');
+
   /// Stream of all announcements for an org, pinned first then newest.
   Stream<List<Announcement>> getAnnouncements(String orgId) {
     return _announcementsRef(orgId)
@@ -1085,7 +1094,18 @@ class FirestoreService {
   }
 
   Future<void> deleteAnnouncement(String orgId, String announcementId) async {
-    await _announcementsRef(orgId).doc(announcementId).delete();
+    final announcementRef = _announcementsRef(orgId).doc(announcementId);
+    while (true) {
+      final reads =
+          await _announcementReadsRef(orgId, announcementId).limit(400).get();
+      if (reads.docs.isEmpty) break;
+      final batch = _db.batch();
+      for (final read in reads.docs) {
+        batch.delete(read.reference);
+      }
+      await batch.commit();
+    }
+    await announcementRef.delete();
   }
 
   Future<void> togglePin(
@@ -1093,6 +1113,47 @@ class FirestoreService {
     await _announcementsRef(orgId)
         .doc(announcementId)
         .update({'isPinned': isPinned});
+  }
+
+  /// Records that [userId] opened an announcement. Reopening updates the
+  /// timestamp without creating duplicate receipts.
+  Future<void> markAnnouncementRead(
+    String orgId,
+    String announcementId,
+    String userId,
+  ) async {
+    await _announcementReadsRef(orgId, announcementId).doc(userId).set({
+      'userId': userId,
+      'orgId': orgId,
+      'announcementId': announcementId,
+      'readAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<List<AnnouncementReadReceipt>> getAnnouncementReadReceipts(
+    String orgId,
+    String announcementId,
+  ) {
+    return _announcementReadsRef(orgId, announcementId)
+        .orderBy('readAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (document) {
+                  final data = _convertTimestamps(
+                    document.data() as Map<String, dynamic>,
+                  );
+                  // A local serverTimestamp write is briefly null until the
+                  // backend acknowledges it. Omit that pending row instead of
+                  // turning the entire admin reader stream into an error.
+                  if (data['readAt'] is! String) return null;
+                  return AnnouncementReadReceipt.fromJson(data);
+                },
+              )
+              .whereType<AnnouncementReadReceipt>()
+              .toList(),
+        );
   }
 
   // --- Invitations ---

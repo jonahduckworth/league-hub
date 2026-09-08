@@ -41,10 +41,10 @@ class AuthorizedFirestoreService {
   // -------------------------------------------------------------------------
 
   Never _deny(String action, AppUser actor) => throw PermissionDeniedException(
-    action: action,
-    userId: actor.id,
-    role: actor.role,
-  );
+        action: action,
+        userId: actor.id,
+        role: actor.role,
+      );
 
   // -------------------------------------------------------------------------
   // Organizations
@@ -727,6 +727,28 @@ class AuthorizedFirestoreService {
   ) {
     if (!_ps.canTogglePin(actor)) _deny('togglePin', actor);
     return _fs.togglePin(orgId, announcementId, isPinned);
+  }
+
+  Future<void> markAnnouncementRead(
+    AppUser actor,
+    String orgId,
+    String announcementId, {
+    required AnnouncementScope scope,
+    String? leagueId,
+    String? hubId,
+    String? teamId,
+  }) {
+    if (actor.orgId != orgId ||
+        !_ps.canViewAnnouncement(
+          actor,
+          scope: scope,
+          leagueId: leagueId,
+          hubId: hubId,
+          teamId: teamId,
+        )) {
+      _deny('markAnnouncementRead', actor);
+    }
+    return _fs.markAnnouncementRead(orgId, announcementId, actor.id);
   }
 
   // -------------------------------------------------------------------------

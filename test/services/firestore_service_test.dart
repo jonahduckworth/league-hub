@@ -1049,6 +1049,55 @@ void main() {
 
       expect(doc.data()!['isPinned'], true);
     });
+
+    test('markAnnouncementRead stores one receipt per user', () async {
+      final id = await svc.createAnnouncement(orgId, announcementData());
+
+      await svc.markAnnouncementRead(orgId, id, 'reader-1');
+      await svc.markAnnouncementRead(orgId, id, 'reader-1');
+
+      final receipts = await svc.getAnnouncementReadReceipts(orgId, id).first;
+      expect(receipts, hasLength(1));
+      expect(receipts.single.userId, 'reader-1');
+      expect(receipts.single.orgId, orgId);
+      expect(receipts.single.announcementId, id);
+    });
+
+    test('pending server timestamps do not break the reader stream', () async {
+      final id = await svc.createAnnouncement(orgId, announcementData());
+      await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('announcements')
+          .doc(id)
+          .collection('announcementReads')
+          .doc('reader-1')
+          .set({
+        'userId': 'reader-1',
+        'orgId': orgId,
+        'announcementId': id,
+        'readAt': null,
+      });
+
+      final receipts = await svc.getAnnouncementReadReceipts(orgId, id).first;
+      expect(receipts, isEmpty);
+    });
+
+    test('deleteAnnouncement removes its read receipts', () async {
+      final id = await svc.createAnnouncement(orgId, announcementData());
+      await svc.markAnnouncementRead(orgId, id, 'reader-1');
+
+      await svc.deleteAnnouncement(orgId, id);
+
+      final reads = await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection('announcements')
+          .doc(id)
+          .collection('announcementReads')
+          .get();
+      expect(reads.docs, isEmpty);
+    });
   });
 
   // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 {
   "all": false,
   "targets": [
-    "adminUpdateUserAccess"
+    "deleteOwnAccount"
   ],
-  "reason": "Stop accepting physical-address profile updates after the field is removed from League Hub."
+  "reason": "Remove announcement read receipts when a member deletes their account."
 }
