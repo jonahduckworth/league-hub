@@ -33,6 +33,7 @@ import {
   normalizeInvitationProfileTitle,
   normalizeInvitationRecipient,
 } from "./invitationEmailLogic";
+import {invitationReplacementData} from "./invitationResendLogic";
 import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
 import {
   managedStructureRoomDocumentId,
@@ -736,6 +737,123 @@ export const adminExpireInvitation = onCall(adminRuntime, async (request) => {
     }
     await batch.commit();
     return { invitationId, status: "expired" };
+  });
+});
+
+export const adminResendInvitation = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminResendInvitation", async (actor, data, orgId) => {
+    const invitationId = requiredString(data.invitationId, "invitationId");
+    const invitationRef = orgRef(orgId).collection("invitations").doc(invitationId);
+    const initialSnapshot = await invitationRef.get();
+    if (!initialSnapshot.exists) {
+      throw new HttpsError("not-found", "Invitation was not found.");
+    }
+
+    const invitation = initialSnapshot.data() ?? {};
+    if (invitation.status !== "pending") {
+      throw new HttpsError("failed-precondition", "Only pending invitations can be resent.");
+    }
+    if (!canManageInvitationRole(actor.role, invitation.role)) {
+      throw new HttpsError(
+        "permission-denied",
+        "You cannot manage an invitation for this role.",
+      );
+    }
+
+    const email = normalizeInvitationRecipient(invitation.email);
+    if (!email) {
+      throw new HttpsError("failed-precondition", "The invitation email is invalid.");
+    }
+    const role = requiredString(invitation.role, "invitation.role") as UserRole;
+    const hubIds = normalizeStringArray(invitation.hubIds);
+    const teamIds = normalizeStringArray(invitation.teamIds);
+    const leagueIds = await validateAssignments(orgId, hubIds, teamIds);
+    const createdAt = admin.firestore.Timestamp.now();
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      invitationExpiresAt(createdAt.toDate()),
+    );
+    const replacementRef = orgRef(orgId).collection("invitations").doc();
+    const replacementToken = randomBytes(16).toString("hex");
+    const existingUsersQuery = usersRef().where("email", "==", email);
+
+    await db.runTransaction(async (transaction) => {
+      const currentSnapshot = await transaction.get(invitationRef);
+      if (!currentSnapshot.exists) {
+        throw new HttpsError("not-found", "Invitation was not found.");
+      }
+      const currentInvitation = currentSnapshot.data() ?? {};
+      if (currentInvitation.status !== "pending") {
+        throw new HttpsError(
+          "failed-precondition",
+          "Only pending invitations can be resent.",
+        );
+      }
+      if (!canManageInvitationRole(actor.role, currentInvitation.role)) {
+        throw new HttpsError(
+          "permission-denied",
+          "You cannot manage an invitation for this role.",
+        );
+      }
+      if (normalizeInvitationRecipient(currentInvitation.email) !== email) {
+        throw new HttpsError(
+          "failed-precondition",
+          "The invitation changed while it was being resent. Please try again.",
+        );
+      }
+      const existingUsers = await transaction.get(existingUsersQuery);
+      if (existingUsers.docs.some((user) => user.data().isActive === true)) {
+        throw new HttpsError(
+          "failed-precondition",
+          "This person already has an active League Hub account.",
+        );
+      }
+
+      transaction.update(invitationRef, {
+        status: "expired",
+        replacedByInvitationId: replacementRef.id,
+        resentAt: createdAt,
+        resentBy: actor.id,
+      });
+      const currentToken = optionalString(currentInvitation.token);
+      if (currentToken) {
+        transaction.set(
+          db.collection("invitationLookups").doc(currentToken),
+          {status: "expired"},
+          {merge: true},
+        );
+      }
+      transaction.set(replacementRef, invitationReplacementData({
+        orgId,
+        email,
+        displayName: optionalString(currentInvitation.displayName) ?? null,
+        title: normalizeInvitationProfileTitle(currentInvitation.title) ?? null,
+        role,
+        leagueIds,
+        hubIds,
+        teamIds,
+        invitedBy: actor.id,
+        invitedByName: actor.displayName ?? actor.email ?? "Admin",
+        createdAt,
+        expiresAt,
+        token: replacementToken,
+        replacesInvitationId: invitationId,
+      }));
+      transaction.set(db.collection("invitationLookups").doc(replacementToken), {
+        token: replacementToken,
+        orgId,
+        invitationId: replacementRef.id,
+        email,
+        status: "pending",
+        createdAt,
+        expiresAt,
+      });
+    });
+
+    return {
+      invitationId: replacementRef.id,
+      replacedInvitationId: invitationId,
+      status: "pending",
+    };
   });
 });
 

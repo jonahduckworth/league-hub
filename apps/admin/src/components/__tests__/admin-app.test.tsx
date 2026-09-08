@@ -59,6 +59,7 @@ import {
   ChatRoomDrawer,
   CreateEventRoomDrawer,
   CreateInviteDrawer,
+  PeopleSection,
   UserAccessEditor
 } from "../admin-app";
 import { demoData, demoUser } from "@/lib/demo-data";
@@ -745,6 +746,31 @@ describe("AdminApp operations shell", () => {
     expect(within(drawer).getByText("Email sent", { selector: "span" })).toBeTruthy();
     expect(within(drawer).getByText("Expires")).toBeTruthy();
     expect(within(drawer).getByText("Head Coach")).toBeTruthy();
+    expect(within(drawer).getByRole("button", { name: "Resend Invitation" })).toBeTruthy();
+  });
+
+  it("resends the selected pending invitation", async () => {
+    const runAction = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { invitationId: "invite-replacement" }
+    });
+    render(
+      <PeopleSection
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Pending Invites 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open invitation for Coach New" }));
+    const drawer = await screen.findByRole("dialog", { name: "coach@example.com" });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Resend Invitation" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith(
+      "adminResendInvitation",
+      { invitationId: "invite-1" }
+    ));
   });
 
   it("includes a profile title when creating an invitation", async () => {
