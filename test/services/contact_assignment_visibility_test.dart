@@ -129,6 +129,29 @@ void main() {
       expect(visible.hasHiddenTeams, isTrue);
     });
 
+    test('team-only manager does not inherit sibling team assignments', () {
+      final contact = user(
+        id: 'contact',
+        role: UserRole.staff,
+        teamIds: const ['team-north-a', 'team-north-b'],
+      );
+      final visible = visibleContactAssignments(
+        viewer: user(
+          id: 'manager',
+          role: UserRole.managerAdmin,
+          teamIds: const ['team-north-a'],
+        ),
+        contact: contact,
+        leagues: leagues,
+        hubs: hubs,
+        teams: teams,
+      );
+
+      expect(visible.hubs.map((hub) => hub.id), ['hub-north']);
+      expect(visible.teams.map((team) => team.id), ['team-north-a']);
+      expect(visible.hasHiddenTeams, isTrue);
+    });
+
     test('staff sees only shared teams and their parent hubs', () {
       final visible = visibleContactAssignments(
         viewer: user(
@@ -186,6 +209,21 @@ void main() {
       expect(scope.hubs.map((hub) => hub.id), ['hub-north']);
       expect(
           scope.teams.map((team) => team.id), ['team-north-a', 'team-north-b']);
+    });
+
+    test('team-only manager filters exclude sibling teams', () {
+      final scope = contactDirectoryScope(
+        viewer: user(
+          id: 'manager',
+          role: UserRole.managerAdmin,
+          teamIds: const ['team-north-a'],
+        ),
+        hubs: hubs,
+        teams: teams,
+      );
+
+      expect(scope.hubs.map((hub) => hub.id), ['hub-north']);
+      expect(scope.teams.map((team) => team.id), ['team-north-a']);
     });
 
     test('staff filters include only assigned teams', () {

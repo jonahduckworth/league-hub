@@ -43,8 +43,7 @@ ContactDirectoryScope contactDirectoryScope({
   required List<Hub> hubs,
   required List<Team> teams,
 }) {
-  final organizationWide =
-      viewer.role == UserRole.platformOwner ||
+  final organizationWide = viewer.role == UserRole.platformOwner ||
       viewer.role == UserRole.superAdmin;
   if (organizationWide) {
     return ContactDirectoryScope(
@@ -54,8 +53,9 @@ ContactDirectoryScope contactDirectoryScope({
   }
 
   final viewerTeamIds = viewer.teamIds.toSet();
+  final managedHubIds = viewer.hubIds.toSet();
   final viewerHubIds = <String>{
-    ...viewer.hubIds,
+    ...managedHubIds,
     ...teams
         .where((team) => viewerTeamIds.contains(team.id))
         .map((team) => team.hubId),
@@ -65,10 +65,11 @@ ContactDirectoryScope contactDirectoryScope({
   final scopedTeams = teams.where((team) {
     if (viewer.role == UserRole.managerAdmin) {
       return viewerTeamIds.contains(team.id) ||
-          viewerHubIds.contains(team.hubId);
+          managedHubIds.contains(team.hubId);
     }
     return viewerTeamIds.contains(team.id);
-  }).toList()..sort(_teamByName);
+  }).toList()
+    ..sort(_teamByName);
 
   return ContactDirectoryScope(hubs: scopedHubs, teams: scopedTeams);
 }
@@ -81,19 +82,20 @@ VisibleContactAssignments visibleContactAssignments({
   required List<Team> teams,
 }) {
   final contactTeamIds = contact.teamIds.toSet();
-  final contactTeams =
-      teams.where((team) => contactTeamIds.contains(team.id)).toList()
-        ..sort(_teamByName);
+  final contactTeams = teams
+      .where((team) => contactTeamIds.contains(team.id))
+      .toList()
+    ..sort(_teamByName);
   final contactHubIds = <String>{
     ...contact.hubIds,
     ...contactTeams.map((team) => team.hubId),
   };
-  final contactHubs =
-      hubs.where((hub) => contactHubIds.contains(hub.id)).toList()
-        ..sort(_hubByName);
+  final contactHubs = hubs
+      .where((hub) => contactHubIds.contains(hub.id))
+      .toList()
+    ..sort(_hubByName);
 
-  final organizationWide =
-      viewer.role == UserRole.platformOwner ||
+  final organizationWide = viewer.role == UserRole.platformOwner ||
       viewer.role == UserRole.superAdmin;
   late final List<Hub> visibleHubs;
   late final List<Team> visibleTeams;
@@ -103,19 +105,19 @@ VisibleContactAssignments visibleContactAssignments({
     visibleTeams = contactTeams;
   } else {
     final viewerTeamIds = viewer.teamIds.toSet();
+    final managedHubIds = viewer.hubIds.toSet();
     final viewerHubIds = <String>{
-      ...viewer.hubIds,
+      ...managedHubIds,
       ...teams
           .where((team) => viewerTeamIds.contains(team.id))
           .map((team) => team.hubId),
     };
-    visibleHubs = contactHubs
-        .where((hub) => viewerHubIds.contains(hub.id))
-        .toList();
+    visibleHubs =
+        contactHubs.where((hub) => viewerHubIds.contains(hub.id)).toList();
     visibleTeams = contactTeams.where((team) {
       if (viewer.role == UserRole.managerAdmin) {
         return viewerTeamIds.contains(team.id) ||
-            viewerHubIds.contains(team.hubId);
+            managedHubIds.contains(team.hubId);
       }
       return viewerTeamIds.contains(team.id);
     }).toList();
@@ -135,9 +137,10 @@ VisibleContactAssignments visibleContactAssignments({
   } else {
     visibleLeagueIds.addAll(contact.leagueIds.where(viewer.leagueIds.contains));
   }
-  final visibleLeagues =
-      leagues.where((league) => visibleLeagueIds.contains(league.id)).toList()
-        ..sort(_leagueByName);
+  final visibleLeagues = leagues
+      .where((league) => visibleLeagueIds.contains(league.id))
+      .toList()
+    ..sort(_leagueByName);
 
   return VisibleContactAssignments(
     leagues: visibleLeagues,
