@@ -1,7 +1,7 @@
 {
   "all": false,
   "targets": [
-    "deleteOwnAccount"
+    "adminResendInvitation"
   ],
-  "reason": "Remove announcement read receipts when a member deletes their account."
+  "reason": "Allow authorized portal admins to replace and resend pending invitations."
 }
