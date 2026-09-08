@@ -831,6 +831,21 @@ void main() {
       });
     });
 
+    group('canViewAnnouncementReaders', () {
+      test('requires an active superAdmin or platformOwner', () {
+        expect(service.canViewAnnouncementReaders(owner()), isTrue);
+        expect(service.canViewAnnouncementReaders(superAdmin()), isTrue);
+        expect(service.canViewAnnouncementReaders(manager()), isFalse);
+        expect(service.canViewAnnouncementReaders(staff()), isFalse);
+        expect(
+          service.canViewAnnouncementReaders(
+            makeUser(role: UserRole.superAdmin, isActive: false),
+          ),
+          isFalse,
+        );
+      });
+    });
+
     group('canTogglePin', () {
       test('requires superAdmin+', () {
         expect(service.canTogglePin(owner()), isTrue);

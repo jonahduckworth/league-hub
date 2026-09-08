@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../core/league_branding.dart';
 import '../core/utils.dart';
 import '../models/announcement.dart';
+import '../models/announcement_read_receipt.dart';
 import '../models/app_user.dart';
 import '../models/league.dart';
 import '../providers/auth_provider.dart';
@@ -16,7 +17,7 @@ import '../widgets/app_shell_scaffold.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/confirmation_dialog.dart';
 
-class AnnouncementDetailScreen extends ConsumerWidget {
+class AnnouncementDetailScreen extends ConsumerStatefulWidget {
   final String announcementId;
   final bool returnToDashboard;
 
@@ -27,20 +28,30 @@ class AnnouncementDetailScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AnnouncementDetailScreen> createState() =>
+      _AnnouncementDetailScreenState();
+}
+
+class _AnnouncementDetailScreenState
+    extends ConsumerState<AnnouncementDetailScreen> {
+  String? _scheduledReadKey;
+
+  @override
+  Widget build(BuildContext context) {
     final announcementsAsync = ref.watch(announcementsProvider);
     final leaguesAsync = ref.watch(leaguesProvider);
     final userAsync = ref.watch(currentUserProvider);
     final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
 
     final announcement = announcementsAsync.valueOrNull
-        ?.where((a) => a.id == announcementId)
+        ?.where((a) => a.id == widget.announcementId)
         .firstOrNull;
 
     final leagues = leaguesAsync.valueOrNull ?? [];
     final currentUser = userAsync.valueOrNull;
     final author = _userById(users, announcement?.authorId);
-    final dashboardBack = returnToDashboard ? () => context.go('/') : null;
+    final dashboardBack =
+        widget.returnToDashboard ? () => context.go('/') : null;
 
     if (announcementsAsync.isLoading) {
       return AppShellScaffold(
@@ -81,6 +92,20 @@ class AnnouncementDetailScreen extends ConsumerWidget {
         );
     final canDelete =
         currentUser != null && permissions.canDeleteAnnouncement(currentUser);
+    final canViewReaders = currentUser != null &&
+        permissions.canViewAnnouncementReaders(currentUser);
+    final readReceiptsAsync = canViewReaders
+        ? ref.watch(
+            announcementReadReceiptsProvider((
+              orgId: announcement.orgId,
+              announcementId: announcement.id,
+            )),
+          )
+        : null;
+
+    if (currentUser != null) {
+      _scheduleReadReceipt(announcement, currentUser);
+    }
 
     final headerLeague = resolveHeaderLeague(leagues, announcement.leagueId);
     final topContentPadding = appShellTopPadding(context);
@@ -234,9 +259,37 @@ class AnnouncementDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (readReceiptsAsync != null) ...[
+            const SizedBox(height: 16),
+            _AnnouncementReadersCard(
+              receiptsAsync: readReceiptsAsync,
+              users: users,
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  void _scheduleReadReceipt(Announcement announcement, AppUser currentUser) {
+    final readKey = '${announcement.id}:${currentUser.id}';
+    if (_scheduledReadKey == readKey) return;
+    _scheduledReadKey = readKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await ref.read(authorizedFirestoreServiceProvider).markAnnouncementRead(
+              currentUser,
+              announcement.orgId,
+              announcement.id,
+              scope: announcement.scope,
+              leagueId: announcement.leagueId,
+              hubId: announcement.hubId,
+              teamId: announcement.teamId,
+            );
+      } catch (_) {
+        // Read receipts are best-effort and must never block the announcement.
+      }
+    });
   }
 
   AppUser? _userById(List<AppUser> users, String? id) {
@@ -287,6 +340,217 @@ class AnnouncementDetailScreen extends ConsumerWidget {
         AppUtils.showErrorSnackBar(context, 'Delete failed: $e');
       }
     }
+  }
+}
+
+class _AnnouncementReadersCard extends StatelessWidget {
+  final AsyncValue<List<AnnouncementReadReceipt>> receiptsAsync;
+  final List<AppUser> users;
+
+  const _AnnouncementReadersCard({
+    required this.receiptsAsync,
+    required this.users,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return receiptsAsync.when(
+      loading: () => const AppGlassSurface(
+        padding: EdgeInsets.all(16),
+        radius: 24,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text(
+              'Loading readers…',
+              style: TextStyle(
+                color: AppGlassColors.inkSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      error: (_, __) => const AppGlassSurface(
+        padding: EdgeInsets.all(16),
+        radius: 24,
+        child: Row(
+          children: [
+            Icon(Icons.visibility_off_outlined, color: AppGlassColors.inkMuted),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Reader details are temporarily unavailable.',
+                style: TextStyle(
+                  color: AppGlassColors.inkSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      data: (receipts) => AppGlassSurface(
+        padding: const EdgeInsets.all(16),
+        radius: 24,
+        onTap: receipts.isEmpty
+            ? null
+            : () => _showReadersDialog(context, receipts),
+        semanticLabel: receipts.isEmpty
+            ? 'No announcement readers yet'
+            : 'View ${receipts.length} announcement readers',
+        child: Row(
+          children: [
+            const Icon(
+              Icons.visibility_outlined,
+              color: AppGlassColors.aqua,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Read by ${receipts.length}',
+                    style: const TextStyle(
+                      color: AppGlassColors.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    receipts.isEmpty
+                        ? 'No one has opened this announcement yet.'
+                        : 'Tap to view readers',
+                    style: const TextStyle(
+                      color: AppGlassColors.inkSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (receipts.isNotEmpty)
+              const Icon(
+                Icons.chevron_right,
+                color: AppGlassColors.inkMuted,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showReadersDialog(
+    BuildContext context,
+    List<AnnouncementReadReceipt> receipts,
+  ) {
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.56),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+        child: AppGlassSurface(
+          padding: const EdgeInsets.all(18),
+          radius: 28,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 520,
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.72,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Read by ${receipts.length}',
+                        style: const TextStyle(
+                          color: AppGlassColors.ink,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close reader list',
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(
+                        Icons.close,
+                        color: AppGlassColors.inkSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: receipts.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 17,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                    itemBuilder: (context, index) {
+                      final receipt = receipts[index];
+                      final user = _findUser(receipt.userId);
+                      return Row(
+                        children: [
+                          AvatarWidget(
+                            imageUrl: user?.avatarUrl,
+                            name: user?.displayName ?? 'Former member',
+                            size: 40,
+                            backgroundColor:
+                                AppGlassColors.aqua.withValues(alpha: 0.18),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              user?.displayName ?? 'Former member',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppGlassColors.ink,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            AppUtils.formatDateTime(receipt.readAt),
+                            style: const TextStyle(
+                              color: AppGlassColors.inkMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  AppUser? _findUser(String userId) {
+    for (final user in users) {
+      if (user.id == userId) return user;
+    }
+    return null;
   }
 }
 

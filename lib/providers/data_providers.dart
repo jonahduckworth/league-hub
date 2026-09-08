@@ -12,6 +12,7 @@ import '../models/chat_room.dart';
 import '../models/message.dart';
 import '../models/policy.dart';
 import '../models/announcement.dart';
+import '../models/announcement_read_receipt.dart';
 import '../models/organization.dart';
 import '../models/app_user.dart';
 import '../models/invitation.dart';
@@ -19,18 +20,21 @@ import '../models/schedule_event.dart';
 import '../models/schedule_team_logos.dart';
 import 'auth_provider.dart';
 
-final firestoreServiceProvider =
-    Provider<FirestoreService>((ref) => FirestoreService());
+final firestoreServiceProvider = Provider<FirestoreService>(
+  (ref) => FirestoreService(),
+);
 
 /// Authorized wrapper — use this for all write operations.
-final authorizedFirestoreServiceProvider =
-    Provider<AuthorizedFirestoreService>((ref) => AuthorizedFirestoreService(
-          ref.read(firestoreServiceProvider),
-          ref.read(permissionServiceProvider),
-        ));
+final authorizedFirestoreServiceProvider = Provider<AuthorizedFirestoreService>(
+  (ref) => AuthorizedFirestoreService(
+    ref.read(firestoreServiceProvider),
+    ref.read(permissionServiceProvider),
+  ),
+);
 
-final chatRoomFunctionsServiceProvider =
-    Provider<ChatRoomFunctionsClient>((ref) => ChatRoomFunctionsService());
+final chatRoomFunctionsServiceProvider = Provider<ChatRoomFunctionsClient>(
+  (ref) => ChatRoomFunctionsService(),
+);
 
 final selectedLeagueProvider = StateProvider<String?>((ref) => null);
 final selectedPolicyCategoryProvider = StateProvider<String>((ref) => 'All');
@@ -55,12 +59,24 @@ final hubsProvider = StreamProvider.family<List<Hub>, String>((ref, leagueId) {
   return ref.read(firestoreServiceProvider).getHubs(orgId, leagueId);
 });
 
+/// All hubs in the signed-in user's organization.
+///
+/// Contact surfaces use this to resolve assignment IDs without opening a
+/// listener for every league on the directory screen.
+final organizationHubsProvider = FutureProvider<List<Hub>>((ref) async {
+  final org = await ref.watch(organizationProvider.future);
+  if (org == null) return const [];
+  return ref.read(firestoreServiceProvider).getAllHubsFlat(org.id);
+});
+
 // --- Teams (per hub) ---
 
 typedef TeamsParams = ({String leagueId, String hubId});
 
-final teamsProvider =
-    StreamProvider.family<List<Team>, TeamsParams>((ref, params) {
+final teamsProvider = StreamProvider.family<List<Team>, TeamsParams>((
+  ref,
+  params,
+) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
   return ref
@@ -117,16 +133,20 @@ final chatRoomsProvider = StreamProvider<List<ChatRoom>>((ref) {
 });
 
 /// Stream of a single chat room by ID.
-final chatRoomProvider =
-    StreamProvider.family<ChatRoom?, String>((ref, roomId) {
+final chatRoomProvider = StreamProvider.family<ChatRoom?, String>((
+  ref,
+  roomId,
+) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value(null);
   return ref.watch(firestoreServiceProvider).getChatRoom(orgId, roomId);
 });
 
 /// Stream of messages for a given room ID.
-final messagesProvider =
-    StreamProvider.family<List<Message>, String>((ref, roomId) {
+final messagesProvider = StreamProvider.family<List<Message>, String>((
+  ref,
+  roomId,
+) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   if (orgId == null) return Stream.value([]);
   final blockedUserIds =
@@ -158,8 +178,14 @@ final policiesProvider = StreamProvider<List<Policy>>((ref) {
       .map((policies) {
     if (appUser == null) return policies;
     return policies
-        .where((d) => ps.canViewPolicy(appUser,
-            leagueId: d.leagueId, hubId: d.hubId, teamId: d.teamId))
+        .where(
+          (d) => ps.canViewPolicy(
+            appUser,
+            leagueId: d.leagueId,
+            hubId: d.hubId,
+            teamId: d.teamId,
+          ),
+        )
         .toList();
   });
 });
@@ -178,21 +204,31 @@ final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
   if (orgId == null) return Stream.value([]);
   final appUser = ref.watch(currentUserProvider).valueOrNull;
   final ps = ref.read(permissionServiceProvider);
-  return ref
-      .watch(firestoreServiceProvider)
-      .getAnnouncements(orgId)
-      .map((list) {
+  return ref.watch(firestoreServiceProvider).getAnnouncements(orgId).map((
+    list,
+  ) {
     if (appUser == null) return list;
     return list
-        .where((a) => ps.canViewAnnouncement(
-              appUser,
-              scope: a.scope,
-              leagueId: a.leagueId,
-              hubId: a.hubId,
-              teamId: a.teamId,
-            ))
+        .where(
+          (a) => ps.canViewAnnouncement(
+            appUser,
+            scope: a.scope,
+            leagueId: a.leagueId,
+            hubId: a.hubId,
+            teamId: a.teamId,
+          ),
+        )
         .toList();
   });
+});
+
+final announcementReadReceiptsProvider = StreamProvider.family<
+    List<AnnouncementReadReceipt>,
+    ({String orgId, String announcementId})>((ref, key) {
+  return ref.watch(firestoreServiceProvider).getAnnouncementReadReceipts(
+        key.orgId,
+        key.announcementId,
+      );
 });
 
 /// Games from RAMP, scoped to the user's assigned teams, hubs, or legacy
@@ -202,18 +238,19 @@ final scheduleEventsProvider = StreamProvider<List<ScheduleEvent>>((ref) {
   if (orgId == null) return Stream.value([]);
   final appUser = ref.watch(currentUserProvider).valueOrNull;
   final permissions = ref.read(permissionServiceProvider);
-  return ref
-      .watch(firestoreServiceProvider)
-      .getScheduleEvents(orgId)
-      .map((events) {
+  return ref.watch(firestoreServiceProvider).getScheduleEvents(orgId).map((
+    events,
+  ) {
     if (appUser == null) return events;
     return events
-        .where((event) => permissions.canViewScheduleEvent(
-              appUser,
-              teamIds: event.teamIds,
-              hubIds: event.hubIds,
-              leagueIds: event.leagueIds,
-            ))
+        .where(
+          (event) => permissions.canViewScheduleEvent(
+            appUser,
+            teamIds: event.teamIds,
+            hubIds: event.hubIds,
+            leagueIds: event.leagueIds,
+          ),
+        )
         .toList();
   });
 });
@@ -261,8 +298,10 @@ final activePendingInvitationsProvider = Provider<List<Invitation>>((ref) {
 });
 
 /// Stream of user names currently typing in a given room.
-final typingUsersProvider =
-    StreamProvider.family<List<String>, String>((ref, roomId) {
+final typingUsersProvider = StreamProvider.family<List<String>, String>((
+  ref,
+  roomId,
+) {
   final orgId = ref.watch(organizationProvider).valueOrNull?.id;
   final userId = ref.watch(currentUserProvider).valueOrNull?.id;
   if (orgId == null || userId == null) return Stream.value([]);

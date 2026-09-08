@@ -689,6 +689,45 @@ service cloud.firestore {
         && (isSuperAdmin() || request.resource.data.isPinned == resource.data.isPinned);
     }
 
+    function validAnnouncementRead(orgId, announcementId, userId) {
+      return request.resource.data.keys().hasOnly([
+          'userId',
+          'orgId',
+          'announcementId',
+          'readAt'
+        ])
+        && request.resource.data.userId == userId
+        && request.resource.data.orgId == orgId
+        && request.resource.data.announcementId == announcementId
+        && request.resource.data.readAt == request.time
+        && exists(/databases/$(database)/documents/organizations/$(orgId)/announcements/$(announcementId));
+    }
+
+    function canViewAnnouncementTarget(data) {
+      return isSuperAdmin()
+        || (
+          data.scope == 'team'
+          && data.teamId is string
+          && (
+            hasAssignedTeam(data.teamId)
+            || (
+              data.hubId is string
+              && hasAssignedHub(data.hubId)
+            )
+          )
+        )
+        || (
+          data.scope == 'hub'
+          && data.hubId is string
+          && hasAssignedHub(data.hubId)
+        )
+        || (
+          data.scope == 'league'
+          && data.leagueId is string
+          && hasAssignedLeague(data.leagueId)
+        );
+    }
+
     function validPolicyUpdate(orgId) {
       return request.resource.data.orgId == orgId
         && request.resource.data.orgId == resource.data.orgId
@@ -1126,6 +1165,20 @@ service cloud.firestore {
             || canManageOrg(orgId)
           );
         allow delete: if canManageOrg(orgId);
+
+        match /announcementReads/{userId} {
+          allow get: if sameOrg(orgId)
+            && (request.auth.uid == userId || isSuperAdmin());
+          allow list: if canManageOrg(orgId);
+          allow create, update: if sameOrg(orgId)
+            && request.auth.uid == userId
+            && validAnnouncementRead(orgId, announcementId, userId)
+            && canViewAnnouncementTarget(
+              get(/databases/$(database)/documents/organizations/$(orgId)/announcements/$(announcementId)).data
+            );
+          allow delete: if sameOrg(orgId)
+            && (request.auth.uid == userId || isSuperAdmin());
+        }
       }
 
       match /scheduleEvents/{eventId} {
