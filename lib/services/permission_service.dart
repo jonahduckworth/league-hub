@@ -361,6 +361,10 @@ class PermissionService {
   bool canDeleteAnnouncement(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
 
+  /// Reader identities are visible only to organization-level owners/admins.
+  bool canViewAnnouncementReaders(AppUser user) =>
+      isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
+
   bool canTogglePin(AppUser user) =>
       isActiveUser(user) && isAtLeast(user.role, UserRole.superAdmin);
 

@@ -1,7 +1,7 @@
 {
   "all": false,
   "targets": [
-    "adminUpdateUserAccess"
+    "adminResendInvitation"
   ],
-  "reason": "Stop accepting physical-address profile updates after the field is removed from League Hub."
+  "reason": "Allow authorized portal admins to replace and resend pending invitations."
 }

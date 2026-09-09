@@ -5,6 +5,7 @@ export type CallableName =
   | "adminGetOverview"
   | "adminCreateInvitation"
   | "adminExpireInvitation"
+  | "adminResendInvitation"
   | "adminUpdateUserAccess"
   | "adminUpsertLeague"
   | "adminDeleteLeague"

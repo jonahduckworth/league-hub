@@ -6,7 +6,9 @@ import '../models/app_user.dart';
 import '../models/hub.dart';
 import '../models/league.dart';
 import '../models/team.dart';
+import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
+import '../services/contact_assignment_visibility.dart';
 import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
@@ -22,6 +24,9 @@ class ContactProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usersAsync = ref.watch(orgUsersProvider);
+    final currentUserAsync = ref.watch(currentUserProvider);
+    final hubsAsync = ref.watch(organizationHubsProvider);
+    final teamsAsync = ref.watch(organizationTeamsProvider);
     final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
     final headerLeague = resolveHeaderLeague(leagues, null);
     final topContentPadding = appShellTopPadding(context);
@@ -36,51 +41,90 @@ class ContactProfileScreen extends ConsumerWidget {
         showBackButton: true,
         backFallbackLocation: '/contacts',
       ),
-      child: usersAsync.when(
-        loading: () => const AppLoadingState(label: 'Loading profile…'),
-        error: (_, __) => AppErrorState(
-          title: 'Unable to load profile',
-          message: 'Check your connection and try again.',
-          onRetry: () => ref.invalidate(orgUsersProvider),
-        ),
-        data: (users) {
-          final contact = _findContact(users);
-          final assignments = contact == null
-              ? null
-              : _ContactAssignmentDetailsData.resolve(
-                  ref: ref,
-                  user: contact,
-                  leagues: leagues,
-                );
-          return ListView(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              topContentPadding,
-              16,
-              bottomContentPadding,
-            ),
-            children: [
-              if (contact == null)
-                const _ContactMessageCard(message: 'Profile not found.')
-              else ...[
-                AppMotionReveal(child: _ContactProfileHero(user: contact)),
-                const SizedBox(height: 16),
-                if (assignments != null) ...[
-                  AppMotionReveal(
-                    index: 1,
-                    child: _ContactLeagueDetails(assignments: assignments),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                AppMotionReveal(
-                  index: 2,
-                  child: _ContactDetailsCard(user: contact),
-                ),
-              ],
-            ],
-          );
-        },
+      child: _buildContent(
+        ref: ref,
+        usersAsync: usersAsync,
+        currentUserAsync: currentUserAsync,
+        hubsAsync: hubsAsync,
+        teamsAsync: teamsAsync,
+        leagues: leagues,
+        topContentPadding: topContentPadding,
+        bottomContentPadding: bottomContentPadding,
       ),
+    );
+  }
+
+  Widget _buildContent({
+    required WidgetRef ref,
+    required AsyncValue<List<AppUser>> usersAsync,
+    required AsyncValue<AppUser?> currentUserAsync,
+    required AsyncValue<List<Hub>> hubsAsync,
+    required AsyncValue<List<Team>> teamsAsync,
+    required List<League> leagues,
+    required double topContentPadding,
+    required double bottomContentPadding,
+  }) {
+    if (usersAsync.hasError ||
+        currentUserAsync.hasError ||
+        hubsAsync.hasError ||
+        teamsAsync.hasError) {
+      return AppErrorState(
+        title: 'Unable to load profile',
+        message: 'Check your connection and try again.',
+        onRetry: () {
+          ref.invalidate(orgUsersProvider);
+          ref.invalidate(currentUserProvider);
+          ref.invalidate(organizationHubsProvider);
+          ref.invalidate(organizationTeamsProvider);
+        },
+      );
+    }
+    if (usersAsync.isLoading ||
+        currentUserAsync.isLoading ||
+        hubsAsync.isLoading ||
+        teamsAsync.isLoading) {
+      return const AppLoadingState(label: 'Loading profile…');
+    }
+
+    final contact = _findContact(usersAsync.valueOrNull ?? const []);
+    final viewer = currentUserAsync.valueOrNull;
+    final assignments = contact == null || viewer == null
+        ? null
+        : visibleContactAssignments(
+            viewer: viewer,
+            contact: contact,
+            leagues: leagues,
+            hubs: hubsAsync.valueOrNull ?? const [],
+            teams: teamsAsync.valueOrNull ?? const [],
+          );
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        topContentPadding,
+        16,
+        bottomContentPadding,
+      ),
+      children: [
+        if (contact == null || viewer == null)
+          _ContactMessageCard(
+            message: viewer == null
+                ? 'Sign in to view this profile.'
+                : 'Profile not found.',
+          )
+        else ...[
+          AppMotionReveal(child: _ContactProfileHero(user: contact)),
+          const SizedBox(height: 16),
+          if (assignments != null) ...[
+            AppMotionReveal(
+              index: 1,
+              child: _ContactLeagueDetails(assignments: assignments),
+            ),
+            const SizedBox(height: 16),
+          ],
+          AppMotionReveal(index: 2, child: _ContactDetailsCard(user: contact)),
+        ],
+      ],
     );
   }
 
@@ -147,68 +191,8 @@ class _ContactProfileHero extends StatelessWidget {
   }
 }
 
-class _ContactAssignmentDetailsData {
-  final List<String> leagueNames;
-  final List<String> hubNames;
-  final List<String> teamNames;
-
-  const _ContactAssignmentDetailsData({
-    required this.leagueNames,
-    required this.hubNames,
-    required this.teamNames,
-  });
-
-  static _ContactAssignmentDetailsData resolve({
-    required WidgetRef ref,
-    required AppUser user,
-    required List<League> leagues,
-  }) {
-    final hubs = <Hub>[];
-    for (final league in leagues) {
-      hubs.addAll(
-        ref.watch(hubsProvider(league.id)).valueOrNull ?? const <Hub>[],
-      );
-    }
-
-    final teams = <Team>[];
-    for (final hub in hubs) {
-      teams.addAll(
-        ref
-                .watch(teamsProvider((leagueId: hub.leagueId, hubId: hub.id)))
-                .valueOrNull ??
-            const <Team>[],
-      );
-    }
-
-    final selectedTeams = teams
-        .where((team) => user.teamIds.contains(team.id))
-        .toList();
-    final selectedHubs = hubs
-        .where(
-          (hub) =>
-              user.hubIds.contains(hub.id) ||
-              selectedTeams.any((team) => team.hubId == hub.id),
-        )
-        .toList();
-    final leagueIds = <String>{
-      ...user.leagueIds,
-      ...selectedHubs.map((hub) => hub.leagueId),
-      ...selectedTeams.map((team) => team.leagueId),
-    };
-
-    return _ContactAssignmentDetailsData(
-      leagueNames: leagues
-          .where((league) => leagueIds.contains(league.id))
-          .map((league) => league.name)
-          .toList(),
-      hubNames: selectedHubs.map((hub) => hub.name).toList(),
-      teamNames: selectedTeams.map((team) => team.name).toList(),
-    );
-  }
-}
-
 class _ContactLeagueDetails extends StatelessWidget {
-  final _ContactAssignmentDetailsData assignments;
+  final VisibleContactAssignments assignments;
 
   const _ContactLeagueDetails({required this.assignments});
 
@@ -222,21 +206,31 @@ class _ContactLeagueDetails extends StatelessWidget {
             icon: Icons.shield_outlined,
             label: 'League',
             value: _joinedOrFallback(
-              assignments.leagueNames,
-              'No league assigned',
+              assignments.leagues.map((league) => league.name).toList(),
+              assignments.hasHiddenLeagues
+                  ? 'No shared league'
+                  : 'No league assigned',
             ),
           ),
           const SizedBox(height: 14),
           _ContactInfoRow(
             icon: Icons.location_city_outlined,
             label: 'Hub',
-            value: _joinedOrFallback(assignments.hubNames, 'No hub assigned'),
+            value: _joinedOrFallback(
+              assignments.hubs.map((hub) => hub.name).toList(),
+              assignments.hasHiddenHubs ? 'No shared hub' : 'No hub assigned',
+            ),
           ),
           const SizedBox(height: 14),
           _ContactInfoRow(
             icon: Icons.groups_outlined,
             label: 'Team',
-            value: _joinedOrFallback(assignments.teamNames, 'No team assigned'),
+            value: _joinedOrFallback(
+              assignments.teams.map((team) => team.name).toList(),
+              assignments.hasHiddenTeams
+                  ? 'No shared team'
+                  : 'No team assigned',
+            ),
           ),
         ],
       ),

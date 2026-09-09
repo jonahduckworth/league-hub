@@ -398,6 +398,76 @@ test("manager cannot pin an announcement through a direct update", async () => {
   await assertSucceeds(updateDoc(announcementRef, { title: "Edited" }));
 });
 
+test("announcement read receipts are self-written and owner-readable", async () => {
+  const announcement = {
+    id: "announcement-1",
+    orgId: "org-1",
+    scope: "league",
+    leagueId: "league-1",
+    hubId: null,
+    teamId: null,
+    title: "Update",
+    body: "Body",
+    authorId: "manager",
+    authorName: "Manager",
+    authorRole: "Manager",
+    attachments: [],
+    isPinned: false,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
+  await seedFirestore([
+    ["users/staff", user({
+      id: "staff",
+      leagueIds: ["league-1"],
+    })],
+    ["users/other", user({id: "other"})],
+    ["users/manager", user({id: "manager", role: "managerAdmin"})],
+    ["users/owner", user({id: "owner", role: "superAdmin"})],
+    ["organizations/org-1/announcements/announcement-1", announcement],
+  ]);
+
+  const staffDb = testEnv.authenticatedContext("staff").firestore();
+  const ownReceipt = doc(staffDb,
+    "organizations/org-1/announcements/announcement-1/announcementReads/staff");
+  await assertSucceeds(setDoc(ownReceipt, {
+    userId: "staff",
+    orgId: "org-1",
+    announcementId: "announcement-1",
+    readAt: serverTimestamp(),
+  }));
+  await assertFails(setDoc(doc(staffDb,
+    "organizations/org-1/announcements/announcement-1/announcementReads/other"), {
+    userId: "other",
+    orgId: "org-1",
+    announcementId: "announcement-1",
+    readAt: serverTimestamp(),
+  }));
+  await assertFails(setDoc(ownReceipt, {
+    userId: "staff",
+    orgId: "org-1",
+    announcementId: "announcement-1",
+    readAt: serverTimestamp(),
+    displayName: "Spoofed Name",
+  }));
+  const otherDb = testEnv.authenticatedContext("other").firestore();
+  await assertFails(setDoc(doc(otherDb,
+    "organizations/org-1/announcements/announcement-1/announcementReads/other"), {
+    userId: "other",
+    orgId: "org-1",
+    announcementId: "announcement-1",
+    readAt: serverTimestamp(),
+  }));
+  await assertSucceeds(getDoc(ownReceipt));
+  await assertFails(getDoc(doc(staffDb,
+    "organizations/org-1/announcements/announcement-1/announcementReads/other")));
+
+  const readsPath = "organizations/org-1/announcements/announcement-1/announcementReads";
+  const managerDb = testEnv.authenticatedContext("manager").firestore();
+  await assertFails(getDocs(collection(managerDb, readsPath)));
+  const ownerDb = testEnv.authenticatedContext("owner").firestore();
+  await assertSucceeds(getDocs(collection(ownerDb, readsPath)));
+});
+
 test("manager cannot overwrite another manager's out-of-scope policy file", async () => {
   await seedFirestore([
     ["users/manager", user({

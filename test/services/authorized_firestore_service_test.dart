@@ -285,6 +285,14 @@ class MockFirestoreService extends Mock implements FirestoreService {
           returnValue: Future<void>.value()) as Future<void>);
 
   @override
+  Future<void> markAnnouncementRead(
+          String orgId, String announcementId, String userId) =>
+      (super.noSuchMethod(
+          Invocation.method(
+              #markAnnouncementRead, [orgId, announcementId, userId]),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
   Future<String> createInvitation(String orgId, Invitation invitation) => (super
       .noSuchMethod(Invocation.method(#createInvitation, [orgId, invitation]),
           returnValue: Future<String>.value('')) as Future<String>);
@@ -2086,6 +2094,71 @@ void main() {
         await afs.togglePin(superAdmin, 'org1', 'ann1', false);
 
         verify(mockFs.togglePin('org1', 'ann1', false)).called(1);
+      });
+    });
+
+    group('markAnnouncementRead', () {
+      test('allows a staff member to mark a visible announcement', () async {
+        final staff = makeUser(
+          id: 'staff-1',
+          role: UserRole.staff,
+          orgId: 'org1',
+          leagueIds: ['l1'],
+        );
+        when(mockFs.markAnnouncementRead('org1', 'ann1', 'staff-1'))
+            .thenAnswer((_) async {});
+
+        await afs.markAnnouncementRead(
+          staff,
+          'org1',
+          'ann1',
+          scope: AnnouncementScope.league,
+          leagueId: 'l1',
+        );
+
+        verify(mockFs.markAnnouncementRead('org1', 'ann1', 'staff-1'))
+            .called(1);
+      });
+
+      test('rejects a receipt for an announcement outside user scope', () {
+        final staff = makeUser(
+          id: 'staff-1',
+          role: UserRole.staff,
+          orgId: 'org1',
+          leagueIds: ['l2'],
+        );
+
+        expect(
+          () => afs.markAnnouncementRead(
+            staff,
+            'org1',
+            'ann1',
+            scope: AnnouncementScope.league,
+            leagueId: 'l1',
+          ),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
+      });
+
+      test('rejects a receipt for another organization', () {
+        final owner = makeUser(
+          id: 'owner-1',
+          role: UserRole.platformOwner,
+          orgId: 'org1',
+        );
+
+        expect(
+          () => afs.markAnnouncementRead(
+            owner,
+            'org2',
+            'ann1',
+            scope: AnnouncementScope.league,
+            leagueId: 'l1',
+          ),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
       });
     });
 

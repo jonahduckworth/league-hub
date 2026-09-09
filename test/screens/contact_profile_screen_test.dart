@@ -6,6 +6,7 @@ import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/team.dart';
+import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/contact_profile_screen.dart';
 
@@ -54,13 +55,11 @@ void main() {
     Widget createTestWidget() {
       return ProviderScope(
         overrides: [
+          currentUserProvider.overrideWith((ref) => contact),
           orgUsersProvider.overrideWith((ref) => Stream.value([contact])),
           leaguesProvider.overrideWith((ref) => Stream.value([league])),
-          hubsProvider('league-1').overrideWith((ref) => Stream.value([hub])),
-          teamsProvider((
-            leagueId: 'league-1',
-            hubId: 'hub-1',
-          )).overrideWith((ref) => Stream.value([team])),
+          organizationHubsProvider.overrideWith((ref) async => [hub]),
+          organizationTeamsProvider.overrideWith((ref) async => [team]),
         ],
         child: MaterialApp(
           home: const ContactProfileScreen(userId: 'user-1'),

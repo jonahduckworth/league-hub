@@ -1593,12 +1593,13 @@ function scheduleClockLabel(value: string) {
     .format(new Date(Date.UTC(2000, 0, 1, hour, minute)));
 }
 
-function PeopleSection({ data, currentUser, runAction }: { data: AdminData; currentUser: AppUser; runAction: ActionRunner }) {
+export function PeopleSection({ data, currentUser, runAction }: { data: AdminData; currentUser: AppUser; runAction: ActionRunner }) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<PeopleView>("all");
   const [createInviteOpen, setCreateInviteOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedInviteId, setSelectedInviteId] = useState<string | null>(null);
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
   const pendingInvitations = activePendingInvitations(data);
   const managers = data.users.filter((user) => user.role === "managerAdmin" || user.role === "superAdmin");
   const staff = data.users.filter((user) => user.role === "staff");
@@ -1625,6 +1626,19 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
       default: return "warning";
     }
   };
+  async function resendInvitation(invite: Invitation) {
+    setResendingInviteId(invite.id);
+    const result = await runAction("adminResendInvitation", {
+      invitationId: invite.id,
+    });
+    if (result.ok) {
+      const replacement = result.data as { invitationId?: unknown };
+      if (typeof replacement.invitationId === "string") {
+        setSelectedInviteId(replacement.invitationId);
+      }
+    }
+    setResendingInviteId(null);
+  }
   const filters: Array<WorkspaceFilterItem<PeopleView>> = [
     { id: "all", label: "All Members", count: data.users.length, icon: Users },
     { id: "managers", label: "Managers", count: managers.length, icon: UserCog },
@@ -1805,9 +1819,24 @@ function PeopleSection({ data, currentUser, runAction }: { data: AdminData; curr
               <InfoRow label="Hubs" value={selectedInvite.hubIds.length || "None"} />
               <InfoRow label="Teams" value={selectedInvite.teamIds.length || "None"} />
             </DrawerSection>
-            <Button variant="danger" onClick={() => runAction("adminExpireInvitation", { invitationId: selectedInvite.id })}>
-              Expire Invite
-            </Button>
+            <p className="text-sm font-medium leading-6 text-muted">
+              Resending retires the current invite code and emails a fresh code that is valid for seven days.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => resendInvitation(selectedInvite)}
+                disabled={resendingInviteId === selectedInvite.id}
+              >
+                <RefreshCw
+                  className={`size-4 ${resendingInviteId === selectedInvite.id ? "animate-spin" : ""}`}
+                  aria-hidden
+                />
+                {resendingInviteId === selectedInvite.id ? "Resending…" : "Resend Invitation"}
+              </Button>
+              <Button variant="danger" onClick={() => runAction("adminExpireInvitation", { invitationId: selectedInvite.id })}>
+                Expire Invite
+              </Button>
+            </div>
           </>
         )}
       </SideDrawer>
