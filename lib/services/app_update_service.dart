@@ -122,15 +122,19 @@ AppUpdateCheckResult appStoreResultFromLookup({
 class StoreAppUpdateService implements AppUpdateService {
   static const _androidChannel = MethodChannel('league_hub/app_update');
   static const _appStoreLookupUrl = 'https://itunes.apple.com/lookup';
+  static const _appStoreId = 6774679631;
+  static const _appStoreCacheWindow = Duration(minutes: 5);
 
   final Dio _dio;
   final Future<PackageInfo> Function() _packageInfoLoader;
   final AppUpdatePlatform Function() _platformResolver;
+  final DateTime Function() _now;
 
   StoreAppUpdateService({
     Dio? dio,
     Future<PackageInfo> Function()? packageInfoLoader,
     AppUpdatePlatform Function()? platformResolver,
+    DateTime Function()? now,
   })  : _dio = dio ??
             Dio(
               BaseOptions(
@@ -140,7 +144,8 @@ class StoreAppUpdateService implements AppUpdateService {
               ),
             ),
         _packageInfoLoader = packageInfoLoader ?? PackageInfo.fromPlatform,
-        _platformResolver = platformResolver ?? _defaultPlatform;
+        _platformResolver = platformResolver ?? _defaultPlatform,
+        _now = now ?? DateTime.now;
 
   static AppUpdatePlatform _defaultPlatform() {
     if (kIsWeb) return AppUpdatePlatform.unsupported;
@@ -209,9 +214,20 @@ class StoreAppUpdateService implements AppUpdateService {
 
   Future<AppUpdateCheckResult> _checkAppStore(PackageInfo packageInfo) async {
     try {
+      // Apple can keep the bundle-ID lookup cached across a store release.
+      // A stable numeric ID avoids ambiguous matches, while a shared five-minute
+      // bucket refreshes stale CDN entries without creating a unique URL per
+      // device or request.
+      final cacheBucket =
+          _now().millisecondsSinceEpoch ~/ _appStoreCacheWindow.inMilliseconds;
       final response = await _dio.get<Object?>(
         _appStoreLookupUrl,
-        queryParameters: {'bundleId': packageInfo.packageName, 'country': 'ca'},
+        queryParameters: {
+          'id': _appStoreId,
+          'country': 'ca',
+          '_cb': cacheBucket,
+        },
+        options: Options(headers: const {'Cache-Control': 'no-cache'}),
       );
       return appStoreResultFromLookup(
         installedVersion: packageInfo.version,
