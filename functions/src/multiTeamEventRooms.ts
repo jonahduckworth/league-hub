@@ -6,6 +6,7 @@ import {
   belongsToMultiTeamEventRoomAudience,
   canCreateMultiTeamEventRoom,
   canEditMultiTeamEventRoomAudience,
+  existingEventRoomAudience,
   maximumMultiTeamEventRoomTeams,
   multiTeamLegacyScopeSentinel,
   sameMultiTeamAudience,
@@ -63,12 +64,13 @@ function parseTargets(value: unknown): MultiTeamTarget[] {
   return targets;
 }
 
-function parseTeamIds(value: unknown, field: string): string[] {
-  if (!Array.isArray(value) || value.length === 0 ||
+function parseTeamIds(value: unknown, field: string, allowEmpty = false): string[] {
+  if (!Array.isArray(value) || (!allowEmpty && value.length === 0) ||
       value.length > maximumMultiTeamEventRoomTeams) {
     throw new HttpsError(
       "invalid-argument",
-      `${field} must contain between 1 and ${maximumMultiTeamEventRoomTeams} team IDs.`,
+      `${field} must contain between ${allowEmpty ? 0 : 1} and ` +
+      `${maximumMultiTeamEventRoomTeams} team IDs.`,
     );
   }
   const ids = value.map((item, index) => requiredString(item, `${field}[${index}]`));
@@ -184,14 +186,16 @@ export const adminUpdateEventRoomAudience = onCall(
 
     const data = request.data as RequestRecord;
     const supportedFields = new Set([
-      "orgId", "roomId", "expectedTeamIds", "teams",
+      "orgId", "roomId", "expectedTeamIds", "expectedAudienceScope", "teams",
     ]);
     if (Object.keys(data).some((field) => !supportedFields.has(field))) {
       throw new HttpsError("invalid-argument", "Room details include unsupported fields.");
     }
     const orgId = requiredString(data.orgId, "orgId");
     const roomId = requiredString(data.roomId, "roomId");
-    const expectedTeamIds = parseTeamIds(data.expectedTeamIds, "expectedTeamIds");
+    const expectedTeamIds = parseTeamIds(data.expectedTeamIds, "expectedTeamIds", true);
+    const expectedAudienceScope = data.expectedAudienceScope == null ? null :
+      requiredString(data.expectedAudienceScope, "expectedAudienceScope", 220);
     const targets = parseTargets(data.teams);
 
     const actorSnapshot = await db.collection("users").doc(userId).get();
@@ -213,14 +217,23 @@ export const adminUpdateEventRoomAudience = onCall(
     if (!initialRoomSnapshot.exists || initialRoom?.orgId !== orgId ||
         initialRoom?.type !== "event" ||
         (initialRoom?.roomPurpose != null && initialRoom.roomPurpose !== "event") ||
-        initialRoom?.isArchived === true || !leagueId ||
-        !Array.isArray(initialRoom?.teamIds)) {
+        initialRoom?.isArchived === true || !leagueId) {
       throw new HttpsError(
         "failed-precondition",
-        "Only active multi-team Event Rooms can have their teams edited.",
+        "Only active Event Rooms can have their teams edited.",
       );
     }
-    if (!sameMultiTeamAudience(initialRoom.teamIds, expectedTeamIds)) {
+    const initialAudience = existingEventRoomAudience(initialRoom);
+    if (!initialAudience ||
+        (initialAudience.legacy && expectedAudienceScope == null)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This Event Room has an unsupported legacy audience. Refresh and try again.",
+      );
+    }
+    if (!sameMultiTeamAudience(initialAudience.teamIds, expectedTeamIds) ||
+        (expectedAudienceScope != null &&
+          initialAudience.scopeKey !== expectedAudienceScope)) {
       throw new HttpsError(
         "aborted",
         "This Event Room changed after it was opened. Refresh and try again.",
@@ -271,14 +284,18 @@ export const adminUpdateEventRoomAudience = onCall(
       if (!roomSnapshot.exists || room?.orgId !== orgId ||
           room?.type !== "event" ||
           (room?.roomPurpose != null && room.roomPurpose !== "event") ||
-          room?.leagueId !== leagueId || room?.isArchived === true ||
-          !Array.isArray(room?.teamIds)) {
+          room?.leagueId !== leagueId || room?.isArchived === true) {
         throw new HttpsError(
           "failed-precondition",
-          "Only active multi-team Event Rooms can have their teams edited.",
+          "Only active Event Rooms can have their teams edited.",
         );
       }
-      if (!sameMultiTeamAudience(room.teamIds, expectedTeamIds)) {
+      const currentAudience = existingEventRoomAudience(room);
+      if (!currentAudience ||
+          !sameMultiTeamAudience(currentAudience.teamIds, expectedTeamIds) ||
+          currentAudience.scopeKey !== initialAudience.scopeKey ||
+          (expectedAudienceScope != null &&
+            currentAudience.scopeKey !== expectedAudienceScope)) {
         throw new HttpsError(
           "aborted",
           "This Event Room changed after it was opened. Refresh and try again.",
@@ -286,6 +303,11 @@ export const adminUpdateEventRoomAudience = onCall(
       }
 
       transaction.update(roomRef, {
+        roomPurpose: "event",
+        // Released clients query singular fields. Sentinels prevent a repaired
+        // legacy room from leaking a broader or partial audience.
+        hubId: multiTeamLegacyScopeSentinel,
+        teamId: multiTeamLegacyScopeSentinel,
         hubIds,
         teamIds,
         participants: participantIds,
@@ -298,8 +320,14 @@ export const adminUpdateEventRoomAudience = onCall(
         actorName: actor?.displayName ?? actor?.email ?? userId,
         actorEmail: actor?.email ?? null,
         actorRole: actor?.role,
-        request: {roomId, expectedTeamIds, teamIds},
-        result: {roomId, addedTeamIds: added, removedTeamIds: removed},
+        request: {roomId, expectedTeamIds, expectedAudienceScope, teamIds},
+        result: {
+          roomId,
+          addedTeamIds: added,
+          removedTeamIds: removed,
+          convertedLegacyAudience: initialAudience.legacy,
+          previousAudienceScope: initialAudience.scopeKey,
+        },
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     });
@@ -309,6 +337,7 @@ export const adminUpdateEventRoomAudience = onCall(
       addedTeamIds: added,
       removedTeamIds: removed,
       participantCount: participantIds.length,
+      convertedLegacyAudience: initialAudience.legacy,
     };
   },
 );

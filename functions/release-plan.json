@@ -1,7 +1,7 @@
 {
   "all": false,
   "targets": [
-    "adminResendInvitation"
+    "adminUpdateEventRoomAudience"
   ],
-  "reason": "Allow authorized portal admins to replace and resend pending invitations."
+  "reason": "Allow authorized portal admins to convert legacy Event Rooms to explicit team access without deleting message history."
 }

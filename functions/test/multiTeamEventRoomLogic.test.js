@@ -4,6 +4,7 @@ const {
   belongsToMultiTeamEventRoomAudience,
   canCreateMultiTeamEventRoom,
   canEditMultiTeamEventRoomAudience,
+  existingEventRoomAudience,
   maximumMultiTeamEventRoomTeams,
   sameMultiTeamAudience,
 } = require("../lib/multiTeamEventRoomLogic");
@@ -106,4 +107,38 @@ test("audience comparisons ignore ordering but reject drift and duplicates", () 
   assert.equal(sameMultiTeamAudience(["team-1", "team-2"], ["team-2", "team-1"]), true);
   assert.equal(sameMultiTeamAudience(["team-1"], ["team-2"]), false);
   assert.equal(sameMultiTeamAudience(["team-1", "team-1"], ["team-1", "team-2"]), false);
+});
+
+test("existing Event Room audiences normalize multi-team and legacy scopes", () => {
+  assert.deepEqual(existingEventRoomAudience({
+    teamIds: ["team-1", "team-2"],
+    teamId: "__multi_team__",
+    hubId: "__multi_team__",
+  }), {
+    teamIds: ["team-1", "team-2"],
+    scopeKey: "multi",
+    legacy: false,
+  });
+  assert.deepEqual(existingEventRoomAudience({teamId: "team-1", hubId: "hub-1"}), {
+    teamIds: ["team-1"],
+    scopeKey: "team:team-1",
+    legacy: true,
+  });
+  assert.deepEqual(existingEventRoomAudience({hubId: "hub-1"}), {
+    teamIds: [],
+    scopeKey: "hub:hub-1",
+    legacy: true,
+  });
+  assert.deepEqual(existingEventRoomAudience({}), {
+    teamIds: [],
+    scopeKey: "league",
+    legacy: true,
+  });
+});
+
+test("malformed stored Event Room audiences fail closed", () => {
+  assert.equal(existingEventRoomAudience({teamIds: "team-1"}), null);
+  assert.equal(existingEventRoomAudience({teamIds: ["team-1", "team-1"]}), null);
+  assert.equal(existingEventRoomAudience({teamId: "__multi_team__"}), null);
+  assert.equal(existingEventRoomAudience({hubId: "__multi_team__"}), null);
 });
