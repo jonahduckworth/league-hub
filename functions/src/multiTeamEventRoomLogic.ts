@@ -20,6 +20,12 @@ export type MultiTeamAudienceUser = MultiTeamActor & {
   isActive?: boolean;
 };
 
+export type ExistingEventRoomAudience = {
+  teamIds: string[];
+  scopeKey: string;
+  legacy: boolean;
+};
+
 function hasId(values: unknown, id: string): boolean {
   return Array.isArray(values) && values.includes(id);
 }
@@ -50,6 +56,46 @@ export function sameMultiTeamAudience(
   if (left.length !== right.length) return false;
   const leftIds = new Set(left);
   return leftIds.size === right.length && right.every((id) => leftIds.has(id));
+}
+
+function storedId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 && trimmed.length <= 200 ? trimmed : null;
+}
+
+/**
+ * Normalizes both current multi-team rooms and legacy singular-scope rooms.
+ * A null result means the stored scope is malformed and must fail closed.
+ */
+export function existingEventRoomAudience(
+  room: {teamIds?: unknown; teamId?: unknown; hubId?: unknown},
+): ExistingEventRoomAudience | null {
+  if (room.teamIds != null) {
+    if (!Array.isArray(room.teamIds) ||
+        room.teamIds.length > maximumMultiTeamEventRoomTeams) return null;
+    const teamIds = room.teamIds.map(storedId);
+    if (teamIds.some((id) => id == null)) return null;
+    const normalizedTeamIds = teamIds as string[];
+    if (new Set(normalizedTeamIds).size !== normalizedTeamIds.length) return null;
+    if (normalizedTeamIds.length > 0) {
+      return {teamIds: normalizedTeamIds, scopeKey: "multi", legacy: false};
+    }
+  }
+
+  const teamId = storedId(room.teamId);
+  if (teamId === multiTeamLegacyScopeSentinel) return null;
+  if (teamId) {
+    return {teamIds: [teamId], scopeKey: `team:${teamId}`, legacy: true};
+  }
+
+  const hubId = storedId(room.hubId);
+  if (hubId === multiTeamLegacyScopeSentinel) return null;
+  if (hubId) {
+    return {teamIds: [], scopeKey: `hub:${hubId}`, legacy: true};
+  }
+
+  return {teamIds: [], scopeKey: "league", legacy: true};
 }
 
 export function belongsToMultiTeamEventRoomAudience(

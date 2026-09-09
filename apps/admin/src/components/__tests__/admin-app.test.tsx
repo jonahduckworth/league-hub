@@ -435,6 +435,7 @@ describe("AdminApp operations shell", () => {
     await waitFor(() => expect(runAction).toHaveBeenCalledWith("adminUpdateEventRoomAudience", {
       roomId: "showcase-room",
       expectedTeamIds: ["team-u11-aa"],
+      expectedAudienceScope: "multi",
       teams: [
         { hubId: "hub-calgary", teamId: "team-u11-aa" },
         { hubId: "hub-reddeer", teamId: "team-u13-a" }
@@ -451,8 +452,80 @@ describe("AdminApp operations shell", () => {
     await waitFor(() => expect(runAction).toHaveBeenLastCalledWith("adminUpdateEventRoomAudience", {
       roomId: "showcase-room",
       expectedTeamIds: ["team-u11-aa", "team-u13-a"],
+      expectedAudienceScope: "multi",
       teams: [{ hubId: "hub-reddeer", teamId: "team-u13-a" }]
     }));
+  });
+
+  it("converts a legacy Event Room to explicit team access without deleting history", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: {} });
+    const room = {
+      id: "legacy-showcase-room",
+      orgId: "org-demo",
+      name: "Legacy Showcase",
+      type: "event" as const,
+      leagueId: "league-winter",
+      hubId: "hub-calgary",
+      participants: [],
+      isArchived: false
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Legacy Showcase" });
+    expect(within(drawer).getByText("Legacy Event Room access")).toBeTruthy();
+    expect(within(drawer).getByText(/complete message history will be preserved/i)).toBeTruthy();
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Calgary U11 AA/i }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Save team access" }));
+
+    expect(within(drawer).getByText(/Replace legacy access with 1 selected team/i)).toBeTruthy();
+    expect(runAction).not.toHaveBeenCalled();
+    fireEvent.click(within(drawer).getByRole("button", { name: "Replace access" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("adminUpdateEventRoomAudience", {
+      roomId: "legacy-showcase-room",
+      expectedTeamIds: [],
+      expectedAudienceScope: "hub:hub-calgary",
+      teams: [{ hubId: "hub-calgary", teamId: "team-u11-aa" }]
+    }));
+    expect(await within(drawer).findByText(/Message history was preserved/i)).toBeTruthy();
+  });
+
+  it("preselects a legacy single-team Event Room before conversion", async () => {
+    const room = {
+      id: "legacy-team-room",
+      orgId: "org-demo",
+      name: "Legacy Team Room",
+      type: "event" as const,
+      roomPurpose: "event" as const,
+      leagueId: "league-winter",
+      hubId: "hub-calgary",
+      teamId: "team-u11-aa",
+      participants: [],
+      isArchived: false
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={demoData}
+        currentUser={demoUser}
+        runAction={vi.fn().mockResolvedValue({ ok: true, data: {} })}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Legacy Team Room" });
+    expect((within(drawer).getByRole("checkbox", { name: /Calgary U11 AA/i }) as HTMLInputElement).checked).toBe(true);
+    expect((within(drawer).getByRole("button", { name: "Save team access" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("does not expose Event Room team editing to managers", async () => {

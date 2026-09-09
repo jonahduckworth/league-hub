@@ -3099,6 +3099,21 @@ function StructureCreateDrawer({
 
 type ChatRoomView = "all" | "hub" | "team" | "league" | "direct";
 
+const multiTeamRoomScopeSentinel = "__multi_team__";
+
+function eventRoomAudienceSnapshot(room: ChatRoom | null) {
+  if (room?.teamIds?.length) {
+    return {teamIds: room.teamIds, scopeKey: "multi", legacy: false};
+  }
+  if (room?.teamId && room.teamId !== multiTeamRoomScopeSentinel) {
+    return {teamIds: [room.teamId], scopeKey: `team:${room.teamId}`, legacy: true};
+  }
+  if (room?.hubId && room.hubId !== multiTeamRoomScopeSentinel) {
+    return {teamIds: [], scopeKey: `hub:${room.hubId}`, legacy: true};
+  }
+  return {teamIds: [], scopeKey: "league", legacy: true};
+}
+
 type ChatRoomSetupTargetPreview = {
   key: string;
   scope: "hub" | "team";
@@ -3740,6 +3755,8 @@ export function ChatRoomDrawer({
   const [roomImageSaving, setRoomImageSaving] = useState(false);
   const [roomImageUncertain, setRoomImageUncertain] = useState(false);
   const [audienceBaselineIds, setAudienceBaselineIds] = useState<string[]>([]);
+  const [audienceBaselineScope, setAudienceBaselineScope] = useState("multi");
+  const [audienceRequiresConversion, setAudienceRequiresConversion] = useState(false);
   const [audienceTeamIds, setAudienceTeamIds] = useState<Set<string>>(new Set());
   const [audienceSaving, setAudienceSaving] = useState(false);
   const [audienceError, setAudienceError] = useState<string | null>(null);
@@ -3763,9 +3780,11 @@ export function ChatRoomDrawer({
     setRoomImageError(null);
     setRoomImageSaving(false);
     setRoomImageUncertain(false);
-    const initialTeamIds = room?.teamIds ?? [];
-    setAudienceBaselineIds(initialTeamIds);
-    setAudienceTeamIds(new Set(initialTeamIds));
+    const initialAudience = eventRoomAudienceSnapshot(room);
+    setAudienceBaselineIds(initialAudience.teamIds);
+    setAudienceBaselineScope(initialAudience.scopeKey);
+    setAudienceRequiresConversion(initialAudience.legacy);
+    setAudienceTeamIds(new Set(initialAudience.teamIds));
     setAudienceSaving(false);
     setAudienceError(null);
     setAudienceSaved(false);
@@ -3800,7 +3819,6 @@ export function ChatRoomDrawer({
     room?.type === "event" &&
     (room.roomPurpose == null || room.roomPurpose === "event") &&
     room.leagueId &&
-    room.teamIds &&
     currentUser.isActive &&
     (currentUser.role === "platformOwner" || currentUser.role === "superAdmin")
   );
@@ -3810,7 +3828,8 @@ export function ChatRoomDrawer({
   const effectiveAudienceIds = new Set(selectedAudienceTeams.map((item) => item.id));
   const addedAudienceIds = [...effectiveAudienceIds].filter((id) => !audienceBaselineIds.includes(id));
   const removedAudienceIds = audienceBaselineIds.filter((id) => !effectiveAudienceIds.has(id));
-  const audienceChanged = addedAudienceIds.length > 0 || removedAudienceIds.length > 0;
+  const audienceChanged = audienceRequiresConversion ||
+    addedAudienceIds.length > 0 || removedAudienceIds.length > 0;
 
   useEffect(() => {
     if (conversation.loading || conversation.messages.length === 0) return;
@@ -3848,7 +3867,7 @@ export function ChatRoomDrawer({
     }
   }
 
-  async function saveAudience(confirmedRemoval = false) {
+  async function saveAudience(confirmedChange = false) {
     if (!room || !editableEventAudience || audienceSaving) return;
     setAudienceError(null);
     setAudienceSaved(false);
@@ -3856,7 +3875,7 @@ export function ChatRoomDrawer({
       setAudienceError("Select at least one team. Event Rooms cannot have an empty audience.");
       return;
     }
-    if (removedAudienceIds.length > 0 && !confirmedRemoval) {
+    if ((audienceRequiresConversion || removedAudienceIds.length > 0) && !confirmedChange) {
       setConfirmingAudienceRemoval(true);
       return;
     }
@@ -3866,11 +3885,14 @@ export function ChatRoomDrawer({
     const result = await runAction("adminUpdateEventRoomAudience", {
       roomId: room.id,
       expectedTeamIds: audienceBaselineIds,
+      expectedAudienceScope: audienceBaselineScope,
       teams: selectedAudienceTeams.map((item) => ({ hubId: item.hubId, teamId: item.id }))
     });
     if (result.ok) {
       const nextIds = selectedAudienceTeams.map((item) => item.id);
       setAudienceBaselineIds(nextIds);
+      setAudienceBaselineScope("multi");
+      setAudienceRequiresConversion(false);
       setAudienceTeamIds(new Set(nextIds));
       setAudienceSaved(true);
     } else {
@@ -4024,6 +4046,14 @@ export function ChatRoomDrawer({
           </DrawerSection>
           {editableEventAudience && room.leagueId && (
             <DrawerSection title="Team access">
+              {audienceRequiresConversion && (
+                <div role="note" className="rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-amber-950">
+                  <p className="text-sm font-extrabold">Legacy Event Room access</p>
+                  <p className="mt-1 text-xs font-semibold leading-5">
+                    Choose at least one team to replace this room’s existing League, Hub, or team access. Access will be recalculated from those teams; the room and its complete message history will be preserved.
+                  </p>
+                </div>
+              )}
               <div role="status" aria-live="polite" className="rounded-2xl border border-teal/20 bg-teal/[0.055] px-4 py-3">
                 <p className="text-sm font-extrabold text-ink">
                   {pluralize(selectedAudienceTeams.length, "team")} selected
@@ -4051,12 +4081,20 @@ export function ChatRoomDrawer({
               />
               {confirmingAudienceRemoval ? (
                 <div className="rounded-2xl border border-coral/25 bg-coral/[0.06] p-3.5">
-                  <p className="text-sm font-extrabold text-[#912f2a]">Remove access for {pluralize(removedAudienceIds.length, "team")}?</p>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-[#a14a45]">Their members will no longer be able to open this room. Message history stays intact.</p>
+                  <p className="text-sm font-extrabold text-[#912f2a]">
+                    {audienceRequiresConversion
+                      ? `Replace legacy access with ${pluralize(selectedAudienceTeams.length, "selected team")}?`
+                      : `Remove access for ${pluralize(removedAudienceIds.length, "team")}?`}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#a14a45]">
+                    {audienceRequiresConversion
+                      ? "Members of the selected teams and their Hub managers will have access. They can read the complete history, and no messages will be deleted."
+                      : "Their members will no longer be able to open this room. Message history stays intact."}
+                  </p>
                   <div className="mt-3 flex gap-2">
                     <Button ref={audienceCancelRef} type="button" variant="secondary" className="flex-1" disabled={audienceSaving} onClick={() => setConfirmingAudienceRemoval(false)}>Cancel</Button>
                     <Button type="button" variant="danger" className="flex-1" disabled={audienceSaving} onClick={() => saveAudience(true)}>
-                      {audienceSaving ? "Saving…" : "Confirm removal"}
+                      {audienceSaving ? "Saving…" : audienceRequiresConversion ? "Replace access" : "Confirm removal"}
                     </Button>
                   </div>
                 </div>
