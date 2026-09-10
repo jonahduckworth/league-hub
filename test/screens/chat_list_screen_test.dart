@@ -470,6 +470,36 @@ void main() {
       expect(members, [leagueMember]);
     });
 
+    test('chat room members include room-specific league staff', () {
+      final assignedStaff = AppUser(
+        id: 'league-staff',
+        email: 'staff@example.com',
+        displayName: 'League Staff',
+        role: UserRole.staff,
+        orgId: 'org-1',
+        hubIds: const [],
+        leagueIds: const [],
+        teamIds: const [],
+        createdAt: baseTime,
+        isActive: true,
+      );
+      final room = ChatRoom(
+        id: 'team-room',
+        orgId: 'org-1',
+        name: 'Team Room',
+        type: ChatRoomType.league,
+        leagueId: 'league-1',
+        hubId: 'hub-1',
+        teamId: 'team-1',
+        additionalMemberIds: const ['league-staff'],
+        participants: const [],
+        createdAt: baseTime,
+        isArchived: false,
+      );
+
+      expect(chatRoomMembers(room, [assignedStaff]), [assignedStaff]);
+    });
+
     test('event room participant ids include active users from selected league',
         () {
       final creator = AppUser(

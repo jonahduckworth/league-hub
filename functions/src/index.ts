@@ -54,6 +54,7 @@ export { submitLandingContact } from "./landingContact";
 export { deleteOwnAccount } from "./accountDeletion";
 export { onMessageReportCreated } from "./messageReports";
 export {
+  adminUpdateChatRoomAdditionalMembers,
   adminUpdateEventRoomAudience,
   createMultiTeamEventRoom,
 } from "./multiTeamEventRooms";

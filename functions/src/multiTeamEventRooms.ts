@@ -11,6 +11,13 @@ import {
   multiTeamLegacyScopeSentinel,
   sameMultiTeamAudience,
 } from "./multiTeamEventRoomLogic";
+import {
+  existingAdditionalMemberIds,
+  isAdditionalRoomMemberCandidate,
+  isRoomEligibleForAdditionalMembers,
+  maximumAdditionalRoomMembers,
+  sameAdditionalMemberIds,
+} from "./roomAdditionalMembersLogic";
 
 type RequestRecord = Record<string, unknown>;
 
@@ -76,6 +83,20 @@ function parseTeamIds(value: unknown, field: string, allowEmpty = false): string
   const ids = value.map((item, index) => requiredString(item, `${field}[${index}]`));
   if (new Set(ids).size !== ids.length) {
     throw new HttpsError("invalid-argument", `${field} must contain unique team IDs.`);
+  }
+  return ids;
+}
+
+function parseAdditionalMemberIds(value: unknown, field: string): string[] {
+  if (!Array.isArray(value) || value.length > maximumAdditionalRoomMembers) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${field} must contain between 0 and ${maximumAdditionalRoomMembers} user IDs.`,
+    );
+  }
+  const ids = value.map((item, index) => requiredString(item, `${field}[${index}]`));
+  if (new Set(ids).size !== ids.length) {
+    throw new HttpsError("invalid-argument", `${field} must contain unique user IDs.`);
   }
   return ids;
 }
@@ -338,6 +359,120 @@ export const adminUpdateEventRoomAudience = onCall(
       removedTeamIds: removed,
       participantCount: participantIds.length,
       convertedLegacyAudience: initialAudience.legacy,
+    };
+  },
+);
+
+export const adminUpdateChatRoomAdditionalMembers = onCall(
+  runtime,
+  async (request: CallableRequest) => {
+    const userId = request.auth?.uid;
+    if (!userId) throw new HttpsError("unauthenticated", "Sign in is required.");
+    if (request.data == null || typeof request.data !== "object" ||
+        Array.isArray(request.data)) {
+      throw new HttpsError("invalid-argument", "Room member details are required.");
+    }
+
+    const data = request.data as RequestRecord;
+    const supportedFields = new Set([
+      "orgId", "roomId", "expectedAdditionalMemberIds", "additionalMemberIds",
+    ]);
+    if (Object.keys(data).some((field) => !supportedFields.has(field))) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Room member details include unsupported fields.",
+      );
+    }
+    const orgId = requiredString(data.orgId, "orgId");
+    const roomId = requiredString(data.roomId, "roomId");
+    const expectedIds = parseAdditionalMemberIds(
+      data.expectedAdditionalMemberIds,
+      "expectedAdditionalMemberIds",
+    );
+    const requestedIds = parseAdditionalMemberIds(
+      data.additionalMemberIds,
+      "additionalMemberIds",
+    );
+
+    const actorSnapshot = await db.collection("users").doc(userId).get();
+    const actor = actorSnapshot.data();
+    if (!actorSnapshot.exists ||
+        !canEditMultiTeamEventRoomAudience(actor ?? {}, orgId)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only a Platform Owner or organization Admin can edit room-specific access.",
+      );
+    }
+
+    const roomRef = db.collection("organizations").doc(orgId)
+      .collection("chatRooms").doc(roomId);
+    const auditRef = db.collection("organizations").doc(orgId)
+      .collection("auditLogs").doc();
+    const addedIds = requestedIds.filter((id) => !expectedIds.includes(id));
+    const removedIds = expectedIds.filter((id) => !requestedIds.includes(id));
+
+    await db.runTransaction(async (transaction) => {
+      const roomSnapshot = await transaction.get(roomRef);
+      const room = roomSnapshot.data();
+      const currentIds = existingAdditionalMemberIds(room ?? {});
+      if (!roomSnapshot.exists || room?.orgId !== orgId ||
+          !isRoomEligibleForAdditionalMembers(room ?? {}) || currentIds == null) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Only active Team Rooms and Event Rooms can have additional members.",
+        );
+      }
+      if (!sameAdditionalMemberIds(currentIds, expectedIds)) {
+        throw new HttpsError(
+          "aborted",
+          "This room changed after it was opened. Refresh and try again.",
+        );
+      }
+
+      if (addedIds.length > 0) {
+        const addedSnapshots = await transaction.getAll(
+          ...addedIds.map((id) => db.collection("users").doc(id)),
+        );
+        const invalidId = addedSnapshots.find((snapshot) =>
+          !snapshot.exists ||
+          !isAdditionalRoomMemberCandidate(snapshot.data() ?? {}, orgId),
+        )?.id;
+        if (invalidId) {
+          throw new HttpsError(
+            "invalid-argument",
+            "Additional members must be active, non-admin league staff " +
+              "without Team or Hub assignments.",
+          );
+        }
+      }
+
+      transaction.update(roomRef, {
+        additionalMemberIds: requestedIds,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: userId,
+      });
+      transaction.set(auditRef, {
+        action: "adminUpdateChatRoomAdditionalMembers",
+        actorId: userId,
+        actorName: actor?.displayName ?? actor?.email ?? userId,
+        actorEmail: actor?.email ?? null,
+        actorRole: actor?.role,
+        request: {roomId, expectedAdditionalMemberIds: expectedIds},
+        result: {
+          roomId,
+          additionalMemberIds: requestedIds,
+          addedMemberIds: addedIds,
+          removedMemberIds: removedIds,
+        },
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    return {
+      roomId,
+      additionalMemberIds: requestedIds,
+      addedMemberIds: addedIds,
+      removedMemberIds: removedIds,
     };
   },
 );

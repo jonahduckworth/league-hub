@@ -285,6 +285,7 @@ List<AppUser> chatRoomMembers(ChatRoom room, List<AppUser> users) {
     return activeUsers
         .where(
           (user) =>
+              room.hasAdditionalMemberAccess(user.id) ||
               room.teamIds.any(user.teamIds.contains) ||
               (user.role == UserRole.managerAdmin &&
                   room.hubIds.any(user.hubIds.contains)),
@@ -296,6 +297,7 @@ List<AppUser> chatRoomMembers(ChatRoom room, List<AppUser> users) {
       return activeUsers
           .where(
             (user) =>
+                room.hasAdditionalMemberAccess(user.id) ||
                 user.teamIds.contains(room.teamId) ||
                 (room.hubId != null && user.hubIds.contains(room.hubId)),
           )
@@ -303,11 +305,15 @@ List<AppUser> chatRoomMembers(ChatRoom room, List<AppUser> users) {
     }
     if (room.hubId != null) {
       return activeUsers
-          .where((user) => user.hubIds.contains(room.hubId))
+          .where((user) =>
+              room.hasAdditionalMemberAccess(user.id) ||
+              user.hubIds.contains(room.hubId))
           .toList();
     }
     return activeUsers
-        .where((user) => user.leagueIds.contains(room.leagueId))
+        .where((user) =>
+            room.hasAdditionalMemberAccess(user.id) ||
+            user.leagueIds.contains(room.leagueId))
         .toList();
   }
   if (room.participants.isNotEmpty) {

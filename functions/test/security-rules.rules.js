@@ -1001,6 +1001,91 @@ test("shared-room posting follows platform owner, admin, manager, and staff scop
   await assertFails(post(actors[4], "hub-room"));
 });
 
+test("room-specific league staff can read and post without inherited assignments", async () => {
+  const teamRoom = {
+    id: "team-room",
+    orgId: "org-1",
+    type: "league",
+    leagueId: "league-1",
+    hubId: "hub-1",
+    teamId: "team-1",
+    participants: [],
+    additionalMemberIds: ["league-staff"],
+    name: "Team Room",
+    isArchived: false,
+  };
+  const eventRoom = {
+    ...teamRoom,
+    id: "event-room",
+    type: "event",
+    roomPurpose: "event",
+    name: "Event Room",
+  };
+  const directRoom = {
+    id: "direct-room",
+    orgId: "org-1",
+    type: "direct",
+    participants: ["member", "peer"],
+    additionalMemberIds: ["league-staff"],
+    name: "Member and Peer",
+    isArchived: false,
+  };
+  await seedFirestore([
+    ["users/league-staff", user({id: "league-staff", displayName: "League Staff"})],
+    ["users/outsider", user({id: "outsider", displayName: "Outsider"})],
+    ["users/member", user({id: "member", displayName: "Member"})],
+    ["users/peer", user({id: "peer", displayName: "Peer"})],
+    ["users/admin", user({id: "admin", role: "superAdmin"})],
+    ["organizations/org-1/chatRooms/team-room", teamRoom],
+    ["organizations/org-1/chatRooms/event-room", eventRoom],
+    ["organizations/org-1/chatRooms/direct-room", directRoom],
+  ]);
+
+  const staffDb = testEnv.authenticatedContext("league-staff").firestore();
+  const outsiderDb = testEnv.authenticatedContext("outsider").firestore();
+  const roomPath = "organizations/org-1/chatRooms/team-room";
+  await assertSucceeds(getDoc(doc(staffDb, roomPath)));
+  await assertFails(getDoc(doc(outsiderDb, roomPath)));
+  await assertFails(getDoc(doc(
+    staffDb,
+    "organizations/org-1/chatRooms/direct-room",
+  )));
+
+  const snapshot = await assertSucceeds(getDocs(query(
+    collection(staffDb, "organizations/org-1/chatRooms"),
+    where("orgId", "==", "org-1"),
+    where("isArchived", "==", false),
+    where("type", "in", ["league", "event"]),
+    where("additionalMemberIds", "array-contains", "league-staff"),
+  )));
+  assert.deepEqual(snapshot.docs.map((item) => item.id).sort(), [
+    "event-room",
+    "team-room",
+  ]);
+
+  await assertSucceeds(setDoc(doc(
+    staffDb,
+    `${roomPath}/messages/message-1`,
+  ), {
+    chatRoomId: "team-room",
+    senderId: "league-staff",
+    senderName: "League Staff",
+    text: "Hello",
+    previewText: "Hello",
+    createdAt: serverTimestamp(),
+    readBy: ["league-staff"],
+  }));
+
+  const adminDb = testEnv.authenticatedContext("admin").firestore();
+  await assertFails(updateDoc(doc(adminDb, roomPath), {
+    additionalMemberIds: ["league-staff", "outsider"],
+  }));
+  await assertFails(setDoc(
+    doc(staffDb, "organizations/org-1/chatRooms/forged-room"),
+    {...teamRoom, id: "forged-room"},
+  ));
+});
+
 test("posting requires accepted community guidelines", async () => {
   await seedFirestore([
     ["users/member", user({

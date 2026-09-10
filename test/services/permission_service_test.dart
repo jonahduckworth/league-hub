@@ -42,6 +42,7 @@ void main() {
     String? teamId,
     List<String> hubIds = const [],
     List<String> teamIds = const [],
+    List<String> additionalMemberIds = const [],
   }) =>
       ChatRoom(
         id: id,
@@ -53,6 +54,7 @@ void main() {
         teamId: teamId,
         hubIds: hubIds,
         teamIds: teamIds,
+        additionalMemberIds: additionalMemberIds,
         participants: participants,
         createdAt: DateTime(2024),
         isArchived: false,
@@ -1189,11 +1191,54 @@ void main() {
 
       test('DM only visible to participants', () {
         final room = makeRoom(
-            type: ChatRoomType.direct, participants: ['staff', 'other']);
+          type: ChatRoomType.direct,
+          participants: ['staff', 'other'],
+          additionalMemberIds: const ['outsider'],
+        );
         expect(service.canViewChatRoom(staff(), room), isTrue);
 
         final outsider = makeUser(id: 'outsider', role: UserRole.staff);
         expect(service.canViewChatRoom(outsider, room), isFalse);
+      });
+
+      test('additional members can view managed rooms without assignments', () {
+        final staffRoom = makeRoom(
+          type: ChatRoomType.league,
+          leagueId: 'league-1',
+          hubId: 'hub-1',
+          teamId: 'team-1',
+          additionalMemberIds: const ['staff'],
+        );
+        final managerRoom = makeRoom(
+          type: ChatRoomType.event,
+          leagueId: 'league-1',
+          hubId: 'hub-1',
+          teamId: 'team-1',
+          additionalMemberIds: const ['ma'],
+        );
+
+        expect(service.canViewChatRoom(staff(), staffRoom), isTrue);
+        expect(service.canViewChatRoom(manager(), managerRoom), isTrue);
+        expect(service.canViewChatRoom(staff(isActive: false), staffRoom),
+            isFalse);
+        expect(
+          service.canViewChatRoom(
+            staff(),
+            ChatRoom(
+              id: 'group-room',
+              orgId: 'org1',
+              name: 'Group Room',
+              type: ChatRoomType.event,
+              roomPurpose: ChatRoomPurpose.group,
+              leagueId: 'other-league',
+              additionalMemberIds: const ['staff'],
+              participants: const [],
+              createdAt: DateTime(2024),
+              isArchived: false,
+            ),
+          ),
+          isFalse,
+        );
       });
 
       test('league room visible to all active users', () {

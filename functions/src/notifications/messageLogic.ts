@@ -24,6 +24,8 @@ export function canReceiveMessageNotification(
   teamId?: string,
   hubIds: string[] = [],
   teamIds: string[] = [],
+  additionalMemberIds: string[] = [],
+  userId?: string,
 ): boolean {
   if (user.isActive === false) return false;
   if (expectedOrgId && user.orgId !== expectedOrgId) return false;
@@ -31,6 +33,7 @@ export function canReceiveMessageNotification(
   if (roomType === "direct") return true;
   if (elevatedRoles.has(user.role ?? "")) return true;
   if (roomType !== "league" && roomType !== "event") return false;
+  if (userId && additionalMemberIds.includes(userId)) return true;
   if (teamIds.length > 0) {
     return teamIds.some((id) => hasId(user.teamIds, id)) ||
       (user.role === "managerAdmin" &&
@@ -62,6 +65,15 @@ export function shouldUseExplicitParticipantRecipients(
   teamIds: string[],
 ): boolean {
   return participantIds.length > 0 && teamIds.length === 0;
+}
+
+export function notificationLookupIds(
+  participantIds: string[],
+  additionalMemberIds: string[],
+  roomType: string,
+): string[] {
+  if (roomType !== "league" && roomType !== "event") return participantIds;
+  return [...new Set([...participantIds, ...additionalMemberIds])];
 }
 
 export function shouldReplaceRoomPreview(

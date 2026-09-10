@@ -18,6 +18,7 @@ class ChatRoom {
   final String? teamId;
   final List<String> hubIds;
   final List<String> teamIds;
+  final List<String> additionalMemberIds;
   final List<String> participants;
   final DateTime createdAt;
   final bool isArchived;
@@ -37,6 +38,13 @@ class ChatRoom {
 
   bool get isEventRoom => type == ChatRoomType.event && !isGroupRoom;
 
+  bool get supportsAdditionalMemberAccess =>
+      isEventRoom ||
+      (type == ChatRoomType.league && teamId?.isNotEmpty == true);
+
+  bool hasAdditionalMemberAccess(String userId) =>
+      supportsAdditionalMemberAccess && additionalMemberIds.contains(userId);
+
   /// Multi-team Event Rooms use sentinel [hubId] and [teamId] values so
   /// released clients fail closed instead of querying a partial audience.
   bool get hasMultiTeamAudience =>
@@ -53,6 +61,7 @@ class ChatRoom {
     this.teamId,
     this.hubIds = const [],
     this.teamIds = const [],
+    this.additionalMemberIds = const [],
     required this.participants,
     required this.createdAt,
     required this.isArchived,
@@ -83,6 +92,8 @@ class ChatRoom {
         teamId: json['teamId'] as String?,
         hubIds: List<String>.from(json['hubIds'] as List? ?? []),
         teamIds: List<String>.from(json['teamIds'] as List? ?? []),
+        additionalMemberIds:
+            List<String>.from(json['additionalMemberIds'] as List? ?? []),
         participants: List<String>.from(json['participants'] as List? ?? []),
         createdAt: DateTime.parse(json['createdAt'] as String),
         isArchived: json['isArchived'] as bool? ?? false,
@@ -110,6 +121,8 @@ class ChatRoom {
         'teamId': teamId,
         if (hubIds.isNotEmpty) 'hubIds': hubIds,
         if (teamIds.isNotEmpty) 'teamIds': teamIds,
+        if (additionalMemberIds.isNotEmpty)
+          'additionalMemberIds': additionalMemberIds,
         'participants': participants,
         'createdAt': createdAt.toIso8601String(),
         'isArchived': isArchived,

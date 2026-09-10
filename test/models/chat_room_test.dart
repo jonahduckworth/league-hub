@@ -17,6 +17,7 @@ void main() {
           'type': 'event',
           'roomPurpose': 'group',
           'leagueId': 'league1',
+          'additionalMemberIds': ['league-staff'],
           'participants': ['user1', 'user2', 'user3'],
           'createdAt': testDateStr,
           'isArchived': false,
@@ -36,6 +37,7 @@ void main() {
         expect(room.type, ChatRoomType.event);
         expect(room.roomPurpose, ChatRoomPurpose.group);
         expect(room.leagueId, 'league1');
+        expect(room.additionalMemberIds, ['league-staff']);
         expect(room.participants, ['user1', 'user2', 'user3']);
         expect(room.createdAt, testDate);
         expect(room.isArchived, false);
@@ -155,6 +157,7 @@ void main() {
         };
 
         expect(ChatRoom.fromJson(json).participants, isEmpty);
+        expect(ChatRoom.fromJson(json).additionalMemberIds, isEmpty);
       });
 
       test('lastMessage fields are null when not provided', () {
@@ -187,6 +190,7 @@ void main() {
           name: 'Coaches Room',
           type: ChatRoomType.event,
           roomPurpose: ChatRoomPurpose.group,
+          additionalMemberIds: const ['league-staff'],
           participants: ['userA', 'userB'],
           createdAt: testDate,
           isArchived: true,
@@ -205,6 +209,7 @@ void main() {
         expect(json['name'], 'Coaches Room');
         expect(json['type'], 'event');
         expect(json['roomPurpose'], 'group');
+        expect(json['additionalMemberIds'], ['league-staff']);
         expect(json['participants'], ['userA', 'userB']);
         expect(json['createdAt'], testDateStr);
         expect(json['isArchived'], true);
@@ -230,6 +235,7 @@ void main() {
         final json = room.toJson();
 
         expect(json.containsKey('roomPurpose'), isFalse);
+        expect(json.containsKey('additionalMemberIds'), isFalse);
         expect(json['leagueId'], isNull);
         expect(json['lastMessage'], isNull);
         expect(json['lastMessageAt'], isNull);
@@ -268,6 +274,7 @@ void main() {
         name: 'Test Room',
         type: ChatRoomType.direct,
         leagueId: 'league1',
+        additionalMemberIds: const ['league-staff'],
         participants: ['u1', 'u2'],
         createdAt: testDate,
         isArchived: false,
@@ -287,6 +294,7 @@ void main() {
       expect(restored.name, original.name);
       expect(restored.type, original.type);
       expect(restored.leagueId, original.leagueId);
+      expect(restored.additionalMemberIds, original.additionalMemberIds);
       expect(restored.participants, original.participants);
       expect(restored.createdAt, original.createdAt);
       expect(restored.isArchived, original.isArchived);

@@ -642,6 +642,13 @@ void main() {
         'hubId': 'hub-2',
         'teamId': 'team-2',
       });
+      await seedRoom('additional', {
+        'leagueId': 'league-2',
+        'hubId': 'hub-2',
+        'teamId': 'team-2',
+        'additionalMemberIds': ['viewer'],
+        'lastMessageAt': DateTime(2026, 4).toIso8601String(),
+      });
       await seedRoom('multi-team', {
         'type': 'event',
         'roomPurpose': 'event',
@@ -656,6 +663,7 @@ void main() {
       final rooms = await svc.getVisibleChatRooms(orgId, viewer).first;
 
       expect(rooms.map((room) => room.id), [
+        'additional',
         'multi-team',
         'hub-team',
         'unscoped',
@@ -692,8 +700,26 @@ void main() {
         createdAt: DateTime(2026),
         isActive: true,
       );
+      await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.chatRoomsCollection)
+          .doc('assigned-explicitly')
+          .set({
+        'orgId': orgId,
+        'name': 'Assigned explicitly',
+        'type': 'event',
+        'leagueId': 'league-1',
+        'hubId': 'hub-1',
+        'teamId': 'team-1',
+        'additionalMemberIds': ['viewer'],
+        'participants': <String>[],
+        'isArchived': false,
+        'createdAt': DateTime(2026).toIso8601String(),
+      });
+
       final rooms = await svc.getVisibleChatRooms(orgId, viewer).first;
-      expect(rooms, isEmpty);
+      expect(rooms.map((room) => room.id), ['assigned-explicitly']);
     });
 
     test('getChatRoom streams single room', () async {
