@@ -445,6 +445,12 @@ class FirestoreService {
           .where('hubId', isNull: true)
           .where('teamId', isNull: true)
           .where('leagueId', isNull: true),
+      _chatRoomsRef(orgId)
+          .where('orgId', isEqualTo: orgId)
+          .where('isArchived', isEqualTo: false)
+          .where('type', whereIn: const ['league', 'event']).where(
+              'additionalMemberIds',
+              arrayContains: viewer.id),
     ];
 
     void addBatchedQueries(

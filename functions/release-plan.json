@@ -1,7 +1,8 @@
 {
   "all": false,
   "targets": [
-    "adminUpdateEventRoomAudience"
+    "adminUpdateChatRoomAdditionalMembers",
+    "onMessageCreated"
   ],
-  "reason": "Allow authorized portal admins to convert legacy Event Rooms to explicit team access without deleting message history."
+  "reason": "Add server-managed per-room league-staff access and include those members in chat notifications."
 }

@@ -560,6 +560,7 @@ class PermissionService {
     if (room.type == ChatRoomType.direct) {
       return room.participants.contains(user.id);
     }
+    if (room.hasAdditionalMemberAccess(user.id)) return true;
     if (room.hasMultiTeamAudience) {
       return room.teamIds.any(user.teamIds.contains) ||
           (user.role == UserRole.managerAdmin &&

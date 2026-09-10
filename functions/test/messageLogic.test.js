@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   canReceiveMessageNotification,
+  notificationLookupIds,
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
@@ -131,4 +132,64 @@ test("multi-team notifications reach every selected team and selected-Hub manage
     "sender", "event", "hub-1", "league-1", "org-1", "team-1",
     hubIds, teamIds,
   ), false);
+});
+
+test("room-specific members receive managed-room notifications only", () => {
+  const unassignedStaff = {
+    role: "staff",
+    orgId: "org-1",
+    isActive: true,
+  };
+  assert.equal(canReceiveMessageNotification(
+    unassignedStaff,
+    "sender",
+    "event",
+    "hub-1",
+    "league-1",
+    "org-1",
+    "team-1",
+    [],
+    [],
+    ["league-staff"],
+    "league-staff",
+  ), true);
+  assert.equal(canReceiveMessageNotification(
+    unassignedStaff,
+    "sender",
+    "event",
+    "hub-1",
+    "league-1",
+    "org-1",
+    "team-1",
+    [],
+    [],
+    ["other-user"],
+    "league-staff",
+  ), false);
+  assert.equal(canReceiveMessageNotification(
+    unassignedStaff,
+    "sender",
+    "direct",
+    undefined,
+    undefined,
+    "org-1",
+    undefined,
+    [],
+    [],
+    ["league-staff"],
+    "league-staff",
+  ), true);
+});
+
+test("notification lookups union additional members for managed rooms", () => {
+  assert.deepEqual(notificationLookupIds(
+    ["participant", "shared"],
+    ["additional", "shared"],
+    "event",
+  ), ["participant", "shared", "additional"]);
+  assert.deepEqual(notificationLookupIds(
+    ["participant"],
+    ["forged-additional"],
+    "direct",
+  ), ["participant"]);
 });

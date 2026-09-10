@@ -3,6 +3,7 @@ import * as admin from "firebase-admin";
 import { db, getUserTokens, sendNotification } from "../helpers";
 import {
   canReceiveMessageNotification,
+  notificationLookupIds,
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
@@ -50,14 +51,21 @@ export const onMessageCreated = onFirestoreCreated(
     const teamId = roomData.teamId as string | undefined;
     const hubIds = Array.isArray(roomData.hubIds) ? roomData.hubIds as string[] : [];
     const teamIds = Array.isArray(roomData.teamIds) ? roomData.teamIds as string[] : [];
+    const additionalMemberIds = Array.isArray(roomData.additionalMemberIds) ?
+      roomData.additionalMemberIds as string[] : [];
 
     // Explicit participants win. Open rooms use the same room visibility
     // criteria as Firestore rules so scoped rooms do not notify outsiders.
     let recipientIds: string[];
 
     if (shouldUseExplicitParticipantRecipients(participants, teamIds)) {
+      const lookupIds = notificationLookupIds(
+        participants,
+        additionalMemberIds,
+        roomType,
+      );
       const participantUsers = await Promise.all(
-        participantLookupBatches(participants).map((ids) =>
+        participantLookupBatches(lookupIds).map((ids) =>
           db.collection("users")
             .where(admin.firestore.FieldPath.documentId(), "in", ids)
             .get(),
@@ -67,7 +75,7 @@ export const onMessageCreated = onFirestoreCreated(
         .filter((user) => user.id !== senderId)
         .filter((user) => canReceiveMessageNotification(
           user.data(), senderId, roomType, hubId, leagueId, orgId, teamId,
-          hubIds, teamIds,
+          hubIds, teamIds, additionalMemberIds, user.id,
         ))
         .map((user) => user.id);
     } else {
@@ -88,6 +96,8 @@ export const onMessageCreated = onFirestoreCreated(
             teamId,
             hubIds,
             teamIds,
+            additionalMemberIds,
+            d.id,
           ),
         )
         .map((d) => d.id)

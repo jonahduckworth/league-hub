@@ -772,11 +772,30 @@ service cloud.firestore {
         );
     }
 
+    // Room-specific access is server managed. Client-created rooms may omit
+    // the field or initialize it empty, but cannot grant access themselves.
+    function validAdditionalMembersOnCreate(data) {
+      return !('additionalMemberIds' in data)
+        || (
+          data.additionalMemberIds is list
+          && data.additionalMemberIds.size() == 0
+        );
+    }
+
+    function hasAdditionalRoomAccess(room) {
+      return room.type in ['league', 'event']
+        && 'additionalMemberIds' in room
+        && room.additionalMemberIds is list
+        && room.additionalMemberIds.size() <= 50
+        && request.auth.uid in room.additionalMemberIds;
+    }
+
     function roomIsReadable(room) {
       return sameOrg(room.orgId)
         && (
           isSuperAdmin()
           || (room.type == 'direct' && request.auth.uid in room.participants)
+          || hasAdditionalRoomAccess(room)
           || (
             room.type in ['league', 'event']
             && (hasMultiTeamAudience(room)
@@ -1002,6 +1021,7 @@ service cloud.firestore {
       match /chatRooms/{roomId} {
         allow get, list: if roomIsReadable(resource.data);
         allow create: if validOptionalRoomPurpose(request.resource.data)
+          && validAdditionalMembersOnCreate(request.resource.data)
           && validOptionalMultiTeamAudience(request.resource.data)
           && (
             validDirectRoomCreate(orgId, request.resource.data)
@@ -1026,7 +1046,8 @@ service cloud.firestore {
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
               'roomPurpose',
               'hubIds',
-              'teamIds'
+              'teamIds',
+              'additionalMemberIds'
             ])
             && (
               !hasMultiTeamAudience(resource.data)
