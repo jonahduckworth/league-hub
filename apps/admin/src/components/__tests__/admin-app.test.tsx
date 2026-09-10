@@ -285,6 +285,95 @@ describe("AdminApp operations shell", () => {
     });
   });
 
+  it("adds unassigned league staff while creating an Event Room", async () => {
+    const unassignedStaff = {
+      id: "staff-unassigned",
+      email: "casey@prairie.example",
+      displayName: "Casey Coordinator",
+      title: "League Coordinator",
+      role: "staff" as const,
+      orgId: "org-demo",
+      hubIds: [],
+      leagueIds: ["league-winter"],
+      teamIds: [],
+      isActive: true
+    };
+    const runAction = vi.fn().mockImplementation(async (name: string) => {
+      if (name === "createMultiTeamEventRoom") {
+        return { ok: true, data: { roomId: "showcase-with-staff" } };
+      }
+      return { ok: true, data: {} };
+    });
+    const onClose = vi.fn();
+
+    render(
+      <CreateEventRoomDrawer
+        open
+        data={{ ...demoData, users: [...demoData.users, unassignedStaff] }}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={onClose}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "New Event Room" });
+    expect(within(drawer).getByRole("heading", { name: "Additional league staff" })).toBeTruthy();
+    fireEvent.change(within(drawer).getByRole("textbox", { name: /Room name/i }), {
+      target: { value: "Provincial Showcase" }
+    });
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Calgary U11 AA/i }));
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Casey Coordinator/i }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Create Event Room" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(runAction).toHaveBeenNthCalledWith(2, "adminUpdateChatRoomAdditionalMembers", {
+      roomId: "showcase-with-staff",
+      expectedAdditionalMemberIds: [],
+      additionalMemberIds: ["staff-unassigned"]
+    });
+  });
+
+  it("keeps a created Event Room open when its initial staff access is ambiguous", async () => {
+    const data = {
+      ...demoData,
+      users: [...demoData.users, {
+        id: "staff-unassigned",
+        email: "casey@prairie.example",
+        displayName: "Casey Coordinator",
+        role: "staff" as const,
+        orgId: "org-demo",
+        hubIds: [],
+        leagueIds: [],
+        teamIds: [],
+        isActive: true
+      }]
+    };
+    const runAction = vi.fn().mockImplementation(async (name: string) => {
+      if (name === "createMultiTeamEventRoom") {
+        return { ok: true, data: { roomId: "showcase-staff-uncertain" } };
+      }
+      return { ok: false, error: "Audit write failed" };
+    });
+    const onClose = vi.fn();
+
+    render(
+      <CreateEventRoomDrawer open data={data} currentUser={demoUser} runAction={runAction} onClose={onClose} />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "New Event Room" });
+    fireEvent.change(within(drawer).getByRole("textbox", { name: /Room name/i }), {
+      target: { value: "Provincial Showcase" }
+    });
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Calgary U11 AA/i }));
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Casey Coordinator/i }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Create Event Room" }));
+
+    expect(await within(drawer).findByText("The Event Room has been created.")).toBeTruthy();
+    expect(within(drawer).getByRole("alert").textContent).toMatch(/staff access could not be confirmed/i);
+    expect(within(drawer).queryByRole("button", { name: "Create Event Room" })).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("retains the upload when a created room's photo update result is ambiguous", async () => {
     const runAction = vi.fn().mockImplementation(async (name: string) => {
       if (name === "createMultiTeamEventRoom") {
@@ -428,7 +517,7 @@ describe("AdminApp operations shell", () => {
     );
 
     const drawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
-    expect(within(drawer).getByText(/complete message history/i)).toBeTruthy();
+    expect(within(drawer).getAllByText(/complete message history/i).length).toBeGreaterThan(0);
     fireEvent.click(within(drawer).getByRole("checkbox", { name: /Red Deer U13 A/i }));
     fireEvent.click(within(drawer).getByRole("button", { name: "Save team access" }));
 
@@ -556,6 +645,111 @@ describe("AdminApp operations shell", () => {
     const drawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
     expect(within(drawer).queryByRole("button", { name: "Save team access" })).toBeNull();
     expect(within(drawer).queryByText(/complete message history/i)).toBeNull();
+  });
+
+  it("adds and removes room-specific league staff with removal confirmation", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: {} });
+    const eligibleStaff = {
+      id: "staff-eligible",
+      email: "casey@prairie.example",
+      displayName: "Casey Coordinator",
+      title: "League Coordinator",
+      role: "staff" as const,
+      orgId: "org-demo",
+      hubIds: [],
+      leagueIds: ["league-winter"],
+      teamIds: [],
+      isActive: true
+    };
+    const previouslySelectedStaff = {
+      ...eligibleStaff,
+      id: "staff-now-assigned",
+      email: "riley@prairie.example",
+      displayName: "Riley Staff",
+      teamIds: ["team-u11-aa"]
+    };
+    const room = {
+      id: "team-room",
+      orgId: "org-demo",
+      name: "Calgary U11 AA - General",
+      type: "league" as const,
+      leagueId: "league-winter",
+      hubId: "hub-calgary",
+      teamId: "team-u11-aa",
+      additionalMemberIds: ["staff-now-assigned"],
+      participants: [],
+      isArchived: false
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={{ ...demoData, users: [...demoData.users, eligibleStaff, previouslySelectedStaff] }}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Calgary U11 AA - General" });
+    const search = within(drawer).getByRole("textbox", { name: "Search league staff" });
+    fireEvent.change(search, { target: { value: "casey@prairie.example" } });
+    expect(within(drawer).getByRole("checkbox", { name: /Casey Coordinator/i })).toBeTruthy();
+    expect(within(drawer).queryByRole("checkbox", { name: /Riley Staff/i })).toBeNull();
+    fireEvent.change(search, { target: { value: "" } });
+
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Casey Coordinator/i }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Save staff access" }));
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("adminUpdateChatRoomAdditionalMembers", {
+      roomId: "team-room",
+      expectedAdditionalMemberIds: ["staff-now-assigned"],
+      additionalMemberIds: ["staff-eligible", "staff-now-assigned"]
+    }));
+    expect(await within(drawer).findByText(/Additional league staff access updated/i)).toBeTruthy();
+
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Riley Staff/i }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Save staff access" }));
+    expect(within(drawer).getByText(/Remove room access for 1 person/i)).toBeTruthy();
+    expect(runAction).toHaveBeenCalledTimes(1);
+    const cancel = within(drawer).getByRole("button", { name: "Cancel" });
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Confirm removal" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenLastCalledWith("adminUpdateChatRoomAdditionalMembers", {
+      roomId: "team-room",
+      expectedAdditionalMemberIds: ["staff-eligible", "staff-now-assigned"],
+      additionalMemberIds: ["staff-eligible"]
+    }));
+  });
+
+  it("does not expose room-specific staff editing for ineligible rooms or roles", async () => {
+    const baseRoom = {
+      id: "room-hidden-picker",
+      orgId: "org-demo",
+      name: "Hidden Picker Room",
+      type: "event" as const,
+      roomPurpose: "group" as const,
+      leagueId: "league-winter",
+      participants: [],
+      isArchived: false
+    };
+    const { rerender } = render(
+      <ChatRoomDrawer room={baseRoom} data={demoData} currentUser={demoUser} runAction={vi.fn()} onClose={vi.fn()} />
+    );
+    let drawer = await screen.findByRole("dialog", { name: "Hidden Picker Room" });
+    expect(within(drawer).queryByRole("heading", { name: "Additional league staff" })).toBeNull();
+
+    rerender(
+      <ChatRoomDrawer
+        room={{ ...baseRoom, type: "league", roomPurpose: null, teamId: "team-u11-aa" }}
+        data={demoData}
+        currentUser={{ ...demoUser, role: "managerAdmin" }}
+        runAction={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    drawer = await screen.findByRole("dialog", { name: "Hidden Picker Room" });
+    expect(within(drawer).queryByRole("heading", { name: "Additional league staff" })).toBeNull();
   });
 
   it("retains an uploaded replacement when its room update result is ambiguous", async () => {

@@ -148,6 +148,7 @@ export type ChatRoom = {
   teamId?: string | null;
   hubIds?: string[];
   teamIds?: string[];
+  additionalMemberIds?: string[];
   participants: string[];
   createdAt?: unknown;
   isArchived: boolean;

@@ -60,6 +60,12 @@ import { buildHealthChecks } from "@/lib/health";
 import { activePendingInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, dateTimeLabel, timeAgo, toDate } from "@/lib/format";
 import { eventRoomImageStoragePath, validateEventRoomImageFile } from "@/lib/event-room-image";
+import {
+  additionalRoomMemberOptions,
+  canEditAdditionalRoomMembers,
+  MAX_ADDITIONAL_ROOM_MEMBERS,
+  roomSupportsAdditionalMembers
+} from "@/lib/room-additional-members";
 import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES, runReservedPolicyUpload } from "@/lib/policy-upload";
 import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
 import { structureLogoStoragePath, validateStructureLogoFile } from "@/lib/structure-logo";
@@ -3483,6 +3489,123 @@ function EventRoomTeamSelector({
   );
 }
 
+function AdditionalRoomMemberSelector({
+  data,
+  orgId,
+  existingMemberIds,
+  selectedMemberIds,
+  disabled,
+  resetKey,
+  onChange,
+  onLimitMessage
+}: {
+  data: AdminData;
+  orgId: string;
+  existingMemberIds: string[];
+  selectedMemberIds: Set<string>;
+  disabled: boolean;
+  resetKey: string;
+  onChange: (memberIds: Set<string>) => void;
+  onLimitMessage: (message: string | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const existingIds = new Set(existingMemberIds);
+  const options = additionalRoomMemberOptions(data.users, orgId, existingMemberIds);
+  const filteredOptions = options.filter((option) => matchesQuery([
+    option.displayName,
+    option.email,
+    option.title,
+    option.id
+  ], query));
+  const visibleOptions = filteredOptions.slice(0, 100);
+
+  useEffect(() => setQuery(""), [resetKey]);
+
+  function toggleMember(memberId: string, checked: boolean) {
+    if (checked && !selectedMemberIds.has(memberId) &&
+        selectedMemberIds.size >= MAX_ADDITIONAL_ROOM_MEMBERS) {
+      onLimitMessage(`Rooms can include up to ${MAX_ADDITIONAL_ROOM_MEMBERS} additional league staff.`);
+      return;
+    }
+    onLimitMessage(null);
+    const next = new Set(selectedMemberIds);
+    if (checked) next.add(memberId);
+    else next.delete(memberId);
+    onChange(next);
+  }
+
+  return (
+    <div className="grid gap-3">
+      <div role="status" aria-live="polite" className="rounded-2xl border border-teal/20 bg-teal/[0.055] px-4 py-3">
+        <p className="text-sm font-extrabold text-ink">
+          {selectedMemberIds.size === 1 ? "1 person" : `${selectedMemberIds.size} people`} selected
+        </p>
+        <p className="mt-1 text-xs font-semibold leading-5 text-muted">
+          Selected people can open this room, read its complete message history, post messages, and receive notifications. Maximum {MAX_ADDITIONAL_ROOM_MEMBERS} people.
+        </p>
+      </div>
+      <Field label="Search league staff">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by name, title, or email"
+            className="pl-10"
+            disabled={disabled || options.length === 0}
+          />
+        </div>
+      </Field>
+      {options.length === 0 ? (
+        <EmptyLine label="No active, unassigned league staff are available" />
+      ) : filteredOptions.length === 0 ? (
+        <EmptyLine label="No league staff match that search" />
+      ) : (
+        <fieldset className="thin-scrollbar grid max-h-80 gap-1 overflow-y-auto rounded-2xl border border-line bg-white p-2">
+          <legend className="sr-only">Additional league staff with access to this room</legend>
+          {visibleOptions.map((option) => {
+            const selected = selectedMemberIds.has(option.id);
+            const canSelect = option.isEligible || existingIds.has(option.id);
+            return (
+              <label
+                key={option.id}
+                className={`flex min-h-14 items-center gap-3 rounded-xl px-3 py-2 transition-colors focus-within:bg-teal/[0.04] ${canSelect && !disabled ? "cursor-pointer hover:bg-[#f8fafc]" : "cursor-not-allowed opacity-65"}`}
+              >
+                <input
+                  type="checkbox"
+                  className="size-5 shrink-0 accent-teal"
+                  checked={selected}
+                  onChange={(event) => toggleMember(option.id, event.target.checked)}
+                  disabled={disabled || !canSelect}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-ink">{option.displayName}</span>
+                  <span className="mt-0.5 block truncate text-xs font-semibold text-muted">
+                    {[option.title, option.email].filter(Boolean).join(" · ") || option.id}
+                  </span>
+                  {!option.isEligible && existingIds.has(option.id) && (
+                    <span className="mt-1 block text-xs font-bold text-[#854d0e]">
+                      {option.isKnown && !option.isActive
+                        ? "Inactive account · existing access can be removed"
+                        : "No longer eligible for new access · existing access can be removed"}
+                    </span>
+                  )}
+                </span>
+                {selected && <Badge tone={option.isEligible ? "info" : "warning"}>Has access</Badge>}
+              </label>
+            );
+          })}
+        </fieldset>
+      )}
+      {filteredOptions.length > visibleOptions.length && (
+        <p role="status" className="text-xs font-semibold leading-5 text-muted">
+          Showing the first 100 matches. Refine the search to find someone else.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function CreateEventRoomDrawer({
   open,
   data,
@@ -3499,6 +3622,7 @@ export function CreateEventRoomDrawer({
   const [name, setName] = useState("");
   const [leagueId, setLeagueId] = useState("");
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set());
+  const [selectedAdditionalMemberIds, setSelectedAdditionalMemberIds] = useState<Set<string>>(new Set());
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageInputKey, setImageInputKey] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
@@ -3511,6 +3635,7 @@ export function CreateEventRoomDrawer({
     setName("");
     setLeagueId(defaultLeagueId);
     setSelectedTeamIds(new Set());
+    setSelectedAdditionalMemberIds(new Set());
     setImageFile(null);
     setImageInputKey((current) => current + 1);
     setFormError(null);
@@ -3579,6 +3704,21 @@ export function CreateEventRoomDrawer({
       setFormError("The room was created without a valid identifier. Refresh Chat Rooms before trying again.");
       setSubmitting(false);
       return;
+    }
+
+    const additionalMemberIds = [...selectedAdditionalMemberIds].sort();
+    if (additionalMemberIds.length > 0) {
+      const memberResult = await runAction("adminUpdateChatRoomAdditionalMembers", {
+        roomId,
+        expectedAdditionalMemberIds: [],
+        additionalMemberIds
+      });
+      if (!memberResult.ok) {
+        setCreatedRoomId(roomId);
+        setFormError("The Event Room was created, but its additional league staff access could not be confirmed. Open the room details and try again.");
+        setSubmitting(false);
+        return;
+      }
     }
 
     if (imageFile && storage) {
@@ -3678,6 +3818,24 @@ export function CreateEventRoomDrawer({
           />
         </DrawerSection>
 
+        {canEditAdditionalRoomMembers(currentUser) && data.selectedOrg?.id && (
+          <DrawerSection title="Additional league staff">
+            <p className="text-sm font-medium leading-6 text-muted">
+              Add active league staff who are not assigned to a Team or Hub. Access applies only to this Event Room.
+            </p>
+            <AdditionalRoomMemberSelector
+              data={data}
+              orgId={data.selectedOrg.id}
+              existingMemberIds={[]}
+              selectedMemberIds={selectedAdditionalMemberIds}
+              disabled={submitting || Boolean(createdRoomId)}
+              resetKey={`${data.selectedOrg.id}:${open ? "open" : "closed"}`}
+              onChange={setSelectedAdditionalMemberIds}
+              onLimitMessage={setFormError}
+            />
+          </DrawerSection>
+        )}
+
         <DrawerSection title="Room photo">
           <div className="flex items-center gap-3 rounded-2xl border border-line bg-white p-3.5">
             <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-teal/10 text-teal ring-1 ring-teal/15">
@@ -3762,8 +3920,15 @@ export function ChatRoomDrawer({
   const [audienceError, setAudienceError] = useState<string | null>(null);
   const [audienceSaved, setAudienceSaved] = useState(false);
   const [confirmingAudienceRemoval, setConfirmingAudienceRemoval] = useState(false);
+  const [additionalMemberBaselineIds, setAdditionalMemberBaselineIds] = useState<string[]>([]);
+  const [additionalMemberIds, setAdditionalMemberIds] = useState<Set<string>>(new Set());
+  const [additionalMemberSaving, setAdditionalMemberSaving] = useState(false);
+  const [additionalMemberError, setAdditionalMemberError] = useState<string | null>(null);
+  const [additionalMemberSaved, setAdditionalMemberSaved] = useState(false);
+  const [confirmingAdditionalMemberRemoval, setConfirmingAdditionalMemberRemoval] = useState(false);
   const archiveCancelRef = useRef<HTMLButtonElement>(null);
   const audienceCancelRef = useRef<HTMLButtonElement>(null);
+  const additionalMemberCancelRef = useRef<HTMLButtonElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -3789,6 +3954,13 @@ export function ChatRoomDrawer({
     setAudienceError(null);
     setAudienceSaved(false);
     setConfirmingAudienceRemoval(false);
+    const initialAdditionalMemberIds = [...(room?.additionalMemberIds ?? [])].sort();
+    setAdditionalMemberBaselineIds(initialAdditionalMemberIds);
+    setAdditionalMemberIds(new Set(initialAdditionalMemberIds));
+    setAdditionalMemberSaving(false);
+    setAdditionalMemberError(null);
+    setAdditionalMemberSaved(false);
+    setConfirmingAdditionalMemberRemoval(false);
   }, [room]);
 
   useEffect(() => {
@@ -3802,6 +3974,12 @@ export function ChatRoomDrawer({
     const focusFrame = window.requestAnimationFrame(() => audienceCancelRef.current?.focus({ preventScroll: true }));
     return () => window.cancelAnimationFrame(focusFrame);
   }, [confirmingAudienceRemoval]);
+
+  useEffect(() => {
+    if (!confirmingAdditionalMemberRemoval) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => additionalMemberCancelRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [confirmingAdditionalMemberRemoval]);
 
   const managed = room?.type !== "direct";
   const orgId = room?.orgId ?? data.selectedOrg?.id;
@@ -3822,6 +4000,10 @@ export function ChatRoomDrawer({
     currentUser.isActive &&
     (currentUser.role === "platformOwner" || currentUser.role === "superAdmin")
   );
+  const editableAdditionalMembers = Boolean(
+    roomSupportsAdditionalMembers(room) &&
+    canEditAdditionalRoomMembers(currentUser)
+  );
   const selectedAudienceTeams = data.teams
     .filter((item) => item.leagueId === room?.leagueId && audienceTeamIds.has(item.id))
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -3830,6 +4012,10 @@ export function ChatRoomDrawer({
   const removedAudienceIds = audienceBaselineIds.filter((id) => !effectiveAudienceIds.has(id));
   const audienceChanged = audienceRequiresConversion ||
     addedAudienceIds.length > 0 || removedAudienceIds.length > 0;
+  const orderedAdditionalMemberIds = [...additionalMemberIds].sort();
+  const addedAdditionalMemberIds = orderedAdditionalMemberIds.filter((id) => !additionalMemberBaselineIds.includes(id));
+  const removedAdditionalMemberIds = additionalMemberBaselineIds.filter((id) => !additionalMemberIds.has(id));
+  const additionalMembersChanged = addedAdditionalMemberIds.length > 0 || removedAdditionalMemberIds.length > 0;
 
   useEffect(() => {
     if (conversation.loading || conversation.messages.length === 0) return;
@@ -3899,6 +4085,32 @@ export function ChatRoomDrawer({
       setAudienceError(result.error);
     }
     setAudienceSaving(false);
+  }
+
+  async function saveAdditionalMembers(confirmedRemoval = false) {
+    if (!room || !editableAdditionalMembers || additionalMemberSaving || !additionalMembersChanged) return;
+    setAdditionalMemberError(null);
+    setAdditionalMemberSaved(false);
+    if (removedAdditionalMemberIds.length > 0 && !confirmedRemoval) {
+      setConfirmingAdditionalMemberRemoval(true);
+      return;
+    }
+
+    setAdditionalMemberSaving(true);
+    setConfirmingAdditionalMemberRemoval(false);
+    const result = await runAction("adminUpdateChatRoomAdditionalMembers", {
+      roomId: room.id,
+      expectedAdditionalMemberIds: additionalMemberBaselineIds,
+      additionalMemberIds: orderedAdditionalMemberIds
+    });
+    if (result.ok) {
+      setAdditionalMemberBaselineIds(orderedAdditionalMemberIds);
+      setAdditionalMemberIds(new Set(orderedAdditionalMemberIds));
+      setAdditionalMemberSaved(true);
+    } else {
+      setAdditionalMemberError(result.error);
+    }
+    setAdditionalMemberSaving(false);
   }
 
   async function archive() {
@@ -4110,6 +4322,70 @@ export function ChatRoomDrawer({
               )}
               {audienceSaved && <StatusNotice tone="success" message="Event Room team access updated. Message history was preserved." />}
               {audienceError && <StatusNotice tone="error" message={audienceError} />}
+            </DrawerSection>
+          )}
+          {editableAdditionalMembers && orgId && (
+            <DrawerSection title="Additional league staff">
+              <p className="text-sm font-medium leading-6 text-muted">
+                Add active league staff who are not assigned to a Team or Hub. Access applies only to this room; automatic Team and Hub access is unchanged.
+              </p>
+              <AdditionalRoomMemberSelector
+                data={data}
+                orgId={orgId}
+                existingMemberIds={additionalMemberBaselineIds}
+                selectedMemberIds={additionalMemberIds}
+                disabled={additionalMemberSaving}
+                resetKey={room.id}
+                onChange={(next) => {
+                  setAdditionalMemberIds(next);
+                  setAdditionalMemberSaved(false);
+                  setConfirmingAdditionalMemberRemoval(false);
+                }}
+                onLimitMessage={setAdditionalMemberError}
+              />
+              {additionalMembersChanged && (
+                <p role="status" aria-live="polite" className="text-xs font-extrabold text-teal">
+                  {addedAdditionalMemberIds.length === 1 ? "1 person" : `${addedAdditionalMemberIds.length} people`} added · {removedAdditionalMemberIds.length === 1 ? "1 person" : `${removedAdditionalMemberIds.length} people`} removed
+                </p>
+              )}
+              {confirmingAdditionalMemberRemoval ? (
+                <div className="rounded-2xl border border-coral/25 bg-coral/[0.06] p-3.5">
+                  <p className="text-sm font-extrabold text-[#912f2a]">
+                    Remove room access for {removedAdditionalMemberIds.length === 1 ? "1 person" : `${removedAdditionalMemberIds.length} people`}?
+                  </p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#a14a45]">
+                    They will no longer be able to open this room or receive its notifications. The room and its message history stay intact.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      ref={additionalMemberCancelRef}
+                      type="button"
+                      variant="secondary"
+                      className="flex-1"
+                      disabled={additionalMemberSaving}
+                      onClick={() => setConfirmingAdditionalMemberRemoval(false)}
+                    >Cancel</Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      className="flex-1"
+                      disabled={additionalMemberSaving}
+                      onClick={() => saveAdditionalMembers(true)}
+                    >{additionalMemberSaving ? "Saving…" : "Confirm removal"}</Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={additionalMemberSaving || !additionalMembersChanged}
+                  onClick={() => saveAdditionalMembers()}
+                >
+                  {additionalMemberSaving ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <Save className="size-4" aria-hidden />}
+                  {additionalMemberSaving ? "Saving staff access…" : "Save staff access"}
+                </Button>
+              )}
+              {additionalMemberSaved && <StatusNotice tone="success" message="Additional league staff access updated. Message history was preserved." />}
+              {additionalMemberError && <StatusNotice tone="error" message={additionalMemberError} />}
             </DrawerSection>
           )}
           {room.type === "event" && (
