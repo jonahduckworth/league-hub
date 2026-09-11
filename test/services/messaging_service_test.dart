@@ -102,6 +102,7 @@ void main() {
         requiresApnsToken: () => true,
         tokenRegistrationDelay: (delay) async => delays.add(delay),
       );
+      service.activateUserForTesting('u1');
 
       await service.refreshTokenRegistration('u1');
 
@@ -125,6 +126,7 @@ void main() {
         requiresApnsToken: () => true,
         tokenRegistrationDelay: (_) async {},
       );
+      service.activateUserForTesting('u1');
 
       await service.refreshTokenRegistration('u1');
 
@@ -147,6 +149,7 @@ void main() {
         requiresApnsToken: () => true,
         tokenRegistrationDelay: (_) async {},
       );
+      service.activateUserForTesting('u1');
 
       await service.refreshTokenRegistration('u1');
       tokenRefresh.add('later-fcm-token');
@@ -172,6 +175,7 @@ void main() {
         firestore: fakeFirestore,
         requiresApnsToken: () => true,
       );
+      service.activateUserForTesting('u1');
 
       final registration = service.refreshTokenRegistration('u1');
       await Future<void>.delayed(Duration.zero);
@@ -197,6 +201,7 @@ void main() {
         requiresApnsToken: () => true,
         tokenRegistrationDelay: (_) async {},
       );
+      service.activateUserForTesting('u1');
 
       await service.refreshTokenRegistration('u1');
       service.clearActiveUser();
@@ -206,6 +211,68 @@ void main() {
       final user = await fakeFirestore.collection('users').doc('u1').get();
       expect(user.data()!['fcmTokens'], isEmpty);
       await tokenRefresh.close();
+    });
+
+    test('resume-time refresh cannot reactivate an invalidated user', () async {
+      final tokenProvider = FakePushTokenProvider(
+        apnsTokens: const ['apns-token'],
+        fcmToken: 'stale-token',
+      );
+      await fakeFirestore.collection('users').doc('u1').set({
+        'fcmTokens': <String>[],
+      });
+      final service = MessagingService(
+        tokenProvider: tokenProvider,
+        firestore: fakeFirestore,
+        requiresApnsToken: () => true,
+      );
+      service.activateUserForTesting('u1');
+      service.clearActiveUser();
+
+      await service.refreshTokenRegistration('u1');
+
+      final user = await fakeFirestore.collection('users').doc('u1').get();
+      expect(user.data()!['fcmTokens'], isEmpty);
+      expect(tokenProvider.fcmTokenCalls, 0);
+    });
+
+    test('switching users prevents user A registration from completing late',
+        () async {
+      final userAToken = Completer<String?>();
+      var tokenCall = 0;
+      final tokenProvider = FakePushTokenProvider(
+        apnsTokens: const ['apns-token'],
+        tokenLoader: () {
+          tokenCall++;
+          return tokenCall == 1
+              ? userAToken.future
+              : Future<String?>.value('user-b-token');
+        },
+      );
+      await fakeFirestore.collection('users').doc('user-a').set({
+        'fcmTokens': <String>[],
+      });
+      await fakeFirestore.collection('users').doc('user-b').set({
+        'fcmTokens': <String>[],
+      });
+      final service = MessagingService(
+        tokenProvider: tokenProvider,
+        firestore: fakeFirestore,
+        requiresApnsToken: () => true,
+      );
+      service.activateUserForTesting('user-a');
+
+      final userARegistration = service.refreshTokenRegistration('user-a');
+      await Future<void>.delayed(Duration.zero);
+      service.activateUserForTesting('user-b');
+      final userBRegistration = service.refreshTokenRegistration('user-b');
+      userAToken.complete('user-a-stale-token');
+      await Future.wait([userARegistration, userBRegistration]);
+
+      final userA = await fakeFirestore.collection('users').doc('user-a').get();
+      final userB = await fakeFirestore.collection('users').doc('user-b').get();
+      expect(userA.data()!['fcmTokens'], isEmpty);
+      expect(userB.data()!['fcmTokens'], ['user-b-token']);
     });
 
     test('Android registration skips the APNs wait', () async {
@@ -218,6 +285,7 @@ void main() {
         firestore: fakeFirestore,
         requiresApnsToken: () => false,
       );
+      service.activateUserForTesting('u1');
 
       await service.refreshTokenRegistration('u1');
 

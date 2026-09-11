@@ -180,9 +180,15 @@ class MessagingService {
   /// APNs token was not ready during the initial sign-in flow.
   Future<void> refreshTokenRegistration(String userId) async {
     if (!enabled) return;
-    final sessionGeneration = _activateUser(userId);
+    final sessionGeneration = _sessionGeneration;
+    if (!_isActiveSession(userId, sessionGeneration)) return;
     _setupTokenRefreshListener();
     await _registerToken(userId, sessionGeneration);
+  }
+
+  @visibleForTesting
+  void activateUserForTesting(String userId) {
+    _activateUser(userId);
   }
 
   /// Stops token refreshes from being associated with a signed-out user.
