@@ -899,7 +899,49 @@ describe("AdminApp operations shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm resend 2" }));
 
     await waitFor(() => expect(runAction).toHaveBeenCalledWith(
-      "adminResendExpiredInvitations"
+      "adminResendExpiredInvitations",
+      { invitationIds: ["expired-1", "expired-2"] }
+    ));
+  });
+
+  it("resends only the expired invitations shown when bulk confirmation opened", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: { count: 1 } });
+    const firstExpiredInvite = {
+      ...demoData.invitations[0],
+      id: "expired-1",
+      email: "one@example.com",
+      expiresAt: "2026-01-01T00:00:00.000Z"
+    };
+    const { rerender } = render(
+      <PeopleSection
+        data={{ ...demoData, invitations: [...demoData.invitations, firstExpiredInvite] }}
+        currentUser={demoUser}
+        runAction={runAction}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Expired Invites 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resend All Expired" }));
+    rerender(
+      <PeopleSection
+        data={{
+          ...demoData,
+          invitations: [
+            ...demoData.invitations,
+            firstExpiredInvite,
+            { ...firstExpiredInvite, id: "expired-2", email: "two@example.com" }
+          ]
+        }}
+        currentUser={demoUser}
+        runAction={runAction}
+      />
+    );
+
+    expect(screen.getByText("Resend 1 expired invitation?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm resend 1" }));
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith(
+      "adminResendExpiredInvitations",
+      { invitationIds: ["expired-1"] }
     ));
   });
 

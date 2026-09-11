@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   invitationCanBeResent,
+  invitationIdSetsMatch,
   invitationIsActivePending,
   invitationIsExpired,
   invitationResendBatches,
@@ -52,6 +53,12 @@ test("splits more than one hundred resends without dropping any invitations", ()
 
   assert.deepEqual(batches.map((batch) => batch.length), [100, 100, 5]);
   assert.deepEqual(batches.flat(), invitationIds);
+});
+
+test("matches the confirmed invitation set regardless of ordering", () => {
+  assert.equal(invitationIdSetsMatch(["invite-a", "invite-b"], ["invite-b", "invite-a"]), true);
+  assert.equal(invitationIdSetsMatch(["invite-a"], ["invite-a", "invite-b"]), false);
+  assert.equal(invitationIdSetsMatch(["invite-a", "invite-a"], ["invite-a", "invite-a"]), false);
 });
 
 test("builds a fresh pending invitation for a resend", () => {

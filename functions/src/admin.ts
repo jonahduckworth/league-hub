@@ -35,6 +35,7 @@ import {
 } from "./invitationEmailLogic";
 import {
   invitationCanBeResent,
+  invitationIdSetsMatch,
   invitationIsActivePending,
   invitationIsExpired,
   invitationResendBatches,
@@ -126,6 +127,22 @@ function requiredString(value: unknown, field: string): string {
     throw new HttpsError("invalid-argument", `${field} is required.`);
   }
   return result;
+}
+
+function invitationIdsForBulkResend(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new HttpsError("invalid-argument", "invitationIds must contain at least one invitation.");
+  }
+  const invitationIds = value.map((invitationId) => {
+    if (typeof invitationId !== "string" || invitationId.trim().length === 0) {
+      throw new HttpsError("invalid-argument", "invitationIds must contain only invitation IDs.");
+    }
+    return invitationId.trim();
+  });
+  if (new Set(invitationIds).size !== invitationIds.length) {
+    throw new HttpsError("invalid-argument", "invitationIds must not contain duplicates.");
+  }
+  return invitationIds;
 }
 
 function parseAnnouncementTarget(data: RequestRecord) {
@@ -362,12 +379,11 @@ function setupTargetRef(orgId: string, target: ChatRoomSetupTarget) {
     : hubRef;
 }
 
-async function validateAssignments(
-  orgId: string,
+function validateAssignmentsAgainstStructure(
+  structure: Awaited<ReturnType<typeof getStructure>>,
   hubIds: string[],
   teamIds: string[],
-): Promise<string[]> {
-  const structure = await getStructure(orgId);
+): string[] {
   const hubById = new Map(structure.hubs.map((hub) => [hub.id as string, hub]));
   const teamById = new Map(structure.teams.map((team) => [team.id as string, team]));
 
@@ -392,6 +408,14 @@ async function validateAssignments(
   return [...new Set(hubIds
     .map((hubId) => hubById.get(hubId)?.leagueId as string | undefined)
     .filter((leagueId): leagueId is string => Boolean(leagueId)))];
+}
+
+async function validateAssignments(
+  orgId: string,
+  hubIds: string[],
+  teamIds: string[],
+): Promise<string[]> {
+  return validateAssignmentsAgainstStructure(await getStructure(orgId), hubIds, teamIds);
 }
 
 async function ensureLeagueRoom(orgId: string, leagueId: string, league: RequestRecord): Promise<void> {
@@ -770,9 +794,10 @@ async function resendInvitations(
     invitationExpiresAt(createdAt.toDate()),
   );
   const invitationCollection = orgRef(orgId).collection("invitations");
-  const initialSnapshots = await Promise.all(
-    invitationIds.map((invitationId) => invitationCollection.doc(invitationId).get()),
-  );
+  const [initialSnapshots, structure] = await Promise.all([
+    Promise.all(invitationIds.map((invitationId) => invitationCollection.doc(invitationId).get())),
+    getStructure(orgId),
+  ]);
   const prepared = await Promise.all(initialSnapshots.map(async (snapshot, index) => {
     if (!snapshot.exists) {
       throw new HttpsError("not-found", "Invitation was not found.");
@@ -804,7 +829,7 @@ async function resendInvitations(
       replacementToken: randomBytes(16).toString("hex"),
       email,
       role,
-      leagueIds: await validateAssignments(orgId, hubIds, teamIds),
+      leagueIds: await validateAssignmentsAgainstStructure(structure, hubIds, teamIds),
       hubIds,
       teamIds,
     } satisfies PreparedInvitationResend;
@@ -951,7 +976,8 @@ export const adminResendExpiredInvitations = onCall({
   timeoutSeconds: 540,
   memory: "512MiB",
 }, async (request) => {
-  return withAdmin(request, "adminResendExpiredInvitations", async (actor, _data, orgId) => {
+  return withAdmin(request, "adminResendExpiredInvitations", async (actor, data, orgId) => {
+    const requestedInvitationIds = invitationIdsForBulkResend(data.invitationIds);
     const invitationCollection = orgRef(orgId).collection("invitations");
     const [invitationSnapshots, organizationUsers] = await Promise.all([
       invitationCollection.get(),
@@ -967,6 +993,12 @@ export const adminResendExpiredInvitations = onCall({
       organizationUsers.docs.map((snapshot) => snapshot.data()),
     ).filter((invitationId) =>
       canManageInvitationRole(actor.role, invitationById.get(invitationId)?.role));
+    if (!invitationIdSetsMatch(requestedInvitationIds, invitationIds)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The expired invitation list changed. Refresh and review it before resending.",
+      );
+    }
 
     let resentCount = 0;
     for (const invitationBatch of invitationResendBatches(invitationIds)) {
@@ -982,6 +1014,20 @@ export const adminResendExpiredInvitations = onCall({
             remainingCount: invitationIds.length - resentCount,
             error: caught,
           });
+          try {
+            await writeAudit(orgId, actor, "adminResendExpiredInvitations", data, {
+              status: "partial",
+              resentCount,
+              remainingCount: invitationIds.length - resentCount,
+            });
+          } catch (auditError) {
+            logger.error("Could not write partial invitation resend audit", {
+              orgId,
+              actorId: actor.id,
+              resentCount,
+              auditError,
+            });
+          }
           throw new HttpsError(
             "aborted",
             `${resentCount} invitations were resent before the list changed. Refresh to resend the remaining expired invitations.`,

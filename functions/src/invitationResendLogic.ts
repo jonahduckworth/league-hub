@@ -25,6 +25,14 @@ export function invitationResendBatches(invitationIds: string[]): string[][] {
   return batches;
 }
 
+export function invitationIdSetsMatch(expected: string[], actual: string[]): boolean {
+  if (expected.length !== actual.length || new Set(expected).size !== expected.length) {
+    return false;
+  }
+  const actualIds = new Set(actual);
+  return actualIds.size === actual.length && expected.every((invitationId) => actualIds.has(invitationId));
+}
+
 function timestampMillis(value: unknown): number | undefined {
   if (value instanceof Date) return value.getTime();
   if (typeof value === "number" || typeof value === "string") {

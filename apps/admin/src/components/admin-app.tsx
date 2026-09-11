@@ -1600,7 +1600,7 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedInviteId, setSelectedInviteId] = useState<string | null>(null);
   const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
-  const [confirmingResendAll, setConfirmingResendAll] = useState(false);
+  const [confirmedExpiredInviteIds, setConfirmedExpiredInviteIds] = useState<string[] | null>(null);
   const [resendingAll, setResendingAll] = useState(false);
   const pendingInvitations = activePendingInvitations(data);
   const manageableRoles = assignableRoles(currentUser);
@@ -1651,10 +1651,13 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
     setResendingInviteId(null);
   }
   async function resendAllExpired() {
+    if (!confirmedExpiredInviteIds) return;
     setResendingAll(true);
-    const result = await runAction("adminResendExpiredInvitations");
+    const result = await runAction("adminResendExpiredInvitations", {
+      invitationIds: confirmedExpiredInviteIds,
+    });
     if (result.ok) {
-      setConfirmingResendAll(false);
+      setConfirmedExpiredInviteIds(null);
       setSelectedInviteId(null);
     }
     setResendingAll(false);
@@ -1693,7 +1696,7 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
         onSelectFilter={(nextView) => {
           setView(nextView);
           setQuery("");
-          setConfirmingResendAll(false);
+          setConfirmedExpiredInviteIds(null);
         }}
         panelTitle={panelCopy[view].title}
         panelDescription={panelCopy[view].description}
@@ -1710,7 +1713,7 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
               type="button"
               variant="secondary"
               disabled={resendingAll}
-              onClick={() => setConfirmingResendAll(true)}
+              onClick={() => setConfirmedExpiredInviteIds(expiredInvitations.map((invite) => invite.id))}
             >
               <RefreshCw className={`size-4 ${resendingAll ? "animate-spin" : ""}`} aria-hidden />
               Resend All Expired
@@ -1720,18 +1723,18 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
           )}
         </div>
 
-        {view === "expired" && confirmingResendAll && (
+        {view === "expired" && confirmedExpiredInviteIds && (
           <div className="mb-4 rounded-2xl border border-amber/25 bg-amber/[0.08] p-4" role="status">
-            <p className="text-sm font-extrabold text-ink">Resend {pluralize(expiredInvitations.length, "expired invitation")}?</p>
+            <p className="text-sm font-extrabold text-ink">Resend {pluralize(confirmedExpiredInviteIds.length, "expired invitation")}?</p>
             <p className="mt-1 text-sm font-medium leading-6 text-muted">
               Each person will receive one email with a fresh code. The previous codes will remain unusable.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button type="button" disabled={resendingAll} onClick={resendAllExpired}>
                 <RefreshCw className={`size-4 ${resendingAll ? "animate-spin" : ""}`} aria-hidden />
-                {resendingAll ? "Resending…" : `Confirm resend ${expiredInvitations.length}`}
+                {resendingAll ? "Resending…" : `Confirm resend ${confirmedExpiredInviteIds.length}`}
               </Button>
-              <Button type="button" variant="secondary" disabled={resendingAll} onClick={() => setConfirmingResendAll(false)}>
+              <Button type="button" variant="secondary" disabled={resendingAll} onClick={() => setConfirmedExpiredInviteIds(null)}>
                 Cancel
               </Button>
             </div>
