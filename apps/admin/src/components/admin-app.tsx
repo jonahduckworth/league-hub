@@ -1652,9 +1652,7 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
   }
   async function resendAllExpired() {
     setResendingAll(true);
-    const result = await runAction("adminResendExpiredInvitations", {
-      invitationIds: expiredInvitations.map((invite) => invite.id),
-    });
+    const result = await runAction("adminResendExpiredInvitations");
     if (result.ok) {
       setConfirmingResendAll(false);
       setSelectedInviteId(null);

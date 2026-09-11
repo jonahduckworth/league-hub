@@ -899,8 +899,7 @@ describe("AdminApp operations shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm resend 2" }));
 
     await waitFor(() => expect(runAction).toHaveBeenCalledWith(
-      "adminResendExpiredInvitations",
-      { invitationIds: ["expired-1", "expired-2"] }
+      "adminResendExpiredInvitations"
     ));
   });
 

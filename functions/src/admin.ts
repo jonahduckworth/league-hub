@@ -37,8 +37,9 @@ import {
   invitationCanBeResent,
   invitationIsActivePending,
   invitationIsExpired,
+  invitationResendBatches,
   invitationReplacementData,
-  maximumBulkInvitationResends,
+  resendableExpiredInvitationIds,
 } from "./invitationResendLogic";
 import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
 import {
@@ -758,23 +759,6 @@ type PreparedInvitationResend = {
   teamIds: string[];
 };
 
-function invitationIdsForBulkResend(value: unknown): string[] {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new HttpsError("invalid-argument", "Select at least one expired invitation.");
-  }
-  if (value.length > maximumBulkInvitationResends) {
-    throw new HttpsError(
-      "invalid-argument",
-      `No more than ${maximumBulkInvitationResends} expired invitations can be resent at once.`,
-    );
-  }
-  const invitationIds = value.map((item) => requiredString(item, "invitationIds"));
-  if (new Set(invitationIds).size !== invitationIds.length) {
-    throw new HttpsError("invalid-argument", "Invitation IDs must be unique.");
-  }
-  return invitationIds;
-}
-
 async function resendInvitations(
   actor: Actor,
   orgId: string,
@@ -834,19 +818,21 @@ async function resendInvitations(
   }
 
   await db.runTransaction(async (transaction) => {
-    const currentSnapshots = await Promise.all(
-      prepared.map((item) => transaction.get(item.invitationRef)),
-    );
-    const existingUsers = await Promise.all(
-      prepared.map((item) => transaction.get(usersRef().where("email", "==", item.email))),
-    );
-    const sameEmailInvitations = await Promise.all(
-      prepared.map((item) => transaction.get(invitationCollection.where("email", "==", item.email))),
-    );
+    const [allInvitationSnapshots, organizationUsers] = await Promise.all([
+      transaction.get(invitationCollection),
+      transaction.get(usersRef().where("orgId", "==", orgId)),
+    ]);
+    const currentSnapshots = prepared.map((item) =>
+      allInvitationSnapshots.docs.find((snapshot) => snapshot.id === item.invitationId));
+    const authoritativeExpiredIds = new Set(resendableExpiredInvitationIds(
+      allInvitationSnapshots.docs.map((snapshot) => ({...snapshot.data(), id: snapshot.id})),
+      organizationUsers.docs.map((snapshot) => snapshot.data()),
+      createdAt.toMillis(),
+    ));
 
     prepared.forEach((item, index) => {
       const currentSnapshot = currentSnapshots[index];
-      if (!currentSnapshot.exists) {
+      if (!currentSnapshot) {
         throw new HttpsError("not-found", "Invitation was not found.");
       }
       const currentInvitation = currentSnapshot.data() ?? {};
@@ -855,6 +841,13 @@ async function resendInvitations(
         throw new HttpsError(
           "failed-precondition",
           expiredOnly ? "An invitation is no longer expired. Refresh and try again." : "An invitation can no longer be resent.",
+        );
+      }
+      if (invitationIsExpired(currentInvitation, createdAt.toMillis()) &&
+          !authoritativeExpiredIds.has(item.invitationId)) {
+        throw new HttpsError(
+          "failed-precondition",
+          `${item.email} has a newer invitation or active account. Refresh and try again.`,
         );
       }
       if (!canManageInvitationRole(actor.role, currentInvitation.role)) {
@@ -874,14 +867,17 @@ async function resendInvitations(
           "An invitation changed while it was being resent. Refresh and try again.",
         );
       }
-      if (existingUsers[index].docs.some((user) => user.data().isActive === true)) {
+      if (organizationUsers.docs.some((user) =>
+        user.data().isActive === true &&
+        normalizeInvitationRecipient(user.data().email) === item.email)) {
         throw new HttpsError(
           "failed-precondition",
           `${item.email} already has an active League Hub account.`,
         );
       }
-      const anotherActiveInvitation = sameEmailInvitations[index].docs.some((candidate) =>
+      const anotherActiveInvitation = allInvitationSnapshots.docs.some((candidate) =>
         candidate.id !== item.invitationId &&
+        normalizeInvitationRecipient(candidate.data().email) === item.email &&
         invitationIsActivePending(candidate.data(), createdAt.toMillis()),
       );
       if (anotherActiveInvitation) {
@@ -893,7 +889,7 @@ async function resendInvitations(
     });
 
     prepared.forEach((item, index) => {
-      const currentInvitation = currentSnapshots[index].data() ?? {};
+      const currentInvitation = currentSnapshots[index]?.data() ?? {};
       transaction.update(item.invitationRef, {
         status: "expired",
         replacedByInvitationId: item.replacementRef.id,
@@ -952,13 +948,50 @@ export const adminResendInvitation = onCall(adminRuntime, async (request) => {
 });
 
 export const adminResendExpiredInvitations = onCall({
-  timeoutSeconds: 120,
+  timeoutSeconds: 540,
   memory: "512MiB",
 }, async (request) => {
-  return withAdmin(request, "adminResendExpiredInvitations", async (actor, data, orgId) => {
-    const invitationIds = invitationIdsForBulkResend(data.invitationIds);
-    const invitations = await resendInvitations(actor, orgId, invitationIds, true);
-    return {count: invitations.length, invitations};
+  return withAdmin(request, "adminResendExpiredInvitations", async (actor, _data, orgId) => {
+    const invitationCollection = orgRef(orgId).collection("invitations");
+    const [invitationSnapshots, organizationUsers] = await Promise.all([
+      invitationCollection.get(),
+      usersRef().where("orgId", "==", orgId).get(),
+    ]);
+    const invitations = invitationSnapshots.docs.map((snapshot) => ({
+      ...snapshot.data(),
+      id: snapshot.id,
+    }));
+    const invitationById = new Map(invitationSnapshots.docs.map((snapshot) => [snapshot.id, snapshot.data()]));
+    const invitationIds = resendableExpiredInvitationIds(
+      invitations,
+      organizationUsers.docs.map((snapshot) => snapshot.data()),
+    ).filter((invitationId) =>
+      canManageInvitationRole(actor.role, invitationById.get(invitationId)?.role));
+
+    let resentCount = 0;
+    for (const invitationBatch of invitationResendBatches(invitationIds)) {
+      try {
+        const resent = await resendInvitations(actor, orgId, invitationBatch, true);
+        resentCount += resent.length;
+      } catch (caught) {
+        if (resentCount > 0) {
+          logger.error("Bulk invitation resend stopped after a partial completion", {
+            orgId,
+            actorId: actor.id,
+            resentCount,
+            remainingCount: invitationIds.length - resentCount,
+            error: caught,
+          });
+          throw new HttpsError(
+            "aborted",
+            `${resentCount} invitations were resent before the list changed. Refresh to resend the remaining expired invitations.`,
+            {resentCount},
+          );
+        }
+        throw caught;
+      }
+    }
+    return {count: resentCount};
   });
 });
 

@@ -15,7 +15,15 @@ export type InvitationReplacementInput = {
   replacesInvitationId: string;
 };
 
-export const maximumBulkInvitationResends = 100;
+export const invitationResendBatchSize = 100;
+
+export function invitationResendBatches(invitationIds: string[]): string[][] {
+  const batches: string[][] = [];
+  for (let index = 0; index < invitationIds.length; index += invitationResendBatchSize) {
+    batches.push(invitationIds.slice(index, index + invitationResendBatchSize));
+  }
+  return batches;
+}
 
 function timestampMillis(value: unknown): number | undefined {
   if (value instanceof Date) return value.getTime();
@@ -50,6 +58,59 @@ export function invitationIsActivePending(
 ): boolean {
   const expiresAt = timestampMillis(invitation.expiresAt);
   return invitation.status === "pending" && expiresAt !== undefined && expiresAt > nowMillis;
+}
+
+type InvitationCandidate = {
+  id: string;
+  email?: unknown;
+  status?: unknown;
+  createdAt?: unknown;
+  expiresAt?: unknown;
+};
+
+type InvitationUser = {
+  email?: unknown;
+  isActive?: unknown;
+};
+
+function normalizedEmail(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function invitationSortTime(invitation: InvitationCandidate): number {
+  return timestampMillis(invitation.createdAt) ?? timestampMillis(invitation.expiresAt) ?? 0;
+}
+
+export function resendableExpiredInvitationIds(
+  invitations: InvitationCandidate[],
+  users: InvitationUser[],
+  nowMillis = Date.now(),
+): string[] {
+  const activeEmails = new Set(users
+    .filter((user) => user.isActive === true)
+    .map((user) => normalizedEmail(user.email))
+    .filter(Boolean));
+  const activePendingEmails = new Set(invitations
+    .filter((invitation) => invitationIsActivePending(invitation, nowMillis))
+    .map((invitation) => normalizedEmail(invitation.email))
+    .filter(Boolean));
+  const latestByEmail = new Map<string, InvitationCandidate>();
+
+  for (const invitation of invitations) {
+    const email = normalizedEmail(invitation.email);
+    if (!email || !invitationIsExpired(invitation, nowMillis) ||
+        activeEmails.has(email) || activePendingEmails.has(email)) continue;
+    const current = latestByEmail.get(email);
+    if (!current || invitationSortTime(invitation) > invitationSortTime(current) ||
+        (invitationSortTime(invitation) === invitationSortTime(current) && invitation.id > current.id)) {
+      latestByEmail.set(email, invitation);
+    }
+  }
+
+  return [...latestByEmail.values()]
+    .sort((first, second) =>
+      invitationSortTime(second) - invitationSortTime(first) || first.id.localeCompare(second.id))
+    .map((invitation) => invitation.id);
 }
 
 export function invitationReplacementData(input: InvitationReplacementInput) {

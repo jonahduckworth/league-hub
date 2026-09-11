@@ -58,7 +58,9 @@ export function resendableExpiredInvitations(
     const currentTime = current
       ? invitationTime(current.createdAt) ?? invitationTime(current.expiresAt) ?? 0
       : -1;
-    if (!current || inviteTime > currentTime) latestByEmail.set(email, invite);
+    if (!current || inviteTime > currentTime || (inviteTime === currentTime && invite.id > current.id)) {
+      latestByEmail.set(email, invite);
+    }
   }
 
   return [...latestByEmail.values()].sort((first, second) => {
