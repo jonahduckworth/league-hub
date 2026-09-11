@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/design_system.dart';
 import '../core/utils.dart';
 import '../models/message.dart';
+import '../screens/viewers/image_viewer_screen.dart';
 import 'app_glass.dart';
 import 'avatar_widget.dart';
 
@@ -216,20 +217,74 @@ class ChatBubble extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 6),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                message.mediaUrl!,
-                                width: 220,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  width: 220,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.broken_image,
-                                    color: AppGlassColors.inkMuted,
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 220),
+                                child: AspectRatio(
+                                  aspectRatio: 11 / 8,
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      ExcludeSemantics(
+                                        child: Image.network(
+                                          message.mediaUrl!,
+                                          fit: BoxFit.cover,
+                                          loadingBuilder: (_, child, progress) {
+                                            if (progress == null) return child;
+                                            final total =
+                                                progress.expectedTotalBytes;
+                                            return Center(
+                                              child: CircularProgressIndicator(
+                                                value: total == null
+                                                    ? null
+                                                    : progress
+                                                            .cumulativeBytesLoaded /
+                                                        total,
+                                                color: AppGlassColors.aqua,
+                                              ),
+                                            );
+                                          },
+                                          errorBuilder: (_, __, ___) =>
+                                              Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: const Icon(
+                                              Icons.broken_image,
+                                              color: AppGlassColors.inkMuted,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Semantics(
+                                        button: true,
+                                        label:
+                                            'Open photo from ${message.senderName}',
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            key: Key(
+                                              'chat-image-${message.id}',
+                                            ),
+                                            onTap: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute<void>(
+                                                  builder: (_) =>
+                                                      ImageViewerScreen(
+                                                    imageUrl: message.mediaUrl!,
+                                                    title:
+                                                        'Photo from ${message.senderName}',
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),

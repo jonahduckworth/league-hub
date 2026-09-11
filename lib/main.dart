@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -87,8 +89,31 @@ class LeagueHubApp extends ConsumerStatefulWidget {
   ConsumerState<LeagueHubApp> createState() => _LeagueHubAppState();
 }
 
-class _LeagueHubAppState extends ConsumerState<LeagueHubApp> {
-  bool _notificationsInitialized = false;
+class _LeagueHubAppState extends ConsumerState<LeagueHubApp>
+    with WidgetsBindingObserver {
+  String? _notificationsUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final user = ref.read(currentUserProvider).valueOrNull;
+    if (user == null) return;
+    unawaited(
+      ref.read(messagingServiceProvider).refreshTokenRegistration(user.id),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,14 +121,17 @@ class _LeagueHubAppState extends ConsumerState<LeagueHubApp> {
     final userAsync = ref.watch(currentUserProvider);
     final user = userAsync.valueOrNull;
 
-    if (user != null && !_notificationsInitialized) {
-      _notificationsInitialized = true;
+    if (user != null && _notificationsUserId != user.id) {
+      _notificationsUserId = user.id;
       // Initialize async — don't block the build.
-      Future.microtask(() {
-        ref.read(messagingServiceProvider).initialize(user.id);
-      });
-    } else if (user == null && _notificationsInitialized) {
-      _notificationsInitialized = false;
+      unawaited(
+        Future<void>.microtask(
+          () => ref.read(messagingServiceProvider).initialize(user.id),
+        ),
+      );
+    } else if (user == null && _notificationsUserId != null) {
+      _notificationsUserId = null;
+      ref.read(messagingServiceProvider).clearActiveUser();
     }
 
     return MaterialApp.router(
