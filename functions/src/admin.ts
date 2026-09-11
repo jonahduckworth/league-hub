@@ -33,7 +33,13 @@ import {
   normalizeInvitationProfileTitle,
   normalizeInvitationRecipient,
 } from "./invitationEmailLogic";
-import {invitationReplacementData} from "./invitationResendLogic";
+import {
+  invitationCanBeResent,
+  invitationIsActivePending,
+  invitationIsExpired,
+  invitationReplacementData,
+  maximumBulkInvitationResends,
+} from "./invitationResendLogic";
 import { synchronizeOrganizationSchedule } from "./schedule/rampSync";
 import {
   managedStructureRoomDocumentId,
@@ -740,18 +746,59 @@ export const adminExpireInvitation = onCall(adminRuntime, async (request) => {
   });
 });
 
-export const adminResendInvitation = onCall(adminRuntime, async (request) => {
-  return withAdmin(request, "adminResendInvitation", async (actor, data, orgId) => {
-    const invitationId = requiredString(data.invitationId, "invitationId");
-    const invitationRef = orgRef(orgId).collection("invitations").doc(invitationId);
-    const initialSnapshot = await invitationRef.get();
-    if (!initialSnapshot.exists) {
+type PreparedInvitationResend = {
+  invitationId: string;
+  invitationRef: FirebaseFirestore.DocumentReference;
+  replacementRef: FirebaseFirestore.DocumentReference;
+  replacementToken: string;
+  email: string;
+  role: UserRole;
+  leagueIds: string[];
+  hubIds: string[];
+  teamIds: string[];
+};
+
+function invitationIdsForBulkResend(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new HttpsError("invalid-argument", "Select at least one expired invitation.");
+  }
+  if (value.length > maximumBulkInvitationResends) {
+    throw new HttpsError(
+      "invalid-argument",
+      `No more than ${maximumBulkInvitationResends} expired invitations can be resent at once.`,
+    );
+  }
+  const invitationIds = value.map((item) => requiredString(item, "invitationIds"));
+  if (new Set(invitationIds).size !== invitationIds.length) {
+    throw new HttpsError("invalid-argument", "Invitation IDs must be unique.");
+  }
+  return invitationIds;
+}
+
+async function resendInvitations(
+  actor: Actor,
+  orgId: string,
+  invitationIds: string[],
+  expiredOnly: boolean,
+) {
+  const createdAt = admin.firestore.Timestamp.now();
+  const expiresAt = admin.firestore.Timestamp.fromDate(
+    invitationExpiresAt(createdAt.toDate()),
+  );
+  const invitationCollection = orgRef(orgId).collection("invitations");
+  const initialSnapshots = await Promise.all(
+    invitationIds.map((invitationId) => invitationCollection.doc(invitationId).get()),
+  );
+  const prepared = await Promise.all(initialSnapshots.map(async (snapshot, index) => {
+    if (!snapshot.exists) {
       throw new HttpsError("not-found", "Invitation was not found.");
     }
-
-    const invitation = initialSnapshot.data() ?? {};
-    if (invitation.status !== "pending") {
-      throw new HttpsError("failed-precondition", "Only pending invitations can be resent.");
+    const invitation = snapshot.data() ?? {};
+    if (!invitationCanBeResent(invitation) || (expiredOnly && !invitationIsExpired(invitation, createdAt.toMillis()))) {
+      throw new HttpsError(
+        "failed-precondition",
+        expiredOnly ? "Only expired invitations can be resent together." : "Only pending or expired invitations can be resent.",
+      );
     }
     if (!canManageInvitationRole(actor.role, invitation.role)) {
       throw new HttpsError(
@@ -759,7 +806,6 @@ export const adminResendInvitation = onCall(adminRuntime, async (request) => {
         "You cannot manage an invitation for this role.",
       );
     }
-
     const email = normalizeInvitationRecipient(invitation.email);
     if (!email) {
       throw new HttpsError("failed-precondition", "The invitation email is invalid.");
@@ -767,25 +813,48 @@ export const adminResendInvitation = onCall(adminRuntime, async (request) => {
     const role = requiredString(invitation.role, "invitation.role") as UserRole;
     const hubIds = normalizeStringArray(invitation.hubIds);
     const teamIds = normalizeStringArray(invitation.teamIds);
-    const leagueIds = await validateAssignments(orgId, hubIds, teamIds);
-    const createdAt = admin.firestore.Timestamp.now();
-    const expiresAt = admin.firestore.Timestamp.fromDate(
-      invitationExpiresAt(createdAt.toDate()),
-    );
-    const replacementRef = orgRef(orgId).collection("invitations").doc();
-    const replacementToken = randomBytes(16).toString("hex");
-    const existingUsersQuery = usersRef().where("email", "==", email);
+    return {
+      invitationId: invitationIds[index],
+      invitationRef: snapshot.ref,
+      replacementRef: invitationCollection.doc(),
+      replacementToken: randomBytes(16).toString("hex"),
+      email,
+      role,
+      leagueIds: await validateAssignments(orgId, hubIds, teamIds),
+      hubIds,
+      teamIds,
+    } satisfies PreparedInvitationResend;
+  }));
 
-    await db.runTransaction(async (transaction) => {
-      const currentSnapshot = await transaction.get(invitationRef);
+  if (new Set(prepared.map((item) => item.email)).size !== prepared.length) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Only the most recent expired invitation for each email can be resent.",
+    );
+  }
+
+  await db.runTransaction(async (transaction) => {
+    const currentSnapshots = await Promise.all(
+      prepared.map((item) => transaction.get(item.invitationRef)),
+    );
+    const existingUsers = await Promise.all(
+      prepared.map((item) => transaction.get(usersRef().where("email", "==", item.email))),
+    );
+    const sameEmailInvitations = await Promise.all(
+      prepared.map((item) => transaction.get(invitationCollection.where("email", "==", item.email))),
+    );
+
+    prepared.forEach((item, index) => {
+      const currentSnapshot = currentSnapshots[index];
       if (!currentSnapshot.exists) {
         throw new HttpsError("not-found", "Invitation was not found.");
       }
       const currentInvitation = currentSnapshot.data() ?? {};
-      if (currentInvitation.status !== "pending") {
+      if (!invitationCanBeResent(currentInvitation) ||
+          (expiredOnly && !invitationIsExpired(currentInvitation, createdAt.toMillis()))) {
         throw new HttpsError(
           "failed-precondition",
-          "Only pending invitations can be resent.",
+          expiredOnly ? "An invitation is no longer expired. Refresh and try again." : "An invitation can no longer be resent.",
         );
       }
       if (!canManageInvitationRole(actor.role, currentInvitation.role)) {
@@ -794,23 +863,40 @@ export const adminResendInvitation = onCall(adminRuntime, async (request) => {
           "You cannot manage an invitation for this role.",
         );
       }
-      if (normalizeInvitationRecipient(currentInvitation.email) !== email) {
+      const currentHubIds = normalizeStringArray(currentInvitation.hubIds);
+      const currentTeamIds = normalizeStringArray(currentInvitation.teamIds);
+      if (normalizeInvitationRecipient(currentInvitation.email) !== item.email ||
+          currentInvitation.role !== item.role ||
+          JSON.stringify(currentHubIds) !== JSON.stringify(item.hubIds) ||
+          JSON.stringify(currentTeamIds) !== JSON.stringify(item.teamIds)) {
         throw new HttpsError(
           "failed-precondition",
-          "The invitation changed while it was being resent. Please try again.",
+          "An invitation changed while it was being resent. Refresh and try again.",
         );
       }
-      const existingUsers = await transaction.get(existingUsersQuery);
-      if (existingUsers.docs.some((user) => user.data().isActive === true)) {
+      if (existingUsers[index].docs.some((user) => user.data().isActive === true)) {
         throw new HttpsError(
           "failed-precondition",
-          "This person already has an active League Hub account.",
+          `${item.email} already has an active League Hub account.`,
         );
       }
+      const anotherActiveInvitation = sameEmailInvitations[index].docs.some((candidate) =>
+        candidate.id !== item.invitationId &&
+        invitationIsActivePending(candidate.data(), createdAt.toMillis()),
+      );
+      if (anotherActiveInvitation) {
+        throw new HttpsError(
+          "failed-precondition",
+          `${item.email} already has an active pending invitation.`,
+        );
+      }
+    });
 
-      transaction.update(invitationRef, {
+    prepared.forEach((item, index) => {
+      const currentInvitation = currentSnapshots[index].data() ?? {};
+      transaction.update(item.invitationRef, {
         status: "expired",
-        replacedByInvitationId: replacementRef.id,
+        replacedByInvitationId: item.replacementRef.id,
         resentAt: createdAt,
         resentBy: actor.id,
       });
@@ -822,38 +908,57 @@ export const adminResendInvitation = onCall(adminRuntime, async (request) => {
           {merge: true},
         );
       }
-      transaction.set(replacementRef, invitationReplacementData({
+      transaction.set(item.replacementRef, invitationReplacementData({
         orgId,
-        email,
+        email: item.email,
         displayName: optionalString(currentInvitation.displayName) ?? null,
         title: normalizeInvitationProfileTitle(currentInvitation.title) ?? null,
-        role,
-        leagueIds,
-        hubIds,
-        teamIds,
+        role: item.role,
+        leagueIds: item.leagueIds,
+        hubIds: item.hubIds,
+        teamIds: item.teamIds,
         invitedBy: actor.id,
         invitedByName: actor.displayName ?? actor.email ?? "Admin",
         createdAt,
         expiresAt,
-        token: replacementToken,
-        replacesInvitationId: invitationId,
+        token: item.replacementToken,
+        replacesInvitationId: item.invitationId,
       }));
-      transaction.set(db.collection("invitationLookups").doc(replacementToken), {
-        token: replacementToken,
+      transaction.set(db.collection("invitationLookups").doc(item.replacementToken), {
+        token: item.replacementToken,
         orgId,
-        invitationId: replacementRef.id,
-        email,
+        invitationId: item.replacementRef.id,
+        email: item.email,
         status: "pending",
         createdAt,
         expiresAt,
       });
     });
+  });
 
-    return {
-      invitationId: replacementRef.id,
-      replacedInvitationId: invitationId,
-      status: "pending",
-    };
+  return prepared.map((item) => ({
+    invitationId: item.replacementRef.id,
+    replacedInvitationId: item.invitationId,
+    status: "pending" as const,
+  }));
+}
+
+export const adminResendInvitation = onCall(adminRuntime, async (request) => {
+  return withAdmin(request, "adminResendInvitation", async (actor, data, orgId) => {
+    const invitationId = requiredString(data.invitationId, "invitationId");
+    const [result] = await resendInvitations(actor, orgId, [invitationId], false);
+    return result;
+  });
+});
+
+export const adminResendExpiredInvitations = onCall({
+  timeoutSeconds: 120,
+  memory: "512MiB",
+}, async (request) => {
+  return withAdmin(request, "adminResendExpiredInvitations", async (actor, data, orgId) => {
+    const invitationIds = invitationIdsForBulkResend(data.invitationIds);
+    const invitations = await resendInvitations(actor, orgId, invitationIds, true);
+    return {count: invitations.length, invitations};
   });
 });
 

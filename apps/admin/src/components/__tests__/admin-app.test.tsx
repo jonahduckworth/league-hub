@@ -846,6 +846,85 @@ describe("AdminApp operations shell", () => {
     ));
   });
 
+  it("resends a selected expired invitation", async () => {
+    const runAction = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { invitationId: "invite-replacement" }
+    });
+    const expiredInvite = {
+      ...demoData.invitations[0],
+      id: "invite-expired",
+      email: "expired@example.com",
+      expiresAt: "2026-01-01T00:00:00.000Z"
+    };
+    render(
+      <PeopleSection
+        data={{ ...demoData, invitations: [...demoData.invitations, expiredInvite] }}
+        currentUser={demoUser}
+        runAction={runAction}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Expired Invites 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open invitation for Coach New" }));
+    const drawer = await screen.findByRole("dialog", { name: "expired@example.com" });
+    expect(within(drawer).getByText("Expired", { selector: "span" })).toBeTruthy();
+    expect(within(drawer).queryByRole("button", { name: "Expire Invite" })).toBeNull();
+    fireEvent.click(within(drawer).getByRole("button", { name: "Resend Invitation" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith(
+      "adminResendInvitation",
+      { invitationId: "invite-expired" }
+    ));
+  });
+
+  it("confirms and resends every eligible expired invitation", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: { count: 2 } });
+    const expiredInvites = [
+      { ...demoData.invitations[0], id: "expired-1", email: "one@example.com", expiresAt: "2026-01-01T00:00:00.000Z" },
+      { ...demoData.invitations[0], id: "expired-2", email: "two@example.com", expiresAt: "2026-01-02T00:00:00.000Z", role: "staff" as const }
+    ];
+    render(
+      <PeopleSection
+        data={{ ...demoData, invitations: [...demoData.invitations, ...expiredInvites] }}
+        currentUser={demoUser}
+        runAction={runAction}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Expired Invites 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resend All Expired" }));
+    expect(screen.getByText("Resend 2 expired invitations?")).toBeTruthy();
+    expect(runAction).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm resend 2" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith(
+      "adminResendExpiredInvitations",
+      { invitationIds: ["expired-1", "expired-2"] }
+    ));
+  });
+
+  it.each([
+    ["platformOwner", 2],
+    ["superAdmin", 2],
+    ["managerAdmin", 0],
+    ["staff", 0]
+  ] as const)("limits expired invitation actions for %s", (role, expectedCount) => {
+    const invitations = [
+      { ...demoData.invitations[0], id: "expired-manager", email: "manager-new@example.com", expiresAt: "2026-01-01T00:00:00.000Z" },
+      { ...demoData.invitations[0], id: "expired-staff", email: "staff-new@example.com", expiresAt: "2026-01-02T00:00:00.000Z", role: "staff" as const }
+    ];
+    render(
+      <PeopleSection
+        data={{ ...demoData, invitations }}
+        currentUser={{ ...demoUser, role }}
+        runAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: `Expired Invites ${expectedCount}` })).toBeTruthy();
+  });
+
   it("includes a profile title when creating an invitation", async () => {
     const runAction = vi.fn().mockResolvedValue({ ok: true, data: { invitationId: "invite-new" } });
     const onClose = vi.fn();
