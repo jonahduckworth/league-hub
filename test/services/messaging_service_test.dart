@@ -1,8 +1,46 @@
+import 'dart:async';
+
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/services/messaging_service.dart';
 
 import '../helpers/firebase_test_helper.dart';
+
+class FakePushTokenProvider implements PushTokenProvider {
+  final List<String?> apnsTokens;
+  final String? fcmToken;
+  final Stream<String> tokenRefresh;
+  var autoInitCalls = 0;
+  var apnsChecks = 0;
+  var fcmTokenCalls = 0;
+
+  FakePushTokenProvider({
+    this.apnsTokens = const [null],
+    this.fcmToken,
+    this.tokenRefresh = const Stream.empty(),
+  });
+
+  @override
+  Future<void> setAutoInitEnabled(bool enabled) async {
+    if (enabled) autoInitCalls++;
+  }
+
+  @override
+  Future<String?> getAPNSToken() async {
+    final index = apnsChecks.clamp(0, apnsTokens.length - 1);
+    apnsChecks++;
+    return apnsTokens[index];
+  }
+
+  @override
+  Future<String?> getToken() async {
+    fcmTokenCalls++;
+    return fcmToken;
+  }
+
+  @override
+  Stream<String> get onTokenRefresh => tokenRefresh;
+}
 
 void main() {
   late FakeFirebaseFirestore fakeFirestore;
@@ -43,6 +81,95 @@ void main() {
       final user =
           await fakeFirestore.collection('users').doc('local-user').get();
       expect(user.data()!['fcmTokens'], ['existing-production-token']);
+    });
+
+    test('waits for APNs and stores the FCM token when it becomes available',
+        () async {
+      final tokenProvider = FakePushTokenProvider(
+        apnsTokens: [null, null, 'apns-token'],
+        fcmToken: 'fcm-token',
+      );
+      final delays = <Duration>[];
+      await fakeFirestore.collection('users').doc('u1').set({
+        'fcmTokens': <String>[],
+      });
+      final service = MessagingService(
+        tokenProvider: tokenProvider,
+        firestore: fakeFirestore,
+        requiresApnsToken: () => true,
+        tokenRegistrationDelay: (delay) async => delays.add(delay),
+      );
+
+      await service.refreshTokenRegistration('u1');
+
+      final user = await fakeFirestore.collection('users').doc('u1').get();
+      expect(user.data()!['fcmTokens'], ['fcm-token']);
+      expect(tokenProvider.apnsChecks, 3);
+      expect(delays, const [
+        Duration(milliseconds: 250),
+        Duration(milliseconds: 500),
+      ]);
+      expect(tokenProvider.autoInitCalls, 1);
+      expect(tokenProvider.fcmTokenCalls, 1);
+    });
+
+    test('does not request an FCM token until APNs registration is ready',
+        () async {
+      final tokenProvider = FakePushTokenProvider();
+      final service = MessagingService(
+        tokenProvider: tokenProvider,
+        firestore: fakeFirestore,
+        requiresApnsToken: () => true,
+        tokenRegistrationDelay: (_) async {},
+      );
+
+      await service.refreshTokenRegistration('u1');
+
+      expect(tokenProvider.fcmTokenCalls, 0);
+      expect(tokenProvider.apnsChecks, 6);
+    });
+
+    test('a later token refresh repairs an initially unavailable APNs token',
+        () async {
+      final tokenRefresh = StreamController<String>();
+      final tokenProvider = FakePushTokenProvider(
+        tokenRefresh: tokenRefresh.stream,
+      );
+      await fakeFirestore.collection('users').doc('u1').set({
+        'fcmTokens': <String>[],
+      });
+      final service = MessagingService(
+        tokenProvider: tokenProvider,
+        firestore: fakeFirestore,
+        requiresApnsToken: () => true,
+        tokenRegistrationDelay: (_) async {},
+      );
+
+      await service.refreshTokenRegistration('u1');
+      tokenRefresh.add('later-fcm-token');
+      await Future<void>.delayed(Duration.zero);
+
+      final user = await fakeFirestore.collection('users').doc('u1').get();
+      expect(user.data()!['fcmTokens'], ['later-fcm-token']);
+      await tokenRefresh.close();
+    });
+
+    test('Android registration skips the APNs wait', () async {
+      final tokenProvider = FakePushTokenProvider(fcmToken: 'android-token');
+      await fakeFirestore.collection('users').doc('u1').set({
+        'fcmTokens': <String>[],
+      });
+      final service = MessagingService(
+        tokenProvider: tokenProvider,
+        firestore: fakeFirestore,
+        requiresApnsToken: () => false,
+      );
+
+      await service.refreshTokenRegistration('u1');
+
+      final user = await fakeFirestore.collection('users').doc('u1').get();
+      expect(user.data()!['fcmTokens'], ['android-token']);
+      expect(tokenProvider.apnsChecks, 0);
     });
 
     test('removeToken removes token from Firestore user doc', () async {

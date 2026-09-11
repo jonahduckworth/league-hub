@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,12 +9,49 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import '../core/constants.dart';
 
+abstract interface class PushTokenProvider {
+  Future<void> setAutoInitEnabled(bool enabled);
+
+  Future<String?> getAPNSToken();
+
+  Future<String?> getToken();
+
+  Stream<String> get onTokenRefresh;
+}
+
+class FirebasePushTokenProvider implements PushTokenProvider {
+  final FirebaseMessaging _messaging;
+
+  FirebasePushTokenProvider(this._messaging);
+
+  @override
+  Future<void> setAutoInitEnabled(bool enabled) =>
+      _messaging.setAutoInitEnabled(enabled);
+
+  @override
+  Future<String?> getAPNSToken() => _messaging.getAPNSToken();
+
+  @override
+  Future<String?> getToken() => _messaging.getToken();
+
+  @override
+  Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;
+}
+
 /// Handles FCM token management, notification display, and deep linking.
 class MessagingService {
   final FirebaseMessaging _messaging;
+  final PushTokenProvider _tokenProvider;
   final FirebaseFirestore _db;
   final FlutterLocalNotificationsPlugin _localNotifications;
+  final Future<void> Function(Duration) _tokenRegistrationDelay;
+  final bool Function() _requiresApnsToken;
   final bool enabled;
+
+  StreamSubscription<String>? _tokenRefreshSubscription;
+  String? _activeUserId;
+  bool _autoInitEnabled = false;
+  bool _messageListenersInitialized = false;
 
   /// Navigator key for deep linking from notification taps.
   final GlobalKey<NavigatorState>? navigatorKey;
@@ -23,15 +61,26 @@ class MessagingService {
 
   MessagingService({
     FirebaseMessaging? messaging,
+    PushTokenProvider? tokenProvider,
     FirebaseFirestore? firestore,
     FlutterLocalNotificationsPlugin? localNotifications,
+    Future<void> Function(Duration)? tokenRegistrationDelay,
+    bool Function()? requiresApnsToken,
     this.enabled = true,
     this.navigatorKey,
     this.router,
   })  : _messaging = messaging ?? FirebaseMessaging.instance,
+        _tokenProvider = tokenProvider ??
+            FirebasePushTokenProvider(messaging ?? FirebaseMessaging.instance),
         _db = firestore ?? FirebaseFirestore.instance,
         _localNotifications =
-            localNotifications ?? FlutterLocalNotificationsPlugin();
+            localNotifications ?? FlutterLocalNotificationsPlugin(),
+        _tokenRegistrationDelay = tokenRegistrationDelay ??
+            ((duration) => Future<void>.delayed(duration)),
+        _requiresApnsToken = requiresApnsToken ??
+            (() =>
+                defaultTargetPlatform == TargetPlatform.iOS ||
+                defaultTargetPlatform == TargetPlatform.macOS);
 
   // ---------------------------------------------------------------------------
   // Initialization
@@ -40,20 +89,31 @@ class MessagingService {
   /// Full initialization: permissions → local notifications → listeners → token.
   Future<void> initialize(String userId) async {
     if (!enabled) return;
+    _activeUserId = userId;
+    _setupTokenRefreshListener();
+    await _enableAutoInit();
     await _requestPermission();
-    await _initLocalNotifications();
+    try {
+      await _initLocalNotifications();
+    } catch (e) {
+      debugPrint('MessagingService: Failed to initialize local alerts: $e');
+    }
     _setupListeners();
-    await _registerToken(userId);
+    await refreshTokenRegistration(userId);
     await _checkInitialMessage();
   }
 
   Future<void> _requestPermission() async {
-    await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
+    try {
+      await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+    } catch (e) {
+      debugPrint('MessagingService: Failed to request permission: $e');
+    }
   }
 
   Future<void> _initLocalNotifications() async {
@@ -92,24 +152,66 @@ class MessagingService {
   // Token Management
   // ---------------------------------------------------------------------------
 
-  /// Registers the current FCM token in the user's Firestore policy.
+  static const _apnsRetryDelays = <Duration>[
+    Duration(milliseconds: 250),
+    Duration(milliseconds: 500),
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+  ];
+
+  Future<void> _enableAutoInit() async {
+    if (_autoInitEnabled) return;
+    try {
+      // Native auto-init stays disabled in the manifests so emulator mode can
+      // be configured first. Enable it only after production mode is known.
+      await _tokenProvider.setAutoInitEnabled(true);
+      _autoInitEnabled = true;
+    } catch (e) {
+      debugPrint('MessagingService: Failed to enable FCM auto-init: $e');
+    }
+  }
+
+  /// Rechecks and persists this device's token.
+  ///
+  /// This is safe to call when the app resumes. It repairs installs where the
+  /// APNs token was not ready during the initial sign-in flow.
+  Future<void> refreshTokenRegistration(String userId) async {
+    if (!enabled) return;
+    _activeUserId = userId;
+    _setupTokenRefreshListener();
+    await _registerToken(userId);
+  }
+
+  /// Stops token refreshes from being associated with a signed-out user.
+  void clearActiveUser() {
+    _activeUserId = null;
+  }
+
+  /// Registers the current FCM token in the user's Firestore profile.
   Future<void> _registerToken(String userId) async {
     try {
-      // On iOS, we need to wait for the APNS token before requesting the FCM
-      // token. Simulators don't support APNS, so this may return null.
-      if (defaultTargetPlatform == TargetPlatform.iOS ||
-          defaultTargetPlatform == TargetPlatform.macOS) {
-        final apnsToken = await _messaging.getAPNSToken();
-        if (apnsToken == null) {
+      await _enableAutoInit();
+
+      // APNs registration completes asynchronously after permission is
+      // requested. Wait briefly before asking Firebase for its mapped token.
+      if (_requiresApnsToken()) {
+        String? apnsToken = await _tokenProvider.getAPNSToken();
+        for (final delay in _apnsRetryDelays) {
+          if (apnsToken != null && apnsToken.isNotEmpty) break;
+          await _tokenRegistrationDelay(delay);
+          apnsToken = await _tokenProvider.getAPNSToken();
+        }
+        if (apnsToken == null || apnsToken.isEmpty) {
           debugPrint(
-            'MessagingService: APNS token not available '
-            '(expected on simulators). Skipping FCM registration.',
+            'MessagingService: APNs token is not available yet. '
+            'Registration will retry when the app resumes or the token rotates.',
           );
           return;
         }
       }
 
-      final token = await _messaging.getToken();
+      final token = await _tokenProvider.getToken();
       if (token != null) {
         await _saveToken(userId, token);
       }
@@ -117,11 +219,24 @@ class MessagingService {
       // Don't crash the app if push registration fails (e.g. on simulators).
       debugPrint('MessagingService: Failed to register FCM token: $e');
     }
+  }
 
-    // Listen for token refreshes.
-    _messaging.onTokenRefresh.listen((newToken) {
-      _saveToken(userId, newToken);
+  void _setupTokenRefreshListener() {
+    if (_tokenRefreshSubscription != null) return;
+    _tokenRefreshSubscription =
+        _tokenProvider.onTokenRefresh.listen((newToken) {
+      final userId = _activeUserId;
+      if (userId == null) return;
+      unawaited(_saveRefreshedToken(userId, newToken));
     });
+  }
+
+  Future<void> _saveRefreshedToken(String userId, String token) async {
+    try {
+      await _saveToken(userId, token);
+    } catch (e) {
+      debugPrint('MessagingService: Failed to save refreshed FCM token: $e');
+    }
   }
 
   Future<void> _saveToken(String userId, String token) async {
@@ -134,7 +249,7 @@ class MessagingService {
   Future<void> removeToken(String userId) async {
     if (!enabled) return;
     try {
-      final token = await _messaging.getToken();
+      final token = await _tokenProvider.getToken();
       if (token != null) {
         await _db.collection(AppConstants.usersCollection).doc(userId).update({
           'fcmTokens': FieldValue.arrayRemove([token]),
@@ -188,6 +303,8 @@ class MessagingService {
   // ---------------------------------------------------------------------------
 
   void _setupListeners() {
+    if (_messageListenersInitialized) return;
+    _messageListenersInitialized = true;
     // Foreground messages — show a local notification.
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
