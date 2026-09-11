@@ -57,7 +57,7 @@ import { callAdmin, type CallableName } from "@/lib/callables";
 import { sendChatRoomMessage, useAdminData, useChatRoomMessages } from "@/lib/firestore";
 import { assignableRoles, canAccessAdmin, canManageUser, canManageUserAssignments, roleDetails, roleLabel } from "@/lib/admin-access";
 import { buildHealthChecks } from "@/lib/health";
-import { activePendingInvitations } from "@/lib/invitations";
+import { activePendingInvitations, resendableExpiredInvitations } from "@/lib/invitations";
 import { bytesLabel, dateLabel, dateTimeLabel, timeAgo, toDate } from "@/lib/format";
 import { eventRoomImageStoragePath, validateEventRoomImageFile } from "@/lib/event-room-image";
 import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES, runReservedPolicyUpload } from "@/lib/policy-upload";
@@ -1310,7 +1310,7 @@ function DrawerEditActions({
   );
 }
 
-type PeopleView = "all" | "managers" | "staff" | "invites";
+type PeopleView = "all" | "managers" | "staff" | "invites" | "expired";
 
 function ScheduleSection({ data, currentUser, runAction }: { data: AdminData; currentUser: AppUser; runAction: ActionRunner }) {
   const integration = data.selectedOrg?.scheduleIntegration;
@@ -1600,7 +1600,12 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedInviteId, setSelectedInviteId] = useState<string | null>(null);
   const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+  const [confirmedExpiredInviteIds, setConfirmedExpiredInviteIds] = useState<string[] | null>(null);
+  const [resendingAll, setResendingAll] = useState(false);
   const pendingInvitations = activePendingInvitations(data);
+  const manageableRoles = assignableRoles(currentUser);
+  const expiredInvitations = resendableExpiredInvitations(data)
+    .filter((invite) => manageableRoles.includes(invite.role));
   const managers = data.users.filter((user) => user.role === "managerAdmin" || user.role === "superAdmin");
   const staff = data.users.filter((user) => user.role === "staff");
   const usersForView =
@@ -1608,9 +1613,15 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
     view === "staff" ? staff :
     data.users;
   const filteredUsers = usersForView.filter((user) => matchesQuery([user.displayName, user.email, user.title, user.phone], query));
-  const filteredInvites = pendingInvitations.filter((invite) => matchesQuery([invite.displayName, invite.email, roleLabel(invite.role)], query));
+  const invitationsForView = view === "expired" ? expiredInvitations : pendingInvitations;
+  const filteredInvites = invitationsForView.filter((invite) => matchesQuery([invite.displayName, invite.email, roleLabel(invite.role)], query));
   const selectedUser = selectedUserId ? data.users.find((user) => user.id === selectedUserId) ?? null : null;
-  const selectedInvite = selectedInviteId ? pendingInvitations.find((invite) => invite.id === selectedInviteId) ?? null : null;
+  const selectedInvite = selectedInviteId
+    ? [...pendingInvitations, ...expiredInvitations].find((invite) => invite.id === selectedInviteId) ?? null
+    : null;
+  const selectedInviteExpired = selectedInvite
+    ? expiredInvitations.some((invite) => invite.id === selectedInvite.id)
+    : false;
   const inviteDeliveryLabel = (invite: Invitation) => {
     switch (invite.emailDeliveryStatus) {
       case "delivered": return "Email sent";
@@ -1639,17 +1650,31 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
     }
     setResendingInviteId(null);
   }
+  async function resendAllExpired() {
+    if (!confirmedExpiredInviteIds) return;
+    setResendingAll(true);
+    const result = await runAction("adminResendExpiredInvitations", {
+      invitationIds: confirmedExpiredInviteIds,
+    });
+    if (result.ok) {
+      setConfirmedExpiredInviteIds(null);
+      setSelectedInviteId(null);
+    }
+    setResendingAll(false);
+  }
   const filters: Array<WorkspaceFilterItem<PeopleView>> = [
     { id: "all", label: "All Members", count: data.users.length, icon: Users },
     { id: "managers", label: "Managers", count: managers.length, icon: UserCog },
     { id: "staff", label: "Staff", count: staff.length, icon: UserCheck },
-    { id: "invites", label: "Pending Invites", count: pendingInvitations.length, icon: Inbox }
+    { id: "invites", label: "Pending Invites", count: pendingInvitations.length, icon: Inbox },
+    { id: "expired", label: "Expired Invites", count: expiredInvitations.length, icon: Clock3 }
   ];
   const panelCopy: Record<PeopleView, { title: string; description: string }> = {
     all: { title: "All Members", description: "Everyone with current access to the admin organization." },
     managers: { title: "Managers", description: "Users with elevated league or organization access." },
     staff: { title: "Staff", description: "Staff accounts with standard access." },
-    invites: { title: "Pending Invites", description: "Invitations that have not been accepted or expired." }
+    invites: { title: "Pending Invites", description: "Invitations that are active and waiting to be accepted." },
+    expired: { title: "Expired Invites", description: "Expired codes that can be replaced with a fresh seven-day invitation." }
   };
 
   return (
@@ -1671,21 +1696,52 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
         onSelectFilter={(nextView) => {
           setView(nextView);
           setQuery("");
+          setConfirmedExpiredInviteIds(null);
         }}
         panelTitle={panelCopy[view].title}
         panelDescription={panelCopy[view].description}
-        searchLabel={view === "invites" ? "Search invites..." : "Search members..."}
+        searchLabel={view === "invites" || view === "expired" ? "Search invites..." : "Search members..."}
         searchValue={query}
         onSearchChange={setQuery}
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-extrabold text-ink">
-            {view === "invites" ? pluralize(filteredInvites.length, "invite") : pluralize(filteredUsers.length, "member")}
+            {view === "invites" || view === "expired" ? pluralize(filteredInvites.length, "invite") : pluralize(filteredUsers.length, "member")}
           </p>
-          <p className="hidden text-xs font-semibold text-muted sm:block">Select a card to review access and details</p>
+          {view === "expired" && expiredInvitations.length > 0 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={resendingAll}
+              onClick={() => setConfirmedExpiredInviteIds(expiredInvitations.map((invite) => invite.id))}
+            >
+              <RefreshCw className={`size-4 ${resendingAll ? "animate-spin" : ""}`} aria-hidden />
+              Resend All Expired
+            </Button>
+          ) : (
+            <p className="hidden text-xs font-semibold text-muted sm:block">Select a card to review access and details</p>
+          )}
         </div>
 
-        {view === "invites" ? (
+        {view === "expired" && confirmedExpiredInviteIds && (
+          <div className="mb-4 rounded-2xl border border-amber/25 bg-amber/[0.08] p-4" role="status">
+            <p className="text-sm font-extrabold text-ink">Resend {pluralize(confirmedExpiredInviteIds.length, "expired invitation")}?</p>
+            <p className="mt-1 text-sm font-medium leading-6 text-muted">
+              Each person will receive one email with a fresh code. The previous codes will remain unusable.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" disabled={resendingAll} onClick={resendAllExpired}>
+                <RefreshCw className={`size-4 ${resendingAll ? "animate-spin" : ""}`} aria-hidden />
+                {resendingAll ? "Resending…" : `Confirm resend ${confirmedExpiredInviteIds.length}`}
+              </Button>
+              <Button type="button" variant="secondary" disabled={resendingAll} onClick={() => setConfirmedExpiredInviteIds(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {view === "invites" || view === "expired" ? (
           filteredInvites.length > 0 ? (
             <div className="grid gap-3 xl:grid-cols-2">
               {filteredInvites.map((invite) => (
@@ -1709,7 +1765,7 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
                         </span>
                         <ChevronRight className="mt-1 size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
                       </span>
-                      <span className="mt-3 flex flex-wrap gap-2"><Badge tone="warning">Pending</Badge><Badge tone="info">{roleLabel(invite.role)}</Badge><Badge tone={inviteDeliveryTone(invite)}>{inviteDeliveryLabel(invite)}</Badge></span>
+                      <span className="mt-3 flex flex-wrap gap-2"><Badge tone={view === "expired" ? "danger" : "warning"}>{view === "expired" ? "Expired" : "Pending"}</Badge><Badge tone="info">{roleLabel(invite.role)}</Badge><Badge tone={inviteDeliveryTone(invite)}>{inviteDeliveryLabel(invite)}</Badge></span>
                     </span>
                   </span>
                   <span className="mt-4 grid grid-cols-3 gap-2 border-t border-line/70 pt-4">
@@ -1721,7 +1777,11 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
               ))}
             </div>
           ) : (
-            <WorkspaceEmptyState icon={Inbox} title="No pending invitations" description="No invitations match the current filter and search." />
+            <WorkspaceEmptyState
+              icon={view === "expired" ? Clock3 : Inbox}
+              title={view === "expired" ? "No expired invitations" : "No pending invitations"}
+              description={view === "expired" ? "There are no expired invitations available to resend." : "No invitations match the current filter and search."}
+            />
           )
         ) : filteredUsers.length > 0 ? (
           <div className="grid gap-3 xl:grid-cols-2">
@@ -1772,7 +1832,7 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
       <SideDrawer
         open={Boolean(selectedUser || selectedInvite)}
         title={selectedUser?.displayName ?? selectedInvite?.email ?? "Details"}
-        description={selectedUser ? selectedUser.email : selectedInvite ? "Pending invitation" : undefined}
+        description={selectedUser ? selectedUser.email : selectedInvite ? `${selectedInviteExpired ? "Expired" : "Pending"} invitation` : undefined}
         icon={selectedUser ? Users : UserPlus}
         onClose={() => {
           setSelectedUserId(null);
@@ -1810,7 +1870,7 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
                 <InfoRow label="Role" value={roleLabel(selectedInvite.role)} />
                 <InfoRow label="Created" value={dateLabel(selectedInvite.createdAt)} />
                 <InfoRow label="Expires" value={dateLabel(selectedInvite.expiresAt)} />
-                <InfoRow label="Status" value={<Badge tone="warning">Pending</Badge>} />
+                <InfoRow label="Status" value={<Badge tone={selectedInviteExpired ? "danger" : "warning"}>{selectedInviteExpired ? "Expired" : "Pending"}</Badge>} />
                 <InfoRow label="Delivery" value={<Badge tone={inviteDeliveryTone(selectedInvite)}>{inviteDeliveryLabel(selectedInvite)}</Badge>} />
                 {selectedInvite.emailDeliveryStatus === "delivered" && <InfoRow label="Email sent" value={dateLabel(selectedInvite.emailDeliveredAt)} />}
               </div>
@@ -1820,7 +1880,7 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
               <InfoRow label="Teams" value={selectedInvite.teamIds.length || "None"} />
             </DrawerSection>
             <p className="text-sm font-medium leading-6 text-muted">
-              Resending retires the current invite code and emails a fresh code that is valid for seven days.
+              Invitation codes expire after seven days to limit how long a forwarded or exposed code can be used. Resending retires the old code and emails a fresh one.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button
@@ -1833,9 +1893,11 @@ export function PeopleSection({ data, currentUser, runAction }: { data: AdminDat
                 />
                 {resendingInviteId === selectedInvite.id ? "Resending…" : "Resend Invitation"}
               </Button>
-              <Button variant="danger" onClick={() => runAction("adminExpireInvitation", { invitationId: selectedInvite.id })}>
-                Expire Invite
-              </Button>
+              {!selectedInviteExpired && (
+                <Button variant="danger" onClick={() => runAction("adminExpireInvitation", { invitationId: selectedInvite.id })}>
+                  Expire Invite
+                </Button>
+              )}
             </div>
           </>
         )}

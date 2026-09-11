@@ -26,6 +26,7 @@ export {
   adminCreateInvitation,
   adminExpireInvitation,
   adminResendInvitation,
+  adminResendExpiredInvitations,
   adminUpdateUserAccess,
   adminUpsertLeague,
   adminDeleteLeague,
