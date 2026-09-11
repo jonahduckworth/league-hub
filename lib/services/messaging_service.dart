@@ -50,6 +50,8 @@ class MessagingService {
 
   StreamSubscription<String>? _tokenRefreshSubscription;
   String? _activeUserId;
+  int _sessionGeneration = 0;
+  Future<void> _tokenWriteQueue = Future<void>.value();
   bool _autoInitEnabled = false;
   bool _messageListenersInitialized = false;
 
@@ -89,7 +91,7 @@ class MessagingService {
   /// Full initialization: permissions → local notifications → listeners → token.
   Future<void> initialize(String userId) async {
     if (!enabled) return;
-    _activeUserId = userId;
+    final sessionGeneration = _activateUser(userId);
     _setupTokenRefreshListener();
     await _enableAutoInit();
     await _requestPermission();
@@ -99,7 +101,7 @@ class MessagingService {
       debugPrint('MessagingService: Failed to initialize local alerts: $e');
     }
     _setupListeners();
-    await refreshTokenRegistration(userId);
+    await _registerToken(userId, sessionGeneration);
     await _checkInitialMessage();
   }
 
@@ -178,18 +180,30 @@ class MessagingService {
   /// APNs token was not ready during the initial sign-in flow.
   Future<void> refreshTokenRegistration(String userId) async {
     if (!enabled) return;
-    _activeUserId = userId;
+    final sessionGeneration = _activateUser(userId);
     _setupTokenRefreshListener();
-    await _registerToken(userId);
+    await _registerToken(userId, sessionGeneration);
   }
 
   /// Stops token refreshes from being associated with a signed-out user.
   void clearActiveUser() {
+    _sessionGeneration++;
     _activeUserId = null;
   }
 
+  int _activateUser(String userId) {
+    if (_activeUserId != userId) {
+      _sessionGeneration++;
+      _activeUserId = userId;
+    }
+    return _sessionGeneration;
+  }
+
+  bool _isActiveSession(String userId, int sessionGeneration) =>
+      _activeUserId == userId && _sessionGeneration == sessionGeneration;
+
   /// Registers the current FCM token in the user's Firestore profile.
-  Future<void> _registerToken(String userId) async {
+  Future<void> _registerToken(String userId, int sessionGeneration) async {
     try {
       await _enableAutoInit();
 
@@ -213,7 +227,7 @@ class MessagingService {
 
       final token = await _tokenProvider.getToken();
       if (token != null) {
-        await _saveToken(userId, token);
+        await _saveToken(userId, sessionGeneration, token);
       }
     } catch (e) {
       // Don't crash the app if push registration fails (e.g. on simulators).
@@ -227,28 +241,68 @@ class MessagingService {
         _tokenProvider.onTokenRefresh.listen((newToken) {
       final userId = _activeUserId;
       if (userId == null) return;
-      unawaited(_saveRefreshedToken(userId, newToken));
+      final sessionGeneration = _sessionGeneration;
+      unawaited(
+        _saveRefreshedToken(userId, sessionGeneration, newToken),
+      );
     });
   }
 
-  Future<void> _saveRefreshedToken(String userId, String token) async {
+  Future<void> _saveRefreshedToken(
+    String userId,
+    int sessionGeneration,
+    String token,
+  ) async {
     try {
-      await _saveToken(userId, token);
+      await _saveToken(userId, sessionGeneration, token);
     } catch (e) {
       debugPrint('MessagingService: Failed to save refreshed FCM token: $e');
     }
   }
 
-  Future<void> _saveToken(String userId, String token) async {
-    await _db.collection(AppConstants.usersCollection).doc(userId).update({
-      'fcmTokens': FieldValue.arrayUnion([token]),
+  Future<void> _saveToken(
+    String userId,
+    int sessionGeneration,
+    String token,
+  ) {
+    final operation = _runTokenWrite(() async {
+      if (!_isActiveSession(userId, sessionGeneration)) return;
+      final userRef = _db.collection(AppConstants.usersCollection).doc(userId);
+      await userRef.update({
+        'fcmTokens': FieldValue.arrayUnion([token]),
+      });
+
+      // If sign-out occurred while the Firestore update was in flight, undo
+      // the stale registration before allowing sign-out to complete.
+      if (!_isActiveSession(userId, sessionGeneration)) {
+        await userRef.update({
+          'fcmTokens': FieldValue.arrayRemove([token]),
+        });
+      }
     });
+    _tokenWriteQueue = operation;
+    return operation;
+  }
+
+  Future<void> _runTokenWrite(Future<void> Function() write) async {
+    try {
+      await _tokenWriteQueue;
+    } catch (_) {
+      // A previous write logs through its caller; keep later writes usable.
+    }
+    await write();
   }
 
   /// Removes the current token on sign-out so the user stops receiving pushes.
   Future<void> removeToken(String userId) async {
     if (!enabled) return;
+    clearActiveUser();
     try {
+      try {
+        await _tokenWriteQueue;
+      } catch (_) {
+        // Continue with explicit removal after a failed registration write.
+      }
       final token = await _tokenProvider.getToken();
       if (token != null) {
         await _db.collection(AppConstants.usersCollection).doc(userId).update({

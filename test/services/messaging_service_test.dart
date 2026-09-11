@@ -9,6 +9,7 @@ import '../helpers/firebase_test_helper.dart';
 class FakePushTokenProvider implements PushTokenProvider {
   final List<String?> apnsTokens;
   final String? fcmToken;
+  final Future<String?> Function()? tokenLoader;
   final Stream<String> tokenRefresh;
   var autoInitCalls = 0;
   var apnsChecks = 0;
@@ -17,6 +18,7 @@ class FakePushTokenProvider implements PushTokenProvider {
   FakePushTokenProvider({
     this.apnsTokens = const [null],
     this.fcmToken,
+    this.tokenLoader,
     this.tokenRefresh = const Stream.empty(),
   });
 
@@ -35,6 +37,7 @@ class FakePushTokenProvider implements PushTokenProvider {
   @override
   Future<String?> getToken() async {
     fcmTokenCalls++;
+    if (tokenLoader != null) return tokenLoader!();
     return fcmToken;
   }
 
@@ -154,6 +157,57 @@ void main() {
       await tokenRefresh.close();
     });
 
+    test('sign-out invalidation blocks a stale in-flight registration',
+        () async {
+      final tokenCompleter = Completer<String?>();
+      final tokenProvider = FakePushTokenProvider(
+        apnsTokens: const ['apns-token'],
+        tokenLoader: () => tokenCompleter.future,
+      );
+      await fakeFirestore.collection('users').doc('u1').set({
+        'fcmTokens': <String>[],
+      });
+      final service = MessagingService(
+        tokenProvider: tokenProvider,
+        firestore: fakeFirestore,
+        requiresApnsToken: () => true,
+      );
+
+      final registration = service.refreshTokenRegistration('u1');
+      await Future<void>.delayed(Duration.zero);
+      service.clearActiveUser();
+      tokenCompleter.complete('stale-fcm-token');
+      await registration;
+
+      final user = await fakeFirestore.collection('users').doc('u1').get();
+      expect(user.data()!['fcmTokens'], isEmpty);
+    });
+
+    test('token rotation after sign-out is ignored', () async {
+      final tokenRefresh = StreamController<String>();
+      final tokenProvider = FakePushTokenProvider(
+        tokenRefresh: tokenRefresh.stream,
+      );
+      await fakeFirestore.collection('users').doc('u1').set({
+        'fcmTokens': <String>[],
+      });
+      final service = MessagingService(
+        tokenProvider: tokenProvider,
+        firestore: fakeFirestore,
+        requiresApnsToken: () => true,
+        tokenRegistrationDelay: (_) async {},
+      );
+
+      await service.refreshTokenRegistration('u1');
+      service.clearActiveUser();
+      tokenRefresh.add('signed-out-token');
+      await Future<void>.delayed(Duration.zero);
+
+      final user = await fakeFirestore.collection('users').doc('u1').get();
+      expect(user.data()!['fcmTokens'], isEmpty);
+      await tokenRefresh.close();
+    });
+
     test('Android registration skips the APNs wait', () async {
       final tokenProvider = FakePushTokenProvider(fcmToken: 'android-token');
       await fakeFirestore.collection('users').doc('u1').set({
@@ -173,17 +227,20 @@ void main() {
     });
 
     test('removeToken removes token from Firestore user doc', () async {
+      final tokenProvider = FakePushTokenProvider(fcmToken: 'token-xyz');
       await fakeFirestore.collection('users').doc('u1').set({
         'email': 'test@example.com',
         'displayName': 'Test User',
         'fcmTokens': ['token-abc', 'token-xyz'],
         'isActive': true,
       });
+      final service = MessagingService(
+        tokenProvider: tokenProvider,
+        firestore: fakeFirestore,
+        requiresApnsToken: () => false,
+      );
 
-      // Simulate what removeToken does (arrayRemove).
-      await fakeFirestore.collection('users').doc('u1').update({
-        'fcmTokens': ['token-abc'],
-      });
+      await service.removeToken('u1');
 
       final doc = await fakeFirestore.collection('users').doc('u1').get();
       final tokens = List<String>.from(doc.data()!['fcmTokens']);
