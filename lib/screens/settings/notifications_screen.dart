@@ -68,12 +68,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     });
 
     try {
-      await ref
-          .read(authorizedFirestoreServiceProvider)
-          .updateOwnAppBadgePreference(user, enabled);
       if (!enabled) {
         await ref.read(appBadgeServiceProvider).setBadgeCount(0);
       }
+      await ref
+          .read(authorizedFirestoreServiceProvider)
+          .updateOwnAppBadgePreference(user, enabled);
       if (!mounted) return;
       setState(() => _savingAppBadge = false);
       ref.invalidate(currentUserProvider);

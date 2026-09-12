@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +25,9 @@ final _testUser = AppUser(
 
 class _RecordingAuthorizedFirestoreService
     implements AuthorizedFirestoreService {
+  _RecordingAuthorizedFirestoreService({this.appBadgeSaveGate});
+
+  final Completer<void>? appBadgeSaveGate;
   AnnouncementDelivery? recordedDelivery;
   bool? recordedAppBadgeEnabled;
 
@@ -40,6 +45,7 @@ class _RecordingAuthorizedFirestoreService
     bool enabled,
   ) async {
     recordedAppBadgeEnabled = enabled;
+    await appBadgeSaveGate?.future;
   }
 
   @override
@@ -130,6 +136,31 @@ void main() {
 
       expect(service.recordedAppBadgeEnabled, isFalse);
       expect(badgeService.counts, [0]);
+    });
+
+    testWidgets('clears the badge before the preference save completes',
+        (tester) async {
+      final saveGate = Completer<void>();
+      final service = _RecordingAuthorizedFirestoreService(
+        appBadgeSaveGate: saveGate,
+      );
+      final badgeService = _RecordingAppBadgeService();
+      await tester.pumpWidget(_buildTestWidget(overrides: [
+        authorizedFirestoreServiceProvider.overrideWithValue(service),
+        appBadgeServiceProvider.overrideWithValue(badgeService),
+      ]));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Switch).last);
+      await tester.pump();
+
+      expect(service.recordedAppBadgeEnabled, isFalse);
+      expect(badgeService.counts, [0]);
+
+      saveGate.complete();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('saves a selected announcement delivery option',
