@@ -99,6 +99,25 @@ void main() {
     expect(service.launchCount, 1);
   });
 
+  testWidgets('uses the Material text style without fallback underlines', (
+    tester,
+  ) async {
+    final service = _FakeAppUpdateService(result: _requiredUpdate());
+
+    await tester.pumpWidget(_testWidget(service));
+    await tester.pumpAndSettle();
+
+    final headingStyle = DefaultTextStyle.of(
+      tester.element(find.text('Update required')),
+    ).style;
+    final bodyStyle = DefaultTextStyle.of(
+      tester.element(find.textContaining('A newer version is available')),
+    ).style;
+
+    expect(headingStyle.decoration, isNot(TextDecoration.underline));
+    expect(bodyStyle.decoration, isNot(TextDecoration.underline));
+  });
+
   testWidgets('shows a retryable message when the store cannot open', (
     tester,
   ) async {
