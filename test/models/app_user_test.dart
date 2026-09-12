@@ -248,7 +248,7 @@ void main() {
         expect(json['isActive'], false);
         expect(json['announcementDelivery'], 'both');
         expect(json['appBadgeEnabled'], isTrue);
-        expect(json['unreadChatCount'], 0);
+        expect(json.containsKey('unreadChatCount'), isFalse);
       });
     });
 

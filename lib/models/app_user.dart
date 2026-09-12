@@ -106,7 +106,6 @@ class AppUser {
       'hasAcceptedCommunityGuidelines': hasAcceptedCommunityGuidelines,
       'announcementDelivery': announcementDelivery.name,
       'appBadgeEnabled': appBadgeEnabled,
-      'unreadChatCount': unreadChatCount,
     };
 
     final normalizedTitle = _optionalString(title);
