@@ -913,6 +913,18 @@ void main() {
       expect(stored!.announcementDelivery, AnnouncementDelivery.email);
     });
 
+    test('persists app badge preferences', () async {
+      final user = makeUser('reader');
+      await svc.updateUser(user);
+
+      await svc.updateOwnNotificationPreferences(user.id, {
+        'appBadgeEnabled': false,
+      });
+
+      final stored = await svc.getUser(user.id);
+      expect(stored!.appBadgeEnabled, isFalse);
+    });
+
     test('reportMessage persists the moderation payload', () async {
       final reporter = makeUser('reporter');
       final message = Message(

@@ -116,121 +116,124 @@ class _MandatoryUpdateCoordinatorState extends State<MandatoryUpdateCoordinator>
         children: [
           ExcludeSemantics(child: IgnorePointer(child: widget.child)),
           const ModalBarrier(dismissible: false, color: Color(0xA6000000)),
-          SafeArea(
-            minimum: const EdgeInsets.all(AppSpacing.xl),
-            child: Center(
-              child: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: Semantics(
-                    scopesRoute: true,
-                    explicitChildNodes: true,
-                    label: 'Update required',
-                    child: AppGlassSurface(
-                      padding: const EdgeInsets.all(AppSpacing.xl),
-                      radius: 30,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: AppGlassColors.aqua.withValues(
-                                  alpha: 0.16,
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.card,
-                                ),
-                                border: Border.all(
+          Material(
+            type: MaterialType.transparency,
+            child: SafeArea(
+              minimum: const EdgeInsets.all(AppSpacing.xl),
+              child: Center(
+                child: SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Semantics(
+                      scopesRoute: true,
+                      explicitChildNodes: true,
+                      label: 'Update required',
+                      child: AppGlassSurface(
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        radius: 30,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
                                   color: AppGlassColors.aqua.withValues(
-                                    alpha: 0.34,
+                                    alpha: 0.16,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.card,
+                                  ),
+                                  border: Border.all(
+                                    color: AppGlassColors.aqua.withValues(
+                                      alpha: 0.34,
+                                    ),
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.system_update_alt_rounded,
+                                  color: AppGlassColors.aqua,
+                                  size: 32,
+                                  semanticLabel: 'Software update',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            const Text(
+                              'Update required',
+                              style: TextStyle(
+                                color: AppGlassColors.ink,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                height: 1.15,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            const Text(
+                              'A newer version is available and is required to '
+                              'continue. Update now to get the latest features, '
+                              'improvements, and fixes.',
+                              style: TextStyle(
+                                color: AppGlassColors.inkSecondary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                height: 1.45,
+                              ),
+                            ),
+                            if (_launchError != null) ...[
+                              const SizedBox(height: AppSpacing.md),
+                              Semantics(
+                                liveRegion: true,
+                                child: Text(
+                                  _launchError!,
+                                  style: const TextStyle(
+                                    color: AppGlassColors.rose,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.35,
                                   ),
                                 ),
                               ),
-                              child: const Icon(
-                                Icons.system_update_alt_rounded,
-                                color: AppGlassColors.aqua,
-                                size: 32,
-                                semanticLabel: 'Software update',
+                            ],
+                            const SizedBox(height: AppSpacing.xl),
+                            FilledButton.icon(
+                              onPressed: _isLaunching ? null : _launchUpdate,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppGlassColors.aqua,
+                                foregroundColor: AppGlassColors.pageTop,
+                                disabledBackgroundColor:
+                                    AppGlassColors.aqua.withValues(alpha: 0.48),
+                                disabledForegroundColor: AppGlassColors.pageTop
+                                    .withValues(alpha: 0.72),
+                                minimumSize: const Size.fromHeight(52),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.control,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          const Text(
-                            'Update required',
-                            style: TextStyle(
-                              color: AppGlassColors.ink,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              height: 1.15,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          const Text(
-                            'A newer version is available and is required to '
-                            'continue. Update now to get the latest features, '
-                            'improvements, and fixes.',
-                            style: TextStyle(
-                              color: AppGlassColors.inkSecondary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              height: 1.45,
-                            ),
-                          ),
-                          if (_launchError != null) ...[
-                            const SizedBox(height: AppSpacing.md),
-                            Semantics(
-                              liveRegion: true,
-                              child: Text(
-                                _launchError!,
+                              icon: _isLaunching
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.2,
+                                        color: AppGlassColors.pageTop,
+                                      ),
+                                    )
+                                  : const Icon(Icons.open_in_new_rounded),
+                              label: Text(
+                                _isLaunching ? 'Opening store…' : 'Update now',
                                 style: const TextStyle(
-                                  color: AppGlassColors.rose,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.35,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
                                 ),
                               ),
                             ),
                           ],
-                          const SizedBox(height: AppSpacing.xl),
-                          FilledButton.icon(
-                            onPressed: _isLaunching ? null : _launchUpdate,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppGlassColors.aqua,
-                              foregroundColor: AppGlassColors.pageTop,
-                              disabledBackgroundColor: AppGlassColors.aqua
-                                  .withValues(alpha: 0.48),
-                              disabledForegroundColor: AppGlassColors.pageTop
-                                  .withValues(alpha: 0.72),
-                              minimumSize: const Size.fromHeight(52),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.control,
-                                ),
-                              ),
-                            ),
-                            icon: _isLaunching
-                                ? const SizedBox.square(
-                                    dimension: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: AppGlassColors.pageTop,
-                                    ),
-                                  )
-                                : const Icon(Icons.open_in_new_rounded),
-                            label: Text(
-                              _isLaunching ? 'Opening store…' : 'Update now',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

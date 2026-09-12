@@ -5,41 +5,11 @@ import '../../core/theme.dart';
 import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
+import '../../providers/notification_preferences_provider.dart';
+import '../../services/app_badge_service.dart';
 import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
 import '../../widgets/app_shell_scaffold.dart';
-
-/// Notification preferences with FCM topic sync.
-final notificationPrefsProvider =
-    StateNotifierProvider<NotificationPrefsNotifier, Map<String, bool>>(
-  (ref) => NotificationPrefsNotifier(ref),
-);
-
-class NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
-  final Ref _ref;
-
-  NotificationPrefsNotifier(this._ref)
-      : super({
-          'chat_messages': true,
-          'policy_uploads': true,
-          'team_updates': true,
-          'event_reminders': true,
-          'admin_alerts': true,
-          'sound': true,
-          'vibration': true,
-          'badge_count': true,
-        });
-
-  void toggle(String key) {
-    state = {...state, key: !(state[key] ?? true)};
-
-    // Sync push notification topic subscriptions.
-    final orgId = _ref.read(organizationProvider).valueOrNull?.id;
-    if (orgId != null) {
-      _ref.read(messagingServiceProvider).syncPreferences(orgId, state);
-    }
-  }
-}
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -53,6 +23,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   AnnouncementDelivery? _savedDelivery;
   AnnouncementDelivery? _savingDelivery;
   String? _deliveryError;
+  bool? _savedAppBadgeEnabled;
+  bool _savingAppBadge = false;
 
   Future<void> _saveDelivery(
     AppUser user,
@@ -84,6 +56,38 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         _deliveryError =
             'We could not save that choice. Check your connection and try again.';
       });
+    }
+  }
+
+  Future<void> _saveAppBadgePreference(AppUser user, bool enabled) async {
+    if (_savingAppBadge) return;
+    final previous = _savedAppBadgeEnabled ?? user.appBadgeEnabled;
+    setState(() {
+      _savedAppBadgeEnabled = enabled;
+      _savingAppBadge = true;
+    });
+
+    try {
+      if (!enabled) {
+        await ref.read(appBadgeServiceProvider).setBadgeCount(0);
+      }
+      await ref
+          .read(authorizedFirestoreServiceProvider)
+          .updateOwnAppBadgePreference(user, enabled);
+      if (!mounted) return;
+      setState(() => _savingAppBadge = false);
+      ref.invalidate(currentUserProvider);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _savedAppBadgeEnabled = previous;
+        _savingAppBadge = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('We could not save the app badge preference.'),
+        ),
+      );
     }
   }
 
@@ -215,10 +219,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   const _GlassDivider(),
                   _ToggleTile(
                     icon: Icons.looks_one_outlined,
-                    title: 'Badge Count',
-                    subtitle: 'Show unread count on app icon',
-                    value: prefs['badge_count'] ?? true,
-                    onChanged: () => notifier.toggle('badge_count'),
+                    title: 'Chat Activity Badge',
+                    subtitle: 'Show a red app icon badge for new chat activity',
+                    value: _savedAppBadgeEnabled ??
+                        currentUser.valueOrNull?.appBadgeEnabled ??
+                        true,
+                    onChanged:
+                        currentUser.valueOrNull == null || _savingAppBadge
+                            ? null
+                            : () => _saveAppBadgePreference(
+                                  currentUser.valueOrNull!,
+                                  !(_savedAppBadgeEnabled ??
+                                      currentUser.valueOrNull!.appBadgeEnabled),
+                                ),
                   ),
                 ],
               ),
@@ -436,7 +449,7 @@ class _ToggleTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool value;
-  final VoidCallback onChanged;
+  final VoidCallback? onChanged;
 
   const _ToggleTile({
     required this.icon,
@@ -469,7 +482,7 @@ class _ToggleTile extends StatelessWidget {
       ),
       trailing: Switch.adaptive(
         value: value,
-        onChanged: (_) => onChanged(),
+        onChanged: onChanged == null ? null : (_) => onChanged!(),
         activeTrackColor: AppGlassColors.aqua.withValues(alpha: 0.48),
         activeThumbColor: AppGlassColors.aqua,
         inactiveTrackColor: Colors.white.withValues(alpha: 0.16),

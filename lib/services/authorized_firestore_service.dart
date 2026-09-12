@@ -284,6 +284,18 @@ class AuthorizedFirestoreService {
     });
   }
 
+  Future<void> updateOwnAppBadgePreference(
+    AppUser actor,
+    bool enabled,
+  ) {
+    if (!actor.isActive) {
+      _deny('updateOwnAppBadgePreference', actor);
+    }
+    return _fs.updateOwnNotificationPreferences(actor.id, {
+      'appBadgeEnabled': enabled,
+    });
+  }
+
   Future<void> _assertCanUpdateUserFields(
     AppUser actor,
     AppUser target,

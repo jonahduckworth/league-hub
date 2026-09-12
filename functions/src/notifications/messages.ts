@@ -1,8 +1,10 @@
-import { onDocumentCreated as onFirestoreCreated } from "firebase-functions/v2/firestore";
+import {onDocumentCreated as onFirestoreCreated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
-import { db, getUserTokens, sendNotification } from "../helpers";
+import {db, sendNotificationGroups} from "../helpers";
 import {
   canReceiveMessageNotification,
+  chatNotificationDeliveryGroups,
+  MessageNotificationUser,
   notificationLookupIds,
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
@@ -56,7 +58,7 @@ export const onMessageCreated = onFirestoreCreated(
 
     // Explicit participants win. Open rooms use the same room visibility
     // criteria as Firestore rules so scoped rooms do not notify outsiders.
-    let recipientIds: string[];
+    let recipientUsers: MessageNotificationUser[];
 
     if (shouldUseExplicitParticipantRecipients(participants, teamIds)) {
       const lookupIds = notificationLookupIds(
@@ -71,20 +73,20 @@ export const onMessageCreated = onFirestoreCreated(
             .get(),
         ),
       );
-      recipientIds = participantUsers.flatMap((snapshot) => snapshot.docs)
+      recipientUsers = participantUsers.flatMap((snapshot) => snapshot.docs)
         .filter((user) => user.id !== senderId)
         .filter((user) => canReceiveMessageNotification(
           user.data(), senderId, roomType, hubId, leagueId, orgId, teamId,
           hubIds, teamIds, additionalMemberIds, user.id,
         ))
-        .map((user) => user.id);
+        .map((user) => user.data());
     } else {
       const usersSnap = await db
         .collection("users")
         .where("orgId", "==", orgId)
         .where("isActive", "==", true)
         .get();
-      recipientIds = usersSnap.docs
+      recipientUsers = usersSnap.docs
         .filter((d) =>
           canReceiveMessageNotification(
             d.data(),
@@ -100,18 +102,16 @@ export const onMessageCreated = onFirestoreCreated(
             d.id,
           ),
         )
-        .map((d) => d.id)
-        .filter((id) => id !== senderId);
+        .filter((d) => d.id !== senderId)
+        .map((d) => d.data());
     }
-
-    const tokens = await getUserTokens(recipientIds);
 
     // Truncate message preview.
     const preview = previewText.length > 100 ?
       previewText.substring(0, 97) + "..." : previewText;
 
-    await sendNotification(
-      tokens,
+    await sendNotificationGroups(
+      chatNotificationDeliveryGroups(recipientUsers),
       {
         title: roomType === "direct" ? senderName : roomName,
         body: roomType === "direct" ? preview : `${senderName}: ${preview}`,

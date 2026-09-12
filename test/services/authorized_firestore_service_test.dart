@@ -1247,6 +1247,35 @@ void main() {
         );
         verifyZeroInteractions(mockFs);
       });
+
+      test('active users can update their own app badge preference', () async {
+        final actor = makeUser(id: 'u1', role: UserRole.staff);
+        when(mockFs.updateOwnNotificationPreferences(
+          actor.id,
+          {'appBadgeEnabled': false},
+        )).thenAnswer((_) async {});
+
+        await afs.updateOwnAppBadgePreference(actor, false);
+
+        verify(mockFs.updateOwnNotificationPreferences(
+          actor.id,
+          {'appBadgeEnabled': false},
+        )).called(1);
+      });
+
+      test('inactive users cannot update their app badge preference', () {
+        final actor = makeUser(
+          id: 'u1',
+          role: UserRole.staff,
+          isActive: false,
+        );
+
+        expect(
+          () => afs.updateOwnAppBadgePreference(actor, false),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
+      });
     });
 
     // =========================================================================

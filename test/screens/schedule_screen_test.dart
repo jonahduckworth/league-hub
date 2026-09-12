@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/core/theme.dart';
 import 'package:league_hub/models/schedule_event.dart';
 import 'package:league_hub/models/schedule_team_logos.dart';
+import 'package:league_hub/models/league.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/schedule_screen.dart';
 import 'package:league_hub/widgets/app_glass.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/widgets/schedule_game_card.dart';
 import 'package:league_hub/widgets/schedule_team_logo.dart';
 
@@ -78,6 +80,18 @@ void main() {
   Widget subject({double textScale = 1, bool disableAnimations = false}) =>
       ProviderScope(
         overrides: [
+          leaguesProvider.overrideWith(
+            (ref) => Stream.value([
+              League(
+                id: 'league-1',
+                orgId: 'org-1',
+                name: 'Junior Prospects Hockey League',
+                abbreviation: 'JPHL',
+                logoUrl: 'https://example.com/jphl.png',
+                createdAt: DateTime(2024),
+              ),
+            ]),
+          ),
           scheduleEventsProvider.overrideWith((ref) => Stream.value(games)),
           scheduleTeamLogosProvider.overrideWith(
             (ref) => const ScheduleTeamLogos(
@@ -141,6 +155,17 @@ void main() {
     expect(find.textContaining('Mountain time'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
     expect(find.byType(ScheduleTeamLogo), findsNWidgets(4));
+  });
+
+  testWidgets('uses the league logo in the schedule header', (tester) async {
+    await tester.pumpWidget(subject());
+    await tester.pumpAndSettle();
+
+    final logo = tester.widget<AppHeaderLogoMark>(
+      find.byType(AppHeaderLogoMark),
+    );
+    expect(logo.imageUrl, 'https://example.com/jphl.png');
+    expect(logo.label, 'Junior Prospects Hockey League');
   });
 
   testWidgets('lazily builds a large first date instead of every game at once',

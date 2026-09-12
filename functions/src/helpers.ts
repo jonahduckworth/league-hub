@@ -8,6 +8,11 @@ if (!admin.apps.length) {
 export const db = admin.firestore();
 export const messaging = admin.messaging();
 
+export type NotificationDeliveryGroup = {
+  tokens: string[];
+  badge?: number;
+};
+
 /**
  * Fetches all FCM tokens for users in an organization.
  * Tokens are stored in /users/{uid} → fcmTokens: string[]
@@ -64,62 +69,79 @@ export async function sendNotification(
   notification: { title: string; body: string },
   data: Record<string, string>,
 ): Promise<void> {
-  if (tokens.length === 0) {
+  return sendNotificationGroups([{tokens}], notification, data);
+}
+
+/**
+ * Sends one logical notification to token groups with per-group APNs badges.
+ * Omitting a badge leaves the recipient's existing icon badge unchanged.
+ */
+export async function sendNotificationGroups(
+  groups: NotificationDeliveryGroup[],
+  notification: { title: string; body: string },
+  data: Record<string, string>,
+): Promise<void> {
+  if (groups.every((group) => group.tokens.length === 0)) {
     await logNotificationEvent(data, notification, 0, 0, 0, 0);
     return;
   }
 
-  // Deduplicate tokens.
-  const uniqueTokens = [...new Set(tokens)];
-
-  // FCM multicast supports max 500 tokens per call.
-  const chunks = chunkArray(uniqueTokens, 500);
+  const claimedTokens = new Set<string>();
   let successCount = 0;
   let failureCount = 0;
   let staleTokenCount = 0;
+  let requestedTokens = 0;
 
-  for (const chunk of chunks) {
-    const response = await messaging.sendEachForMulticast({
-      tokens: chunk,
-      notification,
-      data,
-      android: {
-        priority: "high",
-        notification: {
-          channelId: "league_hub_default",
-          sound: "default",
-        },
-      },
-      apns: {
-        payload: {
-          aps: {
+  for (const group of groups) {
+    const uniqueTokens = [...new Set(group.tokens)]
+      .filter((token) => !claimedTokens.has(token));
+    uniqueTokens.forEach((token) => claimedTokens.add(token));
+    requestedTokens += uniqueTokens.length;
+
+    // FCM multicast supports max 500 tokens per call.
+    for (const chunk of chunkArray(uniqueTokens, 500)) {
+      const response = await messaging.sendEachForMulticast({
+        tokens: chunk,
+        notification,
+        data,
+        android: {
+          priority: "high",
+          notification: {
+            channelId: "league_hub_default",
             sound: "default",
-            badge: 1,
           },
         },
-      },
-    });
-    successCount += response.successCount;
-    failureCount += response.failureCount;
-
-    // Clean up stale tokens.
-    if (response.failureCount > 0) {
-      const staleTokens: string[] = [];
-      response.responses.forEach((resp, idx) => {
-        if (resp.error) {
-          const code = resp.error.code;
-          if (
-            code === "messaging/invalid-registration-token" ||
-            code === "messaging/registration-token-not-registered"
-          ) {
-            staleTokens.push(chunk[idx]);
-          }
-        }
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              ...(group.badge === undefined ? {} : {badge: group.badge}),
+            },
+          },
+        },
       });
+      successCount += response.successCount;
+      failureCount += response.failureCount;
 
-      if (staleTokens.length > 0) {
-        staleTokenCount += staleTokens.length;
-        await removeStaleTokens(staleTokens);
+      // Clean up stale tokens.
+      if (response.failureCount > 0) {
+        const staleTokens: string[] = [];
+        response.responses.forEach((resp, idx) => {
+          if (resp.error) {
+            const code = resp.error.code;
+            if (
+              code === "messaging/invalid-registration-token" ||
+              code === "messaging/registration-token-not-registered"
+            ) {
+              staleTokens.push(chunk[idx]);
+            }
+          }
+        });
+
+        if (staleTokens.length > 0) {
+          staleTokenCount += staleTokens.length;
+          await removeStaleTokens(staleTokens);
+        }
       }
     }
   }
@@ -127,7 +149,7 @@ export async function sendNotification(
   await logNotificationEvent(
     data,
     notification,
-    uniqueTokens.length,
+    requestedTokens,
     successCount,
     failureCount,
     staleTokenCount,

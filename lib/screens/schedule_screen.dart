@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../core/design_system.dart';
+import '../core/league_branding.dart';
 import '../models/schedule_event.dart';
 import '../models/schedule_team_logos.dart';
 import '../providers/data_providers.dart';
@@ -54,6 +55,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     final scheduleAsync = ref.watch(scheduleEventsProvider);
+    final leagues = ref.watch(leaguesProvider).valueOrNull ?? [];
+    final headerLeague = resolveHeaderLeague(leagues, null);
     final teamLogos = ref.watch(scheduleTeamLogosProvider).valueOrNull ??
         const ScheduleTeamLogos();
     final events = filterScheduleEvents(
@@ -71,9 +74,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     );
 
     return AppShellScaffold(
-      header: const AppShellHeader(
+      header: AppShellHeader(
         leadingIcon: Icons.calendar_month_outlined,
-        leadingLabel: 'League Hub',
+        leadingImageUrl: headerLeague?.logoUrl,
+        leadingLabel: headerLeague?.name ?? 'League Hub',
         title: 'Schedule',
       ),
       stickyContent: _ScheduleToolbar(

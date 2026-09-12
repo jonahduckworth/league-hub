@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,7 +7,9 @@ import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings/notifications_screen.dart';
+import 'package:league_hub/providers/notification_preferences_provider.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
+import 'package:league_hub/services/app_badge_service.dart';
 
 final _testUser = AppUser(
   id: 'user-1',
@@ -21,7 +25,11 @@ final _testUser = AppUser(
 
 class _RecordingAuthorizedFirestoreService
     implements AuthorizedFirestoreService {
+  _RecordingAuthorizedFirestoreService({this.appBadgeSaveGate});
+
+  final Completer<void>? appBadgeSaveGate;
   AnnouncementDelivery? recordedDelivery;
+  bool? recordedAppBadgeEnabled;
 
   @override
   Future<void> updateOwnNotificationPreferences(
@@ -32,7 +40,23 @@ class _RecordingAuthorizedFirestoreService
   }
 
   @override
+  Future<void> updateOwnAppBadgePreference(
+    AppUser actor,
+    bool enabled,
+  ) async {
+    recordedAppBadgeEnabled = enabled;
+    await appBadgeSaveGate?.future;
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecordingAppBadgeService implements AppBadgeService {
+  final counts = <int>[];
+
+  @override
+  Future<void> setBadgeCount(int count) async => counts.add(count);
 }
 
 Widget _buildTestWidget({
@@ -93,7 +117,50 @@ void main() {
 
       expect(find.text('Sound'), findsOneWidget);
       expect(find.text('Vibration'), findsOneWidget);
-      expect(find.text('Badge Count'), findsOneWidget);
+      expect(find.text('Chat Activity Badge'), findsOneWidget);
+    });
+
+    testWidgets('persists the unread chat badge preference', (tester) async {
+      final service = _RecordingAuthorizedFirestoreService();
+      final badgeService = _RecordingAppBadgeService();
+      await tester.pumpWidget(_buildTestWidget(overrides: [
+        authorizedFirestoreServiceProvider.overrideWithValue(service),
+        appBadgeServiceProvider.overrideWithValue(badgeService),
+      ]));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Switch).last);
+      await tester.pumpAndSettle();
+
+      expect(service.recordedAppBadgeEnabled, isFalse);
+      expect(badgeService.counts, [0]);
+    });
+
+    testWidgets('clears the badge before the preference save completes',
+        (tester) async {
+      final saveGate = Completer<void>();
+      final service = _RecordingAuthorizedFirestoreService(
+        appBadgeSaveGate: saveGate,
+      );
+      final badgeService = _RecordingAppBadgeService();
+      await tester.pumpWidget(_buildTestWidget(overrides: [
+        authorizedFirestoreServiceProvider.overrideWithValue(service),
+        appBadgeServiceProvider.overrideWithValue(badgeService),
+      ]));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Switch).last);
+      await tester.pump();
+
+      expect(service.recordedAppBadgeEnabled, isFalse);
+      expect(badgeService.counts, [0]);
+
+      saveGate.complete();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('saves a selected announcement delivery option',
@@ -230,7 +297,10 @@ void main() {
 
       expect(find.text('Play sound for notifications'), findsOneWidget);
       expect(find.text('Vibrate for notifications'), findsOneWidget);
-      expect(find.text('Show unread count on app icon'), findsOneWidget);
+      expect(
+        find.text('Show a red app icon badge for new chat activity'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('has a scrollable ListView', (tester) async {
@@ -274,15 +344,14 @@ void main() {
       expect(prefs['admin_alerts'], isTrue);
       expect(prefs['sound'], isTrue);
       expect(prefs['vibration'], isTrue);
-      expect(prefs['badge_count'], isTrue);
     });
 
-    test('initial state has 8 keys', () {
+    test('initial state has 7 keys', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       final prefs = container.read(notificationPrefsProvider);
-      expect(prefs.length, 8);
+      expect(prefs.length, 7);
     });
 
     test('toggle flips a preference value', () {
@@ -341,12 +410,10 @@ void main() {
       final notifier = container.read(notificationPrefsProvider.notifier);
       notifier.toggle('chat_messages');
       notifier.toggle('team_updates');
-      notifier.toggle('badge_count');
 
       final prefs = container.read(notificationPrefsProvider);
       expect(prefs['chat_messages'], isFalse);
       expect(prefs['team_updates'], isFalse);
-      expect(prefs['badge_count'], isFalse);
       // Untouched remain true
       expect(prefs['policy_uploads'], isTrue);
       expect(prefs['sound'], isTrue);

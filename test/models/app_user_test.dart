@@ -38,6 +38,28 @@ void main() {
         expect(user.createdAt, testDate);
         expect(user.isActive, true);
         expect(user.announcementDelivery, AnnouncementDelivery.both);
+        expect(user.appBadgeEnabled, isTrue);
+      });
+
+      test('parses the app badge preference and defaults it on', () {
+        final base = {
+          'id': 'user1',
+          'email': 'user@example.com',
+          'displayName': 'John',
+          'role': 'staff',
+          'hubIds': <String>[],
+          'teamIds': <String>[],
+          'createdAt': testDateStr,
+        };
+
+        final configured = AppUser.fromJson({
+          ...base,
+          'appBadgeEnabled': false,
+        });
+        expect(configured.appBadgeEnabled, isFalse);
+
+        final defaults = AppUser.fromJson(base);
+        expect(defaults.appBadgeEnabled, isTrue);
       });
 
       test('parses all UserRole values', () {
@@ -221,6 +243,7 @@ void main() {
         expect(json['createdAt'], testDateStr);
         expect(json['isActive'], false);
         expect(json['announcementDelivery'], 'both');
+        expect(json['appBadgeEnabled'], isTrue);
       });
     });
 

@@ -1,8 +1,5 @@
 {
-  "all": false,
-  "targets": [
-    "adminResendInvitation",
-    "adminResendExpiredInvitations"
-  ],
-  "reason": "Allow administrators to resend expired invitations individually or in a bounded bulk action."
+  "all": true,
+  "targets": [],
+  "reason": "Deploy shared notification delivery changes and the preference-aware binary chat activity badge."
 }

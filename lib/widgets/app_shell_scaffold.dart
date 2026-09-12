@@ -47,6 +47,7 @@ class AppShellScaffold extends StatefulWidget {
   final Widget? pinnedContent;
   final Widget? stickyContent;
   final Widget? floatingActionButton;
+  final bool pinHeader;
   final double topSpacing;
   final double pinnedContentHeight;
   final double pinnedSpacing;
@@ -60,6 +61,7 @@ class AppShellScaffold extends StatefulWidget {
     this.pinnedContent,
     this.stickyContent,
     this.floatingActionButton,
+    this.pinHeader = false,
     this.topSpacing = appShellHeaderContentSpacing,
     this.pinnedContentHeight = 0,
     this.pinnedSpacing = 12,
@@ -139,14 +141,18 @@ class _AppShellScaffoldState extends State<AppShellScaffold> {
               left: 0,
               right: 0,
               height: widget.topFadeHeight,
-              child: _scrollingTopLayer(const _AppShellTopFade()),
+              child: widget.pinHeader
+                  ? const _AppShellTopFade()
+                  : _scrollingTopLayer(const _AppShellTopFade()),
             ),
           if (showHeader)
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              child: _scrollingTopLayer(widget.header),
+              child: widget.pinHeader
+                  ? widget.header
+                  : _scrollingTopLayer(widget.header),
             ),
           if (widget.pinnedContent != null && showHeader)
             Positioned(
