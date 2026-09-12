@@ -138,6 +138,19 @@ void main() {
         expect(find.text('General Chat'), findsOneWidget);
       });
 
+      testWidgets('pins the conversation header above message scrolling',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<AppShellScaffold>(find.byType(AppShellScaffold))
+              .pinHeader,
+          isTrue,
+        );
+      });
+
       testWidgets('displays participant count', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();

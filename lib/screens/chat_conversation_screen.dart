@@ -533,6 +533,7 @@ class _ChatConversationScreenState
     final messagesBottomPadding = composerBottomInset + composerHeight + 12;
 
     return AppShellScaffold(
+      pinHeader: true,
       header: AppShellHeader(
         title: roomName,
         showBackButton: true,

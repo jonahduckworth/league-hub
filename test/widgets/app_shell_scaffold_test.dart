@@ -118,6 +118,30 @@ void main() {
       );
     });
 
+    testWidgets('pinned header stays visible while page content scrolls',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: AppShellScaffold(
+            pinHeader: true,
+            header: AppShellHeader(title: 'Conversation'),
+            child: _ScrollableShellTestContent(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialHeaderTop = tester.getTopLeft(find.text('Conversation')).dy;
+
+      await tester.drag(find.byType(ListView), const Offset(0, -180));
+      await tester.pump();
+
+      expect(
+        tester.getTopLeft(find.text('Conversation')).dy,
+        initialHeaderTop,
+      );
+    });
+
     testWidgets(
         'bottom padding uses real safe area instead of scaffold padding',
         (WidgetTester tester) async {
