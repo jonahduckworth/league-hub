@@ -39,10 +39,9 @@ void main() {
         expect(user.isActive, true);
         expect(user.announcementDelivery, AnnouncementDelivery.both);
         expect(user.appBadgeEnabled, isTrue);
-        expect(user.unreadChatCount, 0);
       });
 
-      test('parses unread badge fields and applies safe defaults', () {
+      test('parses the app badge preference and defaults it on', () {
         final base = {
           'id': 'user1',
           'email': 'user@example.com',
@@ -56,14 +55,11 @@ void main() {
         final configured = AppUser.fromJson({
           ...base,
           'appBadgeEnabled': false,
-          'unreadChatCount': 7,
         });
         expect(configured.appBadgeEnabled, isFalse);
-        expect(configured.unreadChatCount, 7);
 
         final defaults = AppUser.fromJson(base);
         expect(defaults.appBadgeEnabled, isTrue);
-        expect(defaults.unreadChatCount, 0);
       });
 
       test('parses all UserRole values', () {
@@ -248,7 +244,6 @@ void main() {
         expect(json['isActive'], false);
         expect(json['announcementDelivery'], 'both');
         expect(json['appBadgeEnabled'], isTrue);
-        expect(json.containsKey('unreadChatCount'), isFalse);
       });
     });
 

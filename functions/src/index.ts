@@ -11,9 +11,7 @@ export {
 } from "./notifications/announcements";
 export {
   onMessageCreated,
-  onMessageDeleted,
   onMessagePreviewCreated,
-  onMessageReadUpdated,
 } from "./notifications/messages";
 export { onPolicyCreated } from "./notifications/policies";
 export { onTeamUpdated } from "./notifications/teams";

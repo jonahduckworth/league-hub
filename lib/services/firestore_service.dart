@@ -260,15 +260,6 @@ class FirestoreService {
 
   Future<AppUser?> getUserById(String uid) => getUser(uid);
 
-  Stream<int> unreadChatCountStream(String uid) => _db
-          .collection(AppConstants.usersCollection)
-          .doc(uid)
-          .snapshots()
-          .map((snapshot) {
-        final value = snapshot.data()?['unreadChatCount'];
-        return value is int && value > 0 ? value : 0;
-      });
-
   Future<void> updateUserFields(String uid, Map<String, dynamic> data) =>
       _db.collection(AppConstants.usersCollection).doc(uid).update(data);
 
@@ -674,34 +665,25 @@ class FirestoreService {
   /// Marks all messages in [roomId] as read by [userId].
   Future<void> markMessagesAsRead(
       String orgId, String roomId, String userId) async {
-    // Walk every message in bounded batches. The unread total is maintained by
-    // message-update Functions, so leaving older unread rows behind would keep
-    // the app icon badge stale after the conversation is opened.
-    DocumentSnapshot? cursor;
-    while (true) {
-      Query query = _messagesRef(orgId, roomId)
-          .orderBy('createdAt', descending: true)
-          .limit(400);
-      if (cursor != null) query = query.startAfterDocument(cursor);
-      final page = await query.get();
-      if (page.docs.isEmpty) break;
-
-      final batch = _db.batch();
-      var unread = 0;
-      for (final doc in page.docs) {
-        final readBy = List<String>.from(
-            (doc.data() as Map<String, dynamic>)['readBy'] as List? ?? []);
-        if (!readBy.contains(userId)) {
-          batch.update(doc.reference, {
-            'readBy': FieldValue.arrayUnion([userId]),
-          });
-          unread++;
-        }
+    // Firestore whereNotIn on arrays doesn't work well, so fetch recent
+    // messages and update those missing the userId in readBy.
+    final recent = await _messagesRef(orgId, roomId)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .get();
+    final batch = _db.batch();
+    int count = 0;
+    for (final doc in recent.docs) {
+      final readBy = List<String>.from(
+          (doc.data() as Map<String, dynamic>)['readBy'] as List? ?? []);
+      if (!readBy.contains(userId)) {
+        batch.update(doc.reference, {
+          'readBy': FieldValue.arrayUnion([userId]),
+        });
+        count++;
       }
-      if (unread > 0) await batch.commit();
-      if (page.docs.length < 400) break;
-      cursor = page.docs.last;
     }
+    if (count > 0) await batch.commit();
   }
 
   /// Returns a stream of the count of unread messages in [roomId] for [userId].

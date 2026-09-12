@@ -6,6 +6,13 @@ export type MessageNotificationUser = {
   blockedUserIds?: string[];
   orgId?: string;
   isActive?: boolean;
+  fcmTokens?: unknown;
+  appBadgeEnabled?: unknown;
+};
+
+export type ChatNotificationDeliveryGroup = {
+  tokens: string[];
+  badge?: number;
 };
 
 const elevatedRoles = new Set(["platformOwner", "superAdmin"]);
@@ -74,6 +81,32 @@ export function notificationLookupIds(
 ): string[] {
   if (roomType !== "league" && roomType !== "event") return participantIds;
   return [...new Set([...participantIds, ...additionalMemberIds])];
+}
+
+/**
+ * A chat push uses a binary iOS attention badge. The badge is cleared when the
+ * app is opened or resumed; it intentionally does not claim to be an exact
+ * unread-message counter.
+ */
+export function chatNotificationDeliveryGroups(
+  recipients: MessageNotificationUser[],
+): ChatNotificationDeliveryGroup[] {
+  const badgeTokens: string[] = [];
+  const noBadgeTokens: string[] = [];
+  for (const recipient of recipients) {
+    const tokens = Array.isArray(recipient.fcmTokens) ?
+      recipient.fcmTokens.filter((token): token is string =>
+        typeof token === "string" && token.length > 0) : [];
+    if (recipient.appBadgeEnabled === false) {
+      noBadgeTokens.push(...tokens);
+    } else {
+      badgeTokens.push(...tokens);
+    }
+  }
+  return [
+    {tokens: badgeTokens, badge: 1},
+    {tokens: noBadgeTokens},
+  ];
 }
 
 export function shouldReplaceRoomPreview(

@@ -2,11 +2,23 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   canReceiveMessageNotification,
+  chatNotificationDeliveryGroups,
   notificationLookupIds,
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
 } = require("../lib/notifications/messageLogic");
+
+test("chat pushes use a binary badge unless the recipient disabled it", () => {
+  assert.deepEqual(chatNotificationDeliveryGroups([
+    {fcmTokens: ["a-1", "a-2"]},
+    {fcmTokens: ["b-1"], appBadgeEnabled: false},
+    {fcmTokens: [null, "c-1", 4]},
+  ]), [
+    {tokens: ["a-1", "a-2", "c-1"], badge: 1},
+    {tokens: ["b-1"]},
+  ]);
+});
 
 test("message notifications respect room scope and blocked senders", () => {
   const staff = {

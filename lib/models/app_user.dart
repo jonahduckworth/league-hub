@@ -36,7 +36,6 @@ class AppUser {
   final bool hasAcceptedCommunityGuidelines;
   final AnnouncementDelivery announcementDelivery;
   final bool appBadgeEnabled;
-  final int unreadChatCount;
 
   AppUser({
     required this.id,
@@ -56,7 +55,6 @@ class AppUser {
     this.hasAcceptedCommunityGuidelines = false,
     this.announcementDelivery = AnnouncementDelivery.both,
     this.appBadgeEnabled = true,
-    this.unreadChatCount = 0,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
@@ -86,7 +84,6 @@ class AppUser {
           orElse: () => AnnouncementDelivery.both,
         ),
         appBadgeEnabled: json['appBadgeEnabled'] as bool? ?? true,
-        unreadChatCount: json['unreadChatCount'] as int? ?? 0,
       );
 
   Map<String, dynamic> toJson() {

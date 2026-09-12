@@ -6,6 +6,7 @@ import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
 import '../../providers/notification_preferences_provider.dart';
+import '../../services/app_badge_service.dart';
 import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
 import '../../widgets/app_shell_scaffold.dart';
@@ -70,6 +71,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       await ref
           .read(authorizedFirestoreServiceProvider)
           .updateOwnAppBadgePreference(user, enabled);
+      if (!enabled) {
+        await ref.read(appBadgeServiceProvider).setBadgeCount(0);
+      }
       if (!mounted) return;
       setState(() => _savingAppBadge = false);
       ref.invalidate(currentUserProvider);
@@ -215,8 +219,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   const _GlassDivider(),
                   _ToggleTile(
                     icon: Icons.looks_one_outlined,
-                    title: 'Unread Chat Badge',
-                    subtitle: 'Show unread chat messages on the app icon',
+                    title: 'Chat Activity Badge',
+                    subtitle: 'Show a red app icon badge for new chat activity',
                     value: _savedAppBadgeEnabled ??
                         currentUser.valueOrNull?.appBadgeEnabled ??
                         true,

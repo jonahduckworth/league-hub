@@ -32,22 +32,3 @@ class NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
     }
   }
 }
-
-/// Total unread chat messages maintained transactionally by Cloud Functions.
-/// A single user-document listener keeps badge synchronization lightweight.
-final totalUnreadMessageCountProvider = Provider<int>((ref) {
-  final userId = ref.watch(currentUserProvider).valueOrNull?.id;
-  if (userId == null) return 0;
-  return ref.watch(unreadChatCountProvider(userId)).valueOrNull ?? 0;
-});
-
-final unreadChatCountProvider = StreamProvider.family<int, String>((ref, uid) {
-  return ref.watch(firestoreServiceProvider).unreadChatCountStream(uid);
-});
-
-/// Badge value to publish to the operating system.
-final appBadgeCountProvider = Provider<int>((ref) {
-  final enabled =
-      ref.watch(currentUserProvider).valueOrNull?.appBadgeEnabled ?? false;
-  return enabled ? ref.watch(totalUnreadMessageCountProvider) : 0;
-});

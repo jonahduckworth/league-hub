@@ -7,6 +7,7 @@ import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings/notifications_screen.dart';
 import 'package:league_hub/providers/notification_preferences_provider.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
+import 'package:league_hub/services/app_badge_service.dart';
 
 final _testUser = AppUser(
   id: 'user-1',
@@ -43,6 +44,13 @@ class _RecordingAuthorizedFirestoreService
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecordingAppBadgeService implements AppBadgeService {
+  final counts = <int>[];
+
+  @override
+  Future<void> setBadgeCount(int count) async => counts.add(count);
 }
 
 Widget _buildTestWidget({
@@ -103,13 +111,15 @@ void main() {
 
       expect(find.text('Sound'), findsOneWidget);
       expect(find.text('Vibration'), findsOneWidget);
-      expect(find.text('Unread Chat Badge'), findsOneWidget);
+      expect(find.text('Chat Activity Badge'), findsOneWidget);
     });
 
     testWidgets('persists the unread chat badge preference', (tester) async {
       final service = _RecordingAuthorizedFirestoreService();
+      final badgeService = _RecordingAppBadgeService();
       await tester.pumpWidget(_buildTestWidget(overrides: [
         authorizedFirestoreServiceProvider.overrideWithValue(service),
+        appBadgeServiceProvider.overrideWithValue(badgeService),
       ]));
       await tester.pumpAndSettle();
 
@@ -119,6 +129,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(service.recordedAppBadgeEnabled, isFalse);
+      expect(badgeService.counts, [0]);
     });
 
     testWidgets('saves a selected announcement delivery option',
@@ -256,7 +267,7 @@ void main() {
       expect(find.text('Play sound for notifications'), findsOneWidget);
       expect(find.text('Vibrate for notifications'), findsOneWidget);
       expect(
-        find.text('Show unread chat messages on the app icon'),
+        find.text('Show a red app icon badge for new chat activity'),
         findsOneWidget,
       );
     });

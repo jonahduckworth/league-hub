@@ -887,36 +887,6 @@ void main() {
       expect(unread, 1);
     });
 
-    test('markMessagesAsRead clears more than the legacy 50-message limit',
-        () async {
-      for (var index = 0; index < 75; index++) {
-        await svc.sendMessage(
-          orgId,
-          roomId,
-          senderId: 'sender',
-          senderName: 'Sender',
-          text: 'Message $index',
-        );
-      }
-
-      await svc.markMessagesAsRead(orgId, roomId, 'reader');
-
-      expect(
-        await svc.unreadCountStream(orgId, roomId, 'reader').first,
-        0,
-      );
-    });
-
-    test('streams the server-maintained unread chat total', () async {
-      final user = makeUser('reader');
-      await svc.updateUser(user);
-      await fakeFirestore.collection('users').doc(user.id).update({
-        'unreadChatCount': 6,
-      });
-
-      expect(await svc.unreadChatCountStream(user.id).first, 6);
-    });
-
     test('persists guideline acceptance and blocked users', () async {
       final user = makeUser('reader');
       await svc.updateUser(user);

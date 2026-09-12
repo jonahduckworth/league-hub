@@ -1,23 +1,15 @@
-import {
-  onDocumentCreated as onFirestoreCreated,
-  onDocumentDeleted as onFirestoreDeleted,
-  onDocumentUpdated as onFirestoreUpdated,
-} from "firebase-functions/v2/firestore";
+import {onDocumentCreated as onFirestoreCreated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import {db, sendNotificationGroups} from "../helpers";
 import {
   canReceiveMessageNotification,
+  chatNotificationDeliveryGroups,
+  MessageNotificationUser,
   notificationLookupIds,
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
 } from "./messageLogic";
-import {
-  initializeUnreadChatAccounting,
-  markUnreadChatMessageRead,
-  removeDeletedUnreadChatMessage,
-  unreadChatDeliveryGroups,
-} from "./unreadChatAccounting";
 
 
 /**
@@ -66,7 +58,7 @@ export const onMessageCreated = onFirestoreCreated(
 
     // Explicit participants win. Open rooms use the same room visibility
     // criteria as Firestore rules so scoped rooms do not notify outsiders.
-    let recipientIds: string[];
+    let recipientUsers: MessageNotificationUser[];
 
     if (shouldUseExplicitParticipantRecipients(participants, teamIds)) {
       const lookupIds = notificationLookupIds(
@@ -81,20 +73,20 @@ export const onMessageCreated = onFirestoreCreated(
             .get(),
         ),
       );
-      recipientIds = participantUsers.flatMap((snapshot) => snapshot.docs)
+      recipientUsers = participantUsers.flatMap((snapshot) => snapshot.docs)
         .filter((user) => user.id !== senderId)
         .filter((user) => canReceiveMessageNotification(
           user.data(), senderId, roomType, hubId, leagueId, orgId, teamId,
           hubIds, teamIds, additionalMemberIds, user.id,
         ))
-        .map((user) => user.id);
+        .map((user) => user.data());
     } else {
       const usersSnap = await db
         .collection("users")
         .where("orgId", "==", orgId)
         .where("isActive", "==", true)
         .get();
-      recipientIds = usersSnap.docs
+      recipientUsers = usersSnap.docs
         .filter((d) =>
           canReceiveMessageNotification(
             d.data(),
@@ -110,23 +102,16 @@ export const onMessageCreated = onFirestoreCreated(
             d.id,
           ),
         )
-        .map((d) => d.id)
-        .filter((id) => id !== senderId);
+        .filter((d) => d.id !== senderId)
+        .map((d) => d.data());
     }
-
-    const notificationTargets = await initializeUnreadChatAccounting(
-      snapshot.ref,
-      orgId,
-      roomId,
-      recipientIds,
-    );
 
     // Truncate message preview.
     const preview = previewText.length > 100 ?
       previewText.substring(0, 97) + "..." : previewText;
 
     await sendNotificationGroups(
-      unreadChatDeliveryGroups(notificationTargets),
+      chatNotificationDeliveryGroups(recipientUsers),
       {
         title: roomType === "direct" ? senderName : roomName,
         body: roomType === "direct" ? preview : `${senderName}: ${preview}`,
@@ -136,42 +121,6 @@ export const onMessageCreated = onFirestoreCreated(
         roomId,
         orgId,
       },
-    );
-  },
-);
-
-export const onMessageReadUpdated = onFirestoreUpdated(
-  "organizations/{orgId}/chatRooms/{roomId}/messages/{messageId}",
-  async (event) => {
-    const before = event.data?.before;
-    const after = event.data?.after;
-    if (!before?.exists || !after?.exists) return;
-    const previousReaders = new Set(
-      Array.isArray(before.get("readBy")) ? before.get("readBy") as string[] : [],
-    );
-    const currentReaders = Array.isArray(after.get("readBy")) ?
-      after.get("readBy") as string[] : [];
-    const newReaders = currentReaders.filter((id) =>
-      typeof id === "string" && !previousReaders.has(id));
-    if (newReaders.length === 0) return;
-    await markUnreadChatMessageRead(
-      after.ref,
-      event.params.orgId,
-      event.params.roomId,
-      newReaders,
-    );
-  },
-);
-
-export const onMessageDeleted = onFirestoreDeleted(
-  "organizations/{orgId}/chatRooms/{roomId}/messages/{messageId}",
-  async (event) => {
-    const snapshot = event.data;
-    if (!snapshot) return;
-    await removeDeletedUnreadChatMessage(
-      event.params.orgId,
-      event.params.roomId,
-      snapshot.get("unreadRecipientIds"),
     );
   },
 );

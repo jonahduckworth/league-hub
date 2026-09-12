@@ -13,7 +13,6 @@ import 'core/firebase_emulator.dart';
 import 'firebase_options.dart';
 import 'navigation/router.dart';
 import 'providers/auth_provider.dart';
-import 'providers/notification_preferences_provider.dart';
 import 'services/app_badge_service.dart';
 import 'services/messaging_service.dart';
 import 'widgets/app_glass.dart';
@@ -99,13 +98,7 @@ class _LeagueHubAppState extends ConsumerState<LeagueHubApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    ref.listenManual<int>(
-      appBadgeCountProvider,
-      (_, count) => unawaited(
-        ref.read(appBadgeServiceProvider).setBadgeCount(count),
-      ),
-      fireImmediately: true,
-    );
+    unawaited(ref.read(appBadgeServiceProvider).setBadgeCount(0));
   }
 
   @override
@@ -117,6 +110,7 @@ class _LeagueHubAppState extends ConsumerState<LeagueHubApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
+    unawaited(ref.read(appBadgeServiceProvider).setBadgeCount(0));
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
     unawaited(

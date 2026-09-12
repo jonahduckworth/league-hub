@@ -1,5 +1,5 @@
 {
   "all": true,
   "targets": [],
-  "reason": "Deploy shared notification delivery changes and server-maintained unread chat badge accounting for every push function."
+  "reason": "Deploy shared notification delivery changes and the preference-aware binary chat activity badge."
 }
