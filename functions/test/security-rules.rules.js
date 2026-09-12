@@ -752,6 +752,27 @@ test("users can select only a supported announcement delivery preference", async
   }));
 });
 
+test("users can update only their own boolean app badge preference", async () => {
+  await seedFirestore([
+    ["users/member", user({id: "member"})],
+    ["users/other", user({id: "other"})],
+  ]);
+  const db = testEnv.authenticatedContext("member").firestore();
+
+  await assertSucceeds(updateDoc(doc(db, "users/member"), {
+    appBadgeEnabled: false,
+  }));
+  await assertFails(updateDoc(doc(db, "users/member"), {
+    appBadgeEnabled: "no",
+  }));
+  await assertFails(updateDoc(doc(db, "users/other"), {
+    appBadgeEnabled: false,
+  }));
+  await assertFails(updateDoc(doc(db, "users/member"), {
+    unreadChatCount: 99,
+  }));
+});
+
 test("message reports must reference a readable real message", async () => {
   const room = {
     id: "room-1",

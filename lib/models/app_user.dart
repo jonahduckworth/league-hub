@@ -35,6 +35,8 @@ class AppUser {
   final List<String> blockedUserIds;
   final bool hasAcceptedCommunityGuidelines;
   final AnnouncementDelivery announcementDelivery;
+  final bool appBadgeEnabled;
+  final int unreadChatCount;
 
   AppUser({
     required this.id,
@@ -53,35 +55,39 @@ class AppUser {
     this.blockedUserIds = const [],
     this.hasAcceptedCommunityGuidelines = false,
     this.announcementDelivery = AnnouncementDelivery.both,
+    this.appBadgeEnabled = true,
+    this.unreadChatCount = 0,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
-    id: json['id'] as String,
-    email: json['email'] as String,
-    displayName: json['displayName'] as String,
-    title: _optionalString(json['title']),
-    phone: _optionalString(json['phone']),
-    avatarUrl: json['avatarUrl'] as String?,
-    role: UserRole.values.firstWhere(
-      (e) => e.name == json['role'],
-      orElse: () => UserRole.staff,
-    ),
-    orgId: json['orgId'] as String?,
-    hubIds: List<String>.from(json['hubIds'] as List? ?? []),
-    leagueIds: List<String>.from(json['leagueIds'] as List? ?? []),
-    teamIds: List<String>.from(json['teamIds'] as List? ?? []),
-    createdAt: DateTime.parse(json['createdAt'] as String),
-    isActive: json['isActive'] as bool? ?? true,
-    blockedUserIds: (json['blockedUserIds'] as List? ?? const [])
-        .whereType<String>()
-        .toList(),
-    hasAcceptedCommunityGuidelines:
-        json['hasAcceptedCommunityGuidelines'] as bool? ?? false,
-    announcementDelivery: AnnouncementDelivery.values.firstWhere(
-      (delivery) => delivery.name == json['announcementDelivery'],
-      orElse: () => AnnouncementDelivery.both,
-    ),
-  );
+        id: json['id'] as String,
+        email: json['email'] as String,
+        displayName: json['displayName'] as String,
+        title: _optionalString(json['title']),
+        phone: _optionalString(json['phone']),
+        avatarUrl: json['avatarUrl'] as String?,
+        role: UserRole.values.firstWhere(
+          (e) => e.name == json['role'],
+          orElse: () => UserRole.staff,
+        ),
+        orgId: json['orgId'] as String?,
+        hubIds: List<String>.from(json['hubIds'] as List? ?? []),
+        leagueIds: List<String>.from(json['leagueIds'] as List? ?? []),
+        teamIds: List<String>.from(json['teamIds'] as List? ?? []),
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        isActive: json['isActive'] as bool? ?? true,
+        blockedUserIds: (json['blockedUserIds'] as List? ?? const [])
+            .whereType<String>()
+            .toList(),
+        hasAcceptedCommunityGuidelines:
+            json['hasAcceptedCommunityGuidelines'] as bool? ?? false,
+        announcementDelivery: AnnouncementDelivery.values.firstWhere(
+          (delivery) => delivery.name == json['announcementDelivery'],
+          orElse: () => AnnouncementDelivery.both,
+        ),
+        appBadgeEnabled: json['appBadgeEnabled'] as bool? ?? true,
+        unreadChatCount: json['unreadChatCount'] as int? ?? 0,
+      );
 
   Map<String, dynamic> toJson() {
     final data = <String, dynamic>{
@@ -99,6 +105,8 @@ class AppUser {
       'blockedUserIds': blockedUserIds,
       'hasAcceptedCommunityGuidelines': hasAcceptedCommunityGuidelines,
       'announcementDelivery': announcementDelivery.name,
+      'appBadgeEnabled': appBadgeEnabled,
+      'unreadChatCount': unreadChatCount,
     };
 
     final normalizedTitle = _optionalString(title);

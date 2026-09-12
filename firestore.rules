@@ -520,7 +520,8 @@ service cloud.firestore {
         'fcmTokens',
         'blockedUserIds',
         'hasAcceptedCommunityGuidelines',
-        'announcementDelivery'
+        'announcementDelivery',
+        'appBadgeEnabled'
       ]);
     }
 
@@ -549,10 +550,16 @@ service cloud.firestore {
     }
 
     function validSelfNotificationPreferences() {
-      return !('announcementDelivery' in request.resource.data)
-        || (
-          request.resource.data.announcementDelivery is string
-          && request.resource.data.announcementDelivery in ['both', 'push', 'email']
+      return (
+          !('announcementDelivery' in request.resource.data)
+          || (
+            request.resource.data.announcementDelivery is string
+            && request.resource.data.announcementDelivery in ['both', 'push', 'email']
+          )
+        )
+        && (
+          !('appBadgeEnabled' in request.resource.data)
+          || request.resource.data.appBadgeEnabled is bool
         );
     }
 

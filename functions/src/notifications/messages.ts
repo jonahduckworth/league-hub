@@ -1,6 +1,10 @@
-import { onDocumentCreated as onFirestoreCreated } from "firebase-functions/v2/firestore";
+import {
+  onDocumentCreated as onFirestoreCreated,
+  onDocumentDeleted as onFirestoreDeleted,
+  onDocumentUpdated as onFirestoreUpdated,
+} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
-import { db, getUserTokens, sendNotification } from "../helpers";
+import {db, sendNotificationGroups} from "../helpers";
 import {
   canReceiveMessageNotification,
   notificationLookupIds,
@@ -8,6 +12,12 @@ import {
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
 } from "./messageLogic";
+import {
+  initializeUnreadChatAccounting,
+  markUnreadChatMessageRead,
+  removeDeletedUnreadChatMessage,
+  unreadChatDeliveryGroups,
+} from "./unreadChatAccounting";
 
 
 /**
@@ -104,14 +114,19 @@ export const onMessageCreated = onFirestoreCreated(
         .filter((id) => id !== senderId);
     }
 
-    const tokens = await getUserTokens(recipientIds);
+    const notificationTargets = await initializeUnreadChatAccounting(
+      snapshot.ref,
+      orgId,
+      roomId,
+      recipientIds,
+    );
 
     // Truncate message preview.
     const preview = previewText.length > 100 ?
       previewText.substring(0, 97) + "..." : previewText;
 
-    await sendNotification(
-      tokens,
+    await sendNotificationGroups(
+      unreadChatDeliveryGroups(notificationTargets),
       {
         title: roomType === "direct" ? senderName : roomName,
         body: roomType === "direct" ? preview : `${senderName}: ${preview}`,
@@ -121,6 +136,42 @@ export const onMessageCreated = onFirestoreCreated(
         roomId,
         orgId,
       },
+    );
+  },
+);
+
+export const onMessageReadUpdated = onFirestoreUpdated(
+  "organizations/{orgId}/chatRooms/{roomId}/messages/{messageId}",
+  async (event) => {
+    const before = event.data?.before;
+    const after = event.data?.after;
+    if (!before?.exists || !after?.exists) return;
+    const previousReaders = new Set(
+      Array.isArray(before.get("readBy")) ? before.get("readBy") as string[] : [],
+    );
+    const currentReaders = Array.isArray(after.get("readBy")) ?
+      after.get("readBy") as string[] : [];
+    const newReaders = currentReaders.filter((id) =>
+      typeof id === "string" && !previousReaders.has(id));
+    if (newReaders.length === 0) return;
+    await markUnreadChatMessageRead(
+      after.ref,
+      event.params.orgId,
+      event.params.roomId,
+      newReaders,
+    );
+  },
+);
+
+export const onMessageDeleted = onFirestoreDeleted(
+  "organizations/{orgId}/chatRooms/{roomId}/messages/{messageId}",
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+    await removeDeletedUnreadChatMessage(
+      event.params.orgId,
+      event.params.roomId,
+      snapshot.get("unreadRecipientIds"),
     );
   },
 );

@@ -21,7 +21,6 @@ class NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
           'admin_alerts': true,
           'sound': true,
           'vibration': true,
-          'badge_count': true,
         });
 
   void toggle(String key) {
@@ -34,25 +33,21 @@ class NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
   }
 }
 
-/// Total unread chat messages across every room visible to the signed-in user.
-///
-/// The provider reuses the same bounded, per-room unread streams shown in the
-/// chat UI, so opening or reading a conversation immediately updates the icon.
+/// Total unread chat messages maintained transactionally by Cloud Functions.
+/// A single user-document listener keeps badge synchronization lightweight.
 final totalUnreadMessageCountProvider = Provider<int>((ref) {
-  final rooms = ref.watch(chatRoomsProvider).valueOrNull ?? const [];
-  return rooms.fold<int>(
-    0,
-    (total, room) =>
-        total + (ref.watch(unreadCountProvider(room.id)).valueOrNull ?? 0),
-  );
+  final userId = ref.watch(currentUserProvider).valueOrNull?.id;
+  if (userId == null) return 0;
+  return ref.watch(unreadChatCountProvider(userId)).valueOrNull ?? 0;
+});
+
+final unreadChatCountProvider = StreamProvider.family<int, String>((ref, uid) {
+  return ref.watch(firestoreServiceProvider).unreadChatCountStream(uid);
 });
 
 /// Badge value to publish to the operating system.
 final appBadgeCountProvider = Provider<int>((ref) {
-  final enabled = ref.watch(
-    notificationPrefsProvider.select(
-      (preferences) => preferences['badge_count'] ?? true,
-    ),
-  );
+  final enabled =
+      ref.watch(currentUserProvider).valueOrNull?.appBadgeEnabled ?? false;
   return enabled ? ref.watch(totalUnreadMessageCountProvider) : 0;
 });

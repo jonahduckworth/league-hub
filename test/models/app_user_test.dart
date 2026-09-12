@@ -38,6 +38,32 @@ void main() {
         expect(user.createdAt, testDate);
         expect(user.isActive, true);
         expect(user.announcementDelivery, AnnouncementDelivery.both);
+        expect(user.appBadgeEnabled, isTrue);
+        expect(user.unreadChatCount, 0);
+      });
+
+      test('parses unread badge fields and applies safe defaults', () {
+        final base = {
+          'id': 'user1',
+          'email': 'user@example.com',
+          'displayName': 'John',
+          'role': 'staff',
+          'hubIds': <String>[],
+          'teamIds': <String>[],
+          'createdAt': testDateStr,
+        };
+
+        final configured = AppUser.fromJson({
+          ...base,
+          'appBadgeEnabled': false,
+          'unreadChatCount': 7,
+        });
+        expect(configured.appBadgeEnabled, isFalse);
+        expect(configured.unreadChatCount, 7);
+
+        final defaults = AppUser.fromJson(base);
+        expect(defaults.appBadgeEnabled, isTrue);
+        expect(defaults.unreadChatCount, 0);
       });
 
       test('parses all UserRole values', () {
@@ -221,6 +247,8 @@ void main() {
         expect(json['createdAt'], testDateStr);
         expect(json['isActive'], false);
         expect(json['announcementDelivery'], 'both');
+        expect(json['appBadgeEnabled'], isTrue);
+        expect(json['unreadChatCount'], 0);
       });
     });
 

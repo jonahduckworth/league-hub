@@ -22,6 +22,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   AnnouncementDelivery? _savedDelivery;
   AnnouncementDelivery? _savingDelivery;
   String? _deliveryError;
+  bool? _savedAppBadgeEnabled;
+  bool _savingAppBadge = false;
 
   Future<void> _saveDelivery(
     AppUser user,
@@ -53,6 +55,35 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         _deliveryError =
             'We could not save that choice. Check your connection and try again.';
       });
+    }
+  }
+
+  Future<void> _saveAppBadgePreference(AppUser user, bool enabled) async {
+    if (_savingAppBadge) return;
+    final previous = _savedAppBadgeEnabled ?? user.appBadgeEnabled;
+    setState(() {
+      _savedAppBadgeEnabled = enabled;
+      _savingAppBadge = true;
+    });
+
+    try {
+      await ref
+          .read(authorizedFirestoreServiceProvider)
+          .updateOwnAppBadgePreference(user, enabled);
+      if (!mounted) return;
+      setState(() => _savingAppBadge = false);
+      ref.invalidate(currentUserProvider);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _savedAppBadgeEnabled = previous;
+        _savingAppBadge = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('We could not save the app badge preference.'),
+        ),
+      );
     }
   }
 
@@ -184,10 +215,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   const _GlassDivider(),
                   _ToggleTile(
                     icon: Icons.looks_one_outlined,
-                    title: 'Badge Count',
-                    subtitle: 'Show unread count on app icon',
-                    value: prefs['badge_count'] ?? true,
-                    onChanged: () => notifier.toggle('badge_count'),
+                    title: 'Unread Chat Badge',
+                    subtitle: 'Show unread chat messages on the app icon',
+                    value: _savedAppBadgeEnabled ??
+                        currentUser.valueOrNull?.appBadgeEnabled ??
+                        true,
+                    onChanged:
+                        currentUser.valueOrNull == null || _savingAppBadge
+                            ? null
+                            : () => _saveAppBadgePreference(
+                                  currentUser.valueOrNull!,
+                                  !(_savedAppBadgeEnabled ??
+                                      currentUser.valueOrNull!.appBadgeEnabled),
+                                ),
                   ),
                 ],
               ),
@@ -405,7 +445,7 @@ class _ToggleTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool value;
-  final VoidCallback onChanged;
+  final VoidCallback? onChanged;
 
   const _ToggleTile({
     required this.icon,
@@ -438,7 +478,7 @@ class _ToggleTile extends StatelessWidget {
       ),
       trailing: Switch.adaptive(
         value: value,
-        onChanged: (_) => onChanged(),
+        onChanged: onChanged == null ? null : (_) => onChanged!(),
         activeTrackColor: AppGlassColors.aqua.withValues(alpha: 0.48),
         activeThumbColor: AppGlassColors.aqua,
         inactiveTrackColor: Colors.white.withValues(alpha: 0.16),

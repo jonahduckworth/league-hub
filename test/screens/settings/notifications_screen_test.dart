@@ -23,6 +23,7 @@ final _testUser = AppUser(
 class _RecordingAuthorizedFirestoreService
     implements AuthorizedFirestoreService {
   AnnouncementDelivery? recordedDelivery;
+  bool? recordedAppBadgeEnabled;
 
   @override
   Future<void> updateOwnNotificationPreferences(
@@ -30,6 +31,14 @@ class _RecordingAuthorizedFirestoreService
     AnnouncementDelivery delivery,
   ) async {
     recordedDelivery = delivery;
+  }
+
+  @override
+  Future<void> updateOwnAppBadgePreference(
+    AppUser actor,
+    bool enabled,
+  ) async {
+    recordedAppBadgeEnabled = enabled;
   }
 
   @override
@@ -94,7 +103,22 @@ void main() {
 
       expect(find.text('Sound'), findsOneWidget);
       expect(find.text('Vibration'), findsOneWidget);
-      expect(find.text('Badge Count'), findsOneWidget);
+      expect(find.text('Unread Chat Badge'), findsOneWidget);
+    });
+
+    testWidgets('persists the unread chat badge preference', (tester) async {
+      final service = _RecordingAuthorizedFirestoreService();
+      await tester.pumpWidget(_buildTestWidget(overrides: [
+        authorizedFirestoreServiceProvider.overrideWithValue(service),
+      ]));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Switch).last);
+      await tester.pumpAndSettle();
+
+      expect(service.recordedAppBadgeEnabled, isFalse);
     });
 
     testWidgets('saves a selected announcement delivery option',
@@ -231,7 +255,10 @@ void main() {
 
       expect(find.text('Play sound for notifications'), findsOneWidget);
       expect(find.text('Vibrate for notifications'), findsOneWidget);
-      expect(find.text('Show unread count on app icon'), findsOneWidget);
+      expect(
+        find.text('Show unread chat messages on the app icon'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('has a scrollable ListView', (tester) async {
@@ -275,15 +302,14 @@ void main() {
       expect(prefs['admin_alerts'], isTrue);
       expect(prefs['sound'], isTrue);
       expect(prefs['vibration'], isTrue);
-      expect(prefs['badge_count'], isTrue);
     });
 
-    test('initial state has 8 keys', () {
+    test('initial state has 7 keys', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       final prefs = container.read(notificationPrefsProvider);
-      expect(prefs.length, 8);
+      expect(prefs.length, 7);
     });
 
     test('toggle flips a preference value', () {
@@ -342,12 +368,10 @@ void main() {
       final notifier = container.read(notificationPrefsProvider.notifier);
       notifier.toggle('chat_messages');
       notifier.toggle('team_updates');
-      notifier.toggle('badge_count');
 
       final prefs = container.read(notificationPrefsProvider);
       expect(prefs['chat_messages'], isFalse);
       expect(prefs['team_updates'], isFalse);
-      expect(prefs['badge_count'], isFalse);
       // Untouched remain true
       expect(prefs['policy_uploads'], isTrue);
       expect(prefs['sound'], isTrue);
