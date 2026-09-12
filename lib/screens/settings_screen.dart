@@ -83,6 +83,7 @@ Future<void> signOutFromSettings({
   required MessagingService messagingService,
   required AuthService authService,
 }) async {
+  messagingService.clearActiveUser();
   if (user != null) {
     await messagingService.removeToken(user.id);
   }

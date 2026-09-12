@@ -1,8 +1,8 @@
 {
   "all": false,
   "targets": [
-    "adminUpdateChatRoomAdditionalMembers",
-    "onMessageCreated"
+    "adminResendInvitation",
+    "adminResendExpiredInvitations"
   ],
-  "reason": "Add server-managed per-room league-staff access and include those members in chat notifications."
+  "reason": "Allow administrators to resend expired invitations individually or in a bounded bulk action."
 }

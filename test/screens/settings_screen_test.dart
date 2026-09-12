@@ -502,6 +502,7 @@ void main() {
         await tester.tap(find.text('Sign Out'));
         await tester.pumpAndSettle();
 
+        verify(messagingService.clearActiveUser()).called(1);
         verify(messagingService.removeToken(testUser.id)).called(1);
         verify(authService.signOut()).called(1);
         expect(find.text('Login Route'), findsOneWidget);

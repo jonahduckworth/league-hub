@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/screens/viewers/image_viewer_screen.dart';
 import 'package:league_hub/widgets/chat_bubble.dart';
 import 'package:league_hub/models/message.dart';
 
@@ -12,6 +13,7 @@ void main() {
     String senderName = 'Alice',
     String? text = 'Hello!',
     List<String>? readBy,
+    String? mediaUrl,
   }) =>
       Message(
         id: id,
@@ -19,6 +21,7 @@ void main() {
         senderId: senderId,
         senderName: senderName,
         text: text,
+        mediaUrl: mediaUrl,
         createdAt: testDate,
         readBy: readBy ?? [senderId],
       );
@@ -167,6 +170,79 @@ void main() {
 
       // Widget renders without throwing
       expect(find.byType(ChatBubble), findsOneWidget);
+    });
+
+    testWidgets('opens a chat photo in the zoomable full-screen viewer',
+        (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 568);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatBubble(
+              message: makeMessage(
+                senderName: 'Beth',
+                text: null,
+                mediaUrl: 'https://example.com/photo.jpg',
+              ),
+              isSelf: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics &&
+              widget.properties.label == 'Open photo from Beth',
+        ),
+        findsOneWidget,
+      );
+      final tapTargetSize = tester.getSize(
+        find.byKey(const Key('chat-image-msg1')),
+      );
+      expect(tapTargetSize.width, lessThanOrEqualTo(220));
+      expect(tapTargetSize.height, greaterThanOrEqualTo(48));
+      await tester.tap(find.byKey(const Key('chat-image-msg1')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byType(ImageViewerScreen), findsOneWidget);
+      expect(find.text('Photo from Beth'), findsOneWidget);
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+    });
+
+    testWidgets('keeps the photo target usable in compact landscape',
+        (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(568, 320);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatBubble(
+              message: makeMessage(
+                text: null,
+                mediaUrl: 'https://example.com/photo.jpg',
+              ),
+              isSelf: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final tapTargetSize = tester.getSize(
+        find.byKey(const Key('chat-image-msg1')),
+      );
+      expect(tapTargetSize.width, lessThanOrEqualTo(220));
+      expect(tapTargetSize.height, greaterThanOrEqualTo(48));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('offers separate reporting and blocking actions for others',
