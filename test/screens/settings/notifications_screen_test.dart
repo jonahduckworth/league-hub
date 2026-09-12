@@ -5,6 +5,7 @@ import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/settings/notifications_screen.dart';
+import 'package:league_hub/providers/notification_preferences_provider.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
 
 final _testUser = AppUser(

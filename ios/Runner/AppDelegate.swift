@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -34,9 +35,49 @@ import UIKit
         result(UIApplication.shared.alternateIconName)
       case "setIcon":
         self.setAlternateIcon(call: call, result: result)
+      case "setBadgeCount":
+        self.setBadgeCount(call: call, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+  }
+
+  private func setBadgeCount(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard
+      let args = call.arguments as? [String: Any],
+      let count = args["count"] as? Int,
+      count >= 0
+    else {
+      result(
+        FlutterError(
+          code: "invalid_badge_count",
+          message: "Badge count must be a non-negative integer.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    if #available(iOS 16.0, *) {
+      UNUserNotificationCenter.current().setBadgeCount(count) { error in
+        DispatchQueue.main.async {
+          if let error = error {
+            result(
+              FlutterError(
+                code: "set_badge_failed",
+                message: error.localizedDescription,
+                details: nil
+              )
+            )
+          } else {
+            result(nil)
+          }
+        }
+      }
+    } else {
+      UIApplication.shared.applicationIconBadgeNumber = count
+      result(nil)
     }
   }
 

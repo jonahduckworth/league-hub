@@ -5,41 +5,10 @@ import '../../core/theme.dart';
 import '../../models/app_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_providers.dart';
+import '../../providers/notification_preferences_provider.dart';
 import '../../widgets/app_glass.dart';
 import '../../widgets/app_shell_header.dart';
 import '../../widgets/app_shell_scaffold.dart';
-
-/// Notification preferences with FCM topic sync.
-final notificationPrefsProvider =
-    StateNotifierProvider<NotificationPrefsNotifier, Map<String, bool>>(
-  (ref) => NotificationPrefsNotifier(ref),
-);
-
-class NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
-  final Ref _ref;
-
-  NotificationPrefsNotifier(this._ref)
-      : super({
-          'chat_messages': true,
-          'policy_uploads': true,
-          'team_updates': true,
-          'event_reminders': true,
-          'admin_alerts': true,
-          'sound': true,
-          'vibration': true,
-          'badge_count': true,
-        });
-
-  void toggle(String key) {
-    state = {...state, key: !(state[key] ?? true)};
-
-    // Sync push notification topic subscriptions.
-    final orgId = _ref.read(organizationProvider).valueOrNull?.id;
-    if (orgId != null) {
-      _ref.read(messagingServiceProvider).syncPreferences(orgId, state);
-    }
-  }
-}
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
