@@ -9,6 +9,7 @@ import {
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
+  visibleRoomPreview,
 } from "./messageLogic";
 
 
@@ -163,11 +164,15 @@ export const onMessagePreviewCreated = onFirestoreCreated(
         createdAt.toMillis(),
         snapshot.id,
       )) return;
+      const visiblePreview = visibleRoomPreview(
+        current.accessMode,
+        senderName,
+        senderId,
+        previewText,
+      );
       transaction.update(roomRef, {
-        lastMessage: previewText,
+        ...visiblePreview,
         lastMessageAt: createdAt,
-        lastMessageBy: senderName,
-        lastMessageSenderId: senderId,
         lastMessageId: snapshot.id,
       });
     });

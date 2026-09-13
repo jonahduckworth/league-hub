@@ -20,6 +20,12 @@ export type ParticipantGroupRoom = {
   type?: unknown;
   roomPurpose?: unknown;
   accessMode?: unknown;
+  leagueId?: unknown;
+  hubId?: unknown;
+  teamId?: unknown;
+  hubIds?: unknown;
+  teamIds?: unknown;
+  additionalMemberIds?: unknown;
   participants?: unknown;
   isArchived?: unknown;
 };
@@ -33,11 +39,23 @@ export function canManageParticipantGroups(
   return actor.role === "superAdmin" && actor.orgId === orgId;
 }
 
-export function isParticipantGroupRoom(room: ParticipantGroupRoom): boolean {
+export function usesParticipantGroupAccess(room: ParticipantGroupRoom): boolean {
   return room.type === "event" &&
     room.roomPurpose === "group" &&
-    room.accessMode === "participants" &&
-    room.isArchived !== true;
+    room.accessMode === "participants";
+}
+
+export function isParticipantGroupRoom(room: ParticipantGroupRoom): boolean {
+  return usesParticipantGroupAccess(room) &&
+    room.isArchived !== true &&
+    room.leagueId == null &&
+    room.hubId === participantGroupScopeSentinel &&
+    room.teamId === participantGroupScopeSentinel &&
+    Array.isArray(room.hubIds) && room.hubIds.length === 0 &&
+    Array.isArray(room.teamIds) && room.teamIds.length === 0 &&
+    Array.isArray(room.additionalMemberIds) &&
+    room.additionalMemberIds.length === 0 &&
+    Array.isArray(room.participants);
 }
 
 export function sameParticipantIds(left: string[], right: string[]): boolean {

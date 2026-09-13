@@ -9,6 +9,7 @@
     "createMultiTeamEventRoom",
     "onHubStructureWritten",
     "onMessageCreated",
+    "onMessagePreviewCreated",
     "onStructureChatRoomCreated",
     "onTeamStructureWritten"
   ],

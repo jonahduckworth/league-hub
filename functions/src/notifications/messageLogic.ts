@@ -15,6 +15,12 @@ export type ChatNotificationDeliveryGroup = {
   badge?: number;
 };
 
+export type RoomPreviewContent = {
+  lastMessage: string;
+  lastMessageBy: string | null;
+  lastMessageSenderId: string | null;
+};
+
 const elevatedRoles = new Set(["platformOwner", "superAdmin"]);
 
 function hasId(values: unknown, id: string): boolean {
@@ -129,4 +135,29 @@ export function shouldReplaceRoomPreview(
     return incomingTimeMillis > currentTimeMillis;
   }
   return incomingMessageId.localeCompare(currentMessageId ?? "") > 0;
+}
+
+/**
+ * Room documents are readable by administrators for management. Participant-
+ * only rooms therefore store a generic activity preview so an unselected
+ * administrator cannot infer private message content or the sender.
+ */
+export function visibleRoomPreview(
+  accessMode: unknown,
+  senderName: string,
+  senderId: string,
+  previewText: string,
+): RoomPreviewContent {
+  if (accessMode === "participants") {
+    return {
+      lastMessage: "New message",
+      lastMessageBy: null,
+      lastMessageSenderId: null,
+    };
+  }
+  return {
+    lastMessage: previewText,
+    lastMessageBy: senderName,
+    lastMessageSenderId: senderId,
+  };
 }

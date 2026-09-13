@@ -7,6 +7,7 @@ const {
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
+  visibleRoomPreview,
 } = require("../lib/notifications/messageLogic");
 
 test("chat pushes use a binary badge unless the recipient disabled it", () => {
@@ -68,6 +69,25 @@ test("room previews ignore out-of-order trigger delivery", () => {
   assert.equal(shouldReplaceRoomPreview(100, "a", 200, "b"), true);
   assert.equal(shouldReplaceRoomPreview(100, "b", 100, "a"), false);
   assert.equal(shouldReplaceRoomPreview(100, "a", 100, "b"), true);
+});
+
+test("participant-only room metadata never exposes message previews or senders", () => {
+  assert.deepEqual(
+    visibleRoomPreview("participants", "Private Sender", "private-id", "Private text"),
+    {
+      lastMessage: "New message",
+      lastMessageBy: null,
+      lastMessageSenderId: null,
+    },
+  );
+  assert.deepEqual(
+    visibleRoomPreview("scope", "Visible Sender", "visible-id", "Visible text"),
+    {
+      lastMessage: "Visible text",
+      lastMessageBy: "Visible Sender",
+      lastMessageSenderId: "visible-id",
+    },
+  );
 });
 
 test("elevated users also receive no notification from blocked senders", () => {

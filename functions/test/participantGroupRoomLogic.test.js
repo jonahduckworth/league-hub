@@ -5,6 +5,7 @@ const {
   isParticipantGroupRoom,
   participantRecordsMatchOrganization,
   sameParticipantIds,
+  usesParticipantGroupAccess,
 } = require("../lib/participantGroupRoomLogic");
 
 test("only active Platform Owners and same-organization Admins manage Group Chats", () => {
@@ -21,12 +22,27 @@ test("participant-only Group Chats require the complete room contract", () => {
     type: "event",
     roomPurpose: "group",
     accessMode: "participants",
+    leagueId: null,
+    hubId: "__participant_group__",
+    teamId: "__participant_group__",
+    hubIds: [],
+    teamIds: [],
+    additionalMemberIds: [],
+    participants: ["admin", "staff"],
     isArchived: false,
   };
   assert.equal(isParticipantGroupRoom(room), true);
+  assert.equal(usesParticipantGroupAccess(room), true);
   assert.equal(isParticipantGroupRoom({...room, accessMode: "scope"}), false);
   assert.equal(isParticipantGroupRoom({...room, roomPurpose: "event"}), false);
   assert.equal(isParticipantGroupRoom({...room, isArchived: true}), false);
+  assert.equal(isParticipantGroupRoom({...room, hubId: "hub-1"}), false);
+  assert.equal(isParticipantGroupRoom({...room, teamIds: ["team-1"]}), false);
+  assert.equal(isParticipantGroupRoom({...room, additionalMemberIds: ["staff"]}), false);
+  assert.equal(
+    usesParticipantGroupAccess({...room, hubId: "tampered-scope"}),
+    true,
+  );
 });
 
 test("participant records can use any role but must be active and same-organization", () => {

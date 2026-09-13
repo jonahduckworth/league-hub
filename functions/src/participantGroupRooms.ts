@@ -73,8 +73,10 @@ function participantIds(
   return ids;
 }
 
-async function loadActor(userId: string, orgId: string) {
-  const snapshot = await db.collection("users").doc(userId).get();
+function assertActorCanManage(
+  snapshot: FirebaseFirestore.DocumentSnapshot,
+  orgId: string,
+): FirebaseFirestore.DocumentData {
   const actor = snapshot.data();
   if (!snapshot.exists || !canManageParticipantGroups(
     {...actor, id: snapshot.id},
@@ -86,6 +88,14 @@ async function loadActor(userId: string, orgId: string) {
     );
   }
   return actor ?? {};
+}
+
+function assertOrganizationExists(
+  snapshot: FirebaseFirestore.DocumentSnapshot,
+): void {
+  if (!snapshot.exists) {
+    throw new HttpsError("not-found", "Organization was not found.");
+  }
 }
 
 function assertValidParticipantSnapshots(
@@ -114,24 +124,41 @@ export const adminCreateParticipantGroupRoom = onCall(
     const orgId = requiredString(data.orgId, "orgId");
     const name = requiredString(data.name, "name", 120);
     const ids = participantIds(data.participantIds, "participantIds");
-    const actor = await loadActor(userId, orgId);
-    if (actor.orgId === orgId && !ids.includes(userId)) {
-      throw new HttpsError(
-        "invalid-argument",
-        "The person creating a Group Chat must be included as a participant.",
-      );
-    }
-    const roomRef = db.collection("organizations").doc(orgId)
+    const organizationRef = db.collection("organizations").doc(orgId);
+    const roomRef = organizationRef
       .collection("chatRooms").doc();
-    const auditRef = db.collection("organizations").doc(orgId)
+    const auditRef = organizationRef
       .collection("auditLogs").doc();
     const sortedIds = [...ids].sort();
+    const transactionUserIds = [...new Set([userId, ...sortedIds])];
     const timestamp = admin.firestore.FieldValue.serverTimestamp();
     await db.runTransaction(async (transaction) => {
-      const snapshots = await transaction.getAll(
-        ...sortedIds.map((id) => db.collection("users").doc(id)),
+      const [organizationSnapshot, ...userSnapshots] = await transaction.getAll(
+        organizationRef,
+        ...transactionUserIds.map((id) => db.collection("users").doc(id)),
       );
-      assertValidParticipantSnapshots(orgId, sortedIds, snapshots);
+      assertOrganizationExists(organizationSnapshot);
+      const snapshotsById = new Map(userSnapshots.map((snapshot) => [
+        snapshot.id,
+        snapshot,
+      ]));
+      const actorSnapshot = snapshotsById.get(userId);
+      if (!actorSnapshot) {
+        throw new HttpsError("permission-denied", "No user profile exists.");
+      }
+      const actor = assertActorCanManage(actorSnapshot, orgId);
+      if (actor.orgId === orgId && !sortedIds.includes(userId)) {
+        throw new HttpsError(
+          "invalid-argument",
+          "The person creating a Group Chat must be included as a participant.",
+        );
+      }
+      const participantSnapshots = sortedIds
+        .map((id) => snapshotsById.get(id))
+        .filter((snapshot): snapshot is FirebaseFirestore.DocumentSnapshot =>
+          snapshot !== undefined,
+        );
+      assertValidParticipantSnapshots(orgId, sortedIds, participantSnapshots);
       transaction.set(roomRef, {
         orgId,
         name,
@@ -190,20 +217,38 @@ export const adminUpdateParticipantGroupRoomMembers = onCall(
       0,
     );
     const requestedIds = participantIds(data.participantIds, "participantIds");
-    const actor = await loadActor(userId, orgId);
-    const roomRef = db.collection("organizations").doc(orgId)
+    const organizationRef = db.collection("organizations").doc(orgId);
+    const roomRef = organizationRef
       .collection("chatRooms").doc(roomId);
-    const auditRef = db.collection("organizations").doc(orgId)
+    const auditRef = organizationRef
       .collection("auditLogs").doc();
     const sortedIds = [...requestedIds].sort();
+    const transactionUserIds = [...new Set([userId, ...sortedIds])];
     const addedIds = sortedIds.filter((id) => !expectedIds.includes(id));
     const removedIds = expectedIds.filter((id) => !sortedIds.includes(id));
 
     await db.runTransaction(async (transaction) => {
-      const [roomSnapshot, ...requestedSnapshots] = await transaction.getAll(
-        roomRef,
-        ...sortedIds.map((id) => db.collection("users").doc(id)),
-      );
+      const [organizationSnapshot, roomSnapshot, ...userSnapshots] =
+        await transaction.getAll(
+          organizationRef,
+          roomRef,
+          ...transactionUserIds.map((id) => db.collection("users").doc(id)),
+        );
+      assertOrganizationExists(organizationSnapshot);
+      const snapshotsById = new Map(userSnapshots.map((snapshot) => [
+        snapshot.id,
+        snapshot,
+      ]));
+      const actorSnapshot = snapshotsById.get(userId);
+      if (!actorSnapshot) {
+        throw new HttpsError("permission-denied", "No user profile exists.");
+      }
+      const actor = assertActorCanManage(actorSnapshot, orgId);
+      const requestedSnapshots = sortedIds
+        .map((id) => snapshotsById.get(id))
+        .filter((snapshot): snapshot is FirebaseFirestore.DocumentSnapshot =>
+          snapshot !== undefined,
+        );
       assertValidParticipantSnapshots(orgId, sortedIds, requestedSnapshots);
       const room = roomSnapshot.data();
       const currentIds = Array.isArray(room?.participants) ?
