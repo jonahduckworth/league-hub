@@ -661,6 +661,7 @@ test("direct rooms reject shared-room purpose metadata", async () => {
     id: "dm-1",
     orgId: "org-1",
     type: "direct",
+    accessMode: "participants",
     participants: ["member", "peer"],
     name: "Member & Peer",
   };
@@ -889,6 +890,109 @@ test("direct room messages remain private when admins can inspect room metadata"
     where("type", "==", "direct"),
     where("isArchived", "==", false),
   )));
+});
+
+test("participant-only Group Chat content is limited to selected people", async () => {
+  const group = {
+    id: "leadership",
+    orgId: "org-1",
+    type: "event",
+    roomPurpose: "group",
+    accessMode: "participants",
+    leagueId: null,
+    hubId: "__participant_group__",
+    teamId: "__participant_group__",
+    hubIds: [],
+    teamIds: [],
+    additionalMemberIds: [],
+    participants: ["member", "manager"],
+    name: "Leadership",
+    isArchived: false,
+  };
+  await seedFirestore([
+    ["users/member", user({id: "member", displayName: "Member"})],
+    ["users/manager", user({
+      id: "manager",
+      displayName: "Manager",
+      role: "managerAdmin",
+      hubIds: ["hub-1"],
+    })],
+    ["users/outsider", user({id: "outsider", displayName: "Outsider"})],
+    ["users/admin", user({
+      id: "admin",
+      displayName: "Admin",
+      role: "superAdmin",
+    })],
+    ["organizations/org-1/chatRooms/leadership", group],
+    ["organizations/org-1/chatRooms/leadership/messages/message-1", {
+      chatRoomId: "leadership",
+      senderId: "member",
+      senderName: "Member",
+      text: "Private leadership message",
+      previewText: "Private leadership message",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      readBy: ["member"],
+    }],
+  ]);
+
+  const participantDb = testEnv.authenticatedContext("manager").firestore();
+  const outsiderDb = testEnv.authenticatedContext("outsider").firestore();
+  const adminDb = testEnv.authenticatedContext("admin").firestore();
+  const roomPath = "organizations/org-1/chatRooms/leadership";
+  const messagePath = `${roomPath}/messages/message-1`;
+
+  await assertSucceeds(getDoc(doc(participantDb, roomPath)));
+  await assertFails(getDoc(doc(outsiderDb, roomPath)));
+  // Admin Portal users can inspect and manage room metadata, but content stays
+  // private unless the admin is explicitly selected.
+  await assertSucceeds(getDoc(doc(adminDb, roomPath)));
+  await assertSucceeds(getDoc(doc(participantDb, messagePath)));
+  await assertFails(getDoc(doc(outsiderDb, messagePath)));
+  await assertFails(getDoc(doc(adminDb, messagePath)));
+  const participantMessage = {
+    chatRoomId: "leadership",
+    senderId: "manager",
+    senderName: "Manager",
+    text: "Selected people can post",
+    previewText: "Selected people can post",
+    createdAt: serverTimestamp(),
+    readBy: ["manager"],
+  };
+  await assertSucceeds(setDoc(
+    doc(participantDb, `${roomPath}/messages/message-2`),
+    participantMessage,
+  ));
+  await assertFails(setDoc(
+    doc(adminDb, `${roomPath}/messages/admin-message`),
+    {
+      ...participantMessage,
+      senderId: "admin",
+      senderName: "Admin",
+      readBy: ["admin"],
+    },
+  ));
+
+  const rooms = collection(
+    participantDb,
+    "organizations/org-1/chatRooms",
+  );
+  const snapshot = await assertSucceeds(getDocs(query(
+    rooms,
+    where("orgId", "==", "org-1"),
+    where("isArchived", "==", false),
+    where("type", "==", "event"),
+    where("accessMode", "==", "participants"),
+    where("participants", "array-contains", "manager"),
+  )));
+  assert.deepEqual(snapshot.docs.map((item) => item.id), ["leadership"]);
+
+  await assertFails(setDoc(
+    doc(adminDb, "organizations/org-1/chatRooms/forged-private-group"),
+    {...group, id: "forged-private-group", participants: ["admin", "member"]},
+  ));
+  await assertFails(updateDoc(doc(adminDb, roomPath), {
+    participants: ["member", "manager", "admin"],
+  }));
 });
 
 test("staff can send constrained messages only to readable rooms", async () => {

@@ -555,6 +555,9 @@ class PermissionService {
   /// Returns true if [user] should see [room] based on type and assignments.
   bool canViewChatRoom(AppUser user, ChatRoom room) {
     if (!isActiveUser(user)) return false;
+    if (room.isParticipantGroupRoom) {
+      return room.participants.contains(user.id);
+    }
     if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     // DMs: only participants.
     if (room.type == ChatRoomType.direct) {

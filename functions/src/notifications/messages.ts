@@ -48,6 +48,7 @@ export const onMessageCreated = onFirestoreCreated(
     const roomName = (roomData.name as string) || "Chat";
     const participants = (roomData.participants as string[]) || [];
     const roomType = (roomData.type as string) || "league";
+    const accessMode = roomData.accessMode as string | undefined;
     const hubId = roomData.hubId as string | undefined;
     const leagueId = roomData.leagueId as string | undefined;
     const teamId = roomData.teamId as string | undefined;
@@ -60,11 +61,16 @@ export const onMessageCreated = onFirestoreCreated(
     // criteria as Firestore rules so scoped rooms do not notify outsiders.
     let recipientUsers: MessageNotificationUser[];
 
-    if (shouldUseExplicitParticipantRecipients(participants, teamIds)) {
+    if (shouldUseExplicitParticipantRecipients(
+      participants,
+      teamIds,
+      accessMode,
+    )) {
       const lookupIds = notificationLookupIds(
         participants,
         additionalMemberIds,
         roomType,
+        accessMode,
       );
       const participantUsers = await Promise.all(
         participantLookupBatches(lookupIds).map((ids) =>
@@ -77,7 +83,7 @@ export const onMessageCreated = onFirestoreCreated(
         .filter((user) => user.id !== senderId)
         .filter((user) => canReceiveMessageNotification(
           user.data(), senderId, roomType, hubId, leagueId, orgId, teamId,
-          hubIds, teamIds, additionalMemberIds, user.id,
+          hubIds, teamIds, additionalMemberIds, user.id, accessMode,
         ))
         .map((user) => user.data());
     } else {

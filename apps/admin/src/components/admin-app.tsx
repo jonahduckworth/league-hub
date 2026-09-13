@@ -66,6 +66,13 @@ import {
   MAX_ADDITIONAL_ROOM_MEMBERS,
   roomSupportsAdditionalMembers
 } from "@/lib/room-additional-members";
+import {
+  isParticipantGroupRoom,
+  MAX_PARTICIPANT_GROUP_MEMBERS,
+  MIN_PARTICIPANT_GROUP_MEMBERS,
+  participantGroupMemberOptions,
+  participantIdsChanged
+} from "@/lib/participant-group-rooms";
 import { isPolicyFileAllowed, policyStoragePath, POLICY_CATEGORIES, POLICY_FILE_MAX_BYTES, runReservedPolicyUpload } from "@/lib/policy-upload";
 import { buildStructureRelationshipIndex, type StructureRelationshipIndex } from "@/lib/structure-relationships";
 import { structureLogoStoragePath, validateStructureLogoFile } from "@/lib/structure-logo";
@@ -1103,7 +1110,7 @@ function DrawerSection({ title, children }: { title: string; children: React.Rea
       <div className="border-b border-line/70 bg-white px-4 py-3 sm:px-5">
         <h3 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted">{title}</h3>
       </div>
-      <div className="grid gap-3.5 p-4 sm:p-5">{children}</div>
+      <div className="grid min-w-0 gap-3.5 p-4 sm:p-5">{children}</div>
     </section>
   );
 }
@@ -3165,7 +3172,7 @@ function StructureCreateDrawer({
   );
 }
 
-type ChatRoomView = "all" | "hub" | "team" | "league" | "direct";
+type ChatRoomView = "all" | "group" | "hub" | "team" | "league" | "direct";
 
 const multiTeamRoomScopeSentinel = "__multi_team__";
 
@@ -3203,6 +3210,7 @@ type ChatRoomSetupPreview = {
 
 function chatRoomView(room: ChatRoom): Exclude<ChatRoomView, "all"> {
   if (room.type === "direct") return "direct";
+  if (isParticipantGroupRoom(room)) return "group";
   if (room.type === "event") return "league";
   if (room.teamId) return "team";
   if (room.hubId) return "hub";
@@ -3212,6 +3220,7 @@ function chatRoomView(room: ChatRoom): Exclude<ChatRoomView, "all"> {
 function chatRoomViewLabel(room: ChatRoom): string {
   const view = chatRoomView(room);
   if (view === "direct") return "Direct message";
+  if (view === "group") return "Group Chat";
   if (view === "team") return "Team room";
   if (view === "hub") return "Hub room";
   return room.type === "event" && room.roomPurpose !== "group" ? "Event room" : "League room";
@@ -3230,7 +3239,8 @@ function ChatRoomsSection({
   const [view, setView] = useState<ChatRoomView>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<ChatRoomSetupPreview | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createEventOpen, setCreateEventOpen] = useState(false);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const selectedRoom = selectedId ? data.chatRooms.find((room) => room.id === selectedId) ?? null : null;
@@ -3259,6 +3269,7 @@ function ChatRoomsSection({
     .sort((left, right) => left.name.localeCompare(right.name));
   const filters: Array<WorkspaceFilterItem<ChatRoomView>> = [
     { id: "all", label: "All Rooms", count: data.chatRooms.length, icon: MessageSquare },
+    { id: "group", label: "Group Chats", count: data.chatRooms.filter((room) => chatRoomView(room) === "group").length, icon: Users },
     { id: "hub", label: "Hub", count: data.chatRooms.filter((room) => chatRoomView(room) === "hub").length, icon: MapPin },
     { id: "team", label: "Team", count: data.chatRooms.filter((room) => chatRoomView(room) === "team").length, icon: Users },
     { id: "league", label: "League & Event", count: data.chatRooms.filter((room) => chatRoomView(room) === "league").length, icon: Trophy },
@@ -3266,6 +3277,7 @@ function ChatRoomsSection({
   ];
   const panelCopy: Record<ChatRoomView, { title: string; description: string }> = {
     all: { title: "Active Chat Rooms", description: "Every active room in the selected organization." },
+    group: { title: "Group Chats", description: "Private rooms whose access is controlled by an explicit participant list." },
     hub: { title: "Hub Rooms", description: "General rooms scoped to an individual hub." },
     team: { title: "Team Rooms", description: "General rooms scoped to an individual team." },
     league: { title: "League & Event Rooms", description: "Organization, league, and event-wide conversations." },
@@ -3315,7 +3327,11 @@ function ChatRoomsSection({
               {previewLoading ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <ClipboardList className="size-4" aria-hidden />}
               {previewLoading ? "Checking setup…" : "Review Room Setup"}
             </Button>
-            <ToolbarActionButton icon={Plus} onClick={() => setCreateOpen(true)}>
+            <Button variant="secondary" onClick={() => setCreateGroupOpen(true)}>
+              <Users className="size-4" aria-hidden />
+              New Group Chat
+            </Button>
+            <ToolbarActionButton icon={Plus} onClick={() => setCreateEventOpen(true)}>
               New Event Room
             </ToolbarActionButton>
           </div>
@@ -3382,11 +3398,18 @@ function ChatRoomsSection({
         )}
       </ManagementWorkspace>
       <CreateEventRoomDrawer
-        open={createOpen}
+        open={createEventOpen}
         data={data}
         currentUser={currentUser}
         runAction={runAction}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => setCreateEventOpen(false)}
+      />
+      <CreateParticipantGroupRoomDrawer
+        open={createGroupOpen}
+        data={data}
+        currentUser={currentUser}
+        runAction={runAction}
+        onClose={() => setCreateGroupOpen(false)}
       />
       <ChatRoomDrawer room={selectedRoom} data={data} currentUser={currentUser} runAction={runAction} onClose={() => setSelectedId(null)} />
       <SideDrawer
@@ -3597,7 +3620,7 @@ function AdditionalRoomMemberSelector({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 gap-3">
       <div role="status" aria-live="polite" className="rounded-2xl border border-teal/20 bg-teal/[0.055] px-4 py-3">
         <p className="text-sm font-extrabold text-ink">
           {selectedMemberIds.size === 1 ? "1 person" : `${selectedMemberIds.size} people`} selected
@@ -3623,7 +3646,7 @@ function AdditionalRoomMemberSelector({
       ) : filteredOptions.length === 0 ? (
         <EmptyLine label="No league staff match that search" />
       ) : (
-        <fieldset className="thin-scrollbar grid max-h-80 gap-1 overflow-y-auto rounded-2xl border border-line bg-white p-2">
+        <fieldset className="thin-scrollbar grid min-w-0 max-h-80 gap-1 overflow-y-auto rounded-2xl border border-line bg-white p-2">
           <legend className="sr-only">Additional league staff with access to this room</legend>
           {visibleOptions.map((option) => {
             const selected = selectedMemberIds.has(option.id);
@@ -3665,6 +3688,244 @@ function AdditionalRoomMemberSelector({
         </p>
       )}
     </div>
+  );
+}
+
+function ParticipantGroupMemberSelector({
+  data,
+  orgId,
+  existingParticipantIds,
+  selectedParticipantIds,
+  lockedParticipantId,
+  disabled,
+  resetKey,
+  onChange,
+  onLimitMessage
+}: {
+  data: AdminData;
+  orgId: string;
+  existingParticipantIds: string[];
+  selectedParticipantIds: Set<string>;
+  lockedParticipantId?: string;
+  disabled: boolean;
+  resetKey: string;
+  onChange: (participantIds: Set<string>) => void;
+  onLimitMessage: (message: string | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const existingIds = new Set(existingParticipantIds);
+  const options = participantGroupMemberOptions(data.users, orgId, existingParticipantIds);
+  const filteredOptions = options.filter((option) => matchesQuery([
+    option.displayName,
+    option.email,
+    option.title,
+    option.role ? roleLabel(option.role) : undefined,
+    option.id
+  ], query));
+  const visibleOptions = filteredOptions.slice(0, 100);
+
+  useEffect(() => setQuery(""), [resetKey]);
+
+  function toggleParticipant(participantId: string, checked: boolean) {
+    if (participantId === lockedParticipantId) return;
+    if (checked && !selectedParticipantIds.has(participantId) &&
+        selectedParticipantIds.size >= MAX_PARTICIPANT_GROUP_MEMBERS) {
+      onLimitMessage(`Group Chats can include up to ${MAX_PARTICIPANT_GROUP_MEMBERS} people.`);
+      return;
+    }
+    onLimitMessage(null);
+    const next = new Set(selectedParticipantIds);
+    if (checked) next.add(participantId);
+    else next.delete(participantId);
+    onChange(next);
+  }
+
+  return (
+    <div className="grid min-w-0 gap-3">
+      <div role="status" aria-live="polite" className="rounded-2xl border border-teal/20 bg-teal/[0.055] px-4 py-3">
+        <p className="text-sm font-extrabold text-ink">
+          {selectedParticipantIds.size === 1 ? "1 person" : `${selectedParticipantIds.size} people`} selected
+        </p>
+        <p className="mt-1 text-xs font-semibold leading-5 text-muted">
+          Only selected people can open the conversation, read its history, post messages, and receive notifications. Maximum {MAX_PARTICIPANT_GROUP_MEMBERS} people.
+        </p>
+      </div>
+      <Field label="Search people">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by name, role, title, or email"
+            className="pl-10"
+            disabled={disabled || options.length === 0}
+          />
+        </div>
+      </Field>
+      {options.length === 0 ? (
+        <EmptyLine label="No active people are available" />
+      ) : filteredOptions.length === 0 ? (
+        <EmptyLine label="No people match that search" />
+      ) : (
+        <fieldset className="thin-scrollbar grid min-w-0 max-h-80 gap-1 overflow-y-auto rounded-2xl border border-line bg-white p-2">
+          <legend className="sr-only">People included in this Group Chat</legend>
+          {visibleOptions.map((option) => {
+            const selected = selectedParticipantIds.has(option.id);
+            const locked = option.id === lockedParticipantId;
+            const canSelect = option.isEligible || existingIds.has(option.id);
+            return (
+              <label
+                key={option.id}
+                className={`flex min-h-14 items-center gap-3 rounded-xl px-3 py-2 transition-colors focus-within:bg-teal/[0.04] ${canSelect && !disabled && !locked ? "cursor-pointer hover:bg-[#f8fafc]" : "cursor-not-allowed opacity-65"}`}
+              >
+                <input
+                  type="checkbox"
+                  className="size-5 shrink-0 accent-teal"
+                  checked={selected}
+                  onChange={(event) => toggleParticipant(option.id, event.target.checked)}
+                  disabled={disabled || locked || !canSelect}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-ink">{option.displayName}</span>
+                  <span className="mt-0.5 block truncate text-xs font-semibold text-muted">
+                    {[option.role ? roleLabel(option.role) : null, option.title, option.email].filter(Boolean).join(" · ") || option.id}
+                  </span>
+                  {!option.isEligible && existingIds.has(option.id) && (
+                    <span className="mt-1 block text-xs font-bold text-[#854d0e]">
+                      {option.isKnown && !option.isActive
+                        ? "Inactive account · existing access can be removed"
+                        : "No longer available · existing access can be removed"}
+                    </span>
+                  )}
+                </span>
+                {locked ? <Badge tone="neutral">You · required</Badge> : selected ? <Badge tone={option.isEligible ? "info" : "warning"}>Included</Badge> : null}
+              </label>
+            );
+          })}
+        </fieldset>
+      )}
+      {filteredOptions.length > visibleOptions.length && (
+        <p role="status" className="text-xs font-semibold leading-5 text-muted">
+          Showing the first 100 matches. Refine the search to find someone else.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function CreateParticipantGroupRoomDrawer({
+  open,
+  data,
+  currentUser,
+  runAction,
+  onClose
+}: {
+  open: boolean;
+  data: AdminData;
+  currentUser: AppUser;
+  runAction: ActionRunner;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const orgId = data.selectedOrg?.id;
+  const creatorBelongsToSelectedOrg = Boolean(data.users.some((user) =>
+    user.id === currentUser.id && user.orgId === orgId && user.isActive
+  ));
+
+  useEffect(() => {
+    if (!open) return;
+    setName("");
+    setSelectedParticipantIds(new Set(
+      creatorBelongsToSelectedOrg ? [currentUser.id] : []
+    ));
+    setFormError(null);
+    setSubmitting(false);
+  }, [creatorBelongsToSelectedOrg, currentUser.id, orgId, open]);
+
+  async function createRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError(null);
+    if (!orgId) {
+      setFormError("Select an organization first.");
+      return;
+    }
+    if (!name.trim()) {
+      setFormError("Enter a Group Chat name.");
+      return;
+    }
+    if (selectedParticipantIds.size < MIN_PARTICIPANT_GROUP_MEMBERS) {
+      setFormError(`Select at least ${MIN_PARTICIPANT_GROUP_MEMBERS} people.`);
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await runAction("adminCreateParticipantGroupRoom", {
+      name: name.trim(),
+      participantIds: [...selectedParticipantIds].sort()
+    });
+    setSubmitting(false);
+    if (!result.ok) {
+      setFormError(result.error);
+      return;
+    }
+    onClose();
+  }
+
+  return (
+    <SideDrawer
+      open={open}
+      title="New Group Chat"
+      description="Create a private conversation by selecting any active people in the organization."
+      icon={Users}
+      onClose={() => !submitting && onClose()}
+    >
+      <form className="grid gap-5" onSubmit={createRoom}>
+        <DrawerSection title="Group details">
+          <Field label="Group name" hint={`${name.length}/120`}>
+            <Input
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setFormError(null);
+              }}
+              maxLength={120}
+              placeholder="League leadership"
+              required
+              disabled={submitting}
+            />
+          </Field>
+        </DrawerSection>
+        {orgId && (
+          <DrawerSection title="Participants">
+            <p className="text-sm font-medium leading-6 text-muted">
+              Team and Hub assignments do not apply. Choose the exact people who should have access{creatorBelongsToSelectedOrg ? "; you are included when the room is created" : ""}.
+            </p>
+            <ParticipantGroupMemberSelector
+              data={data}
+              orgId={orgId}
+              existingParticipantIds={[]}
+              selectedParticipantIds={selectedParticipantIds}
+              lockedParticipantId={creatorBelongsToSelectedOrg ? currentUser.id : undefined}
+              disabled={submitting}
+              resetKey={`${orgId}:${open ? "open" : "closed"}`}
+              onChange={setSelectedParticipantIds}
+              onLimitMessage={setFormError}
+            />
+          </DrawerSection>
+        )}
+        {formError && <StatusNotice tone="error" message={formError} />}
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button type="button" variant="secondary" disabled={submitting} onClick={onClose}>Cancel</Button>
+          <Button type="submit" disabled={submitting || !name.trim() || selectedParticipantIds.size < MIN_PARTICIPANT_GROUP_MEMBERS}>
+            {submitting ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <Users className="size-4" aria-hidden />}
+            {submitting ? "Creating Group Chat…" : "Create Group Chat"}
+          </Button>
+        </div>
+      </form>
+    </SideDrawer>
   );
 }
 
@@ -3988,9 +4249,16 @@ export function ChatRoomDrawer({
   const [additionalMemberError, setAdditionalMemberError] = useState<string | null>(null);
   const [additionalMemberSaved, setAdditionalMemberSaved] = useState(false);
   const [confirmingAdditionalMemberRemoval, setConfirmingAdditionalMemberRemoval] = useState(false);
+  const [participantBaselineIds, setParticipantBaselineIds] = useState<string[]>([]);
+  const [participantIds, setParticipantIds] = useState<Set<string>>(new Set());
+  const [participantSaving, setParticipantSaving] = useState(false);
+  const [participantError, setParticipantError] = useState<string | null>(null);
+  const [participantSaved, setParticipantSaved] = useState(false);
+  const [confirmingParticipantRemoval, setConfirmingParticipantRemoval] = useState(false);
   const archiveCancelRef = useRef<HTMLButtonElement>(null);
   const audienceCancelRef = useRef<HTMLButtonElement>(null);
   const additionalMemberCancelRef = useRef<HTMLButtonElement>(null);
+  const participantCancelRef = useRef<HTMLButtonElement>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -4023,6 +4291,13 @@ export function ChatRoomDrawer({
     setAdditionalMemberError(null);
     setAdditionalMemberSaved(false);
     setConfirmingAdditionalMemberRemoval(false);
+    const initialParticipantIds = [...(room?.participants ?? [])].sort();
+    setParticipantBaselineIds(initialParticipantIds);
+    setParticipantIds(new Set(initialParticipantIds));
+    setParticipantSaving(false);
+    setParticipantError(null);
+    setParticipantSaved(false);
+    setConfirmingParticipantRemoval(false);
   }, [room]);
 
   useEffect(() => {
@@ -4043,11 +4318,19 @@ export function ChatRoomDrawer({
     return () => window.cancelAnimationFrame(focusFrame);
   }, [confirmingAdditionalMemberRemoval]);
 
+  useEffect(() => {
+    if (!confirmingParticipantRemoval) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => participantCancelRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [confirmingParticipantRemoval]);
+
   const managed = room?.type !== "direct";
+  const participantGroup = isParticipantGroupRoom(room);
+  const canReadConversation = !participantGroup || Boolean(room?.participants.includes(currentUser.id));
   const orgId = room?.orgId ?? data.selectedOrg?.id;
   const conversation = useChatRoomMessages(
-    managed ? orgId : undefined,
-    managed ? room?.id : undefined
+    managed && canReadConversation ? orgId : undefined,
+    managed && canReadConversation ? room?.id : undefined
   );
   const league = room?.leagueId ? data.leagues.find((item) => item.id === room.leagueId) : undefined;
   const hub = room?.hubId ? data.hubs.find((item) => item.id === room.hubId) : undefined;
@@ -4078,6 +4361,10 @@ export function ChatRoomDrawer({
   const addedAdditionalMemberIds = orderedAdditionalMemberIds.filter((id) => !additionalMemberBaselineIds.includes(id));
   const removedAdditionalMemberIds = additionalMemberBaselineIds.filter((id) => !additionalMemberIds.has(id));
   const additionalMembersChanged = addedAdditionalMemberIds.length > 0 || removedAdditionalMemberIds.length > 0;
+  const orderedParticipantIds = [...participantIds].sort();
+  const addedParticipantIds = orderedParticipantIds.filter((id) => !participantBaselineIds.includes(id));
+  const removedParticipantIds = participantBaselineIds.filter((id) => !participantIds.has(id));
+  const participantsChanged = participantIdsChanged(participantBaselineIds, participantIds);
 
   useEffect(() => {
     if (conversation.loading || conversation.messages.length === 0) return;
@@ -4175,6 +4462,36 @@ export function ChatRoomDrawer({
     setAdditionalMemberSaving(false);
   }
 
+  async function saveParticipants(confirmedRemoval = false) {
+    if (!room || !participantGroup || participantSaving || !participantsChanged) return;
+    setParticipantError(null);
+    setParticipantSaved(false);
+    if (orderedParticipantIds.length < MIN_PARTICIPANT_GROUP_MEMBERS) {
+      setParticipantError(`Select at least ${MIN_PARTICIPANT_GROUP_MEMBERS} people.`);
+      return;
+    }
+    if (removedParticipantIds.length > 0 && !confirmedRemoval) {
+      setConfirmingParticipantRemoval(true);
+      return;
+    }
+
+    setParticipantSaving(true);
+    setConfirmingParticipantRemoval(false);
+    const result = await runAction("adminUpdateParticipantGroupRoomMembers", {
+      roomId: room.id,
+      expectedParticipantIds: participantBaselineIds,
+      participantIds: orderedParticipantIds
+    });
+    if (result.ok) {
+      setParticipantBaselineIds(orderedParticipantIds);
+      setParticipantIds(new Set(orderedParticipantIds));
+      setParticipantSaved(true);
+    } else {
+      setParticipantError(result.error);
+    }
+    setParticipantSaving(false);
+  }
+
   async function archive() {
     if (!room || !managed) return;
     setArchiving(true);
@@ -4249,7 +4566,7 @@ export function ChatRoomDrawer({
     setRoomImageError(null);
     const result = await runAction("adminUpdateChatRoom", {
       roomId: room.id,
-      patch: { roomIconName: "event", roomImageUrl: null }
+      patch: { roomIconName: participantGroup ? "group" : "event", roomImageUrl: null }
     });
     if (result.ok) {
       setRoomImageUrl(null);
@@ -4318,6 +4635,70 @@ export function ChatRoomDrawer({
               <InfoRow label="Messages" value={room.lastMessageAt ? <RelativeTime value={room.lastMessageAt} /> : "No messages yet"} />
             </div>
           </DrawerSection>
+          {participantGroup && orgId && (
+            <DrawerSection title="Participants">
+              <p className="text-sm font-medium leading-6 text-muted">
+                This room does not inherit Team or Hub access. Choose the exact active people who can open it, read its complete history, post messages, and receive notifications.
+              </p>
+              <ParticipantGroupMemberSelector
+                data={data}
+                orgId={orgId}
+                existingParticipantIds={participantBaselineIds}
+                selectedParticipantIds={participantIds}
+                disabled={participantSaving}
+                resetKey={room.id}
+                onChange={(next) => {
+                  setParticipantIds(next);
+                  setParticipantSaved(false);
+                  setConfirmingParticipantRemoval(false);
+                }}
+                onLimitMessage={setParticipantError}
+              />
+              {participantsChanged && (
+                <p role="status" aria-live="polite" className="text-xs font-extrabold text-teal">
+                  {addedParticipantIds.length === 1 ? "1 person" : `${addedParticipantIds.length} people`} added · {removedParticipantIds.length === 1 ? "1 person" : `${removedParticipantIds.length} people`} removed
+                </p>
+              )}
+              {confirmingParticipantRemoval ? (
+                <div className="rounded-2xl border border-coral/25 bg-coral/[0.06] p-3.5">
+                  <p className="text-sm font-extrabold text-[#912f2a]">
+                    Remove {removedParticipantIds.length === 1 ? "1 person" : `${removedParticipantIds.length} people`} from this Group Chat?
+                  </p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#a14a45]">
+                    They will immediately lose access and stop receiving notifications. The room and its message history stay intact.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      ref={participantCancelRef}
+                      type="button"
+                      variant="secondary"
+                      className="flex-1"
+                      disabled={participantSaving}
+                      onClick={() => setConfirmingParticipantRemoval(false)}
+                    >Cancel</Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      className="flex-1"
+                      disabled={participantSaving}
+                      onClick={() => saveParticipants(true)}
+                    >{participantSaving ? "Saving…" : "Confirm removal"}</Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={participantSaving || !participantsChanged || orderedParticipantIds.length < MIN_PARTICIPANT_GROUP_MEMBERS}
+                  onClick={() => saveParticipants()}
+                >
+                  {participantSaving ? <RefreshCw className="size-4 animate-spin" aria-hidden /> : <Save className="size-4" aria-hidden />}
+                  {participantSaving ? "Saving participants…" : "Save participants"}
+                </Button>
+              )}
+              {participantSaved && <StatusNotice tone="success" message="Group Chat participants updated. Message history was preserved." />}
+              {participantError && <StatusNotice tone="error" message={participantError} />}
+            </DrawerSection>
+          )}
           {editableEventAudience && room.leagueId && (
             <DrawerSection title="Team access">
               {audienceRequiresConversion && (
@@ -4455,7 +4836,9 @@ export function ChatRoomDrawer({
               <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
                 <EntityAvatar name={room.name} imageUrl={roomImageUrl} />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-extrabold text-ink">{roomImageFile?.name ?? (roomImageUrl ? "Custom room photo" : "Default Event Room icon")}</p>
+                  <p className="truncate text-sm font-extrabold text-ink">
+                    {roomImageFile?.name ?? (roomImageUrl ? "Custom room photo" : participantGroup ? "Default Group Chat icon" : "Default Event Room icon")}
+                  </p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-muted">PNG, JPG, or WebP up to 10 MB.</p>
                 </div>
               </div>
@@ -4494,13 +4877,22 @@ export function ChatRoomDrawer({
           )}
           <DrawerSection title="Scope">
             <div className="grid gap-3 sm:grid-cols-2">
-              <InfoRow label="League" value={league?.name} />
-              <InfoRow label={audienceHubs.length === 1 ? "Hub" : "Hubs"} value={audienceHubs.length > 0 ? audienceHubs.join(", ") : hub?.name} />
-              <InfoRow label={audienceTeams.length === 1 ? "Team" : "Teams"} value={audienceTeams.length > 0 ? audienceTeams.join(", ") : team?.name} />
-              <InfoRow label="Participants" value={room.type === "direct" ? room.participants.length : "Scope-based access"} />
+              {participantGroup ? (
+                <>
+                  <InfoRow label="Access" value="Selected people only" />
+                  <InfoRow label="Participants" value={room.participants.length} />
+                </>
+              ) : (
+                <>
+                  <InfoRow label="League" value={league?.name} />
+                  <InfoRow label={audienceHubs.length === 1 ? "Hub" : "Hubs"} value={audienceHubs.length > 0 ? audienceHubs.join(", ") : hub?.name} />
+                  <InfoRow label={audienceTeams.length === 1 ? "Team" : "Teams"} value={audienceTeams.length > 0 ? audienceTeams.join(", ") : team?.name} />
+                  <InfoRow label="Participants" value={room.type === "direct" ? room.participants.length : "Scope-based access"} />
+                </>
+              )}
             </div>
           </DrawerSection>
-          {managed && (
+          {managed && canReadConversation && (
             <DrawerSection title="Conversation">
               <div
                 className="thin-scrollbar grid max-h-[42vh] min-h-52 gap-3 overflow-y-auto rounded-2xl border border-line bg-[#f7f9fc] p-3 sm:p-4"
@@ -4573,6 +4965,11 @@ export function ChatRoomDrawer({
                 {messageError && <StatusNotice tone="error" message={messageError} />}
               </form>
             </DrawerSection>
+          )}
+          {managed && participantGroup && !canReadConversation && (
+            <div role="note" className="rounded-2xl border border-line bg-white p-4 text-sm font-medium leading-6 text-muted">
+              You can manage this Group Chat’s name and participants from the Admin Portal, but its conversation is visible only to selected participants.
+            </div>
           )}
           {!managed && (
             <div className="rounded-2xl border border-line bg-white p-4 text-sm font-medium leading-6 text-muted">

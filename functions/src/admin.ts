@@ -432,6 +432,7 @@ async function ensureLeagueRoom(orgId: string, leagueId: string, league: Request
     orgId,
     name: `${requiredString(league.name, "league.name")} - General`,
     type: "league",
+    accessMode: "scope",
     leagueId,
     hubId: null,
     teamId: null,
@@ -1516,6 +1517,7 @@ export const adminProvisionChatRooms = onCall(adminRuntime, async (request) => {
           transaction.set(roomRef, {
             orgId,
             ...managedFields,
+            accessMode: "scope",
             participants: [],
             createdAt: now(),
             createdBy: actor.id,
@@ -1568,7 +1570,6 @@ export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
       "leagueId",
       "hubId",
       "teamId",
-      "participants",
       "roomIconName",
       "roomImageUrl",
     ]);

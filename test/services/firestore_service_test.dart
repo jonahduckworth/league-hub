@@ -493,6 +493,7 @@ void main() {
       expect(doc.exists, true);
       expect(doc.data()!['name'], 'General');
       expect(doc.data()!['type'], 'league');
+      expect(doc.data()!['accessMode'], 'scope');
       expect(doc.data()!['leagueId'], 'lg-1');
       expect(doc.data()!['isArchived'], false);
       expect(doc.data()!['roomIconName'], 'trophy');
@@ -720,6 +721,60 @@ void main() {
 
       final rooms = await svc.getVisibleChatRooms(orgId, viewer).first;
       expect(rooms.map((room) => room.id), ['assigned-explicitly']);
+    });
+
+    test('getVisibleChatRooms includes only selected participant Group Chats',
+        () async {
+      final selectedViewer = AppUser(
+        id: 'selected',
+        email: 'selected@example.com',
+        displayName: 'Selected',
+        role: UserRole.staff,
+        orgId: orgId,
+        hubIds: const [],
+        teamIds: const [],
+        createdAt: DateTime(2026),
+        isActive: true,
+      );
+      final unselectedAdmin = AppUser(
+        id: 'admin',
+        email: 'admin@example.com',
+        displayName: 'Admin',
+        role: UserRole.superAdmin,
+        orgId: orgId,
+        hubIds: const [],
+        teamIds: const [],
+        createdAt: DateTime(2026),
+        isActive: true,
+      );
+      await fakeFirestore
+          .collection(AppConstants.orgsCollection)
+          .doc(orgId)
+          .collection(AppConstants.chatRoomsCollection)
+          .doc('participant-group')
+          .set({
+        'orgId': orgId,
+        'name': 'Leadership',
+        'type': 'event',
+        'roomPurpose': 'group',
+        'accessMode': 'participants',
+        'leagueId': null,
+        'hubId': '__participant_group__',
+        'teamId': '__participant_group__',
+        'participants': ['selected', 'other'],
+        'isArchived': false,
+        'createdAt': DateTime(2026).toIso8601String(),
+      });
+
+      final selectedRooms =
+          await svc.getVisibleChatRooms(orgId, selectedViewer).first;
+      final adminRooms =
+          await svc.getVisibleChatRooms(orgId, unselectedAdmin).first;
+
+      expect(
+          selectedRooms.map((room) => room.id), contains('participant-group'));
+      expect(adminRooms.map((room) => room.id),
+          isNot(contains('participant-group')));
     });
 
     test('getChatRoom streams single room', () async {

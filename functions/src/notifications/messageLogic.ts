@@ -33,11 +33,16 @@ export function canReceiveMessageNotification(
   teamIds: string[] = [],
   additionalMemberIds: string[] = [],
   userId?: string,
+  accessMode?: string,
 ): boolean {
   if (user.isActive === false) return false;
   if (expectedOrgId && user.orgId !== expectedOrgId) return false;
   if (hasId(user.blockedUserIds, senderId)) return false;
   if (roomType === "direct") return true;
+  // The caller resolves participant-only rooms from their exact participant
+  // list, so assignment-based filtering must not remove selected Staff or
+  // Managers from notification delivery.
+  if (accessMode === "participants") return true;
   if (elevatedRoles.has(user.role ?? "")) return true;
   if (roomType !== "league" && roomType !== "event") return false;
   if (userId && additionalMemberIds.includes(userId)) return true;
@@ -70,7 +75,9 @@ export function participantLookupBatches(
 export function shouldUseExplicitParticipantRecipients(
   participantIds: string[],
   teamIds: string[],
+  accessMode?: string,
 ): boolean {
+  if (accessMode === "participants") return true;
   return participantIds.length > 0 && teamIds.length === 0;
 }
 
@@ -78,7 +85,9 @@ export function notificationLookupIds(
   participantIds: string[],
   additionalMemberIds: string[],
   roomType: string,
+  accessMode?: string,
 ): string[] {
+  if (accessMode === "participants") return [...new Set(participantIds)];
   if (roomType !== "league" && roomType !== "event") return participantIds;
   return [...new Set([...participantIds, ...additionalMemberIds])];
 }

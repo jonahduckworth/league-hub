@@ -16,6 +16,7 @@ void main() {
           'name': 'Coaches Room',
           'type': 'event',
           'roomPurpose': 'group',
+          'accessMode': 'participants',
           'leagueId': 'league1',
           'additionalMemberIds': ['league-staff'],
           'participants': ['user1', 'user2', 'user3'],
@@ -36,6 +37,8 @@ void main() {
         expect(room.name, 'Coaches Room');
         expect(room.type, ChatRoomType.event);
         expect(room.roomPurpose, ChatRoomPurpose.group);
+        expect(room.accessMode, ChatRoomAccessMode.participants);
+        expect(room.isParticipantGroupRoom, isTrue);
         expect(room.leagueId, 'league1');
         expect(room.additionalMemberIds, ['league-staff']);
         expect(room.participants, ['user1', 'user2', 'user3']);
@@ -109,6 +112,22 @@ void main() {
         expect(room.roomPurpose, ChatRoomPurpose.group);
         expect(room.isGroupRoom, isTrue);
         expect(room.isEventRoom, isFalse);
+        expect(room.accessMode, ChatRoomAccessMode.scope);
+        expect(room.isParticipantGroupRoom, isFalse);
+      });
+
+      test('legacy direct rooms default to participant access', () {
+        final room = ChatRoom.fromJson({
+          'id': 'direct-room',
+          'orgId': 'org1',
+          'name': 'Direct',
+          'type': 'direct',
+          'participants': ['user1', 'user2'],
+          'createdAt': testDateStr,
+          'isArchived': false,
+        });
+
+        expect(room.accessMode, ChatRoomAccessMode.participants);
       });
 
       test('parses a multi-team Event Room audience', () {
@@ -190,6 +209,7 @@ void main() {
           name: 'Coaches Room',
           type: ChatRoomType.event,
           roomPurpose: ChatRoomPurpose.group,
+          accessMode: ChatRoomAccessMode.participants,
           additionalMemberIds: const ['league-staff'],
           participants: ['userA', 'userB'],
           createdAt: testDate,
@@ -209,6 +229,7 @@ void main() {
         expect(json['name'], 'Coaches Room');
         expect(json['type'], 'event');
         expect(json['roomPurpose'], 'group');
+        expect(json['accessMode'], 'participants');
         expect(json['additionalMemberIds'], ['league-staff']);
         expect(json['participants'], ['userA', 'userB']);
         expect(json['createdAt'], testDateStr);

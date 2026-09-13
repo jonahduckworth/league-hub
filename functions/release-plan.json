@@ -1,5 +1,16 @@
 {
-  "all": true,
-  "targets": [],
-  "reason": "Deploy shared notification delivery changes and the preference-aware binary chat activity badge."
+  "all": false,
+  "targets": [
+    "adminProvisionChatRooms",
+    "adminCreateParticipantGroupRoom",
+    "adminUpdateChatRoom",
+    "adminUpdateParticipantGroupRoomMembers",
+    "adminUpsertLeague",
+    "createMultiTeamEventRoom",
+    "onHubStructureWritten",
+    "onMessageCreated",
+    "onStructureChatRoomCreated",
+    "onTeamStructureWritten"
+  ],
+  "reason": "Deploy participant-only Group Chat creation, exact member access, notifications, and scope metadata compatibility."
 }

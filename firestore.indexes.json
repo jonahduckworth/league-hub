@@ -43,6 +43,17 @@
         { "fieldPath": "orgId", "order": "ASCENDING" },
         { "fieldPath": "isArchived", "order": "ASCENDING" },
         { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "accessMode", "order": "ASCENDING" },
+        { "fieldPath": "participants", "arrayConfig": "CONTAINS" }
+      ]
+    },
+    {
+      "collectionGroup": "chatRooms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orgId", "order": "ASCENDING" },
+        { "fieldPath": "isArchived", "order": "ASCENDING" },
+        { "fieldPath": "type", "order": "ASCENDING" },
         { "fieldPath": "hubId", "order": "ASCENDING" },
         { "fieldPath": "teamId", "order": "ASCENDING" },
         { "fieldPath": "leagueId", "order": "ASCENDING" }

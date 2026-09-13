@@ -99,6 +99,41 @@ test("multi-team rooms resolve recipients from current organization assignments"
     shouldUseExplicitParticipantRecipients(["direct-member"], []),
     true,
   );
+  assert.equal(
+    shouldUseExplicitParticipantRecipients([], [], "participants"),
+    true,
+  );
+});
+
+test("participant-only Group Chats notify exact selected people regardless of assignments", () => {
+  const participant = {
+    role: "staff",
+    orgId: "org-1",
+    isActive: true,
+  };
+  assert.equal(canReceiveMessageNotification(
+    participant,
+    "sender",
+    "event",
+    "__participant_group__",
+    undefined,
+    "org-1",
+    "__participant_group__",
+    [],
+    [],
+    [],
+    "staff-1",
+    "participants",
+  ), true);
+  assert.deepEqual(
+    notificationLookupIds(
+      ["staff-1", "admin-1", "staff-1"],
+      ["outsider-1"],
+      "event",
+      "participants",
+    ),
+    ["staff-1", "admin-1"],
+  );
 });
 
 test("multi-team notifications reach every selected team and selected-Hub managers", () => {

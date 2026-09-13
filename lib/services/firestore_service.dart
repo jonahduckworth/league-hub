@@ -302,6 +302,7 @@ class FirestoreService {
       'name': name,
       'type': type.name,
       if (roomPurpose != null) 'roomPurpose': roomPurpose.name,
+      'accessMode': type == ChatRoomType.direct ? 'participants' : 'scope',
       'leagueId': leagueId,
       'hubId': hubId,
       'teamId': teamId,
@@ -385,6 +386,7 @@ class FirestoreService {
         'orgId': orgId,
         'name': '$leagueName – General',
         'type': 'league',
+        'accessMode': 'scope',
         'leagueId': leagueId,
         'hubId': null,
         'teamId': null,
@@ -429,7 +431,11 @@ class FirestoreService {
   Stream<List<ChatRoom>> getVisibleChatRooms(String orgId, AppUser viewer) {
     if (viewer.role == UserRole.platformOwner ||
         viewer.role == UserRole.superAdmin) {
-      return getChatRooms(orgId);
+      return getChatRooms(orgId).map((rooms) => rooms
+          .where((room) =>
+              !room.isParticipantGroupRoom ||
+              room.participants.contains(viewer.id))
+          .toList());
     }
 
     final queries = <Query>[
@@ -437,6 +443,12 @@ class FirestoreService {
           .where('orgId', isEqualTo: orgId)
           .where('isArchived', isEqualTo: false)
           .where('type', isEqualTo: 'direct')
+          .where('participants', arrayContains: viewer.id),
+      _chatRoomsRef(orgId)
+          .where('orgId', isEqualTo: orgId)
+          .where('isArchived', isEqualTo: false)
+          .where('type', isEqualTo: 'event')
+          .where('accessMode', isEqualTo: 'participants')
           .where('participants', arrayContains: viewer.id),
       _chatRoomsRef(orgId)
           .where('orgId', isEqualTo: orgId)
