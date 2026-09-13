@@ -9,6 +9,7 @@ import {
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
+  visibleMessageNotification,
   visibleRoomPreview,
 } from "./messageLogic";
 
@@ -116,13 +117,17 @@ export const onMessageCreated = onFirestoreCreated(
     // Truncate message preview.
     const preview = previewText.length > 100 ?
       previewText.substring(0, 97) + "..." : previewText;
+    const notification = visibleMessageNotification(
+      accessMode,
+      roomType,
+      roomName,
+      senderName,
+      preview,
+    );
 
     await sendNotificationGroups(
       chatNotificationDeliveryGroups(recipientUsers),
-      {
-        title: roomType === "direct" ? senderName : roomName,
-        body: roomType === "direct" ? preview : `${senderName}: ${preview}`,
-      },
+      notification,
       {
         type: "chat_message",
         roomId,

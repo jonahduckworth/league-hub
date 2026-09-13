@@ -7,6 +7,7 @@ const {
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
+  visibleMessageNotification,
   visibleRoomPreview,
 } = require("../lib/notifications/messageLogic");
 
@@ -87,6 +88,39 @@ test("participant-only room metadata never exposes message previews or senders",
       lastMessageBy: "Visible Sender",
       lastMessageSenderId: "visible-id",
     },
+  );
+});
+
+test("participant-only notification delivery logs never expose private content", () => {
+  assert.deepEqual(
+    visibleMessageNotification(
+      "participants",
+      "event",
+      "Private Group",
+      "Private Sender",
+      "Private text",
+    ),
+    {title: "Private Group", body: "New message"},
+  );
+  assert.deepEqual(
+    visibleMessageNotification(
+      "scope",
+      "event",
+      "Team Room",
+      "Visible Sender",
+      "Visible text",
+    ),
+    {title: "Team Room", body: "Visible Sender: Visible text"},
+  );
+  assert.deepEqual(
+    visibleMessageNotification(
+      undefined,
+      "direct",
+      "Direct Room",
+      "Visible Sender",
+      "Visible text",
+    ),
+    {title: "Visible Sender", body: "Visible text"},
   );
 });
 

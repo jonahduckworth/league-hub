@@ -21,6 +21,11 @@ export type RoomPreviewContent = {
   lastMessageSenderId: string | null;
 };
 
+export type MessageNotificationContent = {
+  title: string;
+  body: string;
+};
+
 const elevatedRoles = new Set(["platformOwner", "superAdmin"]);
 
 function hasId(values: unknown, id: string): boolean {
@@ -159,5 +164,26 @@ export function visibleRoomPreview(
     lastMessage: previewText,
     lastMessageBy: senderName,
     lastMessageSenderId: senderId,
+  };
+}
+
+/**
+ * Participant-only Group Chats use a private push. The same content is written
+ * to administrator-readable notification delivery logs, so it must not reveal
+ * the sender or message body. Other room types retain their existing previews.
+ */
+export function visibleMessageNotification(
+  accessMode: unknown,
+  roomType: string,
+  roomName: string,
+  senderName: string,
+  previewText: string,
+): MessageNotificationContent {
+  if (accessMode === "participants") {
+    return {title: roomName, body: "New message"};
+  }
+  return {
+    title: roomType === "direct" ? senderName : roomName,
+    body: roomType === "direct" ? previewText : `${senderName}: ${previewText}`,
   };
 }
