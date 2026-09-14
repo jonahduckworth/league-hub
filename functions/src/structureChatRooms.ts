@@ -82,6 +82,7 @@ function expectedRoomFields(input: StructureRoomInput, data: StructureData) {
     orgId: input.orgId,
     name: `${name} - General`,
     type: "league",
+    accessMode: "scope",
     leagueId: input.leagueId,
     hubId: input.hubId,
     teamId: input.teamId ?? null,

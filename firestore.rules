@@ -81,6 +81,7 @@ service cloud.firestore {
           'orgId',
           'name',
           'type',
+          'accessMode',
           'leagueId',
           'hubId',
           'teamId',
@@ -779,6 +780,30 @@ service cloud.firestore {
         );
     }
 
+    function isParticipantOnlyGroup(room) {
+      return room.type == 'event'
+        && 'roomPurpose' in room
+        && room.roomPurpose == 'group'
+        && 'accessMode' in room
+        && room.accessMode == 'participants';
+    }
+
+    function validOptionalRoomAccessMode(data) {
+      return !('accessMode' in data)
+        || data.accessMode == 'scope'
+        || (
+          data.accessMode == 'participants'
+          && (
+            data.type == 'direct'
+            || (
+              data.type == 'event'
+              && 'roomPurpose' in data
+              && data.roomPurpose == 'group'
+            )
+          )
+        );
+    }
+
     // Room-specific access is server managed. Client-created rooms may omit
     // the field or initialize it empty, but cannot grant access themselves.
     function validAdditionalMembersOnCreate(data) {
@@ -801,54 +826,60 @@ service cloud.firestore {
       return sameOrg(room.orgId)
         && (
           isSuperAdmin()
-          || (room.type == 'direct' && request.auth.uid in room.participants)
-          || hasAdditionalRoomAccess(room)
           || (
-            room.type in ['league', 'event']
-            && (hasMultiTeamAudience(room)
-              ? (
-                (
-                  'teamIds' in currentUser()
-                  && room.teamIds.hasAny(currentUser().teamIds)
-                )
-                || (
-                  currentUser().role == 'managerAdmin'
-                  &&
-                  'hubIds' in currentUser()
-                  && room.hubIds.hasAny(currentUser().hubIds)
-                )
-              )
+            isParticipantOnlyGroup(room)
+              ? request.auth.uid in room.participants
               : (
-              (
-                'teamId' in room
-                && room.teamId != null
-                && (
-                  hasAssignedTeam(room.teamId)
-                  || (
-                    'hubId' in room
-                    && room.hubId != null
-                    && hasAssignedHub(room.hubId)
+                (room.type == 'direct' && request.auth.uid in room.participants)
+                || hasAdditionalRoomAccess(room)
+                || (
+                  room.type in ['league', 'event']
+                  && (hasMultiTeamAudience(room)
+                    ? (
+                      (
+                        'teamIds' in currentUser()
+                        && room.teamIds.hasAny(currentUser().teamIds)
+                      )
+                      || (
+                        currentUser().role == 'managerAdmin'
+                        &&
+                        'hubIds' in currentUser()
+                        && room.hubIds.hasAny(currentUser().hubIds)
+                      )
+                    )
+                    : (
+                    (
+                      'teamId' in room
+                      && room.teamId != null
+                      && (
+                        hasAssignedTeam(room.teamId)
+                        || (
+                          'hubId' in room
+                          && room.hubId != null
+                          && hasAssignedHub(room.hubId)
+                        )
+                      )
+                    )
+                    ||
+                    (
+                      'hubId' in room
+                      && room.hubId != null
+                      && (!('teamId' in room) || room.teamId == null)
+                      && hasAssignedHub(room.hubId)
+                    )
+                    ||
+                    (
+                      (!('hubId' in room) || room.hubId == null)
+                      && (!('teamId' in room) || room.teamId == null)
+                      && (
+                        !('leagueId' in room)
+                        || room.leagueId == null
+                        || hasAssignedLeague(room.leagueId)
+                      )
+                    ))
                   )
                 )
               )
-              ||
-              (
-                'hubId' in room
-                && room.hubId != null
-                && (!('teamId' in room) || room.teamId == null)
-                && hasAssignedHub(room.hubId)
-              )
-              ||
-              (
-                (!('hubId' in room) || room.hubId == null)
-                && (!('teamId' in room) || room.teamId == null)
-                && (
-                  !('leagueId' in room)
-                  || room.leagueId == null
-                  || hasAssignedLeague(room.leagueId)
-                )
-              ))
-            )
           )
         );
     }
@@ -857,7 +888,7 @@ service cloud.firestore {
       let room = get(roomPath(orgId, roomId)).data;
       return exists(roomPath(orgId, roomId))
         && (
-          room.type == 'direct'
+          room.type == 'direct' || isParticipantOnlyGroup(room)
             ? sameOrg(room.orgId) && request.auth.uid in room.participants
             : roomIsReadable(room)
         );
@@ -1028,6 +1059,7 @@ service cloud.firestore {
       match /chatRooms/{roomId} {
         allow get, list: if roomIsReadable(resource.data);
         allow create: if validOptionalRoomPurpose(request.resource.data)
+          && validOptionalRoomAccessMode(request.resource.data)
           && validAdditionalMembersOnCreate(request.resource.data)
           && validOptionalMultiTeamAudience(request.resource.data)
           && (
@@ -1036,6 +1068,7 @@ service cloud.firestore {
               canManageContent(orgId)
               && request.resource.data.orgId == orgId
               && request.resource.data.type in ['league', 'event']
+              && !isParticipantOnlyGroup(request.resource.data)
               && !hasMultiTeamAudience(request.resource.data)
               && (
                 !isStructureManagedRoom(request.resource.data)
@@ -1049,12 +1082,15 @@ service cloud.firestore {
             && resource.data.type in ['league', 'event']
             && request.resource.data.type in ['league', 'event']
             && validOptionalRoomPurpose(request.resource.data)
+            && validOptionalRoomAccessMode(request.resource.data)
             && validOptionalMultiTeamAudience(request.resource.data)
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
               'roomPurpose',
+              'accessMode',
               'hubIds',
               'teamIds',
-              'additionalMemberIds'
+              'additionalMemberIds',
+              'participants'
             ])
             && (
               !hasMultiTeamAudience(resource.data)

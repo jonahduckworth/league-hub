@@ -7,12 +7,17 @@ enum ChatRoomType { league, event, direct }
 /// a legacy event room.
 enum ChatRoomPurpose { group, event }
 
+/// Determines whether room access follows organization assignments or an
+/// explicit participant list.
+enum ChatRoomAccessMode { scope, participants }
+
 class ChatRoom {
   final String id;
   final String orgId;
   final String name;
   final ChatRoomType type;
   final ChatRoomPurpose? roomPurpose;
+  final ChatRoomAccessMode accessMode;
   final String? leagueId;
   final String? hubId;
   final String? teamId;
@@ -36,6 +41,9 @@ class ChatRoom {
   bool get isGroupRoom =>
       type == ChatRoomType.event && roomPurpose == ChatRoomPurpose.group;
 
+  bool get isParticipantGroupRoom =>
+      isGroupRoom && accessMode == ChatRoomAccessMode.participants;
+
   bool get isEventRoom => type == ChatRoomType.event && !isGroupRoom;
 
   bool get supportsAdditionalMemberAccess =>
@@ -56,6 +64,7 @@ class ChatRoom {
     required this.name,
     required this.type,
     this.roomPurpose,
+    ChatRoomAccessMode? accessMode,
     this.leagueId,
     this.hubId,
     this.teamId,
@@ -72,43 +81,56 @@ class ChatRoom {
     this.roomIconName,
     this.roomImageUrl,
     this.participantNames = const {},
-  });
+  }) : accessMode = accessMode ??
+            (type == ChatRoomType.direct
+                ? ChatRoomAccessMode.participants
+                : ChatRoomAccessMode.scope);
 
-  factory ChatRoom.fromJson(Map<String, dynamic> json) => ChatRoom(
-        id: json['id'] as String,
-        orgId: json['orgId'] as String,
-        name: json['name'] as String,
-        type: ChatRoomType.values.firstWhere(
-          (e) => e.name == json['type'],
-          orElse: () => ChatRoomType.league,
-        ),
-        roomPurpose: switch (json['roomPurpose']) {
-          'group' => ChatRoomPurpose.group,
-          'event' => ChatRoomPurpose.event,
-          _ => null,
-        },
-        leagueId: json['leagueId'] as String?,
-        hubId: json['hubId'] as String?,
-        teamId: json['teamId'] as String?,
-        hubIds: List<String>.from(json['hubIds'] as List? ?? []),
-        teamIds: List<String>.from(json['teamIds'] as List? ?? []),
-        additionalMemberIds:
-            List<String>.from(json['additionalMemberIds'] as List? ?? []),
-        participants: List<String>.from(json['participants'] as List? ?? []),
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        isArchived: json['isArchived'] as bool? ?? false,
-        lastMessage: json['lastMessage'] as String?,
-        lastMessageAt: json['lastMessageAt'] != null
-            ? DateTime.parse(json['lastMessageAt'] as String)
-            : null,
-        lastMessageBy: json['lastMessageBy'] as String?,
-        lastMessageSenderId: json['lastMessageSenderId'] as String?,
-        roomIconName: json['roomIconName'] as String?,
-        roomImageUrl: json['roomImageUrl'] as String?,
-        participantNames: Map<String, String>.from(
-          json['participantNames'] as Map? ?? {},
-        ),
-      );
+  factory ChatRoom.fromJson(Map<String, dynamic> json) {
+    final type = ChatRoomType.values.firstWhere(
+      (value) => value.name == json['type'],
+      orElse: () => ChatRoomType.league,
+    );
+    return ChatRoom(
+      id: json['id'] as String,
+      orgId: json['orgId'] as String,
+      name: json['name'] as String,
+      type: type,
+      roomPurpose: switch (json['roomPurpose']) {
+        'group' => ChatRoomPurpose.group,
+        'event' => ChatRoomPurpose.event,
+        _ => null,
+      },
+      accessMode: switch (json['accessMode']) {
+        'participants' => ChatRoomAccessMode.participants,
+        'scope' => ChatRoomAccessMode.scope,
+        _ => type == ChatRoomType.direct
+            ? ChatRoomAccessMode.participants
+            : ChatRoomAccessMode.scope,
+      },
+      leagueId: json['leagueId'] as String?,
+      hubId: json['hubId'] as String?,
+      teamId: json['teamId'] as String?,
+      hubIds: List<String>.from(json['hubIds'] as List? ?? []),
+      teamIds: List<String>.from(json['teamIds'] as List? ?? []),
+      additionalMemberIds:
+          List<String>.from(json['additionalMemberIds'] as List? ?? []),
+      participants: List<String>.from(json['participants'] as List? ?? []),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      isArchived: json['isArchived'] as bool? ?? false,
+      lastMessage: json['lastMessage'] as String?,
+      lastMessageAt: json['lastMessageAt'] != null
+          ? DateTime.parse(json['lastMessageAt'] as String)
+          : null,
+      lastMessageBy: json['lastMessageBy'] as String?,
+      lastMessageSenderId: json['lastMessageSenderId'] as String?,
+      roomIconName: json['roomIconName'] as String?,
+      roomImageUrl: json['roomImageUrl'] as String?,
+      participantNames: Map<String, String>.from(
+        json['participantNames'] as Map? ?? {},
+      ),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -116,6 +138,7 @@ class ChatRoom {
         'name': name,
         'type': type.name,
         if (roomPurpose != null) 'roomPurpose': roomPurpose!.name,
+        'accessMode': accessMode.name,
         'leagueId': leagueId,
         'hubId': hubId,
         'teamId': teamId,

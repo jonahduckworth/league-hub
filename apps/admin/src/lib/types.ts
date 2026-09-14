@@ -2,6 +2,7 @@ export type UserRole = "platformOwner" | "superAdmin" | "managerAdmin" | "staff"
 export type InvitationStatus = "pending" | "accepted" | "expired";
 export type AnnouncementScope = "league" | "hub" | "team";
 export type ChatRoomType = "league" | "event" | "direct";
+export type ChatRoomAccessMode = "scope" | "participants";
 
 export type AppUser = {
   id: string;
@@ -143,6 +144,7 @@ export type ChatRoom = {
   name: string;
   type: ChatRoomType;
   roomPurpose?: "group" | "event" | null;
+  accessMode?: ChatRoomAccessMode | null;
   leagueId?: string | null;
   hubId?: string | null;
   teamId?: string | null;

@@ -7,6 +7,8 @@ const {
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
+  visibleMessageNotification,
+  visibleRoomPreview,
 } = require("../lib/notifications/messageLogic");
 
 test("chat pushes use a binary badge unless the recipient disabled it", () => {
@@ -70,6 +72,58 @@ test("room previews ignore out-of-order trigger delivery", () => {
   assert.equal(shouldReplaceRoomPreview(100, "a", 100, "b"), true);
 });
 
+test("participant-only room metadata never exposes message previews or senders", () => {
+  assert.deepEqual(
+    visibleRoomPreview("participants", "Private Sender", "private-id", "Private text"),
+    {
+      lastMessage: "New message",
+      lastMessageBy: null,
+      lastMessageSenderId: null,
+    },
+  );
+  assert.deepEqual(
+    visibleRoomPreview("scope", "Visible Sender", "visible-id", "Visible text"),
+    {
+      lastMessage: "Visible text",
+      lastMessageBy: "Visible Sender",
+      lastMessageSenderId: "visible-id",
+    },
+  );
+});
+
+test("participant-only notification delivery logs never expose private content", () => {
+  assert.deepEqual(
+    visibleMessageNotification(
+      "participants",
+      "event",
+      "Private Group",
+      "Private Sender",
+      "Private text",
+    ),
+    {title: "Private Group", body: "New message"},
+  );
+  assert.deepEqual(
+    visibleMessageNotification(
+      "scope",
+      "event",
+      "Team Room",
+      "Visible Sender",
+      "Visible text",
+    ),
+    {title: "Team Room", body: "Visible Sender: Visible text"},
+  );
+  assert.deepEqual(
+    visibleMessageNotification(
+      undefined,
+      "direct",
+      "Direct Room",
+      "Visible Sender",
+      "Visible text",
+    ),
+    {title: "Visible Sender", body: "Visible text"},
+  );
+});
+
 test("elevated users also receive no notification from blocked senders", () => {
   assert.equal(canReceiveMessageNotification(
     {role: "platformOwner", blockedUserIds: ["sender"]},
@@ -98,6 +152,41 @@ test("multi-team rooms resolve recipients from current organization assignments"
   assert.equal(
     shouldUseExplicitParticipantRecipients(["direct-member"], []),
     true,
+  );
+  assert.equal(
+    shouldUseExplicitParticipantRecipients([], [], "participants"),
+    true,
+  );
+});
+
+test("participant-only Group Chats notify exact selected people regardless of assignments", () => {
+  const participant = {
+    role: "staff",
+    orgId: "org-1",
+    isActive: true,
+  };
+  assert.equal(canReceiveMessageNotification(
+    participant,
+    "sender",
+    "event",
+    "__participant_group__",
+    undefined,
+    "org-1",
+    "__participant_group__",
+    [],
+    [],
+    [],
+    "staff-1",
+    "participants",
+  ), true);
+  assert.deepEqual(
+    notificationLookupIds(
+      ["staff-1", "admin-1", "staff-1"],
+      ["outsider-1"],
+      "event",
+      "participants",
+    ),
+    ["staff-1", "admin-1"],
   );
 });
 

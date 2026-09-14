@@ -60,6 +60,10 @@ export {
   createMultiTeamEventRoom,
 } from "./multiTeamEventRooms";
 export {
+  adminCreateParticipantGroupRoom,
+  adminUpdateParticipantGroupRoomMembers,
+} from "./participantGroupRooms";
+export {
   onHubStructureWritten,
   onStructureChatRoomCreated,
   onTeamStructureWritten,

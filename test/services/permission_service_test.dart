@@ -43,12 +43,16 @@ void main() {
     List<String> hubIds = const [],
     List<String> teamIds = const [],
     List<String> additionalMemberIds = const [],
+    ChatRoomPurpose? roomPurpose,
+    ChatRoomAccessMode? accessMode,
   }) =>
       ChatRoom(
         id: id,
         orgId: 'org1',
         name: 'Room',
         type: type,
+        roomPurpose: roomPurpose,
+        accessMode: accessMode,
         leagueId: leagueId,
         hubId: hubId,
         teamId: teamId,
@@ -1183,6 +1187,27 @@ void main() {
     });
 
     group('canViewChatRoom', () {
+      test('participant-only Group Chats exclude unselected elevated admins',
+          () {
+        final room = makeRoom(
+          type: ChatRoomType.event,
+          roomPurpose: ChatRoomPurpose.group,
+          accessMode: ChatRoomAccessMode.participants,
+          participants: const ['staff', 'other'],
+        );
+
+        expect(service.canViewChatRoom(staff(), room), isTrue);
+        expect(service.canViewChatRoom(superAdmin(), room), isFalse);
+        expect(service.canViewChatRoom(owner(), room), isFalse);
+        expect(
+          service.canViewChatRoom(
+            makeUser(id: 'other', role: UserRole.managerAdmin),
+            room,
+          ),
+          isTrue,
+        );
+      });
+
       test('superAdmin sees all rooms', () {
         final room = makeRoom(
             type: ChatRoomType.direct, participants: ['other1', 'other2']);

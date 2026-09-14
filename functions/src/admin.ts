@@ -47,6 +47,7 @@ import {
   managedStructureRoomDocumentId,
   syncStructureChatRoom,
 } from "./structureChatRooms";
+import { usesParticipantGroupAccess } from "./participantGroupRoomLogic";
 
 type DocumentData = FirebaseFirestore.DocumentData;
 type FieldValue = FirebaseFirestore.FieldValue;
@@ -432,6 +433,7 @@ async function ensureLeagueRoom(orgId: string, leagueId: string, league: Request
     orgId,
     name: `${requiredString(league.name, "league.name")} - General`,
     type: "league",
+    accessMode: "scope",
     leagueId,
     hubId: null,
     teamId: null,
@@ -1516,6 +1518,7 @@ export const adminProvisionChatRooms = onCall(adminRuntime, async (request) => {
           transaction.set(roomRef, {
             orgId,
             ...managedFields,
+            accessMode: "scope",
             participants: [],
             createdAt: now(),
             createdBy: actor.id,
@@ -1563,15 +1566,20 @@ export const adminUpdateChatRoom = onCall(adminRuntime, async (request) => {
         "Hub and team General room details are synchronized from Structure.",
       );
     }
-    const patch = allowedPatch(data.patch, "patch", [
-      "name",
-      "leagueId",
-      "hubId",
-      "teamId",
-      "participants",
-      "roomIconName",
-      "roomImageUrl",
-    ]);
+    const patch = allowedPatch(
+      data.patch,
+      "patch",
+      usesParticipantGroupAccess(roomSnap.data() ?? {})
+        ? ["name", "roomIconName", "roomImageUrl"]
+        : [
+          "name",
+          "leagueId",
+          "hubId",
+          "teamId",
+          "roomIconName",
+          "roomImageUrl",
+        ],
+    );
     await roomRef.update(patch);
     return { roomId, updatedFields: Object.keys(patch) };
   });

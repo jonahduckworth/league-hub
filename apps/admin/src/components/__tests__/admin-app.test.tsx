@@ -59,6 +59,7 @@ import {
   ChatRoomDrawer,
   CreateEventRoomDrawer,
   CreateInviteDrawer,
+  CreateParticipantGroupRoomDrawer,
   PeopleSection,
   UserAccessEditor
 } from "../admin-app";
@@ -283,6 +284,90 @@ describe("AdminApp operations shell", () => {
         roomImageUrl: "https://cdn.example.com/showcase.png"
       }
     });
+  });
+
+  it("creates a participant-only Group Chat with any active organization users", async () => {
+    const runAction = vi.fn().mockResolvedValue({
+      ok: true,
+      data: { roomId: "leadership-room" }
+    });
+    const onClose = vi.fn();
+
+    render(
+      <CreateParticipantGroupRoomDrawer
+        open
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={onClose}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "New Group Chat" });
+    const creator = within(drawer).getByRole("checkbox", { name: /Jordan Owner/i });
+    expect((creator as HTMLInputElement).checked).toBe(true);
+    expect((creator as HTMLInputElement).disabled).toBe(true);
+    expect(within(drawer).getByRole("checkbox", { name: /Avery Admin/i })).toBeTruthy();
+    expect(within(drawer).getByRole("checkbox", { name: /Morgan Manager/i })).toBeTruthy();
+    expect(within(drawer).queryByRole("checkbox", { name: /Sam Staff/i })).toBeNull();
+
+    fireEvent.change(within(drawer).getByRole("textbox", { name: /Group name/i }), {
+      target: { value: "League leadership" }
+    });
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Avery Admin/i }));
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Morgan Manager/i }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Create Group Chat" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(runAction).toHaveBeenCalledWith("adminCreateParticipantGroupRoom", {
+      name: "League leadership",
+      participantIds: ["admin-1", "demo-owner", "manager-1"]
+    });
+  });
+
+  it("lets Admin Portal users manage Group Chat participants without exposing messages", async () => {
+    const runAction = vi.fn().mockResolvedValue({ ok: true, data: {} });
+    const room = {
+      id: "leadership-room",
+      orgId: "org-demo",
+      name: "League leadership",
+      type: "event" as const,
+      roomPurpose: "group" as const,
+      accessMode: "participants" as const,
+      leagueId: null,
+      hubId: "__participant_group__",
+      teamId: "__participant_group__",
+      participants: ["admin-1", "manager-1"],
+      isArchived: false
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "League leadership" });
+    expect(within(drawer).getByText(/conversation is visible only to selected participants/i)).toBeTruthy();
+    expect(within(drawer).queryByRole("textbox", { name: "Post a message" })).toBeNull();
+    expect(within(drawer).getByRole("checkbox", { name: /Avery Admin/i })).toBeTruthy();
+    expect(within(drawer).getByRole("checkbox", { name: /Morgan Manager/i })).toBeTruthy();
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /Jordan Owner/i }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Save participants" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith(
+      "adminUpdateParticipantGroupRoomMembers",
+      {
+        roomId: "leadership-room",
+        expectedParticipantIds: ["admin-1", "manager-1"],
+        participantIds: ["admin-1", "demo-owner", "manager-1"]
+      }
+    ));
+    expect(await within(drawer).findByText(/participants updated/i)).toBeTruthy();
   });
 
   it("adds unassigned league staff while creating an Event Room", async () => {

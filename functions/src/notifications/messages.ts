@@ -9,6 +9,8 @@ import {
   participantLookupBatches,
   shouldUseExplicitParticipantRecipients,
   shouldReplaceRoomPreview,
+  visibleMessageNotification,
+  visibleRoomPreview,
 } from "./messageLogic";
 
 
@@ -48,6 +50,7 @@ export const onMessageCreated = onFirestoreCreated(
     const roomName = (roomData.name as string) || "Chat";
     const participants = (roomData.participants as string[]) || [];
     const roomType = (roomData.type as string) || "league";
+    const accessMode = roomData.accessMode as string | undefined;
     const hubId = roomData.hubId as string | undefined;
     const leagueId = roomData.leagueId as string | undefined;
     const teamId = roomData.teamId as string | undefined;
@@ -60,11 +63,16 @@ export const onMessageCreated = onFirestoreCreated(
     // criteria as Firestore rules so scoped rooms do not notify outsiders.
     let recipientUsers: MessageNotificationUser[];
 
-    if (shouldUseExplicitParticipantRecipients(participants, teamIds)) {
+    if (shouldUseExplicitParticipantRecipients(
+      participants,
+      teamIds,
+      accessMode,
+    )) {
       const lookupIds = notificationLookupIds(
         participants,
         additionalMemberIds,
         roomType,
+        accessMode,
       );
       const participantUsers = await Promise.all(
         participantLookupBatches(lookupIds).map((ids) =>
@@ -77,7 +85,7 @@ export const onMessageCreated = onFirestoreCreated(
         .filter((user) => user.id !== senderId)
         .filter((user) => canReceiveMessageNotification(
           user.data(), senderId, roomType, hubId, leagueId, orgId, teamId,
-          hubIds, teamIds, additionalMemberIds, user.id,
+          hubIds, teamIds, additionalMemberIds, user.id, accessMode,
         ))
         .map((user) => user.data());
     } else {
@@ -109,13 +117,17 @@ export const onMessageCreated = onFirestoreCreated(
     // Truncate message preview.
     const preview = previewText.length > 100 ?
       previewText.substring(0, 97) + "..." : previewText;
+    const notification = visibleMessageNotification(
+      accessMode,
+      roomType,
+      roomName,
+      senderName,
+      preview,
+    );
 
     await sendNotificationGroups(
       chatNotificationDeliveryGroups(recipientUsers),
-      {
-        title: roomType === "direct" ? senderName : roomName,
-        body: roomType === "direct" ? preview : `${senderName}: ${preview}`,
-      },
+      notification,
       {
         type: "chat_message",
         roomId,
@@ -157,11 +169,15 @@ export const onMessagePreviewCreated = onFirestoreCreated(
         createdAt.toMillis(),
         snapshot.id,
       )) return;
+      const visiblePreview = visibleRoomPreview(
+        current.accessMode,
+        senderName,
+        senderId,
+        previewText,
+      );
       transaction.update(roomRef, {
-        lastMessage: previewText,
+        ...visiblePreview,
         lastMessageAt: createdAt,
-        lastMessageBy: senderName,
-        lastMessageSenderId: senderId,
         lastMessageId: snapshot.id,
       });
     });

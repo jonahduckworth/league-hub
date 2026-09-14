@@ -174,6 +174,7 @@ export const createMultiTeamEventRoom = onCall(runtime, async (request: Callable
     name,
     type: "event",
     roomPurpose: "event",
+    accessMode: "scope",
     leagueId,
     // Released clients query singular scope fields. Sentinels keep this room
     // out of those queries instead of leaking a broader or partial audience.

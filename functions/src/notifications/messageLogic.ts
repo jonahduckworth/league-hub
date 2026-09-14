@@ -15,6 +15,17 @@ export type ChatNotificationDeliveryGroup = {
   badge?: number;
 };
 
+export type RoomPreviewContent = {
+  lastMessage: string;
+  lastMessageBy: string | null;
+  lastMessageSenderId: string | null;
+};
+
+export type MessageNotificationContent = {
+  title: string;
+  body: string;
+};
+
 const elevatedRoles = new Set(["platformOwner", "superAdmin"]);
 
 function hasId(values: unknown, id: string): boolean {
@@ -33,11 +44,16 @@ export function canReceiveMessageNotification(
   teamIds: string[] = [],
   additionalMemberIds: string[] = [],
   userId?: string,
+  accessMode?: string,
 ): boolean {
   if (user.isActive === false) return false;
   if (expectedOrgId && user.orgId !== expectedOrgId) return false;
   if (hasId(user.blockedUserIds, senderId)) return false;
   if (roomType === "direct") return true;
+  // The caller resolves participant-only rooms from their exact participant
+  // list, so assignment-based filtering must not remove selected Staff or
+  // Managers from notification delivery.
+  if (accessMode === "participants") return true;
   if (elevatedRoles.has(user.role ?? "")) return true;
   if (roomType !== "league" && roomType !== "event") return false;
   if (userId && additionalMemberIds.includes(userId)) return true;
@@ -70,7 +86,9 @@ export function participantLookupBatches(
 export function shouldUseExplicitParticipantRecipients(
   participantIds: string[],
   teamIds: string[],
+  accessMode?: string,
 ): boolean {
+  if (accessMode === "participants") return true;
   return participantIds.length > 0 && teamIds.length === 0;
 }
 
@@ -78,7 +96,9 @@ export function notificationLookupIds(
   participantIds: string[],
   additionalMemberIds: string[],
   roomType: string,
+  accessMode?: string,
 ): string[] {
+  if (accessMode === "participants") return [...new Set(participantIds)];
   if (roomType !== "league" && roomType !== "event") return participantIds;
   return [...new Set([...participantIds, ...additionalMemberIds])];
 }
@@ -120,4 +140,50 @@ export function shouldReplaceRoomPreview(
     return incomingTimeMillis > currentTimeMillis;
   }
   return incomingMessageId.localeCompare(currentMessageId ?? "") > 0;
+}
+
+/**
+ * Room documents are readable by administrators for management. Participant-
+ * only rooms therefore store a generic activity preview so an unselected
+ * administrator cannot infer private message content or the sender.
+ */
+export function visibleRoomPreview(
+  accessMode: unknown,
+  senderName: string,
+  senderId: string,
+  previewText: string,
+): RoomPreviewContent {
+  if (accessMode === "participants") {
+    return {
+      lastMessage: "New message",
+      lastMessageBy: null,
+      lastMessageSenderId: null,
+    };
+  }
+  return {
+    lastMessage: previewText,
+    lastMessageBy: senderName,
+    lastMessageSenderId: senderId,
+  };
+}
+
+/**
+ * Participant-only Group Chats use a private push. The same content is written
+ * to administrator-readable notification delivery logs, so it must not reveal
+ * the sender or message body. Other room types retain their existing previews.
+ */
+export function visibleMessageNotification(
+  accessMode: unknown,
+  roomType: string,
+  roomName: string,
+  senderName: string,
+  previewText: string,
+): MessageNotificationContent {
+  if (accessMode === "participants") {
+    return {title: roomName, body: "New message"};
+  }
+  return {
+    title: roomType === "direct" ? senderName : roomName,
+    body: roomType === "direct" ? previewText : `${senderName}: ${previewText}`,
+  };
 }
