@@ -144,6 +144,25 @@ export function isManagedChatRoomType(value: unknown): boolean {
   return value === "league" || value === "event";
 }
 
+export function archivedRoomLinkedTeamScope(
+  room: Record<string, unknown>,
+): {leagueId: string; hubId: string; teamId: string} | null {
+  // Only Structure-managed Team General rooms own a team.chatRoomId link.
+  // Event and participant-only rooms use reserved sentinel scope values that
+  // must never be treated as Firestore document IDs.
+  if (room.type !== "league") return null;
+
+  const ids = [room.leagueId, room.hubId, room.teamId];
+  if (ids.some((value) => typeof value !== "string" || value.trim().length === 0)) {
+    return null;
+  }
+  const [leagueId, hubId, teamId] = ids.map((value) => (value as string).trim());
+  if ([leagueId, hubId, teamId].some((value) => /^__.*__$/.test(value))) {
+    return null;
+  }
+  return {leagueId, hubId, teamId};
+}
+
 export function chatRoomSetupTargetKey(
   scope: ChatRoomSetupScope,
   leagueId: string,

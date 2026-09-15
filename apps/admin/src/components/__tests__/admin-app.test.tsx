@@ -286,6 +286,49 @@ describe("AdminApp operations shell", () => {
     });
   });
 
+  it("keeps an Event Room open and explains an archive failure", async () => {
+    const runAction = vi.fn().mockResolvedValue({
+      ok: false,
+      error: "The room could not be archived. Refresh and try again."
+    });
+    const onClose = vi.fn();
+    const room = {
+      id: "showcase-room",
+      orgId: "org-demo",
+      name: "Provincial Showcase",
+      type: "event" as const,
+      roomPurpose: "event" as const,
+      leagueId: "league-winter",
+      hubId: "__multi_team__",
+      teamId: "__multi_team__",
+      hubIds: ["hub-calgary", "hub-reddeer"],
+      teamIds: ["team-u11-aa", "team-u13-a"],
+      participants: [],
+      isArchived: false
+    };
+
+    render(
+      <ChatRoomDrawer
+        room={room}
+        data={demoData}
+        currentUser={demoUser}
+        runAction={runAction}
+        onClose={onClose}
+      />
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Provincial Showcase" });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Archive room" }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Confirm archive" }));
+
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("adminArchiveChatRoom", {
+      roomId: "showcase-room"
+    }));
+    expect(await within(drawer).findByText("The room could not be archived. Refresh and try again.")).toBeTruthy();
+    expect(within(drawer).getByRole("button", { name: "Archive room" })).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("creates a participant-only Group Chat with any active organization users", async () => {
     const runAction = vi.fn().mockResolvedValue({
       ok: true,

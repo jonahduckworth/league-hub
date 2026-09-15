@@ -4226,6 +4226,7 @@ export function ChatRoomDrawer({
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [messageError, setMessageError] = useState<string | null>(null);
@@ -4266,6 +4267,7 @@ export function ChatRoomDrawer({
     setSaving(false);
     setArchiving(false);
     setConfirmingArchive(false);
+    setArchiveError(null);
     setDraft("");
     setSending(false);
     setMessageError(null);
@@ -4495,9 +4497,15 @@ export function ChatRoomDrawer({
   async function archive() {
     if (!room || !managed) return;
     setArchiving(true);
+    setArchiveError(null);
     try {
       const result = await runAction("adminArchiveChatRoom", { roomId: room.id });
-      if (result.ok) onClose();
+      if (result.ok) {
+        onClose();
+      } else {
+        setConfirmingArchive(false);
+        setArchiveError(result.error);
+      }
     } finally {
       setArchiving(false);
     }
@@ -4619,6 +4627,7 @@ export function ChatRoomDrawer({
     >
       {room && (
         <div className="grid gap-5">
+          {archiveError && <StatusNotice tone="error" message={archiveError} />}
           <DrawerSection title="Room details">
             {managed && !structureSynced ? (
               <Field label="Room name"><Input value={name} onChange={(event) => setName(event.target.value)} required /></Field>

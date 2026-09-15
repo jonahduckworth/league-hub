@@ -1,17 +1,7 @@
 {
   "all": false,
   "targets": [
-    "adminProvisionChatRooms",
-    "adminCreateParticipantGroupRoom",
-    "adminUpdateChatRoom",
-    "adminUpdateParticipantGroupRoomMembers",
-    "adminUpsertLeague",
-    "createMultiTeamEventRoom",
-    "onHubStructureWritten",
-    "onMessageCreated",
-    "onMessagePreviewCreated",
-    "onStructureChatRoomCreated",
-    "onTeamStructureWritten"
+    "adminArchiveChatRoom"
   ],
-  "reason": "Deploy participant-only Group Chat creation, exact member access, notifications, and scope metadata compatibility."
+  "reason": "Archive multi-team Event Rooms without dereferencing reserved scope sentinels."
 }

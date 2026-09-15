@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
+  archivedRoomLinkedTeamScope,
   assignableRoles,
   buildChatRoomSetupPlan,
   canAccessOrg,
@@ -190,6 +191,42 @@ test("admin chat callables accept managed rooms but reject direct messages", () 
   assert.equal(isManagedChatRoomType("event"), true);
   assert.equal(isManagedChatRoomType("direct"), false);
   assert.equal(isManagedChatRoomType(undefined), false);
+});
+
+test("archive cleanup only resolves real Structure Team General room links", () => {
+  assert.deepEqual(archivedRoomLinkedTeamScope({
+    type: "league",
+    leagueId: "league-1",
+    hubId: "hub-1",
+    teamId: "team-1",
+  }), {
+    leagueId: "league-1",
+    hubId: "hub-1",
+    teamId: "team-1",
+  });
+  assert.equal(archivedRoomLinkedTeamScope({
+    type: "event",
+    leagueId: "league-1",
+    hubId: "__multi_team__",
+    teamId: "__multi_team__",
+  }), null);
+  assert.equal(archivedRoomLinkedTeamScope({
+    type: "event",
+    leagueId: "league-1",
+    hubId: "hub-1",
+    teamId: "team-1",
+  }), null);
+  assert.equal(archivedRoomLinkedTeamScope({
+    type: "league",
+    leagueId: "league-1",
+    hubId: "__participant_group__",
+    teamId: "__participant_group__",
+  }), null);
+  assert.equal(archivedRoomLinkedTeamScope({
+    type: "league",
+    leagueId: "league-1",
+    hubId: "hub-1",
+  }), null);
 });
 
 test("chat room setup plans only missing hub and team rooms", () => {
