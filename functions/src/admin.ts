@@ -6,6 +6,7 @@ import { db } from "./helpers";
 import {
   ActorLike,
   UserRole,
+  archivedRoomLinkedTeamScope,
   assignableRoles,
   buildChatRoomSetupPlan,
   canAccessOrg,
@@ -1596,19 +1597,17 @@ export const adminArchiveChatRoom = onCall(adminRuntime, async (request) => {
       if (!isManagedChatRoomType(room.type)) {
         throw new HttpsError("permission-denied", "Direct-message rooms cannot be managed by administrators.");
       }
-      const leagueId = optionalString(room.leagueId);
-      const hubId = optionalString(room.hubId);
-      const teamId = optionalString(room.teamId);
+      const linkedTeamScope = archivedRoomLinkedTeamScope(room);
       let linkedTeamRef: FirebaseFirestore.DocumentReference | null = null;
       let shouldClearLinkedTeam = false;
-      if (leagueId && hubId && teamId) {
+      if (linkedTeamScope) {
         linkedTeamRef = orgRef(orgId)
           .collection("leagues")
-          .doc(leagueId)
+          .doc(linkedTeamScope.leagueId)
           .collection("hubs")
-          .doc(hubId)
+          .doc(linkedTeamScope.hubId)
           .collection("teams")
-          .doc(teamId);
+          .doc(linkedTeamScope.teamId);
         const teamSnap = await transaction.get(linkedTeamRef);
         shouldClearLinkedTeam = teamSnap.exists && teamSnap.data()?.chatRoomId === roomId;
       }
