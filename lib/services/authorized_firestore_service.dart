@@ -3,6 +3,7 @@ import '../models/announcement.dart';
 import '../models/chat_room.dart';
 import '../models/invitation.dart';
 import '../models/message.dart';
+import '../models/message_reaction.dart';
 import '../models/team.dart';
 import 'firestore_service.dart';
 import 'permission_service.dart';
@@ -507,6 +508,24 @@ class AuthorizedFirestoreService {
   Future<void> markMessagesAsRead(AppUser actor, String orgId, String roomId) {
     if (!_ps.canSendMessage(actor)) _deny('markMessagesAsRead', actor);
     return _fs.markMessagesAsRead(orgId, roomId, actor.id);
+  }
+
+  /// Toggles only the signed-in actor's reaction on a message.
+  Future<void> toggleMessageReaction(
+    AppUser actor,
+    String orgId,
+    String roomId,
+    String messageId,
+    MessageReaction reaction,
+  ) {
+    if (!_ps.canSendMessage(actor)) _deny('toggleMessageReaction', actor);
+    return _fs.toggleMessageReaction(
+      orgId,
+      roomId,
+      messageId,
+      actor.id,
+      reaction,
+    );
   }
 
   /// Sets the typing indicator — requires active user.

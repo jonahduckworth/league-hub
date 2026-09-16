@@ -6,6 +6,7 @@ import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/league.dart';
+import 'package:league_hub/models/message_reaction.dart';
 import 'package:league_hub/models/team.dart';
 import 'package:league_hub/services/authorized_firestore_service.dart';
 import 'package:league_hub/services/firestore_service.dart';
@@ -231,6 +232,18 @@ class MockFirestoreService extends Mock implements FirestoreService {
       (super.noSuchMethod(
           Invocation.method(#sendMessage, [orgId, roomId],
               {#senderId: senderId, #senderName: senderName, #text: text}),
+          returnValue: Future<void>.value()) as Future<void>);
+
+  @override
+  Future<void> toggleMessageReaction(
+          String orgId,
+          String roomId,
+          String messageId,
+          String userId,
+          MessageReaction reaction) =>
+      (super.noSuchMethod(
+          Invocation.method(#toggleMessageReaction,
+              [orgId, roomId, messageId, userId, reaction]),
           returnValue: Future<void>.value()) as Future<void>);
 
   @override
@@ -1607,6 +1620,37 @@ void main() {
           senderName: 'User u2',
           text: 'Admin message',
         )).called(1);
+      });
+    });
+
+    group('toggleMessageReaction', () {
+      for (final role in UserRole.values) {
+        test('${role.name} can toggle only their own reaction when active',
+            () async {
+          final actor = makeUser(id: 'actor', role: role);
+          when(mockFs.toggleMessageReaction('org1', 'room1', 'message1',
+                  'actor', MessageReaction.heart))
+              .thenAnswer((_) async {});
+
+          await afs.toggleMessageReaction(actor, 'org1', 'room1', 'message1',
+              MessageReaction.heart);
+
+          verify(mockFs.toggleMessageReaction('org1', 'room1', 'message1',
+                  'actor', MessageReaction.heart))
+              .called(1);
+        });
+      }
+
+      test('inactive users cannot react', () {
+        final actor =
+            makeUser(id: 'inactive', role: UserRole.staff, isActive: false);
+
+        expect(
+          () => afs.toggleMessageReaction(actor, 'org1', 'room1', 'message1',
+              MessageReaction.fire),
+          throwsA(isA<PermissionDeniedException>()),
+        );
+        verifyZeroInteractions(mockFs);
       });
     });
 

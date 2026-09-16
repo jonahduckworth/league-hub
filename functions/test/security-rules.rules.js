@@ -1075,6 +1075,93 @@ test("staff can send constrained messages only to readable rooms", async () => {
   ), validMessage("direct-room", "member", "Member")));
 });
 
+test("room members can change only their own supported message reactions", async () => {
+  const room = {
+    id: "league-room",
+    orgId: "org-1",
+    type: "league",
+    leagueId: "league-1",
+    hubId: null,
+    teamId: null,
+    participants: [],
+    name: "League room",
+    isArchived: false,
+  };
+  const messagePath =
+    "organizations/org-1/chatRooms/league-room/messages/message-1";
+  await seedFirestore([
+    ["users/member", user({
+      id: "member",
+      displayName: "Member",
+      leagueIds: ["league-1"],
+    })],
+    ["users/peer", user({
+      id: "peer",
+      displayName: "Peer",
+      leagueIds: ["league-1"],
+    })],
+    ["users/outsider", user({id: "outsider", displayName: "Outsider"})],
+    ["organizations/org-1/chatRooms/league-room", room],
+    [messagePath, {
+      chatRoomId: "league-room",
+      senderId: "peer",
+      senderName: "Peer",
+      text: "React here",
+      previewText: "React here",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      readBy: ["peer"],
+    }],
+  ]);
+  const memberDb = testEnv.authenticatedContext("member").firestore();
+  const peerDb = testEnv.authenticatedContext("peer").firestore();
+  const outsiderDb = testEnv.authenticatedContext("outsider").firestore();
+  const memberMessage = doc(memberDb, messagePath);
+  const peerMessage = doc(peerDb, messagePath);
+
+  await assertSucceeds(updateDoc(memberMessage, {
+    reactions: {thumbsUp: ["member"]},
+  }));
+  await assertSucceeds(updateDoc(peerMessage, {
+    reactions: {
+      thumbsUp: ["member"],
+      heart: ["peer"],
+    },
+  }));
+  await assertFails(updateDoc(memberMessage, {
+    reactions: {
+      thumbsUp: ["member", "outsider"],
+      heart: ["peer"],
+    },
+  }));
+  await assertFails(updateDoc(memberMessage, {
+    reactions: {
+      thumbsUp: ["member"],
+      heart: [],
+    },
+  }));
+  await assertFails(updateDoc(memberMessage, {
+    reactions: {
+      thumbsUp: ["member"],
+      heart: ["peer"],
+      unsupported: ["member"],
+    },
+  }));
+  await assertFails(updateDoc(memberMessage, {
+    text: "Changed with reaction",
+    reactions: {
+      thumbsUp: ["member"],
+      heart: ["peer"],
+      fire: ["member"],
+    },
+  }));
+  await assertFails(updateDoc(doc(outsiderDb, messagePath), {
+    reactions: {fire: ["outsider"]},
+  }));
+  await assertSucceeds(updateDoc(memberMessage, {
+    reactions: {heart: ["peer"]},
+  }));
+});
+
 test("shared-room posting follows platform owner, admin, manager, and staff scope", async () => {
   const hubRoom = {
     id: "hub-room",

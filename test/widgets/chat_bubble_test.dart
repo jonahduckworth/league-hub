@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/models/app_user.dart';
+import 'package:league_hub/models/message.dart';
 import 'package:league_hub/screens/viewers/image_viewer_screen.dart';
 import 'package:league_hub/widgets/chat_bubble.dart';
-import 'package:league_hub/models/message.dart';
 
 void main() {
   final testDate = DateTime(2024, 6, 1, 10, 30);
@@ -14,6 +15,7 @@ void main() {
     String? text = 'Hello!',
     List<String>? readBy,
     String? mediaUrl,
+    Map<String, List<String>> reactions = const {},
   }) =>
       Message(
         id: id,
@@ -24,6 +26,7 @@ void main() {
         mediaUrl: mediaUrl,
         createdAt: testDate,
         readBy: readBy ?? [senderId],
+        reactions: reactions,
       );
 
   group('ChatBubble', () {
@@ -302,6 +305,64 @@ void main() {
 
       // testDate is 10:30 AM
       expect(find.text('10:30 AM'), findsOneWidget);
+    });
+
+    testWidgets('shows reactions and opens the named reactor list',
+        (tester) async {
+      final users = [
+        AppUser(
+          id: 'user1',
+          orgId: 'org1',
+          email: 'alice@example.com',
+          displayName: 'Alice',
+          role: UserRole.staff,
+          hubIds: const [],
+          teamIds: const [],
+          createdAt: testDate,
+          isActive: true,
+        ),
+        AppUser(
+          id: 'user2',
+          orgId: 'org1',
+          email: 'richard@example.com',
+          displayName: 'Richard Nault',
+          role: UserRole.staff,
+          hubIds: const [],
+          teamIds: const [],
+          createdAt: testDate,
+          isActive: true,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatBubble(
+              message: makeMessage(
+                reactions: const {
+                  'thumbsUp': ['user1', 'user2'],
+                },
+              ),
+              isSelf: false,
+              currentUserId: 'user1',
+              users: users,
+              onToggleReaction: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('👍'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('reaction-chip-target-thumbsUp')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reactions (2)'), findsOneWidget);
+      expect(find.text('Alice'), findsNWidgets(2));
+      expect(find.text('Richard Nault'), findsOneWidget);
     });
   });
 }

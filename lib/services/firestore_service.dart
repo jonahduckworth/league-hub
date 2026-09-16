@@ -9,6 +9,7 @@ import '../models/team.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
 import '../models/message.dart';
+import '../models/message_reaction.dart';
 import '../models/policy.dart';
 import '../models/announcement.dart';
 import '../models/announcement_read_receipt.dart';
@@ -669,6 +670,47 @@ class FirestoreService {
       'previewText': text,
       'createdAt': FieldValue.serverTimestamp(),
       'readBy': [senderId],
+      'reactions': <String, List<String>>{},
+    });
+  }
+
+  /// Adds or removes [userId] from a message reaction in one transaction.
+  ///
+  /// Transactions prevent one person's reaction from overwriting another
+  /// person's near-simultaneous update.
+  Future<void> toggleMessageReaction(
+    String orgId,
+    String roomId,
+    String messageId,
+    String userId,
+    MessageReaction reaction,
+  ) async {
+    final messageRef = _messagesRef(orgId, roomId).doc(messageId);
+    await _db.runTransaction((transaction) async {
+      final snapshot = await transaction.get(messageRef);
+      if (!snapshot.exists) {
+        throw StateError('Message no longer exists');
+      }
+      final data = snapshot.data() as Map<String, dynamic>;
+      if (data['deleted'] == true) {
+        throw StateError('Deleted messages cannot be reacted to');
+      }
+
+      final reactions = parseMessageReactions(data['reactions']);
+      final userIds = List<String>.from(
+        reactions[reaction.key] ?? const <String>[],
+      );
+      if (userIds.contains(userId)) {
+        userIds.remove(userId);
+      } else {
+        userIds.add(userId);
+      }
+      if (userIds.isEmpty) {
+        reactions.remove(reaction.key);
+      } else {
+        reactions[reaction.key] = userIds;
+      }
+      transaction.update(messageRef, {'reactions': reactions});
     });
   }
 
@@ -868,6 +910,7 @@ class FirestoreService {
       'createdAt': FieldValue.serverTimestamp(),
       'readBy': [senderId],
       'previewText': caption ?? preview,
+      'reactions': <String, List<String>>{},
     });
   }
 

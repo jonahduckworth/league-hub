@@ -8,6 +8,7 @@ import 'package:league_hub/models/hub.dart';
 import 'package:league_hub/models/invitation.dart';
 import 'package:league_hub/models/league.dart';
 import 'package:league_hub/models/message.dart';
+import 'package:league_hub/models/message_reaction.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/models/team.dart';
 import 'package:league_hub/models/schedule_event.dart';
@@ -876,6 +877,48 @@ void main() {
           .doc(messages.first.id)
           .get();
       expect(raw.data(), containsPair('previewText', 'Hello world!'));
+      expect(raw.data(), containsPair('reactions', <String, List<String>>{}));
+    });
+
+    test('toggleMessageReaction preserves other people and toggles only actor',
+        () async {
+      await svc.sendMessage(orgId, roomId,
+          senderId: 'sender-1', senderName: 'Alice', text: 'React here');
+      final message = (await svc.getMessages(orgId, roomId).first).single;
+
+      await svc.toggleMessageReaction(
+          orgId, roomId, message.id, 'user-1', MessageReaction.thumbsUp);
+      await svc.toggleMessageReaction(
+          orgId, roomId, message.id, 'user-2', MessageReaction.thumbsUp);
+      await svc.toggleMessageReaction(
+          orgId, roomId, message.id, 'user-2', MessageReaction.heart);
+
+      var reacted = (await svc.getMessages(orgId, roomId).first).single;
+      expect(reacted.reactions, {
+        'thumbsUp': ['user-1', 'user-2'],
+        'heart': ['user-2'],
+      });
+
+      await svc.toggleMessageReaction(
+          orgId, roomId, message.id, 'user-1', MessageReaction.thumbsUp);
+      reacted = (await svc.getMessages(orgId, roomId).first).single;
+      expect(reacted.reactions, {
+        'thumbsUp': ['user-2'],
+        'heart': ['user-2'],
+      });
+    });
+
+    test('toggleMessageReaction rejects deleted messages', () async {
+      await svc.sendMessage(orgId, roomId,
+          senderId: 'sender-1', senderName: 'Alice', text: 'Delete me');
+      final message = (await svc.getMessages(orgId, roomId).first).single;
+      await svc.deleteMessage(orgId, roomId, message.id);
+
+      await expectLater(
+        svc.toggleMessageReaction(
+            orgId, roomId, message.id, 'user-1', MessageReaction.fire),
+        throwsStateError,
+      );
     });
 
     test('sendMessage rejects blank and oversized text before storage',

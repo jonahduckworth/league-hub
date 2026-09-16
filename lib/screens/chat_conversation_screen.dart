@@ -11,6 +11,7 @@ import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../models/chat_room.dart';
 import '../models/message.dart';
+import '../models/message_reaction.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/authorized_firestore_service.dart';
@@ -232,6 +233,40 @@ class _ChatConversationScreenState
     } catch (e) {
       if (mounted) {
         AppUtils.showErrorSnackBar(context, 'Failed to delete: $e');
+      }
+    }
+  }
+
+  Future<void> _toggleMessageReaction(
+    Message message,
+    MessageReaction reaction,
+  ) async {
+    final orgId = ref.read(organizationProvider).valueOrNull?.id;
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (orgId == null || currentUser == null) return;
+    if (!await _ensureCommunityGuidelinesAccepted(currentUser)) return;
+
+    try {
+      await ref.read(authorizedFirestoreServiceProvider).toggleMessageReaction(
+            currentUser,
+            orgId,
+            widget.roomId,
+            message.id,
+            reaction,
+          );
+    } on PermissionDeniedException {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(
+          context,
+          'You do not have permission to react in this room',
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        AppUtils.showErrorSnackBar(
+          context,
+          'Could not update the reaction. Try again.',
+        );
       }
     }
   }
@@ -574,7 +609,11 @@ class _ChatConversationScreenState
                     );
                   }
 
-                  final items = _buildMessageItems(messages, currentUser?.id);
+                  final items = _buildMessageItems(
+                    messages,
+                    currentUser?.id,
+                    users,
+                  );
 
                   return ListView.builder(
                     controller: _scrollController,
@@ -613,7 +652,10 @@ class _ChatConversationScreenState
   }
 
   List<Widget> _buildMessageItems(
-      List<Message> messages, String? currentUserId) {
+    List<Message> messages,
+    String? currentUserId,
+    List<AppUser> users,
+  ) {
     final List<Widget> items = [];
     DateTime? lastDate;
 
@@ -645,6 +687,11 @@ class _ChatConversationScreenState
             : null,
         onBlockUser:
             !isSelf && !message.deleted ? () => _blockUser(message) : null,
+        currentUserId: currentUserId,
+        users: users,
+        onToggleReaction: !message.deleted
+            ? (reaction) => _toggleMessageReaction(message, reaction)
+            : null,
       ));
     }
 

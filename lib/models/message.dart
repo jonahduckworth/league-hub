@@ -1,3 +1,5 @@
+import 'message_reaction.dart';
+
 class LinkPreview {
   final String url;
   final String? title;
@@ -39,6 +41,7 @@ class Message {
   final DateTime? editedAt;
   final bool deleted;
   final List<String> readBy;
+  final Map<String, List<String>> reactions;
 
   Message({
     required this.id,
@@ -53,6 +56,7 @@ class Message {
     this.editedAt,
     this.deleted = false,
     required this.readBy,
+    this.reactions = const {},
   });
 
   factory Message.fromJson(Map<String, dynamic> json) => Message(
@@ -71,7 +75,8 @@ class Message {
             ? DateTime.parse(json['editedAt'] as String)
             : null,
         deleted: json['deleted'] as bool? ?? false,
-        readBy: List<String>.from(json['readBy'] as List? ?? []),
+    readBy: List<String>.from(json['readBy'] as List? ?? []),
+    reactions: parseMessageReactions(json['reactions']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -86,6 +91,7 @@ class Message {
         'createdAt': createdAt.toIso8601String(),
         if (editedAt != null) 'editedAt': editedAt!.toIso8601String(),
         'deleted': deleted,
-        'readBy': readBy,
-      };
+    'readBy': readBy,
+    'reactions': reactions,
+  };
 }
