@@ -80,6 +80,10 @@ void main() {
           },
           'createdAt': testDateStr,
           'readBy': ['user1', 'user2'],
+          'reactions': {
+            'thumbsUp': ['user1', 'user2'],
+            'heart': ['user2'],
+          },
         };
 
         final msg = Message.fromJson(json);
@@ -95,6 +99,8 @@ void main() {
         expect(msg.linkPreview!.url, 'https://example.com');
         expect(msg.createdAt, testDate);
         expect(msg.readBy, ['user1', 'user2']);
+        expect(msg.reactions['thumbsUp'], ['user1', 'user2']);
+        expect(msg.reactions['heart'], ['user2']);
       });
 
       test('optional fields are null when not provided', () {
@@ -126,6 +132,28 @@ void main() {
 
         expect(Message.fromJson(json).readBy, isEmpty);
       });
+
+      test('defaults reactions to empty and ignores unsupported values', () {
+        final json = {
+          'id': 'msg1',
+          'chatRoomId': 'room1',
+          'senderId': 'user1',
+          'senderName': 'Alice',
+          'createdAt': testDateStr,
+          'reactions': {
+            'heart': ['user1', 'user1', 42],
+            'unsupported': ['user2'],
+          },
+        };
+
+        expect(Message.fromJson(json).reactions, {
+          'heart': ['user1'],
+        });
+        expect(
+          Message.fromJson({...json, 'reactions': null}).reactions,
+          isEmpty,
+        );
+      });
     });
 
     group('toJson', () {
@@ -141,6 +169,9 @@ void main() {
           linkPreview: null,
           createdAt: testDate,
           readBy: ['user1'],
+          reactions: const {
+            'celebrate': ['user1'],
+          },
         );
 
         final json = msg.toJson();
@@ -153,6 +184,9 @@ void main() {
         expect(json['createdAt'], testDateStr);
         expect(json['readBy'], ['user1']);
         expect(json['linkPreview'], isNull);
+        expect(json['reactions'], {
+          'celebrate': ['user1'],
+        });
       });
 
       test('serializes linkPreview when present', () {
@@ -190,6 +224,9 @@ void main() {
         ),
         createdAt: testDate,
         readBy: ['user1', 'user2'],
+        reactions: const {
+          'fire': ['user2'],
+        },
       );
 
       final restored =
@@ -205,6 +242,7 @@ void main() {
       expect(restored.linkPreview?.url, original.linkPreview?.url);
       expect(restored.createdAt, original.createdAt);
       expect(restored.readBy, original.readBy);
+      expect(restored.reactions, original.reactions);
     });
   });
 }

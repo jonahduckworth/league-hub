@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/design_system.dart';
 import '../core/utils.dart';
+import '../models/app_user.dart';
 import '../models/message.dart';
+import '../models/message_reaction.dart';
 import '../screens/viewers/image_viewer_screen.dart';
 import 'app_glass.dart';
 import 'avatar_widget.dart';
+import 'message_reactions.dart';
 
 class ChatBubble extends StatelessWidget {
   final Message message;
@@ -15,6 +19,9 @@ class ChatBubble extends StatelessWidget {
   final VoidCallback? onReportMessage;
   final VoidCallback? onReportUser;
   final VoidCallback? onBlockUser;
+  final String? currentUserId;
+  final List<AppUser> users;
+  final ValueChanged<MessageReaction>? onToggleReaction;
 
   const ChatBubble({
     super.key,
@@ -25,7 +32,59 @@ class ChatBubble extends StatelessWidget {
     this.onReportMessage,
     this.onReportUser,
     this.onBlockUser,
+    this.currentUserId,
+    this.users = const [],
+    this.onToggleReaction,
   });
+
+  void _toggleReaction(BuildContext sheetContext, MessageReaction reaction) {
+    Navigator.pop(sheetContext);
+    HapticFeedback.selectionClick();
+    onToggleReaction?.call(reaction);
+  }
+
+  void _showReactionPicker(BuildContext context) {
+    if (message.deleted || currentUserId == null || onToggleReaction == null) {
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      sheetAnimationStyle: AppMotion.overlayStyle(context),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.58),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: AppGlassSurface(
+            radius: 28,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(6, 0, 6, 4),
+                  child: Text(
+                    'React to message',
+                    style: TextStyle(
+                      color: AppGlassColors.ink,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                MessageReactionPicker(
+                  reactions: message.reactions,
+                  currentUserId: currentUserId!,
+                  onSelected: (reaction) => _toggleReaction(ctx, reaction),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showActions(BuildContext context) {
     if (message.deleted) return;
@@ -52,6 +111,28 @@ class ChatBubble extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
+                if (currentUserId != null && onToggleReaction != null) ...[
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text(
+                        'React',
+                        style: TextStyle(
+                          color: AppGlassColors.inkMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  MessageReactionPicker(
+                    reactions: message.reactions,
+                    currentUserId: currentUserId!,
+                    onSelected: (reaction) => _toggleReaction(ctx, reaction),
+                  ),
+                  const Divider(height: 18, color: AppGlassColors.border),
+                ],
                 if (message.text != null && onEdit != null)
                   ListTile(
                     leading: const Icon(Icons.edit, color: AppGlassColors.aqua),
@@ -309,6 +390,21 @@ class ChatBubble extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (!isDeleted &&
+                      currentUserId != null &&
+                      onToggleReaction != null)
+                    MessageReactionBar(
+                      reactions: message.reactions,
+                      currentUserId: currentUserId!,
+                      onReactionTap: (reaction) =>
+                          showMessageReactionUsersSheet(
+                            context,
+                            reactions: message.reactions,
+                            initialReaction: reaction,
+                            users: users,
+                          ),
+                      onAddReaction: () => _showReactionPicker(context),
+                    ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisSize: MainAxisSize.min,

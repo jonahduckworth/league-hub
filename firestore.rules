@@ -938,7 +938,8 @@ service cloud.firestore {
           'mediaUrl',
           'mediaType',
           'createdAt',
-          'readBy'
+          'readBy',
+          'reactions'
         ])
         && request.resource.data.chatRoomId == roomId
         && request.resource.data.senderId == request.auth.uid
@@ -968,11 +969,71 @@ service cloud.firestore {
         && request.resource.data.readBy is list
         && request.resource.data.readBy.size() == 1
         && request.resource.data.readBy[0] == request.auth.uid
+        && (
+          !('reactions' in request.resource.data)
+          || (
+            request.resource.data.reactions is map
+            && request.resource.data.reactions.keys().size() == 0
+          )
+        )
         && directRecipientAllowsSender(get(roomPath(orgId, roomId)).data);
     }
 
     function messageReadReceiptOnly() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
+    }
+
+    function messageReactions(data) {
+      return 'reactions' in data && data.reactions is map
+        ? data.reactions
+        : {};
+    }
+
+    function ownReactionChangeOnly() {
+      let beforeReactions = messageReactions(resource.data);
+      let afterReactions = messageReactions(request.resource.data);
+      let changedReactionKeys = afterReactions.diff(beforeReactions)
+        .affectedKeys();
+      let key = changedReactionKeys.hasAny(['thumbsUp']) ? 'thumbsUp'
+        : changedReactionKeys.hasAny(['heart']) ? 'heart'
+        : changedReactionKeys.hasAny(['laugh']) ? 'laugh'
+        : changedReactionKeys.hasAny(['celebrate']) ? 'celebrate'
+        : changedReactionKeys.hasAny(['clap']) ? 'clap'
+        : 'fire';
+      let before = key in beforeReactions ? beforeReactions[key] : [];
+      let after = key in afterReactions ? afterReactions[key] : [];
+      return changedReactionKeys.size() == 1
+        && changedReactionKeys.hasOnly([
+          'thumbsUp',
+          'heart',
+          'laugh',
+          'celebrate',
+          'clap',
+          'fire'
+        ])
+        && before is list
+        && after is list
+        && after.size() <= 500
+        && after.toSet().size() == after.size()
+        && after.removeAll([request.auth.uid])
+          == before.removeAll([request.auth.uid]);
+    }
+
+    function messageReactionOnly() {
+      return (!('deleted' in resource.data) || resource.data.deleted != true)
+        && currentUser().hasAcceptedCommunityGuidelines == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'reactions'
+        ])
+        && messageReactions(request.resource.data).keys().hasOnly([
+          'thumbsUp',
+          'heart',
+          'laugh',
+          'celebrate',
+          'clap',
+          'fire'
+        ])
+        && ownReactionChangeOnly();
     }
 
     function ownMessageContentUpdateOnly() {
@@ -1120,6 +1181,7 @@ service cloud.firestore {
           allow update: if canReadRoom(orgId, roomId)
             && (
               messageReadReceiptOnly()
+              || messageReactionOnly()
               || (
                 resource.data.senderId == request.auth.uid
                 && ownMessageContentUpdateOnly()
