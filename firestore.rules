@@ -1118,7 +1118,12 @@ service cloud.firestore {
       }
 
       match /chatRooms/{roomId} {
-        allow get, list: if roomIsReadable(resource.data);
+        // Installed clients check a deterministic DM ID before creating it.
+        // A missing document has no room data to authorize against.
+        allow get: if exists(roomPath(orgId, roomId))
+          ? roomIsReadable(resource.data)
+          : sameOrg(orgId);
+        allow list: if roomIsReadable(resource.data);
         allow create: if validOptionalRoomPurpose(request.resource.data)
           && validOptionalRoomAccessMode(request.resource.data)
           && validAdditionalMembersOnCreate(request.resource.data)
