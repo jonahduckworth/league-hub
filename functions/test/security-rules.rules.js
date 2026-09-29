@@ -651,6 +651,102 @@ test("admin cannot mutate a direct-message room as managed content", async () =>
   ));
 });
 
+for (const role of ["platformOwner", "superAdmin", "managerAdmin", "staff"]) {
+  test(`${role} can look up, create, and exchange messages in a new direct room`, async () => {
+    await seedFirestore([
+      ["users/member", user({id: "member", displayName: "Member", role})],
+      ["users/peer", user({id: "peer", displayName: "Peer"})],
+    ]);
+    const memberDb = testEnv.authenticatedContext("member").firestore();
+    const peerDb = testEnv.authenticatedContext("peer").firestore();
+    const roomId = "dm_member_peer";
+    const roomPath = `organizations/org-1/chatRooms/${roomId}`;
+
+    // The installed app reads this deterministic ID before creating the room.
+    const missing = await assertSucceeds(getDoc(doc(memberDb, roomPath)));
+    assert.equal(missing.exists(), false);
+    await assertSucceeds(setDoc(doc(memberDb, roomPath), {
+      orgId: "org-1",
+      name: "Member & Peer",
+      type: "direct",
+      participants: ["member", "peer"],
+      participantNames: {member: "Member", peer: "Peer"},
+      isArchived: false,
+      createdAt: serverTimestamp(),
+      lastMessage: null,
+      lastMessageAt: serverTimestamp(),
+      lastMessageBy: null,
+    }));
+    const existing = await assertSucceeds(getDoc(doc(memberDb, roomPath)));
+    assert.equal(existing.exists(), true);
+    await assertSucceeds(getDoc(doc(peerDb, roomPath)));
+
+    for (const [senderId, senderName, senderDb, recipientDb] of [
+      ["member", "Member", memberDb, peerDb],
+      ["peer", "Peer", peerDb, memberDb],
+    ]) {
+      const messagePath = `${roomPath}/messages/${senderId}-message`;
+      await assertSucceeds(setDoc(doc(senderDb, messagePath), {
+        chatRoomId: roomId,
+        senderId,
+        senderName,
+        text: "Hello",
+        previewText: "Hello",
+        createdAt: serverTimestamp(),
+        readBy: [senderId],
+      }));
+      const received = await assertSucceeds(getDoc(doc(recipientDb, messagePath)));
+      assert.equal(received.data().text, "Hello");
+    }
+  });
+}
+
+test("missing room lookups require an active organization member", async () => {
+  await seedFirestore([
+    ["users/member", user({id: "member"})],
+    ["users/inactive", user({id: "inactive", isActive: false})],
+    ["users/outsider", user({id: "outsider", orgId: "org-2"})],
+  ]);
+  const roomPath = "organizations/org-1/chatRooms/dm_member_peer";
+  for (const uid of ["inactive", "outsider", "missing-profile"]) {
+    const db = testEnv.authenticatedContext(uid).firestore();
+    await assertFails(getDoc(doc(db, roomPath)));
+  }
+  await assertFails(getDoc(doc(
+    testEnv.unauthenticatedContext().firestore(),
+    roomPath,
+  )));
+  const memberDb = testEnv.authenticatedContext("member").firestore();
+  await assertFails(getDoc(doc(
+    memberDb,
+    "organizations/org-2/chatRooms/dm_member_peer",
+  )));
+});
+
+test("missing room lookup access does not grant access to existing private rooms", async () => {
+  await seedFirestore([
+    ["users/outsider", user({id: "outsider"})],
+    ["organizations/org-1/chatRooms/dm_member_peer", {
+      orgId: "org-1",
+      name: "Member & Peer",
+      type: "direct",
+      participants: ["member", "peer"],
+      isArchived: false,
+    }],
+  ]);
+  const db = testEnv.authenticatedContext("outsider").firestore();
+  await assertFails(getDoc(doc(db, "organizations/org-1/chatRooms/dm_member_peer")));
+  await assertFails(getDocs(query(
+    collection(db, "organizations/org-1/chatRooms"),
+    where("orgId", "==", "org-1"),
+    where("type", "==", "direct"),
+  )));
+  await assertFails(getDoc(doc(
+    db,
+    "organizations/org-1/chatRooms/dm_member_peer/messages/missing-message",
+  )));
+});
+
 test("direct rooms reject shared-room purpose metadata", async () => {
   await seedFirestore([
     ["users/member", user({ id: "member" })],
