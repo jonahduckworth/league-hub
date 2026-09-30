@@ -27,7 +27,9 @@
     "firebase-functions": "^7.2.5"
   },
   "overrides": {
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "@grpc/grpc-js": "^1.14.5",
+    "qs": "^6.16.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
