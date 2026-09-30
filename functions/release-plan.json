@@ -1,7 +1,5 @@
 {
-  "all": false,
-  "targets": [
-    "adminArchiveChatRoom"
-  ],
-  "reason": "Archive multi-team Event Rooms without dereferencing reserved scope sentinels."
+  "all": true,
+  "targets": [],
+  "reason": "Refresh shared runtime dependencies for gRPC, WebSocket and multipart security fixes; all Functions must use the patched dependency tree."
 }

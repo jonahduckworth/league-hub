@@ -211,6 +211,12 @@ jobs:
         working-directory: apps/admin
         run: npm run verify
 
+      - name: Check admin static rendering and image processing
+        if: needs.release-plan.outputs.admin_validate == 'true'
+        env:
+          WEB_APP: admin
+        run: node --test tool/ci/web-export-smoke.test.cjs
+
       - name: Install landing page dependencies
         if: needs.release-plan.outputs.marketing_validate == 'true'
         working-directory: apps/marketing
@@ -220,6 +226,12 @@ jobs:
         if: needs.release-plan.outputs.marketing_validate == 'true'
         working-directory: apps/marketing
         run: npm run verify
+
+      - name: Check landing page static rendering and image processing
+        if: needs.release-plan.outputs.marketing_validate == 'true'
+        env:
+          WEB_APP: marketing
+        run: node --test tool/ci/web-export-smoke.test.cjs
 
       - name: Require Firebase deployment credentials
         if: >-
