@@ -5,8 +5,8 @@ Next.js admin dashboard for active `platformOwner` and `superAdmin` users.
 ## Commands
 
 ```bash
-npm install
-npm run dev
+npm ci
+NEXT_PUBLIC_ADMIN_DEMO_MODE=true npm run dev
 npm run verify
 ```
 
@@ -23,3 +23,5 @@ The `admin` hosting target is mapped to the existing `jdb-league-hub` Hosting si
 The Firebase web app is `League Hub Admin` with app id `1:757767295888:web:c9cc6d379088109b101915`.
 
 Use `NEXT_PUBLIC_ADMIN_DEMO_MODE=true` only for local UI QA.
+
+For pinned cloud tools and safe previews, see [cloud development](../../scripts/cloud/README.md).
