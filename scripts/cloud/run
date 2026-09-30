@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/activate.sh"
+if [[ $# == 0 ]]; then
+  echo 'Usage: scripts/cloud/run COMMAND [ARGUMENTS...]' >&2
+  exit 2
+fi
+if [[ ! -x "$LEAGUE_HUB_TOOLS/node-tools/node_modules/.bin/node" ]] ||
+   [[ ! -x "$LEAGUE_HUB_TOOLS/flutter/bin/flutter" ]] ||
+   [[ "$(node --version)" != v22.23.3 ]]; then
+  echo 'Pinned toolchain missing or mismatched; run bash scripts/cloud/setup.sh.' >&2
+  exit 1
+fi
+exec "$@"

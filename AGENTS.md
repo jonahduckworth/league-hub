@@ -36,3 +36,14 @@ npm test
 - App/UI/model/provider changes: `flutter analyze && flutter test`.
 - Cloud Function changes: run `npm run lint` and `npm test` inside `functions/`.
 - Release/TestFlight work is not complete until App Store Connect/TestFlight state is verified, not merely a local IPA build or upload line.
+
+## Cloud development
+
+- Read [scripts/cloud/README.md](scripts/cloud/README.md) for reproducible setup.
+- In cloud tasks, prefix commands with `scripts/cloud/run` (or source
+  `scripts/cloud/activate.sh`) so each shell uses Node 22 and the pinned Flutter SDK.
+- Preview with `scripts/cloud/run python scripts/cloud/web.py`; this enables admin
+  demo mode and disables remote marketing submissions.
+- Use `scripts/cloud/rules.sh` for isolated demo-project rules tests.
+- Run `scripts/cloud/run python scripts/cloud/capture.py` for local-only screenshots
+  and video while the previews are running.

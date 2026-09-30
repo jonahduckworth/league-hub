@@ -13,29 +13,20 @@ A Flutter app for managing sports leagues, hubs, and teams. Built for commission
 
 ## Getting Started
 
-1. **Clone the repo**
-   ```bash
-   git clone https://github.com/jonahduckworth/league-hub.git
-   cd league-hub
-   ```
+For Linux cloud development, start with [the cloud setup guide](scripts/cloud/README.md).
+It provides pinned toolchain setup, safe frontend previews, emulator tests, screenshots,
+and video capture without Firebase credentials.
 
-2. **Install dependencies**
-   ```bash
-   flutter pub get
-   ```
+For a native developer workstation, install Flutter **3.44.9** (the CI version),
+run `flutter pub get --enforce-lockfile`, and supply the platform-specific Firebase
+configuration for your approved development project. `lib/main.dart` already calls
+`Firebase.initializeApp`; no initialization code needs uncommenting. The cloud setup
+uses `tool/ci/firebase_options.dart` only as a static-analysis/test fixture, not a
+working production configuration. The app does not automatically switch to mock UI.
 
-3. **Connect Firebase** (required for auth/data)
-   ```bash
-   dart pub global activate flutterfire_cli
-   flutterfire configure
-   ```
-   Follow the prompts to link your Firebase project. Uncomment the Firebase initialization line in `lib/main.dart`.
-
-4. **Run the app**
-   ```bash
-   flutter run
-   ```
-   The app displays mock UI data before Firebase is configured.
+Run `flutter analyze && flutter test` before native development. Android requires
+an SDK and its license agreements; iOS/macOS development requires a Mac and Xcode.
+See the cloud guide for the emulator flags and platform limitations.
 
 ## Project Structure
 
@@ -69,11 +60,11 @@ lib/
 
 ## Firebase Setup
 
-After running `flutterfire configure`, uncomment the initialization in `lib/main.dart`:
-
-```dart
-await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-```
+Native configuration files are intentionally ignored by Git. Configure an approved
+non-production project on your developer workstation; do not create credentials or
+connect this cloud environment to production just to run tests. The admin preview
+must use `NEXT_PUBLIC_ADMIN_DEMO_MODE=true`, and marketing previews must override
+`NEXT_PUBLIC_CONTACT_ENDPOINT`. The cloud preview launcher sets both safely.
 
 ## Firebase deployment
 
