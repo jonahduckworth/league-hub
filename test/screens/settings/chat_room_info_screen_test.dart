@@ -149,6 +149,40 @@ class _FakeAuthorizedFirestoreService extends AuthorizedFirestoreService {
 
 void main() {
   group('ChatRoomInfoScreen', () {
+    for (final role in UserRole.values) {
+      testWidgets('$role cannot view another persons DM info', (tester) async {
+        final outsider = AppUser(
+          id: 'outsider',
+          email: 'outsider@example.com',
+          displayName: 'Outsider',
+          role: role,
+          orgId: 'org-1',
+          hubIds: [],
+          teamIds: [],
+          createdAt: DateTime(2025),
+          isActive: true,
+        );
+        await tester.pumpWidget(_buildTestWidget(
+          roomId: 'cr2',
+          overrides: [
+            currentUserProvider.overrideWith((ref) async => outsider),
+            organizationProvider.overrideWith((ref) async => null),
+            chatRoomProvider('cr2').overrideWith(
+              (ref) => Stream.value(_dmRoom()),
+            ),
+            orgUsersProvider.overrideWith(
+              (ref) => Stream.value([_adminUser(), _staffUser()]),
+            ),
+            leaguesProvider.overrideWith((ref) => Stream.value([])),
+          ],
+        ));
+        await tester.pumpAndSettle();
+        expect(find.text('This conversation is private'), findsOneWidget);
+        expect(find.text('Sarah Johnson'), findsNothing);
+        expect(find.text('Staff Member'), findsNothing);
+      });
+    }
+
     testWidgets('renders league room info', (tester) async {
       final room = _leagueRoom();
       await tester.pumpWidget(_buildTestWidget(

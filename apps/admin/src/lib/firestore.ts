@@ -168,6 +168,7 @@ function clearRestrictedFeedData(data: AdminData, feed: RestrictedFeed): AdminDa
 }
 
 export function useAdminData(currentUser?: AppUser | null) {
+  const currentUserId = currentUser?.id;
   const userScopeKey = currentUser
     ? `${currentUser.id}:${currentUser.role}:${currentUser.orgId ?? ""}`
     : undefined;
@@ -473,8 +474,11 @@ export function useAdminData(currentUser?: AppUser | null) {
       ? state.data
       : demoMode ? demoData : emptyData;
     const selectedOrg = source.orgs.find((org) => org.id === selectedOrgId) ?? source.selectedOrg;
-    return { ...source, selectedOrg };
-  }, [selectedOrgId, state.data, state.userScopeKey, userScopeKey]);
+    const chatRooms = source.chatRooms.filter((room) =>
+      room.type !== "direct" || room.participants.includes(currentUserId ?? "")
+    );
+    return { ...source, selectedOrg, chatRooms };
+  }, [currentUserId, selectedOrgId, state.data, state.userScopeKey, userScopeKey]);
 
   return {
     data,

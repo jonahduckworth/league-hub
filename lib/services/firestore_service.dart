@@ -432,9 +432,20 @@ class FirestoreService {
   Stream<List<ChatRoom>> getVisibleChatRooms(String orgId, AppUser viewer) {
     if (viewer.role == UserRole.platformOwner ||
         viewer.role == UserRole.superAdmin) {
-      return getChatRooms(orgId).map((rooms) => rooms
+      return _combineRoomQueries([
+        _chatRoomsRef(orgId)
+            .where('orgId', isEqualTo: orgId)
+            .where('isArchived', isEqualTo: false)
+            .where('type', whereIn: const ['league', 'event']),
+        _chatRoomsRef(orgId)
+            .where('orgId', isEqualTo: orgId)
+            .where('isArchived', isEqualTo: false)
+            .where('type', isEqualTo: 'direct')
+            .where('participants', arrayContains: viewer.id),
+      ]).map((rooms) => rooms
           .where((room) =>
-              !room.isParticipantGroupRoom ||
+              (room.type != ChatRoomType.direct &&
+                  !room.isParticipantGroupRoom) ||
               room.participants.contains(viewer.id))
           .toList());
     }

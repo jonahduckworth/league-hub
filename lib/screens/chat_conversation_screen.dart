@@ -78,9 +78,15 @@ class _ChatConversationScreenState
   // ---------------------------------------------------------------------------
 
   Future<void> _markAsRead() async {
+    if (!mounted) return;
     final orgId = ref.read(organizationProvider).valueOrNull?.id;
     final currentUser = ref.read(currentUserProvider).valueOrNull;
-    if (orgId == null || currentUser == null) return;
+    final room = ref.read(chatRoomProvider(widget.roomId)).valueOrNull;
+    if (orgId == null || currentUser == null || room == null) return;
+    if ((room.type == ChatRoomType.direct || room.isParticipantGroupRoom) &&
+        !ref.read(permissionServiceProvider).canViewChatRoom(currentUser, room)) {
+      return;
+    }
     try {
       await ref
           .read(authorizedFirestoreServiceProvider)
@@ -514,8 +520,43 @@ class _ChatConversationScreenState
   @override
   Widget build(BuildContext context) {
     final roomAsync = ref.watch(chatRoomProvider(widget.roomId));
-    final messagesAsync = ref.watch(messagesProvider(widget.roomId));
     final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final room = roomAsync.valueOrNull;
+
+    // Resolve room membership before opening message or typing listeners.
+    // Admin metadata access does not grant access to a private conversation.
+    if (roomAsync.isLoading || currentUser == null) {
+      return const AppShellScaffold(
+        header: AppShellHeader(
+          title: 'Chat',
+          showBackButton: true,
+          backFallbackLocation: '/chat',
+        ),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final privateRoomDenied = room != null &&
+        (room.type == ChatRoomType.direct || room.isParticipantGroupRoom) &&
+        !ref.read(permissionServiceProvider).canViewChatRoom(currentUser, room);
+    if (room == null || privateRoomDenied) {
+      return AppShellScaffold(
+        header: const AppShellHeader(
+          title: 'Conversation unavailable',
+          showBackButton: true,
+          backFallbackLocation: '/chat',
+        ),
+        child: EmptyState(
+          icon: Icons.lock_outline,
+          title: privateRoomDenied
+              ? 'This conversation is private'
+              : 'Conversation unavailable',
+          subtitle: privateRoomDenied
+              ? 'You can only open private conversations you are part of.'
+              : 'This conversation could not be opened. Please return to Chats and try again.',
+        ),
+      );
+    }
+    final messagesAsync = ref.watch(messagesProvider(widget.roomId));
     final users = ref.watch(orgUsersProvider).valueOrNull ?? [];
     final typingUsers =
         ref.watch(typingUsersProvider(widget.roomId)).valueOrNull ?? [];
@@ -524,7 +565,7 @@ class _ChatConversationScreenState
     // Only cache firestoreService when orgId and userId are available to avoid
     // triggering Firebase initialisation in test environments.
     _cachedOrgId = ref.read(organizationProvider).valueOrNull?.id;
-    _cachedUserId = currentUser?.id;
+    _cachedUserId = currentUser.id;
     if (_cachedOrgId != null && _cachedUserId != null) {
       _cachedFirestoreService = ref.read(firestoreServiceProvider);
     }
@@ -543,15 +584,11 @@ class _ChatConversationScreenState
       },
     );
 
-    final room = roomAsync.valueOrNull;
-    final roomName =
-        room == null ? 'Chat' : chatRoomDisplayName(room, currentUser, users);
-    final isDirectMessage = room?.type == ChatRoomType.direct;
-    final members =
-        room == null ? const <AppUser>[] : chatRoomMembers(room, users);
-    final participantCount = room == null
-        ? 0
-        : (members.isNotEmpty ? members.length : room.participants.length);
+    final roomName = chatRoomDisplayName(room, currentUser, users);
+    final isDirectMessage = room.type == ChatRoomType.direct;
+    final members = chatRoomMembers(room, users);
+    final participantCount =
+        members.isNotEmpty ? members.length : room.participants.length;
     final roomSubtitle = isDirectMessage
         ? 'Direct Message'
         : participantCount > 0
@@ -611,7 +648,7 @@ class _ChatConversationScreenState
 
                   final items = _buildMessageItems(
                     messages,
-                    currentUser?.id,
+                    currentUser.id,
                     users,
                   );
 

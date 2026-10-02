@@ -558,11 +558,11 @@ class PermissionService {
     if (room.isParticipantGroupRoom) {
       return room.participants.contains(user.id);
     }
-    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
-    // DMs: only participants.
+    // DMs stay participant-only for every role, including elevated admins.
     if (room.type == ChatRoomType.direct) {
       return room.participants.contains(user.id);
     }
+    if (isAtLeast(user.role, UserRole.superAdmin)) return true;
     if (room.hasAdditionalMemberAccess(user.id)) return true;
     if (room.hasMultiTeamAudience) {
       return room.teamIds.any(user.teamIds.contains) ||

@@ -190,6 +190,23 @@ describe("useAdminData scope isolation", () => {
     ]));
   });
 
+  it.each(["platformOwner", "superAdmin", "managerAdmin", "staff"] as UserRole[])(
+    "%s sees only their own DM rooms and keeps shared rooms",
+    async (role) => {
+      const viewer = appUser("viewer", role, "org-a");
+      const { result } = renderHook(() => useAdminData(viewer));
+      const rooms = subscriptionFor("organizations/org-a/chatRooms", "org-a");
+      act(() => rooms.next(querySnapshot([
+        record("mine", { type: "direct", participants: ["viewer", "peer"] }),
+        record("others", { type: "direct", participants: ["other1", "other2"] }),
+        record("shared", { type: "league", participants: [] })
+      ])));
+      await waitFor(() => {
+        expect(result.current.data.chatRooms.map((room) => room.id)).toEqual(["mine", "shared"]);
+      });
+    }
+  );
+
   it("streams only the selected shared-room conversation and caps it to 100 messages", async () => {
     const { result } = renderHook(() => useChatRoomMessages("org-a", "room-a"));
     const messages = subscriptionFor("organizations/org-a/chatRooms/room-a/messages");

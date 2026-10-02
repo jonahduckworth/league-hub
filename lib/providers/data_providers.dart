@@ -109,7 +109,8 @@ final teamCountProvider = FutureProvider<int>((ref) async {
 });
 
 /// Chat rooms, scope-filtered by the current user's role and hub assignments.
-/// superAdmin+ sees all rooms. managerAdmin/staff see DMs they're in, plus
+/// Every role sees only DMs and participant-only groups they're in.
+/// superAdmin+ sees all shared rooms. managerAdmin/staff see scoped rooms, plus
 /// league rooms for leagues they belong to (via denormalized leagueIds on
 /// AppUser) and event rooms for the entire org.
 final chatRoomsProvider = StreamProvider<List<ChatRoom>>((ref) {

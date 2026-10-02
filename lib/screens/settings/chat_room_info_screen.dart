@@ -21,6 +21,7 @@ import '../../widgets/app_shell_scaffold.dart';
 import '../../widgets/avatar_widget.dart';
 import '../../widgets/chat_room_avatar.dart';
 import '../../widgets/confirmation_dialog.dart';
+import '../../widgets/empty_state.dart';
 
 class ChatRoomInfoScreen extends ConsumerWidget {
   final String roomId;
@@ -40,7 +41,7 @@ class ChatRoomInfoScreen extends ConsumerWidget {
     final topContentPadding = appShellTopPadding(context);
     final bottomContentPadding = appShellBottomPadding(context, extra: 24);
 
-    if (room == null) {
+    if (roomAsync.isLoading || currentUser == null) {
       return AppShellScaffold(
         header: AppShellHeader(
           title: 'Chat Info',
@@ -53,13 +54,35 @@ class ChatRoomInfoScreen extends ConsumerWidget {
       );
     }
 
+    final privateRoomDenied = room != null &&
+        (room.type == ChatRoomType.direct || room.isParticipantGroupRoom) &&
+        !ref.read(permissionServiceProvider).canViewChatRoom(currentUser, room);
+    if (room == null || privateRoomDenied) {
+      return AppShellScaffold(
+        header: const AppShellHeader(
+          title: 'Conversation unavailable',
+          showBackButton: true,
+          backFallbackLocation: '/chat',
+        ),
+        child: EmptyState(
+          icon: Icons.lock_outline,
+          title: privateRoomDenied
+              ? 'This conversation is private'
+              : 'Conversation unavailable',
+          subtitle: privateRoomDenied
+              ? 'You can only open private conversations you are part of.'
+              : 'This conversation could not be opened. Please return to Chats and try again.',
+        ),
+      );
+    }
+
     final participants = chatRoomMembers(room, allUsers);
     final peer = directMessagePeer(room, currentUser, allUsers);
     final displayName = chatRoomDisplayName(room, currentUser, allUsers);
 
-    final canManageRoom = currentUser != null &&
+    final canManageRoom =
         const PermissionService().canManageChatRoom(currentUser, room);
-    final canEditRoom = currentUser != null &&
+    final canEditRoom =
         const PermissionService().canEditChatRoomDetails(currentUser, room);
 
     return AppShellScaffold(
