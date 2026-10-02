@@ -206,7 +206,11 @@ AppUser? directMessagePeer(
   AppUser? currentUser,
   List<AppUser> users,
 ) {
-  if (room.type != ChatRoomType.direct || currentUser == null) return null;
+  if (room.type != ChatRoomType.direct ||
+      currentUser == null ||
+      !room.participants.contains(currentUser.id)) {
+    return null;
+  }
   final peerId = room.participants.firstWhere(
     (id) => id != currentUser.id,
     orElse: () => '',
@@ -225,7 +229,9 @@ String chatRoomDisplayName(
 ) {
   final peer = directMessagePeer(room, currentUser, users);
   if (peer != null) return peer.displayName;
-  if (room.type == ChatRoomType.direct && currentUser != null) {
+  if (room.type == ChatRoomType.direct &&
+      currentUser != null &&
+      room.participants.contains(currentUser.id)) {
     final peerId = room.participants.firstWhere(
       (id) => id != currentUser.id,
       orElse: () => '',

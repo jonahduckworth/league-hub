@@ -1208,11 +1208,34 @@ void main() {
         );
       });
 
-      test('superAdmin sees all rooms', () {
-        final room = makeRoom(
-            type: ChatRoomType.direct, participants: ['other1', 'other2']);
+      test('superAdmin retains access to shared rooms', () {
+        final room = makeRoom(type: ChatRoomType.league);
         expect(service.canViewChatRoom(superAdmin(), room), isTrue);
       });
+
+      for (final role in UserRole.values) {
+        test('$role sees only direct messages they participate in', () {
+          final viewer = makeUser(id: 'viewer', role: role);
+          final mine = makeRoom(
+            type: ChatRoomType.direct,
+            participants: ['viewer', 'peer'],
+          );
+          final others = makeRoom(
+            type: ChatRoomType.direct,
+            participants: ['other1', 'other2'],
+            additionalMemberIds: ['viewer'],
+          );
+          expect(service.canViewChatRoom(viewer, mine), isTrue);
+          expect(service.canViewChatRoom(viewer, others), isFalse);
+          expect(
+            service.canViewChatRoom(
+              makeUser(id: 'viewer', role: role, isActive: false),
+              mine,
+            ),
+            isFalse,
+          );
+        });
+      }
 
       test('DM only visible to participants', () {
         final room = makeRoom(

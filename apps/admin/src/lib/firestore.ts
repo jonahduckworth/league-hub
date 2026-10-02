@@ -168,6 +168,7 @@ function clearRestrictedFeedData(data: AdminData, feed: RestrictedFeed): AdminDa
 }
 
 export function useAdminData(currentUser?: AppUser | null) {
+  const currentUserId = currentUser?.id;
   const userScopeKey = currentUser
     ? `${currentUser.id}:${currentUser.role}:${currentUser.orgId ?? ""}`
     : undefined;
@@ -344,7 +345,7 @@ export function useAdminData(currentUser?: AppUser | null) {
 
   useEffect(() => {
     if (demoMode) return undefined;
-    if (!db || !selectedOrgId || !userScopeKey) {
+    if (!db || !selectedOrgId || !userScopeKey || !currentUserId) {
       return undefined;
     }
 
@@ -361,6 +362,18 @@ export function useAdminData(currentUser?: AppUser | null) {
         return;
       }
       requiredSnapshotError(label)(error);
+    };
+
+    // Never request other members' DM metadata or message previews.
+    const chatRoomFeeds: Record<"shared" | "direct", ChatRoom[]> = { shared: [], direct: [] };
+    const updateChatRooms = (feed: "shared" | "direct", rooms: ChatRoom[]) => {
+      if (!active) return;
+      chatRoomFeeds[feed] = rooms;
+      const chatRooms = [...chatRoomFeeds.shared, ...chatRoomFeeds.direct];
+      setState((current) => ({
+        ...current,
+        data: { ...current.data, chatRooms }
+      }));
     };
 
     const unsubscribers = [
@@ -403,13 +416,19 @@ export function useAdminData(currentUser?: AppUser | null) {
       onSnapshot(query(
         collection(db, "organizations", selectedOrgId, "chatRooms"),
         where("orgId", "==", selectedOrgId),
-        where("isArchived", "==", false)
+        where("isArchived", "==", false),
+        where("type", "in", ["league", "event"])
       ), (snap) => {
-        if (!active) return;
-        setState((current) => ({
-          ...current,
-          data: { ...current.data, chatRooms: snap.docs.map((item) => ({ id: item.id, ...item.data() })) as ChatRoom[] }
-        }));
+        updateChatRooms("shared", snap.docs.map((item) => ({ id: item.id, ...item.data() })) as ChatRoom[]);
+      }, requiredSnapshotError("Chat rooms")),
+      onSnapshot(query(
+        collection(db, "organizations", selectedOrgId, "chatRooms"),
+        where("orgId", "==", selectedOrgId),
+        where("isArchived", "==", false),
+        where("type", "==", "direct"),
+        where("participants", "array-contains", currentUserId)
+      ), (snap) => {
+        updateChatRooms("direct", snap.docs.map((item) => ({ id: item.id, ...item.data() })) as ChatRoom[]);
       }, requiredSnapshotError("Chat rooms")),
       // Keep enough history for prior-season results without dropping the
       // newest schedule after multiple seasons accumulate.
@@ -466,15 +485,18 @@ export function useAdminData(currentUser?: AppUser | null) {
       structureRequestGeneration.current += 1;
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [reloadStructure, selectedOrgId, userScopeKey]);
+  }, [currentUserId, reloadStructure, selectedOrgId, userScopeKey]);
 
   const data = useMemo(() => {
     const source = state.userScopeKey === userScopeKey
       ? state.data
       : demoMode ? demoData : emptyData;
     const selectedOrg = source.orgs.find((org) => org.id === selectedOrgId) ?? source.selectedOrg;
-    return { ...source, selectedOrg };
-  }, [selectedOrgId, state.data, state.userScopeKey, userScopeKey]);
+    const chatRooms = source.chatRooms.filter((room) =>
+      room.type !== "direct" || room.participants.includes(currentUserId ?? "")
+    );
+    return { ...source, selectedOrg, chatRooms };
+  }, [currentUserId, selectedOrgId, state.data, state.userScopeKey, userScopeKey]);
 
   return {
     data,

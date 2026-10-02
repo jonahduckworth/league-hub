@@ -690,6 +690,56 @@ void main() {
           hubOnlyRooms.map((room) => room.id), isNot(contains('multi-team')));
     });
 
+    for (final role in UserRole.values) {
+      test('getVisibleChatRooms limits $role to their own DMs', () async {
+        final viewer = AppUser(
+          id: 'viewer',
+          email: 'viewer@example.com',
+          displayName: 'Viewer',
+          role: role,
+          orgId: orgId,
+          hubIds: const [],
+          teamIds: const [],
+          createdAt: DateTime(2026),
+          isActive: true,
+        );
+        final roomsRef = fakeFirestore
+            .collection(AppConstants.orgsCollection)
+            .doc(orgId)
+            .collection(AppConstants.chatRoomsCollection);
+        for (final entry in {
+          'mine': ['viewer', 'peer'],
+          'others': ['other1', 'other2'],
+          'archived': ['viewer', 'peer2'],
+        }.entries) {
+          await roomsRef.doc(entry.key).set({
+            'orgId': orgId,
+            'name': entry.key,
+            'type': 'direct',
+            'participants': entry.value,
+            'isArchived': entry.key == 'archived',
+            'createdAt': DateTime(2026).toIso8601String(),
+          });
+        }
+        await roomsRef.doc('shared').set({
+          'orgId': orgId,
+          'name': 'Shared',
+          'type': 'event',
+          'participants': <String>[],
+          'isArchived': false,
+          'leagueId': null,
+          'hubId': null,
+          'teamId': null,
+          'createdAt': DateTime(2026).toIso8601String(),
+        });
+        final rooms = await svc.getVisibleChatRooms(orgId, viewer).first;
+        expect(
+          rooms.map((room) => room.id),
+          unorderedEquals(['mine', 'shared']),
+        );
+      });
+    }
+
     test('getVisibleChatRooms supports staff with no assignments', () async {
       final viewer = AppUser(
         id: 'viewer',

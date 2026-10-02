@@ -190,6 +190,41 @@ describe("useAdminData scope isolation", () => {
     ]));
   });
 
+  it.each(["platformOwner", "superAdmin", "managerAdmin", "staff"] as UserRole[])(
+    "%s sees only their own DM rooms and keeps shared rooms",
+    async (role) => {
+      const viewer = appUser("viewer", role, "org-a");
+      const { result } = renderHook(() => useAdminData(viewer));
+      const roomFeeds = subscriptions.filter((subscription) => (
+        subscription.active && subscription.reference.path === "organizations/org-a/chatRooms"
+      ));
+      expect(roomFeeds).toHaveLength(2);
+      const direct = roomFeeds.find((subscription) => subscription.reference.constraints?.some((constraint) => (
+        constraint.field === "participants" && constraint.value === "viewer"
+      )))!;
+      const shared = roomFeeds.find((subscription) => subscription.reference.constraints?.some((constraint) => (
+        constraint.field === "type" && Array.isArray(constraint.value)
+      )))!;
+      expect(firestoreMocks.where).toHaveBeenCalledWith("participants", "array-contains", "viewer");
+      expect(firestoreMocks.where).toHaveBeenCalledWith("type", "in", ["league", "event"]);
+      expect(direct.reference.constraints).toEqual(expect.arrayContaining([
+        { field: "type", kind: "where", value: "direct" }
+      ]));
+      act(() => {
+        direct.next(querySnapshot([
+          record("mine", { type: "direct", participants: ["viewer", "peer"] }),
+          record("others", { type: "direct", participants: ["other1", "other2"] })
+        ]));
+        shared.next(querySnapshot([record("shared", { type: "league", participants: [] })]));
+      });
+      await waitFor(() => {
+        expect(result.current.data.chatRooms.map((room) => room.id).sort()).toEqual(["mine", "shared"]);
+      });
+      act(() => direct.next(querySnapshot([])));
+      expect(result.current.data.chatRooms.map((room) => room.id)).toEqual(["shared"]);
+    }
+  );
+
   it("streams only the selected shared-room conversation and caps it to 100 messages", async () => {
     const { result } = renderHook(() => useChatRoomMessages("org-a", "room-a"));
     const messages = subscriptionFor("organizations/org-a/chatRooms/room-a/messages");

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/chat_room.dart';
 import 'package:league_hub/models/message.dart';
+import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/screens/chat_conversation_screen.dart';
@@ -124,6 +125,108 @@ void main() {
     }
 
     group('Screen Rendering', () {
+      testWidgets('a failed room lookup has no composer or message listener',
+          (tester) async {
+        var messageSubscriptions = 0;
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            currentUserProvider.overrideWith((ref) => testUser),
+            chatRoomProvider('room-1').overrideWith(
+              (ref) => Stream.error(Exception('permission-denied')),
+            ),
+            messagesProvider('room-1').overrideWith((ref) {
+              messageSubscriptions++;
+              return Stream.value(testMessages);
+            }),
+          ],
+          child: const MaterialApp(
+            home: ChatConversationScreen(roomId: 'room-1'),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        expect(find.text('Conversation unavailable'), findsWidgets);
+        expect(find.textContaining('permission-denied'), findsNothing);
+        expect(find.byType(TextField), findsNothing);
+        expect(messageSubscriptions, 0);
+      });
+
+      for (final role in UserRole.values) {
+        testWidgets('$role cannot open another persons DM', (tester) async {
+          final viewer = AppUser(
+            id: 'outsider',
+            email: 'outsider@example.com',
+            displayName: 'Outsider',
+            role: role,
+            orgId: 'org-1',
+            hubIds: [],
+            teamIds: [],
+            createdAt: DateTime(2024),
+            isActive: true,
+          );
+          final room = ChatRoom(
+            id: 'room-1',
+            orgId: 'org-1',
+            name: 'Private participants',
+            type: ChatRoomType.direct,
+            participants: ['user-1', 'user-2'],
+            createdAt: DateTime(2024),
+            isArchived: false,
+          );
+          var messageSubscriptions = 0;
+          var typingSubscriptions = 0;
+          var readReceiptAttempts = 0;
+          final container = ProviderContainer(overrides: [
+            currentUserProvider.overrideWith((ref) => viewer),
+            organizationProvider.overrideWith((ref) => Organization(
+                  id: 'org-1',
+                  name: 'Test Org',
+                  primaryColor: '#1A3A5C',
+                  secondaryColor: '#2E75B6',
+                  accentColor: '#4DA3FF',
+                  createdAt: DateTime(2024),
+                  ownerId: 'owner',
+                )),
+            chatRoomProvider('room-1').overrideWith(
+              (ref) => Stream.value(room),
+            ),
+            messagesProvider('room-1').overrideWith((ref) {
+              messageSubscriptions++;
+              return Stream.value(testMessages);
+            }),
+            typingUsersProvider('room-1').overrideWith((ref) {
+              typingSubscriptions++;
+              return Stream.value([]);
+            }),
+            authorizedFirestoreServiceProvider.overrideWith((ref) {
+              readReceiptAttempts++;
+              throw StateError('Unexpected read receipt service access');
+            }),
+          ]);
+          addTearDown(container.dispose);
+          // Preload metadata so the initial read-receipt callback exercises
+          // the membership guard, rather than the loading-state guard.
+          await container.read(currentUserProvider.future);
+          await container.read(organizationProvider.future);
+          await container.read(chatRoomProvider('room-1').future);
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: const MaterialApp(
+                home: ChatConversationScreen(roomId: 'room-1'),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('This conversation is private'), findsOneWidget);
+          expect(find.text('Private participants'), findsNothing);
+          expect(find.text('Hello everyone!'), findsNothing);
+          expect(find.byType(TextField), findsNothing);
+          expect(messageSubscriptions, 0);
+          expect(typingSubscriptions, 0);
+          expect(readReceiptAttempts, 0);
+        });
+      }
+
       testWidgets('renders without crashing', (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget());
         await tester.pump();

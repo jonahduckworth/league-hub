@@ -280,7 +280,7 @@ void main() {
         expect(result, isEmpty);
       });
 
-      test('superAdmin: sees all rooms', () async {
+      test('superAdmin: sees shared rooms and only their own DMs', () async {
         final superAdmin = AppUser(
           id: 'admin1',
           email: 'admin@example.com',
@@ -324,8 +324,18 @@ void main() {
           isArchived: false,
         );
 
+        final ownDmRoom = ChatRoom(
+          id: 'own-dm',
+          orgId: 'org1',
+          name: 'Admin & Staff',
+          type: ChatRoomType.direct,
+          participants: ['admin1', 'staff1'],
+          createdAt: DateTime.now(),
+          isArchived: false,
+        );
+
         when(mockFs.getChatRooms('org1'))
-            .thenAnswer((_) => Stream.value([dmRoom, leagueRoom]));
+            .thenAnswer((_) => Stream.value([dmRoom, leagueRoom, ownDmRoom]));
 
         container = ProviderContainer(
           overrides: [
@@ -337,8 +347,8 @@ void main() {
 
         final result = await container.read(chatRoomsProvider.future);
 
-        // SuperAdmin sees all
-        expect(result, hasLength(2));
+        expect(result.map((room) => room.id),
+            unorderedEquals(['league1', 'own-dm']));
       });
     });
 
