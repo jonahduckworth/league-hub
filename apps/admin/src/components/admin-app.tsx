@@ -3276,12 +3276,12 @@ function ChatRoomsSection({
     { id: "direct", label: "Direct", count: data.chatRooms.filter((room) => chatRoomView(room) === "direct").length, icon: UserRound }
   ];
   const panelCopy: Record<ChatRoomView, { title: string; description: string }> = {
-    all: { title: "Active Chat Rooms", description: "Every active room in the selected organization." },
+    all: { title: "Active Chat Rooms", description: "Active shared rooms and your direct conversations in the selected organization." },
     group: { title: "Group Chats", description: "Private rooms whose access is controlled by an explicit participant list." },
     hub: { title: "Hub Rooms", description: "General rooms scoped to an individual hub." },
     team: { title: "Team Rooms", description: "General rooms scoped to an individual team." },
     league: { title: "League & Event Rooms", description: "Organization, league, and event-wide conversations." },
-    direct: { title: "Direct Messages", description: "Private conversations are visible here but cannot be edited by administrators." }
+    direct: { title: "Direct Messages", description: "Your direct conversations. Room details cannot be edited here." }
   };
 
   async function loadPreview() {

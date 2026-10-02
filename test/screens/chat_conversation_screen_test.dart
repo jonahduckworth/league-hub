@@ -68,9 +68,6 @@ void main() {
       List<String>? typingUsers,
       MediaQueryData? mediaQueryData,
       double? bottomNavPadding,
-      VoidCallback? onMessagesSubscribed,
-      VoidCallback? onTypingSubscribed,
-      VoidCallback? onReadReceiptServiceRequested,
     }) {
       Widget screen = const ChatConversationScreen(roomId: 'room-1');
       if (bottomNavPadding != null) {
@@ -85,23 +82,6 @@ void main() {
 
       return ProviderScope(
         overrides: [
-          if (onReadReceiptServiceRequested != null) ...[
-            organizationProvider.overrideWith(
-              (ref) => Organization(
-                id: 'org-1',
-                name: 'Test Org',
-                primaryColor: '#1A3A5C',
-                secondaryColor: '#2E75B6',
-                accentColor: '#4DA3FF',
-                createdAt: DateTime(2024),
-                ownerId: 'owner',
-              ),
-            ),
-            authorizedFirestoreServiceProvider.overrideWith((ref) {
-              onReadReceiptServiceRequested();
-              throw StateError('Unexpected read receipt service access');
-            }),
-          ],
           currentUserProvider.overrideWith(
             (ref) => user ?? testUser,
           ),
@@ -126,16 +106,10 @@ void main() {
             ]),
           ),
           messagesProvider('room-1').overrideWith(
-            (ref) {
-              onMessagesSubscribed?.call();
-              return Stream.value(messages ?? testMessages);
-            },
+            (ref) => Stream.value(messages ?? testMessages),
           ),
           typingUsersProvider('room-1').overrideWith(
-            (ref) {
-              onTypingSubscribed?.call();
-              return Stream.value(typingUsers ?? []);
-            },
+            (ref) => Stream.value(typingUsers ?? []),
           ),
         ],
         child: MaterialApp(
@@ -201,13 +175,45 @@ void main() {
           var messageSubscriptions = 0;
           var typingSubscriptions = 0;
           var readReceiptAttempts = 0;
+          final container = ProviderContainer(overrides: [
+            currentUserProvider.overrideWith((ref) => viewer),
+            organizationProvider.overrideWith((ref) => Organization(
+                  id: 'org-1',
+                  name: 'Test Org',
+                  primaryColor: '#1A3A5C',
+                  secondaryColor: '#2E75B6',
+                  accentColor: '#4DA3FF',
+                  createdAt: DateTime(2024),
+                  ownerId: 'owner',
+                )),
+            chatRoomProvider('room-1').overrideWith(
+              (ref) => Stream.value(room),
+            ),
+            messagesProvider('room-1').overrideWith((ref) {
+              messageSubscriptions++;
+              return Stream.value(testMessages);
+            }),
+            typingUsersProvider('room-1').overrideWith((ref) {
+              typingSubscriptions++;
+              return Stream.value([]);
+            }),
+            authorizedFirestoreServiceProvider.overrideWith((ref) {
+              readReceiptAttempts++;
+              throw StateError('Unexpected read receipt service access');
+            }),
+          ]);
+          addTearDown(container.dispose);
+          // Preload metadata so the initial read-receipt callback exercises
+          // the membership guard, rather than the loading-state guard.
+          await container.read(currentUserProvider.future);
+          await container.read(organizationProvider.future);
+          await container.read(chatRoomProvider('room-1').future);
           await tester.pumpWidget(
-            createTestWidget(
-              user: viewer,
-              room: room,
-              onMessagesSubscribed: () => messageSubscriptions++,
-              onTypingSubscribed: () => typingSubscriptions++,
-              onReadReceiptServiceRequested: () => readReceiptAttempts++,
+            UncontrolledProviderScope(
+              container: container,
+              child: const MaterialApp(
+                home: ChatConversationScreen(roomId: 'room-1'),
+              ),
             ),
           );
           await tester.pumpAndSettle();

@@ -195,15 +195,33 @@ describe("useAdminData scope isolation", () => {
     async (role) => {
       const viewer = appUser("viewer", role, "org-a");
       const { result } = renderHook(() => useAdminData(viewer));
-      const rooms = subscriptionFor("organizations/org-a/chatRooms", "org-a");
-      act(() => rooms.next(querySnapshot([
-        record("mine", { type: "direct", participants: ["viewer", "peer"] }),
-        record("others", { type: "direct", participants: ["other1", "other2"] }),
-        record("shared", { type: "league", participants: [] })
-      ])));
-      await waitFor(() => {
-        expect(result.current.data.chatRooms.map((room) => room.id)).toEqual(["mine", "shared"]);
+      const roomFeeds = subscriptions.filter((subscription) => (
+        subscription.active && subscription.reference.path === "organizations/org-a/chatRooms"
+      ));
+      expect(roomFeeds).toHaveLength(2);
+      const direct = roomFeeds.find((subscription) => subscription.reference.constraints?.some((constraint) => (
+        constraint.field === "participants" && constraint.value === "viewer"
+      )))!;
+      const shared = roomFeeds.find((subscription) => subscription.reference.constraints?.some((constraint) => (
+        constraint.field === "type" && Array.isArray(constraint.value)
+      )))!;
+      expect(firestoreMocks.where).toHaveBeenCalledWith("participants", "array-contains", "viewer");
+      expect(firestoreMocks.where).toHaveBeenCalledWith("type", "in", ["league", "event"]);
+      expect(direct.reference.constraints).toEqual(expect.arrayContaining([
+        { field: "type", kind: "where", value: "direct" }
+      ]));
+      act(() => {
+        direct.next(querySnapshot([
+          record("mine", { type: "direct", participants: ["viewer", "peer"] }),
+          record("others", { type: "direct", participants: ["other1", "other2"] })
+        ]));
+        shared.next(querySnapshot([record("shared", { type: "league", participants: [] })]));
       });
+      await waitFor(() => {
+        expect(result.current.data.chatRooms.map((room) => room.id).sort()).toEqual(["mine", "shared"]);
+      });
+      act(() => direct.next(querySnapshot([])));
+      expect(result.current.data.chatRooms.map((room) => room.id)).toEqual(["shared"]);
     }
   );
 
