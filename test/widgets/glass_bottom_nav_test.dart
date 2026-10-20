@@ -29,7 +29,7 @@ void main() {
       final homeX = tester.getCenter(find.text('Home')).dx;
       final scheduleX = tester.getCenter(find.text('Schedule')).dx;
       final contactsX = tester.getCenter(find.text('Contacts')).dx;
-      final profileX = tester.getCenter(find.text('Profile')).dx;
+      final profileX = tester.getCenter(find.text('Info')).dx;
 
       expect(homeX, lessThan(scheduleX));
       expect(scheduleX, lessThan(contactsX));
@@ -55,7 +55,7 @@ void main() {
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Schedule'), findsOneWidget);
       expect(find.text('Contacts'), findsOneWidget);
-      expect(find.text('Profile'), findsOneWidget);
+      expect(find.text('Info'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -110,7 +110,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Profile'), findsNothing);
+      expect(find.text('Info'), findsNothing);
       expect(find.text('Settings'), findsOneWidget);
 
       await tester.tap(find.text('Settings'));

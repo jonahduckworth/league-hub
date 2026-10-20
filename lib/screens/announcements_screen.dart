@@ -206,8 +206,8 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',
         title: 'Announcements',
-        showBackButton: returnLocation != null,
-        backFallbackLocation: returnLocation ?? '/announcements',
+        showBackButton: true,
+        backFallbackLocation: returnLocation ?? '/',
         onBack:
             returnLocation == null ? null : () => context.go(returnLocation),
       ),

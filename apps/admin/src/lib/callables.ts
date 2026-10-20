@@ -2,6 +2,9 @@ import { httpsCallable } from "firebase/functions";
 import { functions } from "./firebase";
 
 export type CallableName =
+  | "infoCentreList"
+  | "infoCentreUpsert"
+  | "infoCentreReveal"
   | "adminGetOverview"
   | "adminCreateInvitation"
   | "adminExpireInvitation"

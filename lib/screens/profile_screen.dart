@@ -36,6 +36,7 @@ class ProfileScreen extends ConsumerWidget {
 
     return AppShellScaffold(
       header: AppShellHeader(
+        showBackButton: true,
         title: 'Profile',
         leadingIcon: Icons.person_outline_rounded,
         leadingImageUrl: headerLeague?.logoUrl,

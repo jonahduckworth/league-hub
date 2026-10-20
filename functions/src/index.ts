@@ -68,3 +68,4 @@ export {
   onStructureChatRoomCreated,
   onTeamStructureWritten,
 } from "./structureChatRooms";
+export {infoCentreList, infoCentreUpsert, infoCentreReveal} from "./infoCentre";

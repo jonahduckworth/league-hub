@@ -46,6 +46,9 @@ class AppShellHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final router = GoRouter.maybeOf(context);
+    final path = router?.routeInformationProvider.value.uri.path;
+    final showProfile = path == '/' || path == '/schedule' || path == '/contacts' || path == '/info';
     final topInset = MediaQuery.paddingOf(context).top;
     final hasBottom = bottom != null;
     final hasTrailingMark =
@@ -64,7 +67,19 @@ class AppShellHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            content ??
+            content != null
+                ? Row(children: [
+                    Expanded(child: content!),
+                    if (showProfile) ...[
+                      const SizedBox(width: 6),
+                      AppHeaderIconButton(
+                        icon: Icons.account_circle_outlined,
+                        tooltip: 'Profile',
+                        onPressed: () => context.push('/profile'),
+                      ),
+                    ],
+                  ])
+                :
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -88,6 +103,11 @@ class AppShellHeader extends StatelessWidget {
                     if (actions.isNotEmpty) ...[
                       const SizedBox(width: 10),
                       Row(mainAxisSize: MainAxisSize.min, children: actions),
+                    ],
+                    if (showProfile) ...[
+                      const SizedBox(width: 6),
+                      AppHeaderIconButton(icon: Icons.account_circle_outlined,
+                          tooltip: 'Profile', onPressed: () => context.push('/profile')),
                     ],
                     if (hasTrailingMark) ...[
                       const SizedBox(width: 10),
