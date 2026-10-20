@@ -24,9 +24,9 @@ export function canManageInfoScope(user: AppUser, scope: InfoScope): boolean {
     : Boolean(scope.hubId && user.hubIds.includes(scope.hubId));
 }
 export function infoScopeLabel(item: InfoScope, data: InfoData): string {
-  return data.structure.teams.find((x) => x.id === item.teamId)?.name
-    ?? data.structure.hubs.find((x) => x.id === item.hubId)?.name
-    ?? data.structure.leagues.find((x) => x.id === item.leagueId)?.name ?? 'Unavailable scope';
+  if (item.teamId) return data.structure.teams.find((x) => x.id === item.teamId)?.name ?? 'Unavailable team';
+  if (item.hubId) return data.structure.hubs.find((x) => x.id === item.hubId)?.name ?? 'Unavailable hub';
+  return data.structure.leagues.find((x) => x.id === item.leagueId)?.name ?? 'Unavailable league';
 }
 export function infoItemInHub(item: InfoScope, hubId: string, data: InfoData): boolean {
   if (!hubId) return true;

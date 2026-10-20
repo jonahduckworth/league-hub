@@ -74,7 +74,7 @@ export const infoCentreList = onCall(runtime, async (request) => {
   const preview = data.preview === true;
   const convert = (snapshot: FirebaseFirestore.QuerySnapshot): InfoRecord[] => snapshot.docs
     .map((doc) => ({...doc.data(), id: doc.id}) as InfoRecord)
-    .filter((item) => validateScope(item, structure) && canReadInfo(actor, item, structure, preview))
+    .filter((item) => (validateScope(item, structure) || (!preview && elevated(actor))) && canReadInfo(actor, item, structure, preview))
     .sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder) || a.title.localeCompare(b.title));
   const sections = convert(snapshots[0]);
   const policySnapshot = await db.collection('organizations').doc(orgId).collection('policies').limit(1001).get();
@@ -90,7 +90,7 @@ export const infoCentreList = onCall(runtime, async (request) => {
   const visible = (item: InfoRecord) => ({
     ...Object.fromEntries(fields.filter((field) => field in item).map((field) => [field, item[field]])),
     canManage: canManageInfo(actor, item),
-    canReveal: canRevealInfo(actor, item, structure),
+    canReveal: validateScope(item, structure) && canRevealInfo(actor, item, structure),
   });
   // Revalidate identity/assignments after asynchronous reads; never return a stale scope.
   const current = await actorFor(request.auth!.uid, orgId);
@@ -101,13 +101,14 @@ export const infoCentreList = onCall(runtime, async (request) => {
 export const infoCentreUpsert = onCall(runtime, async (request) => {
   const data = input(request);
   const orgId = id(data.orgId, "organization");
-  await actorFor(request.auth!.uid, orgId);
+  const initialActor = await actorFor(request.auth!.uid, orgId);
   const structure = await structureFor(orgId);
   const type = data.type === "section" ? "section" : data.type === "entry" ? "entry" : error("Invalid resource type.");
   const itemId = data.id ? id(data.id, "resource") : records(orgId, type).doc().id;
   const scope: InfoScope = {leagueId: id(data.leagueId, "league"),
     hubId: data.hubId ? id(data.hubId, "hub") : null, teamId: data.teamId ? id(data.teamId, "team") : null};
-  if (!validateScope(scope, structure)) return error("The selected team, hub and league must belong together.");
+  const archiveRequest = Boolean(data.id && data.status === "archived" && elevated(initialActor));
+  if (!validateScope(scope, structure) && !archiveRequest) return error("The selected team, hub and league must belong together.");
   const status = text(data.status, "status");
   if (!["draft", "published", "archived"].includes(status)) return error("Invalid publication status.");
   const audience = data.audience === "management" ? "management" : data.audience === "members" ? "members" : error("Choose an audience.");
@@ -146,26 +147,37 @@ export const infoCentreUpsert = onCall(runtime, async (request) => {
       throw new HttpsError("permission-denied", "You can only manage your assigned Info Centre scope.");
     }
     const currentStructure = await structureFor(orgId, transaction);
-    if (!validateScope(scope, currentStructure)) return error("The selected scope no longer exists.");
+    const stored = existing.data() as InfoRecord | undefined;
+    // Elevated cleanup may only archive at the existing scope; it cannot grant access or reveal secrets.
+    const archiveOnly = Boolean(stored && status === "archived" && elevated(actor) &&
+      scope.leagueId === stored.leagueId && scope.hubId === stored.hubId && scope.teamId === stored.teamId);
+    if (!validateScope(scope, currentStructure) && !archiveOnly) return error("The selected scope no longer exists.");
     const wasActive = existing.exists && ["draft", "published"].includes(existing.data()!.status);
     if (status !== "archived" && !wasActive) {
       const active = await transaction.get(records(orgId, type).where("status", "in", ["draft", "published"]).limit(1000));
       if (active.size >= 1000) throw new HttpsError("resource-exhausted", "Archive an existing resource before adding or republishing another.");
     }
+    if (type === "section" && existing.exists) {
+      const activeEntries = await transaction.get(records(orgId, "entry").where("status", "in", ["draft", "published"]).limit(1001));
+      const children = activeEntries.docs.filter((doc) => doc.data().sectionId === itemId);
+      if (children.some((child) => status === "archived" || !containsScope(scope, child.data() as InfoScope))) {
+        throw new HttpsError("failed-precondition", "Archive or move this section's resources before archiving the section or changing its scope.");
+      }
+    }
     const revision = existing.exists ? Number(existing.data()!.revision) : 0;
     if ((existing.exists && data.expectedRevision !== revision) || (!existing.exists && data.expectedRevision != null && data.expectedRevision !== 0)) {
       throw new HttpsError("aborted", "This resource changed. Refresh before saving again.");
     }
-    if (sectionId && (!section?.exists || section.data()!.status === "archived" ||
+    if (sectionId && !archiveOnly && (!section?.exists || section.data()!.status === "archived" ||
         !containsScope(section.data() as InfoScope, scope) ||
         !readableScope(actor, section.data() as InfoScope, currentStructure))) return error("Choose an available section containing this resource's scope.");
-    if (item.policyId && !(await transaction.get(db.collection("organizations").doc(orgId).collection("policies").doc(String(item.policyId)))).exists) return error("Policy not found in this organization.");
+    if (item.policyId && status !== "archived" && !(await transaction.get(db.collection("organizations").doc(orgId).collection("policies").doc(String(item.policyId)))).exists) return error("Policy not found in this organization.");
     // Lock referenced hierarchy and actor documents against concurrent reassignments.
     const league = db.collection("organizations").doc(orgId).collection("leagues").doc(scope.leagueId);
     const refs = [league];
     if (scope.hubId) refs.push(league.collection("hubs").doc(scope.hubId));
     if (scope.teamId) refs.push(league.collection("hubs").doc(scope.hubId!).collection("teams").doc(scope.teamId));
-    for (const ref of refs) if (!(await transaction.get(ref)).exists) return error("The selected scope no longer exists.");
+    for (const ref of archiveOnly ? [] : refs) if (!(await transaction.get(ref)).exists) return error("The selected scope no longer exists.");
     const hasPassword = type === "entry" && (data.password === undefined ? existing.data()?.hasPassword === true : Boolean(data.password));
     const now = new Date().toISOString();
     transaction.set(reference, {...item, hasPassword, revision: revision + 1,

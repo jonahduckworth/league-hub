@@ -62,7 +62,10 @@ test('callables support scoped publishing, secrets, conflicts and manager isolat
   await adminDb.doc('users/managerAdmin').update({hubIds:['h'],teamIds:['t']});
   await adminDb.doc('organizations/org/leagues/l/hubs/h/teams/t').delete();
   for (const role of ['platformOwner','superAdmin','managerAdmin']) {
-    assert.equal((await call('infoCentreList',role,{})).entries.length,0);
+    assert.equal((await call('infoCentreList',role,{preview:true})).entries.length,0);
+    const editing=await call('infoCentreList',role,{});
+    assert.equal(editing.entries.length,role==='managerAdmin'?0:1);
+    if(editing.entries.length) assert.equal(editing.entries[0].canReveal,false);
     await assert.rejects(call('infoCentreReveal',role,{id:entryId}),{code:'permission-denied'});
   }
   await adminDb.doc('organizations/org/leagues/l/hubs/h/teams/t').set({name:'Team'});
@@ -88,7 +91,31 @@ test('active capacity excludes archived resources and keeps archival available',
   assert.equal(listing.policyOptionsLimited,true);
   assert.equal(listing.policies.length,1000);
   await assert.rejects(call('infoCentreUpsert','superAdmin',{...base,type:'entry',expectedRevision:0}),{code:'resource-exhausted'});
+  const sectionUpdate={...base,type:'section',id:sectionId,expectedRevision:1};
+  await assert.rejects(call('infoCentreUpsert','superAdmin',{...sectionUpdate,status:'archived'}),{code:'failed-precondition'});
+  await assert.rejects(call('infoCentreUpsert','superAdmin',{...sectionUpdate,hubId:'other'}),{code:'failed-precondition'});
+  await call('infoCentreUpsert','superAdmin',{...sectionUpdate,hubId:null});
+  const emptySection=await call('infoCentreUpsert','superAdmin',{...base,type:'section',expectedRevision:0});
+  await call('infoCentreUpsert','superAdmin',{...base,type:'section',id:emptySection.id,expectedRevision:1,status:'archived'});
+
   await call('infoCentreUpsert','superAdmin',{...base,type:'entry',id:'cap0',expectedRevision:1,status:'archived'});
   await call('infoCentreUpsert','superAdmin',{...base,type:'entry',expectedRevision:0});
   assert.equal((await call('infoCentreList','superAdmin',{})).entries.length,1000);
+});
+
+test('elevated cleanup can archive unchanged orphan scopes without member exposure',async()=>{
+  const base={leagueId:'l',hubId:'h',teamId:'t',title:'Old team info',status:'published',audience:'members',sortOrder:0};
+  const section=await call('infoCentreUpsert','superAdmin',{...base,type:'section',expectedRevision:0});
+  // Free one active slot before creating the child.
+  await call('infoCentreUpsert','superAdmin',{...base,teamId:null,type:'entry',id:'cap1',sectionId,kind:'note',expectedRevision:1,status:'archived'});
+  const entry=await call('infoCentreUpsert','superAdmin',{...base,type:'entry',sectionId:section.id,kind:'policy',policyId:'p0',expectedRevision:0});
+  await adminDb.doc('organizations/org/policies/p0').delete();
+  await adminDb.doc('organizations/org/leagues/l/hubs/h/teams/t').delete();
+  assert.equal((await call('infoCentreList','superAdmin',{preview:true})).entries.some((item)=>item.id===entry.id),false);
+  assert.equal((await call('infoCentreList','superAdmin',{})).entries.some((item)=>item.id===entry.id),true);
+  await assert.rejects(call('infoCentreReveal','superAdmin',{id:entry.id}),{code:'permission-denied'});
+  await assert.rejects(call('infoCentreUpsert','managerAdmin',{...base,type:'entry',id:entry.id,sectionId:section.id,kind:'policy',policyId:'p0',expectedRevision:1,status:'archived'}),{code:'invalid-argument'});
+  await call('infoCentreUpsert','superAdmin',{...base,type:'entry',id:entry.id,sectionId:section.id,kind:'policy',policyId:'p0',expectedRevision:1,status:'archived'});
+  await call('infoCentreUpsert','superAdmin',{...base,type:'section',id:section.id,expectedRevision:1,status:'archived'});
+  assert.equal((await call('infoCentreList','superAdmin',{})).sections.some((item)=>item.id===section.id),false);
 });
