@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../models/app_user.dart';
 import '../models/policy.dart';
 import 'permission_service.dart';
+import 'firestore_service.dart';
 
 bool canExportPolicy(AppUser user, Policy policy) =>
     (user.role == UserRole.platformOwner || user.orgId == policy.orgId) &&
@@ -26,17 +27,19 @@ String policyFileExtension(String type, String url) {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
     'text/csv': 'csv',
   };
+  String urlExtension = '';
+  try {
+    final path = Uri.decodeComponent(Uri.parse(url).path);
+    urlExtension = RegExp(r'\.([a-zA-Z0-9]{1,8})$').firstMatch(path)?.group(1)?.toLowerCase() ?? '';
+  } catch (_) { /* Fall back to the stored MIME for malformed legacy URLs. */ }
+  // Older version uploads can leave fileType describing the previous file.
+  if ({...types.values, 'jpeg'}.contains(urlExtension)) return urlExtension;
   final normalized = type.split(';').first.trim().toLowerCase();
   if (types.containsKey(normalized)) return types[normalized]!;
   if (RegExp(r'^\.?[a-z0-9]{1,8}$').hasMatch(normalized)) {
     return normalized.replaceFirst('.', '');
   }
-  final path = Uri.decodeComponent(Uri.parse(url).path);
-  return RegExp(r'\.([a-zA-Z0-9]{1,8})$')
-          .firstMatch(path)
-          ?.group(1)
-          ?.toLowerCase() ??
-      'bin';
+  return urlExtension.isEmpty ? 'bin' : urlExtension;
 }
 
 bool policyFileCanPrint(String extension) => const [
@@ -66,6 +69,7 @@ class PolicyExportFile {
         'jpg' || 'jpeg' => 'image/jpeg',
         'gif' => 'image/gif',
         'webp' => 'image/webp',
+      'bmp' => 'image/bmp',
         'doc' => 'application/msword',
         'docx' =>
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -78,18 +82,12 @@ class PolicyExportFile {
 }
 
 class PolicyFileService {
+  final FirebaseFirestore? firestore;
+  PolicyFileService({this.firestore});
   Future<Policy> refresh(String orgId, String policyId) async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('organizations')
-        .doc(orgId)
-        .collection('policies')
-        .doc(policyId)
-        .get(const GetOptions(source: Source.server));
-    if (!snapshot.exists) throw StateError('Policy no longer available.');
-    final policy = Policy.fromJson({...snapshot.data()!, 'id': snapshot.id});
-    if (policy.orgId != orgId) {
-      throw StateError('Policy organization mismatch.');
-    }
+    final policy = await FirestoreService(firestore: firestore).getPolicyForExport(orgId, policyId);
+    if (policy == null) throw StateError('Policy no longer available.');
+    if (policy.orgId != orgId) throw StateError('Policy organization mismatch.');
     return policy;
   }
 
@@ -105,7 +103,7 @@ class PolicyFileService {
       throw StateError('This file does not belong to the selected policy.');
     }
     // SDK downloads enforce Storage rules rather than exporting a public URL.
-    final bytes = await reference.getData(25 * 1024 * 1024);
+    final bytes = await reference.getData(50 * 1024 * 1024);
     if (bytes == null || bytes.isEmpty) {
       throw StateError('The document is empty.');
     }

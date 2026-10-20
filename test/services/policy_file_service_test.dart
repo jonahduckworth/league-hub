@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/policy.dart';
 import 'package:league_hub/services/policy_file_service.dart';
@@ -41,6 +43,19 @@ void main() {
           role == UserRole.platformOwner || role == UserRole.superAdmin);
     });
   }
+  test('fresh export normalizes native timestamps including historical versions', () async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.doc('organizations/org/policies/p').set({
+      ...policy.toJson(), 'createdAt': Timestamp.fromDate(DateTime(2026)),
+      'updatedAt': Timestamp.fromDate(DateTime(2026, 2)),
+      'versions': [{'url': 'https://example.com/old.pdf', 'version': 1,
+        'uploadedAt': Timestamp.fromDate(DateTime(2025)), 'fileSize': 10}],
+    });
+    final fresh = await PolicyFileService(firestore: firestore).refresh('org', 'p');
+    expect(fresh.createdAt.year, 2026);
+    expect(fresh.versions.single.uploadedAt.year, 2025);
+    expect(fresh.id, 'p');
+  });
   test('export filename cannot create another path', () {
     expect(policyExportName('../../Bench / Visor', 'pdf'),
         '.._.._Bench _ Visor.pdf');
@@ -53,6 +68,8 @@ void main() {
         policyFileExtension(
             '', 'https://example.com/o/policies%2Fold.DOCX?token=x'),
         'docx');
+    expect(policyFileExtension('pdf', 'https://example.com/current.docx'), 'docx');
+    expect(policyFileExtension('docx', 'https://example.com/historical.pdf'), 'pdf');
     expect(policyFileCanPrint('docx'), isFalse);
     expect(policyFileCanPrint('pdf'), isTrue);
     expect(policyFileCanPrint('png'), isTrue);
