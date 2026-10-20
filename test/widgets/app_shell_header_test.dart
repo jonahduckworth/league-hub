@@ -1,10 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/widgets/app_shell_header.dart';
 
 void main() {
   group('AppShellHeader', () {
+    for (final custom in [false, true]) {
+      testWidgets('primary header opens Profile with custom=$custom',
+          (tester) async {
+        final router = GoRouter(routes: [
+          GoRoute(
+              path: '/',
+              builder: (_, __) => Scaffold(
+                  body: AppShellHeader(
+                      title: 'Home',
+                      content: custom ? const Text('Welcome') : null))),
+          GoRoute(
+              path: '/profile',
+              builder: (_, __) => const Scaffold(body: Text('Member profile'))),
+        ]);
+        addTearDown(router.dispose);
+        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Profile'));
+        await tester.pumpAndSettle();
+        expect(find.text('Member profile'), findsOneWidget);
+      });
+    }
+
     testWidgets('keeps destination title and league mark borderless',
         (WidgetTester tester) async {
       await tester.pumpWidget(

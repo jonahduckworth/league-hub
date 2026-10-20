@@ -28,19 +28,22 @@ async function actorFor(uid: string, orgId: string): Promise<InfoActor> {
   if (!snapshot.exists || !sameOrganization(user, orgId)) throw new HttpsError("permission-denied", "Info Centre access is unavailable.");
   return user;
 }
-async function structureFor(orgId: string): Promise<InfoStructure> {
+async function structureFor(orgId: string, transaction?: FirebaseFirestore.Transaction): Promise<InfoStructure> {
   const root = db.collection("organizations").doc(orgId);
-  if (!(await root.get()).exists) throw new HttpsError("not-found", "Organization not found.");
-  const leagues = await root.collection("leagues").limit(101).get();
+  if (!(await (transaction ? transaction.get(root) : root.get())).exists) throw new HttpsError("not-found", "Organization not found.");
+  const leagueQuery = root.collection("leagues").limit(101);
+  const leagues = await (transaction ? transaction.get(leagueQuery) : leagueQuery.get());
   if (leagues.size > 100) throw new HttpsError("resource-exhausted", "Organization structure is too large.");
   const structure: InfoStructure = {leagues: [], hubs: [], teams: []};
   await Promise.all(leagues.docs.map(async (league) => {
     structure.leagues.push({id: league.id, name: league.data().name || league.id});
-    const hubs = await league.ref.collection("hubs").limit(201).get();
+    const hubQuery = league.ref.collection("hubs").limit(201);
+    const hubs = await (transaction ? transaction.get(hubQuery) : hubQuery.get());
     if (hubs.size > 200) throw new HttpsError("resource-exhausted", "League structure is too large.");
     await Promise.all(hubs.docs.map(async (hub) => {
       structure.hubs.push({id: hub.id, name: hub.data().name || hub.id, leagueId: league.id});
-      const teams = await hub.ref.collection("teams").limit(201).get();
+      const teamQuery = hub.ref.collection("teams").limit(201);
+      const teams = await (transaction ? transaction.get(teamQuery) : teamQuery.get());
       if (teams.size > 200) throw new HttpsError("resource-exhausted", "Hub structure is too large.");
       teams.docs.forEach((team) => structure.teams.push({
         id: team.id, name: team.data().name || team.id, hubId: hub.id, leagueId: league.id,
@@ -143,13 +146,15 @@ export const infoCentreUpsert = onCall(runtime, async (request) => {
         (existing.exists && !canManageInfo(actor, existing.data() as InfoRecord))) {
       throw new HttpsError("permission-denied", "You can only manage your assigned Info Centre scope.");
     }
+    const currentStructure = await structureFor(orgId, transaction);
+    if (!validateScope(scope, currentStructure)) return error("The selected scope no longer exists.");
     const revision = existing.exists ? Number(existing.data()!.revision) : 0;
     if ((existing.exists && data.expectedRevision !== revision) || (!existing.exists && data.expectedRevision != null && data.expectedRevision !== 0)) {
       throw new HttpsError("aborted", "This resource changed. Refresh before saving again.");
     }
     if (sectionId && (!section?.exists || section.data()!.status === "archived" ||
         !containsScope(section.data() as InfoScope, scope) ||
-        !readableScope(actor, section.data() as InfoScope, structure))) return error("Choose an available section containing this resource's scope.");
+        !readableScope(actor, section.data() as InfoScope, currentStructure))) return error("Choose an available section containing this resource's scope.");
     if (item.policyId && !(await transaction.get(db.collection("organizations").doc(orgId).collection("policies").doc(String(item.policyId)))).exists) return error("Policy not found in this organization.");
     // Lock referenced hierarchy and actor documents against concurrent reassignments.
     const league = db.collection("organizations").doc(orgId).collection("leagues").doc(scope.leagueId);
@@ -175,18 +180,20 @@ export const infoCentreReveal = onCall(runtime, async (request) => {
   const orgId = id(data.orgId, "organization");
   const itemId = id(data.id, "resource");
   await actorFor(request.auth!.uid, orgId);
-  const structure = await structureFor(orgId);
   return db.runTransaction(async (transaction) => {
     const [userSnapshot, entrySnapshot, secret] = await Promise.all([
       transaction.get(db.collection("users").doc(request.auth!.uid)),
       transaction.get(records(orgId, "entry").doc(itemId)),
       transaction.get(db.collection("organizations").doc(orgId).collection("infoCentreSecrets").doc(itemId)),
     ]);
+    const structure = await structureFor(orgId, transaction);
     const actor = {...userSnapshot.data(), id: userSnapshot.id} as InfoActor;
     const entry = entrySnapshot.data() as InfoRecord | undefined;
-    if (!entry || !canRevealInfo(actor, entry, structure)) throw new HttpsError("permission-denied", "This password is restricted.");
+    if (!entry || !validateScope(entry, structure) || !canRevealInfo(actor, entry, structure)) throw new HttpsError("permission-denied", "This password is restricted.");
     const section = await transaction.get(records(orgId, "section").doc(entry.sectionId!));
-    if (!section.exists || !canReadInfo(actor, section.data() as InfoRecord, structure)) throw new HttpsError("permission-denied", "This resource is unavailable.");
+    if (!section.exists || !validateScope(section.data() as InfoScope, structure) ||
+        !containsScope(section.data() as InfoScope, entry) ||
+        !canReadInfo(actor, section.data() as InfoRecord, structure)) throw new HttpsError("permission-denied", "This resource is unavailable.");
     if (!secret.exists) throw new HttpsError("not-found", "No password is available.");
     return {password: secret.data()!.password};
   });

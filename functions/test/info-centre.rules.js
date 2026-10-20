@@ -59,4 +59,14 @@ test('callables support scoped publishing, secrets, conflicts and manager isolat
   await assert.rejects(call('infoCentreList','staff',{}),{code:'permission-denied'});
   await adminDb.doc('users/managerAdmin').update({hubIds:[],teamIds:[]});
   await assert.rejects(call('infoCentreReveal','managerAdmin',{id:entryId}),{code:'permission-denied'});
+  await adminDb.doc('users/managerAdmin').update({hubIds:['h'],teamIds:['t']});
+  await adminDb.doc('organizations/org/leagues/l/hubs/h/teams/t').delete();
+  for (const role of ['platformOwner','superAdmin','managerAdmin']) {
+    assert.equal((await call('infoCentreList',role,{})).entries.length,0);
+    await assert.rejects(call('infoCentreReveal',role,{id:entryId}),{code:'permission-denied'});
+  }
+  await adminDb.doc('organizations/org/leagues/l/hubs/h/teams/t').set({name:'Team'});
+  await adminDb.doc('organizations/org/leagues/l/hubs/other').set({name:'Other hub'});
+  await adminDb.doc(`organizations/org/infoCentreSections/${sectionId}`).update({hubId:'other'});
+  await assert.rejects(call('infoCentreReveal','superAdmin',{id:entryId}),{code:'permission-denied'});
 });
