@@ -104,6 +104,7 @@ class SettingsScreen extends ConsumerWidget {
 
     return AppShellScaffold(
       header: AppShellHeader(
+        showBackButton: true,
         leadingIcon: Icons.settings_outlined,
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',

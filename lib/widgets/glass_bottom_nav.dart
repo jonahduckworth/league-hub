@@ -47,9 +47,9 @@ class LeagueHubGlassBottomNav extends StatelessWidget {
         ),
         overrideLastItem ??
             const GlassNavBarItem(
-              icon: Icons.person_outline_rounded,
-              activeIcon: Icons.person_rounded,
-              label: 'Profile',
+              icon: Icons.menu_book_outlined,
+              activeIcon: Icons.menu_book_rounded,
+              label: 'Info',
               iconSize: 27,
             ),
       ],

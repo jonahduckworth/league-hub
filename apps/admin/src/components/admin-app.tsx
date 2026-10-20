@@ -3,6 +3,7 @@
 import {
   Activity,
   Building2,
+  BookOpen,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -93,9 +94,10 @@ import type {
   Team,
   UserRole
 } from "@/lib/types";
+import { InfoCentreWorkspace } from "./info-centre";
 import { Badge, Button, Card, Field, Input, Select, Textarea, type BadgeTone } from "./ui";
 
-type SectionId = "overview" | "people" | "structure" | "schedule" | "chats" | "announcements" | "policies";
+type SectionId = "overview" | "people" | "structure" | "schedule" | "chats" | "announcements" | "policies" | "info";
 
 const navItems: Array<{
   id: SectionId;
@@ -110,11 +112,12 @@ const navItems: Array<{
   { id: "schedule", label: "Schedule", mobileLabel: "Games", description: "RAMP games and sync health", icon: CalendarDays },
   { id: "chats", label: "Chat Rooms", mobileLabel: "Chats", description: "Room coverage and setup", icon: MessageSquare },
   { id: "announcements", label: "Announcements", mobileLabel: "News", description: "League communications", icon: Megaphone },
+  { id: "info", label: "Info Centre", mobileLabel: "Info", description: "Hub and team resources", icon: BookOpen },
   { id: "policies", label: "Policies", mobileLabel: "Policies", description: "Documents and versions", icon: FileText }
 ];
 
 const mobileNavItems = navItems.filter((item) => ["people", "structure", "schedule", "chats"].includes(item.id));
-const mobileMoreItems = navItems.filter((item) => ["announcements", "policies"].includes(item.id));
+const mobileMoreItems = navItems.filter((item) => ["announcements", "policies", "info"].includes(item.id));
 
 type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -152,7 +155,7 @@ export function AdminApp() {
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
-  const { data, loading, error, selectedOrgId, setSelectedOrgId, reloadStructure, isActiveDataScope } = useAdminData(currentUser);
+  const { data, loading, error, selectedOrgId, setSelectedOrgId, reloadStructure, isActiveDataScope } = useAdminData(canAccessAdmin(currentUser) ? currentUser : null);
 
   const loadSignedInUser = useCallback(async (firebaseUser: FirebaseUser): Promise<ActionResult<AppUser>> => {
     const result = await fetchAdminProfile(firebaseUser);
@@ -265,6 +268,9 @@ export function AdminApp() {
     );
   }
 
+  if (currentUser.isActive && currentUser.role === "managerAdmin" && currentUser.orgId) {
+    return <main className="min-h-screen bg-shell p-4 sm:p-8"><div className="mx-auto max-w-6xl"><div className="mb-6 flex justify-between gap-3"><p className="font-bold">League Hub · Assigned resources</p><Button variant="secondary" onClick={() => { if (auth) void signOut(auth); }}>Sign out</Button></div><InfoCentreWorkspace key={currentUser.id} currentUser={currentUser} orgId={currentUser.orgId} /></div></main>;
+  }
   if (!canAccessAdmin(currentUser)) {
     return <BlockedPanel user={currentUser} />;
   }
@@ -495,6 +501,8 @@ export function AdminApp() {
 
 function renderSection(section: SectionId, data: AdminData, currentUser: AppUser, runAction: ActionRunner, selectedOrgId?: string) {
   switch (section) {
+    case "info":
+      return <InfoCentreWorkspace key={`${currentUser.id}:${selectedOrgId}`} currentUser={currentUser} orgId={selectedOrgId} />;
     case "people":
       return <PeopleSection data={data} currentUser={currentUser} runAction={runAction} />;
     case "structure":

@@ -1312,6 +1312,11 @@ service cloud.firestore {
         }
       }
 
+      // Info Centre data, drafts and credentials are mediated by scoped callables.
+      match /infoCentreSections/{id} { allow read, write: if false; }
+      match /infoCentreEntries/{id} { allow read, write: if false; }
+      match /infoCentreSecrets/{id} { allow read, write: if false; }
+
       match /scheduleEvents/{eventId} {
         allow get, list: if sameOrg(orgId);
         allow create, update, delete: if false;

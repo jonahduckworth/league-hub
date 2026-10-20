@@ -17,6 +17,7 @@ import '../core/constants.dart';
 import '../screens/login_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/contacts_screen.dart';
+import '../screens/info_centre_screen.dart';
 import '../screens/contact_profile_screen.dart';
 import '../screens/chat_list_screen.dart';
 import '../screens/chat_conversation_screen.dart';
@@ -740,6 +741,10 @@ final router = GoRouter(
             ),
           ],
         ),
+        StatefulShellBranch(routes: [
+          GoRoute(path: '/info', pageBuilder: (context, state) => _shellTransitionPage(
+            state, const InfoCentreScreen(), animatePrimary: false)),
+        ]),
       ],
     ),
     GoRoute(
@@ -1050,14 +1055,6 @@ class _MainScaffold extends StatelessWidget {
                 ? LeagueHubGlassBottomNav(
                     currentIndex: _bottomNavIndex,
                     onTap: (index) => _handleBottomNavTap(context, index),
-                    overrideLastItem: quickDestinationConfig == null
-                        ? null
-                        : GlassNavBarItem(
-                            icon: quickDestinationConfig.icon,
-                            activeIcon: quickDestinationConfig.activeIcon,
-                            label: quickDestinationConfig.label,
-                            iconSize: quickDestinationConfig.iconSize,
-                          ),
                   )
                 : null,
           ),
@@ -1074,19 +1071,11 @@ class _MainScaffold extends StatelessWidget {
   }
 
   void _handleBottomNavTap(BuildContext context, int index) {
-    final quickDestinationConfig =
-        shellQuickDestinationConfigForLocation(location);
-    if (index == 3 && quickDestinationConfig != null) {
-      if (location == quickDestinationConfig.route) return;
-      context.go(quickDestinationConfig.route);
-      return;
-    }
-
     final branchIndex = switch (index) {
       0 => 0,
       1 => 7,
       2 => 6,
-      3 => 5,
+      3 => 8,
       _ => 0,
     };
     navigationShell.goBranch(

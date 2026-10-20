@@ -53,7 +53,8 @@ const Map<ShellQuickDestination, ShellQuickDestinationConfig>
 };
 
 bool shouldShowShellBottomNavigation(String location) {
-  return !location.startsWith('/chat/');
+  return location == '/' || location.startsWith('/schedule') ||
+      location.startsWith('/contacts') || location.startsWith('/info');
 }
 
 ShellQuickDestinationConfig quickDestinationConfig(
@@ -87,14 +88,10 @@ int shellBottomNavIndexFor({
   required int branchIndex,
   required String location,
 }) {
-  if (shellQuickDestinationForLocation(location) != null) {
-    return 3;
-  }
-
   return switch (branchIndex) {
     7 => 1,
     6 => 2,
-    5 => 3,
+    8 => 3,
     _ => 0,
   };
 }
@@ -104,7 +101,7 @@ int shellBranchNavSlot(int branchIndex) {
     0 => 0,
     7 => 1,
     6 => 2,
-    1 || 2 || 3 || 4 || 5 => 3,
+    8 => 3,
     _ => 0,
   };
 }
