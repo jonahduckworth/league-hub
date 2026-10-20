@@ -30,15 +30,19 @@ class DocumentViewerScaffold extends StatelessWidget {
       Scaffold(
         backgroundColor: Colors.transparent,
         body: Column(children: [
-          AppShellHeader(
-            title: title,
-            leadingIcon: icon,
-            leadingImageUrl: leagueLogoUrl,
-            leadingLabel: leagueName,
-            showBackButton: true,
-            // Viewers are pushed on Navigator outside the GoRouter page stack.
-            onBack: () => Navigator.of(context).maybePop(),
-            actions: actions,
+          SafeArea(
+            top: false,
+            bottom: false,
+            child: AppShellHeader(
+              title: title,
+              leadingIcon: icon,
+              leadingImageUrl: leagueLogoUrl,
+              leadingLabel: leagueName,
+              showBackButton: true,
+              // Viewers are pushed on Navigator outside the GoRouter page stack.
+              onBack: () => Navigator.of(context).maybePop(),
+              actions: actions,
+            ),
           ),
           Expanded(
             child: Padding(

@@ -12,13 +12,17 @@ void main() {
     for (final scale in [1.0, 3.2]) {
       testWidgets('viewer safe areas, fixed header and back on $size at $scale',
           (tester) async {
+        final landscape = size.width > size.height;
+        final sideInset = landscape ? 59.0 : 0.0;
+        final bottomInset = landscape ? 21.0 : 34.0;
         await tester.binding.setSurfaceSize(size);
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await tester.pumpWidget(MaterialApp(
           builder: (context, child) => MediaQuery(
             data: MediaQueryData(
               size: size,
-              padding: const EdgeInsets.only(top: 47, bottom: 34),
+              padding: EdgeInsets.fromLTRB(
+                  sideInset, landscape ? 0 : 47, sideInset, bottomInset),
               textScaler: TextScaler.linear(scale),
               disableAnimations: true,
             ),
@@ -54,10 +58,16 @@ void main() {
         final header = find.byType(AppShellHeader);
         final viewport = find.byKey(const Key('document-viewport'));
         expect(tester.getTopLeft(header).dy, 0);
+        expect(tester.getTopLeft(find.byTooltip('Back')).dx,
+            greaterThanOrEqualTo(sideInset));
+        expect(tester.getTopRight(find.byType(AppHeaderLogoMark)).dx,
+            lessThanOrEqualTo(size.width - sideInset));
+        expect(tester.getTopLeft(viewport).dx, sideInset);
+        expect(tester.getTopRight(viewport).dx, size.width - sideInset);
         expect(tester.getTopLeft(viewport).dy,
             closeTo(tester.getBottomLeft(header).dy + 8, 0.1));
-        expect(
-            tester.getBottomLeft(viewport).dy, closeTo(size.height - 34, 0.1));
+        expect(tester.getBottomLeft(viewport).dy,
+            closeTo(size.height - bottomInset, 0.1));
         expect(
             tester
                 .widget<AppHeaderLogoMark>(find.byType(AppHeaderLogoMark))
