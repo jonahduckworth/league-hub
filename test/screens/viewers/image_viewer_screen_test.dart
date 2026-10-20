@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
+import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/screens/viewers/image_viewer_screen.dart';
 
 void main() {
@@ -16,7 +18,7 @@ void main() {
       expect(find.text('Test Image'), findsOneWidget);
     });
 
-    testWidgets('has black background', (tester) async {
+    testWidgets('uses the app glass background', (tester) async {
       await tester.pumpWidget(const MaterialApp(
         home: ImageViewerScreen(
           imageUrl: 'https://example.com/image.png',
@@ -26,7 +28,8 @@ void main() {
       await tester.pump();
 
       final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-      expect(scaffold.backgroundColor, Colors.black);
+      expect(scaffold.backgroundColor, Colors.transparent);
+      expect(find.byType(AppGlassBackground), findsOneWidget);
     });
 
     testWidgets('contains InteractiveViewer for zoom', (tester) async {
@@ -41,7 +44,7 @@ void main() {
       expect(find.byType(InteractiveViewer), findsOneWidget);
     });
 
-    testWidgets('has an AppBar', (tester) async {
+    testWidgets('uses the shared app header', (tester) async {
       await tester.pumpWidget(const MaterialApp(
         home: ImageViewerScreen(
           imageUrl: 'https://example.com/image.png',
@@ -50,7 +53,10 @@ void main() {
       ));
       await tester.pump();
 
-      expect(find.byType(AppBar), findsOneWidget);
+      expect(find.byType(AppBar), findsNothing);
+      expect(find.byType(AppShellHeader), findsOneWidget);
+      expect(find.byTooltip('Back'), findsOneWidget);
+      expect(find.byType(AppHeaderLogoMark), findsOneWidget);
     });
   });
 }

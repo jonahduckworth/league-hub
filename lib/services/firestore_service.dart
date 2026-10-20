@@ -980,6 +980,12 @@ class FirestoreService {
     });
   }
 
+  Future<Policy?> getPolicyForExport(String orgId, String policyId) async {
+    final snap = await _policiesRef(orgId).doc(policyId)
+        .get(const GetOptions(source: Source.server));
+    return snap.exists ? _policyFromSnap(snap, orgId) : null;
+  }
+
   Future<String> createPolicy(String orgId, Map<String, dynamic> policyData,
       {String? policyId}) async {
     final ref = policyId != null

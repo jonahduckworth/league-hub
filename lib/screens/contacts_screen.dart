@@ -142,6 +142,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final contacts = allContacts.where((contact) {
       final matchesQuery = normalizedQuery.isEmpty ||
           contact.user.displayName.toLowerCase().contains(normalizedQuery) ||
+          (contact.user.title?.toLowerCase().contains(normalizedQuery) ?? false) ||
           contact.assignments.hubNames.any(
             (hubName) => hubName.toLowerCase().contains(normalizedQuery),
           );
@@ -591,6 +592,13 @@ class _ContactRow extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    if (user.title?.trim().isNotEmpty ?? false) ...[
+                      const SizedBox(height: 4),
+                      Text(user.title!.trim(), maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppGlassColors.inkSecondary,
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       hubSummary,
