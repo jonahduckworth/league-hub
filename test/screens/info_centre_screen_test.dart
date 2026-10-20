@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/info_centre.dart';
+import 'package:league_hub/models/league.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/models/organization.dart';
 import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
@@ -71,9 +73,29 @@ void main() {
             accentColor: '#000000',
             createdAt: DateTime(2026),
             ownerId: 'admin')),
+        leaguesProvider.overrideWith((ref) => Stream.value([
+              League(
+                  id: 'other',
+                  orgId: 'org',
+                  name: 'Other League',
+                  abbreviation: 'OL',
+                  createdAt: DateTime(2026)),
+              League(
+                  id: 'l',
+                  orgId: 'org',
+                  name: 'Test League',
+                  abbreviation: 'TL',
+                  logoUrl: 'https://example.com/league.png',
+                  createdAt: DateTime(2026))
+            ])),
         infoCentreProvider.overrideWith((ref) => data),
       ], child: const MaterialApp(home: InfoCentreScreen())));
       await tester.pumpAndSettle();
+      final logo =
+          tester.widget<AppHeaderLogoMark>(find.byType(AppHeaderLogoMark));
+      expect(logo.imageUrl, 'https://example.com/league.png');
+      expect(logo.label, 'Test League');
+      expect(find.byTooltip('Profile'), findsNothing);
       expect(find.text('Team registration'), findsOneWidget);
       expect(find.text('Open registration'), findsOneWidget);
       expect(find.byTooltip('Copy invite code'), findsOneWidget);

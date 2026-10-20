@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/league_branding.dart';
 import '../models/info_centre.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
@@ -107,9 +108,23 @@ class _InfoCentreScreenState extends ConsumerState<InfoCentreScreen> {
       _scopeKey = scopeKey;
       _hubId = null;
     }
+    final data = state.valueOrNull;
+    final selectedHub = data?.hubs.any((hub) => hub['id'] == _hubId) == true
+        ? _hubId
+        : data?.hubs.length == 1
+            ? data!.hubs.first['id'] as String
+            : null;
+    final selectedLeagueId = data?.hubs
+        .where((hub) => hub['id'] == selectedHub)
+        .firstOrNull?['leagueId'] as String?;
+    final headerLeague = resolveHeaderLeague(
+        ref.watch(leaguesProvider).valueOrNull ?? [], selectedLeagueId);
     return AppShellScaffold(
-      header: const AppShellHeader(
-          title: 'Info Centre', leadingIcon: Icons.menu_book_outlined),
+      header: AppShellHeader(
+          title: 'Info Centre',
+          leadingIcon: Icons.menu_book_outlined,
+          leadingImageUrl: headerLeague?.logoUrl,
+          leadingLabel: headerLeague?.name ?? 'League Hub'),
       child: state.when(
         loading: () => const AppLoadingState(label: 'Loading resources…'),
         error: (_, __) => AppErrorState(
@@ -117,11 +132,6 @@ class _InfoCentreScreenState extends ConsumerState<InfoCentreScreen> {
             message: 'Check your connection and try again.',
             onRetry: () => ref.invalidate(infoCentreProvider)),
         data: (data) {
-          final selectedHub = data.hubs.any((hub) => hub['id'] == _hubId)
-              ? _hubId
-              : data.hubs.length == 1
-                  ? data.hubs.first['id'] as String
-                  : null;
           final sections = data.sections
               .where((item) => data.visibleInHub(item, selectedHub))
               .toList();

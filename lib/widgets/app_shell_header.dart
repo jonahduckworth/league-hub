@@ -13,7 +13,9 @@ double appShellHeaderRowHeight(BuildContext context) {
   final scaledLineHeight =
       MediaQuery.textScalerOf(context).scale(_headerTextSize) *
           _headerTextHeight;
-  return scaledLineHeight.clamp(_headerLogoSize, double.infinity).toDouble();
+  return scaledLineHeight
+      .clamp(kMinInteractiveDimension, double.infinity)
+      .toDouble();
 }
 
 class AppShellHeader extends StatelessWidget {
@@ -46,9 +48,6 @@ class AppShellHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final router = GoRouter.maybeOf(context);
-    final path = router?.routeInformationProvider.value.uri.path;
-    final showProfile = path == '/' || path == '/schedule' || path == '/contacts' || path == '/info';
     final topInset = MediaQuery.paddingOf(context).top;
     final hasBottom = bottom != null;
     final hasTrailingMark =
@@ -68,56 +67,40 @@ class AppShellHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             content != null
-                ? Row(children: [
-                    Expanded(child: content!),
-                    if (showProfile) ...[
-                      const SizedBox(width: 6),
-                      AppHeaderIconButton(
-                        icon: Icons.account_circle_outlined,
-                        tooltip: 'Profile',
-                        onPressed: () => context.push('/profile'),
-                      ),
-                    ],
-                  ])
-                :
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (showBackButton) ...[
-                      _HeaderBackButton(
-                        fallbackLocation: backFallbackLocation,
-                        icon: backIcon,
-                        onTap: onBack,
-                      ),
-                      const SizedBox(width: 10),
-                    ],
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _HeaderTitlePill(
-                          title: title,
-                          leadingIcon: leadingIcon,
+                ? content!
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (showBackButton) ...[
+                        _HeaderBackButton(
+                          fallbackLocation: backFallbackLocation,
+                          icon: backIcon,
+                          onTap: onBack,
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _HeaderTitlePill(
+                            title: title,
+                            leadingIcon: leadingIcon,
+                          ),
                         ),
                       ),
-                    ),
-                    if (actions.isNotEmpty) ...[
-                      const SizedBox(width: 10),
-                      Row(mainAxisSize: MainAxisSize.min, children: actions),
+                      if (actions.isNotEmpty) ...[
+                        const SizedBox(width: 10),
+                        Row(mainAxisSize: MainAxisSize.min, children: actions),
+                      ],
+                      if (hasTrailingMark) ...[
+                        const SizedBox(width: 10),
+                        AppHeaderLogoMark(
+                          imageUrl: leadingImageUrl,
+                          label: leadingLabel ?? title,
+                        ),
+                      ],
                     ],
-                    if (showProfile) ...[
-                      const SizedBox(width: 6),
-                      AppHeaderIconButton(icon: Icons.account_circle_outlined,
-                          tooltip: 'Profile', onPressed: () => context.push('/profile')),
-                    ],
-                    if (hasTrailingMark) ...[
-                      const SizedBox(width: 10),
-                      AppHeaderLogoMark(
-                        imageUrl: leadingImageUrl,
-                        label: leadingLabel ?? title,
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
             if (hasBottom) ...[
               const SizedBox(height: 14),
               bottom!,
