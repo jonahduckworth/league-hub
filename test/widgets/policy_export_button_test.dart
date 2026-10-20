@@ -9,6 +9,7 @@ import 'package:league_hub/providers/auth_provider.dart';
 import 'package:league_hub/providers/data_providers.dart';
 import 'package:league_hub/services/policy_file_service.dart';
 import 'package:league_hub/widgets/policy_export_button.dart';
+import 'package:league_hub/widgets/app_glass.dart';
 
 class ExportProbe extends PolicyFileService {
   final Policy fresh;
@@ -40,6 +41,7 @@ void main() {
       updatedAt: DateTime(2026));
   testWidgets('fresh scope denial stops before file download or native export',
       (tester) async {
+    final semantics = tester.ensureSemantics();
     final probe = ExportProbe(policy(hub: 'other'));
     await tester.pumpWidget(ProviderScope(
         overrides: [
@@ -67,7 +69,13 @@ void main() {
         child: const MaterialApp(
             home: Scaffold(body: PolicyExportButton(policyId: 'p')))));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Share, save or print policy'));
+    final button = find.byTooltip('Share, save or print policy');
+    expect(tester.getSize(button), const Size(48, 48));
+    expect(tester.getSemantics(button).flagsCollection.isButton, isTrue);
+    final icon = tester.widget<Icon>(find.byIcon(Icons.ios_share_rounded));
+    expect(icon.color, AppGlassColors.ink);
+    expect(find.byType(AppGlassSurface), findsOneWidget);
+    await tester.tap(button);
     await tester.pumpAndSettle();
     expect(find.text('Print'), findsOneWidget);
     await tester.tap(find.text('Share'));
@@ -75,5 +83,6 @@ void main() {
     expect(probe.downloads, 0);
     expect(find.textContaining('Could not export this policy'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 }

@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_providers.dart';
 import '../services/policy_file_service.dart';
+import 'app_glass.dart';
 
 enum PolicyFileAction { share, save, print }
 
@@ -107,17 +108,20 @@ class _PolicyExportButtonState extends ConsumerState<PolicyExportButton> {
       return const SizedBox.shrink();
     }
     if (_busy) {
-      return const Padding(
-          padding: EdgeInsets.all(14),
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ));
+      return const SizedBox(
+        width: kMinInteractiveDimension,
+        height: kMinInteractiveDimension,
+        child: Center(
+            child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: AppGlassColors.ink),
+        )),
+      );
     }
     return PopupMenuButton<PolicyFileAction>(
       tooltip: 'Share, save or print policy',
-      icon: const Icon(Icons.ios_share),
       onSelected: _export,
       itemBuilder: (_) => [
         const PopupMenuItem(
@@ -129,6 +133,23 @@ class _PolicyExportButtonState extends ConsumerState<PolicyExportButton> {
           const PopupMenuItem(
               value: PolicyFileAction.print, child: Text('Print')),
       ],
+      child: Semantics(
+        button: true,
+        child: const SizedBox(
+          width: kMinInteractiveDimension,
+          height: kMinInteractiveDimension,
+          child: Center(
+            child: AppGlassSurface(
+              width: 40,
+              height: 40,
+              padding: EdgeInsets.zero,
+              radius: 20,
+              child: Icon(Icons.ios_share_rounded,
+                  color: AppGlassColors.ink, size: 22),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
