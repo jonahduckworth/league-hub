@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:league_hub/widgets/app_shell_header.dart';
 import 'package:league_hub/screens/viewers/pdf_viewer_screen.dart';
 
 Future<void> _pendingDownload({
@@ -48,7 +49,7 @@ void main() {
       expect(find.text('Downloading PDF...'), findsOneWidget);
     });
 
-    testWidgets('has an AppBar', (tester) async {
+    testWidgets('uses the shared app header', (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: const PdfViewerScreen(
           pdfUrl: 'https://example.com/doc.pdf',
@@ -58,7 +59,10 @@ void main() {
       ));
       await tester.pump();
 
-      expect(find.byType(AppBar), findsOneWidget);
+      expect(find.byType(AppBar), findsNothing);
+      expect(find.byType(AppShellHeader), findsOneWidget);
+      expect(find.byTooltip('Back'), findsOneWidget);
+      expect(find.byType(AppHeaderLogoMark), findsOneWidget);
     });
 
     testWidgets('downloads and renders the PDF inside the app', (tester) async {

@@ -74,6 +74,8 @@ void main() {
     expect(tester.getSemantics(button).flagsCollection.isButton, isTrue);
     final icon = tester.widget<Icon>(find.byIcon(Icons.ios_share_rounded));
     expect(icon.color, AppGlassColors.ink);
+    expect(tester.getCenter(find.byIcon(Icons.ios_share_rounded)),
+        tester.getCenter(find.byType(AppGlassSurface)));
     expect(find.byType(AppGlassSurface), findsOneWidget);
     await tester.tap(button);
     await tester.pumpAndSettle();

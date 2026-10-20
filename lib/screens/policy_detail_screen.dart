@@ -156,6 +156,10 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
       {String? fileType, String? title}) async {
     final ext = normalizedPolicyExtension(fileType, url);
     final viewerType = policyViewerTypeForExt(ext);
+    final headerLeague = resolveHeaderLeague(
+      ref.read(leaguesProvider).valueOrNull ?? [],
+      ref.read(policyProvider(widget.policyId)).valueOrNull?.leagueId,
+    );
 
     if (viewerType == PolicyViewerType.image) {
       await Navigator.push(
@@ -164,7 +168,11 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
           ImageViewerScreen(
             imageUrl: url,
             title: title ?? 'Image',
-            actions: [PolicyExportButton(policyId: widget.policyId, versionUrl: url)],
+            leagueName: headerLeague?.name ?? 'League Hub',
+            leagueLogoUrl: headerLeague?.logoUrl,
+            actions: [
+              PolicyExportButton(policyId: widget.policyId, versionUrl: url)
+            ],
           ),
         ),
       );
@@ -178,7 +186,11 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
           PdfViewerScreen(
             pdfUrl: url,
             title: title ?? 'PDF',
-            actions: [PolicyExportButton(policyId: widget.policyId, versionUrl: url)],
+            leagueName: headerLeague?.name ?? 'League Hub',
+            leagueLogoUrl: headerLeague?.logoUrl,
+            actions: [
+              PolicyExportButton(policyId: widget.policyId, versionUrl: url)
+            ],
           ),
         ),
       );

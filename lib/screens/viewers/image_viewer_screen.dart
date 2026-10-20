@@ -1,31 +1,34 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import '../../widgets/document_viewer_scaffold.dart';
 
 /// Full-screen image viewer with pinch-to-zoom and pan.
 class ImageViewerScreen extends StatelessWidget {
   final String imageUrl;
   final String title;
   final List<Widget> actions;
+  final String leagueName;
+  final String? leagueLogoUrl;
 
   const ImageViewerScreen({
     super.key,
     required this.imageUrl,
     required this.title,
     this.actions = const [],
+    this.leagueName = 'League Hub',
+    this.leagueLogoUrl,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        actions: actions,
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(title, style: const TextStyle(fontSize: 16)),
-      ),
-      body: Center(
+    return DocumentViewerScaffold(
+      title: title,
+      leagueName: leagueName,
+      leagueLogoUrl: leagueLogoUrl,
+      icon: Icons.image_outlined,
+      actions: actions,
+      child: Center(
         child: InteractiveViewer(
           minScale: 0.5,
           maxScale: 4.0,

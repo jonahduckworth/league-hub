@@ -144,8 +144,10 @@ class _PolicyExportButtonState extends ConsumerState<PolicyExportButton> {
               height: 40,
               padding: EdgeInsets.zero,
               radius: 20,
-              child: Icon(Icons.ios_share_rounded,
-                  color: AppGlassColors.ink, size: 22),
+              child: Center(
+                child: Icon(Icons.ios_share_rounded,
+                    color: AppGlassColors.ink, size: 22),
+              ),
             ),
           ),
         ),

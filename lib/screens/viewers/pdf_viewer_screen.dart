@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../core/theme.dart';
+import '../../widgets/document_viewer_scaffold.dart';
 
 typedef PdfDownloadCallback = Future<void> Function({
   required String url,
@@ -71,6 +72,8 @@ class PdfViewerScreen extends StatefulWidget {
   final String pdfUrl;
   final String title;
   final List<Widget> actions;
+  final String leagueName;
+  final String? leagueLogoUrl;
   final PdfDownloadCallback? downloadPdf;
   final PdfContentBuilder? pdfContentBuilder;
   final Directory Function()? temporaryDirectory;
@@ -80,6 +83,8 @@ class PdfViewerScreen extends StatefulWidget {
     required this.pdfUrl,
     required this.title,
     this.actions = const [],
+    this.leagueName = 'League Hub',
+    this.leagueLogoUrl,
     this.downloadPdf,
     this.pdfContentBuilder,
     this.temporaryDirectory,
@@ -151,10 +156,12 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   @override
   Widget build(BuildContext context) {
     final localPath = _localPath;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(widget.title), actions: widget.actions),
-      body: _loading
+    return DocumentViewerScaffold(
+      title: widget.title,
+      leagueName: widget.leagueName,
+      leagueLogoUrl: widget.leagueLogoUrl,
+      actions: widget.actions,
+      child: _loading
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
