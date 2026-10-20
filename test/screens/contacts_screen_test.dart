@@ -212,6 +212,22 @@ void main() {
       expect(find.text('Zoe Manager'), findsNothing);
     });
 
+    testWidgets('shows and searches business positions without changing access', (tester) async {
+      await tester.pumpWidget(buildScreen([
+        user(id: '1', name: 'Alex Staff', email: 'alex@example.com',
+            title: 'Head Coach', hubIds: const ['hub-north']),
+        user(id: '2', name: 'Pat Staff', email: 'pat@example.com',
+            hubIds: const ['hub-south']),
+      ]));
+      await tester.pumpAndSettle();
+      expect(find.text('Head Coach'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).first, 'coach');
+      await tester.pumpAndSettle();
+      expect(find.text('Alex Staff'), findsOneWidget);
+      expect(find.text('Pat Staff'), findsNothing);
+      expect(find.text('North Hub'), findsWidgets);
+    });
+
     testWidgets('filters contacts by hub and team', (tester) async {
       await tester.pumpWidget(
         buildScreen([

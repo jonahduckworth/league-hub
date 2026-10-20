@@ -6,11 +6,13 @@ import '../../core/theme.dart';
 class ImageViewerScreen extends StatelessWidget {
   final String imageUrl;
   final String title;
+  final List<Widget> actions;
 
   const ImageViewerScreen({
     super.key,
     required this.imageUrl,
     required this.title,
+    this.actions = const [],
   });
 
   @override
@@ -18,6 +20,7 @@ class ImageViewerScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
+        actions: actions,
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: Text(title, style: const TextStyle(fontSize: 16)),

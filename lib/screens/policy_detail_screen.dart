@@ -23,6 +23,7 @@ import '../widgets/app_glass.dart';
 import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/confirmation_dialog.dart';
+import '../widgets/policy_export_button.dart';
 import 'viewers/image_viewer_screen.dart';
 import 'viewers/pdf_viewer_screen.dart';
 
@@ -163,6 +164,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
           ImageViewerScreen(
             imageUrl: url,
             title: title ?? 'Image',
+            actions: [PolicyExportButton(policyId: widget.policyId, versionUrl: url)],
           ),
         ),
       );
@@ -176,6 +178,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
           PdfViewerScreen(
             pdfUrl: url,
             title: title ?? 'PDF',
+            actions: [PolicyExportButton(policyId: widget.policyId, versionUrl: url)],
           ),
         ),
       );
@@ -442,6 +445,7 @@ class _PolicyDetailScreenState extends ConsumerState<PolicyDetailScreen> {
         leadingLabel: headerLeague?.name ?? 'League Hub',
         showBackButton: true,
         actions: [
+          PolicyExportButton(policyId: widget.policyId),
           if (policy != null && _canDelete(currentUser))
             AppHeaderIconButton(
               icon: Icons.delete_outline,

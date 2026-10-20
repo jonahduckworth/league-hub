@@ -70,6 +70,7 @@ Widget _buildEmbeddedPdf(BuildContext context, String localPath) {
 class PdfViewerScreen extends StatefulWidget {
   final String pdfUrl;
   final String title;
+  final List<Widget> actions;
   final PdfDownloadCallback? downloadPdf;
   final PdfContentBuilder? pdfContentBuilder;
   final Directory Function()? temporaryDirectory;
@@ -78,6 +79,7 @@ class PdfViewerScreen extends StatefulWidget {
     super.key,
     required this.pdfUrl,
     required this.title,
+    this.actions = const [],
     this.downloadPdf,
     this.pdfContentBuilder,
     this.temporaryDirectory,
@@ -151,7 +153,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     final localPath = _localPath;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(title: Text(widget.title), actions: widget.actions),
       body: _loading
           ? Center(
               child: Column(
