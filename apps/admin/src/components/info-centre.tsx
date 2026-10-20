@@ -72,6 +72,7 @@ export function InfoCentreWorkspace({ currentUser, orgId }: { currentUser: AppUs
       <Field label="Hub"><Select value={hubId} onChange={(event) => setHubId(event.target.value)}><option value="">All accessible hubs</option>{data.structure.hubs.map((hub) => <option key={hub.id} value={hub.id}>{hub.name}</option>)}</Select></Field>
       <label className="flex min-h-11 items-center gap-2 text-sm text-ink"><input type="checkbox" checked={preview} onChange={(event) => setPreview(event.target.checked)} />Show published resources only</label>
     </Card>
+    {data.policyOptionsLimited && <p role="status" className="text-sm text-muted">The policy picker shows up to 1,000 policies. Other Info Centre resources remain available.</p>}
     {error && <div role="alert" className="rounded-xl bg-rose-50 p-4 text-red-800">{error}</div>}
     {!orgId ? <Card className="p-8 text-muted">Select an organization to manage its resources.</Card> : loading ? <div role="status"><Card className="p-8 text-muted">Loading Info Centre…</Card></div> : sections.length === 0 ?
       <Card className="p-10 text-center"><BookOpen className="mx-auto size-9 text-teal" /><h2 className="mt-4 text-xl font-bold">No sections yet</h2><p className="mt-2 text-muted">Create a section, then add resources for the people who need them.</p></Card> : sections.map((section) =>

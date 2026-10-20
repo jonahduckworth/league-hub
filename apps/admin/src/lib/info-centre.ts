@@ -8,6 +8,7 @@ export type InfoItem = InfoScope & {
   hasPassword?: boolean; passwordAudience?: 'members' | 'management';
 };
 export type InfoData = {
+  policyOptionsLimited?: boolean;
   structure: {
     leagues: Array<{ id: string; name: string }>;
     hubs: Array<{ id: string; name: string; leagueId: string }>;

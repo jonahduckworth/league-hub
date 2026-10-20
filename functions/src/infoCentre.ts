@@ -69,7 +69,7 @@ export const infoCentreList = onCall(runtime, async (request) => {
   const orgId = id(data.orgId, "organization");
   const actor = await actorFor(request.auth!.uid, orgId);
   const structure = await structureFor(orgId);
-  const snapshots = await Promise.all([records(orgId, "section").limit(1001).get(), records(orgId, "entry").limit(1001).get()]);
+  const snapshots = await Promise.all([records(orgId, "section").where("status", "in", ["draft", "published"]).limit(1001).get(), records(orgId, "entry").where("status", "in", ["draft", "published"]).limit(1001).get()]);
   if (snapshots.some((snapshot) => snapshot.size > 1000)) throw new HttpsError("resource-exhausted", "Archive old Info Centre resources before adding more.");
   const preview = data.preview === true;
   const convert = (snapshot: FirebaseFirestore.QuerySnapshot): InfoRecord[] => snapshot.docs
@@ -78,12 +78,11 @@ export const infoCentreList = onCall(runtime, async (request) => {
     .sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder) || a.title.localeCompare(b.title));
   const sections = convert(snapshots[0]);
   const policySnapshot = await db.collection('organizations').doc(orgId).collection('policies').limit(1001).get();
-  if (policySnapshot.size > 1000) throw new HttpsError('resource-exhausted', 'Policy directory is too large.');
   const policies = policySnapshot.docs.filter((doc) => {
     const policy = doc.data();
     return elevated(actor) || (policy.teamId ? actor.teamIds?.includes(policy.teamId) || actor.hubIds?.includes(policy.hubId) :
       policy.hubId ? actor.hubIds?.includes(policy.hubId) : true);
-  }).map((doc) => ({id: doc.id, name: String(doc.data().name || 'Policy')}));
+  }).slice(0, 1000).map((doc) => ({id: doc.id, name: String(doc.data().name || 'Policy')}));
   const sectionIds = new Set(sections.map((section) => section.id));
   const entries = convert(snapshots[1]).filter((entry) => sectionIds.has(entry.sectionId!));
   // Only an explicit metadata whitelist crosses the callable boundary.
@@ -96,7 +95,7 @@ export const infoCentreList = onCall(runtime, async (request) => {
   // Revalidate identity/assignments after asynchronous reads; never return a stale scope.
   const current = await actorFor(request.auth!.uid, orgId);
   if (JSON.stringify(current) !== JSON.stringify(actor)) throw new HttpsError("aborted", "Your access changed. Refresh Info Centre.");
-  return {structure: scopedStructure(actor, structure), policies, sections: sections.map(visible), entries: entries.map(visible)};
+  return {structure: scopedStructure(actor, structure), policies, policyOptionsLimited: policySnapshot.size > 1000, sections: sections.map(visible), entries: entries.map(visible)};
 });
 
 export const infoCentreUpsert = onCall(runtime, async (request) => {
@@ -148,6 +147,11 @@ export const infoCentreUpsert = onCall(runtime, async (request) => {
     }
     const currentStructure = await structureFor(orgId, transaction);
     if (!validateScope(scope, currentStructure)) return error("The selected scope no longer exists.");
+    const wasActive = existing.exists && ["draft", "published"].includes(existing.data()!.status);
+    if (status !== "archived" && !wasActive) {
+      const active = await transaction.get(records(orgId, type).where("status", "in", ["draft", "published"]).limit(1000));
+      if (active.size >= 1000) throw new HttpsError("resource-exhausted", "Archive an existing resource before adding or republishing another.");
+    }
     const revision = existing.exists ? Number(existing.data()!.revision) : 0;
     if ((existing.exists && data.expectedRevision !== revision) || (!existing.exists && data.expectedRevision != null && data.expectedRevision !== 0)) {
       throw new HttpsError("aborted", "This resource changed. Refresh before saving again.");

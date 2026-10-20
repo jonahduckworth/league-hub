@@ -70,3 +70,25 @@ test('callables support scoped publishing, secrets, conflicts and manager isolat
   await adminDb.doc(`organizations/org/infoCentreSections/${sectionId}`).update({hubId:'other'});
   await assert.rejects(call('infoCentreReveal','superAdmin',{id:entryId}),{code:'permission-denied'});
 });
+
+test('active capacity excludes archived resources and keeps archival available',async()=>{
+  await adminDb.doc(`organizations/org/infoCentreSections/${sectionId}`).update({hubId:'h'});
+  const base={orgId:'org',leagueId:'l',hubId:'h',teamId:null,title:'Resource',status:'published',audience:'members',sortOrder:0,revision:1,sectionId,kind:'note',notes:'Example'};
+  const rows=[];
+  for(let index=0;index<999;index++) rows.push([`organizations/org/infoCentreEntries/cap${index}`,base]);
+  rows.push(['organizations/org/infoCentreEntries/archived',{...base,status:'archived'}]);
+  for(let index=0;index<1001;index++) rows.push([`organizations/org/policies/p${index}`,{name:`Policy ${index}`}]);
+  for(let start=0;start<rows.length;start+=400){
+    const batch=adminDb.batch();
+    for(const [name,value] of rows.slice(start,start+400)) batch.set(adminDb.doc(name),value);
+    await batch.commit();
+  }
+  const listing=await call('infoCentreList','superAdmin',{});
+  assert.equal(listing.entries.length,1000);
+  assert.equal(listing.policyOptionsLimited,true);
+  assert.equal(listing.policies.length,1000);
+  await assert.rejects(call('infoCentreUpsert','superAdmin',{...base,type:'entry',expectedRevision:0}),{code:'resource-exhausted'});
+  await call('infoCentreUpsert','superAdmin',{...base,type:'entry',id:'cap0',expectedRevision:1,status:'archived'});
+  await call('infoCentreUpsert','superAdmin',{...base,type:'entry',expectedRevision:0});
+  assert.equal((await call('infoCentreList','superAdmin',{})).entries.length,1000);
+});
