@@ -1,5 +1,7 @@
 {
-  "all": true,
-  "targets": [],
-  "reason": "Refresh shared runtime dependencies for gRPC, WebSocket and multipart security fixes; all Functions must use the patched dependency tree."
+  "all": false,
+  "targets": [
+    "onTeamUpdated"
+  ],
+  "reason": "Restrict administrative team-change alerts to active Owner/Admin recipients who can open the existing mobile destination."
 }

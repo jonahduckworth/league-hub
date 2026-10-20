@@ -1,5 +1,5 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
-import { getOrgTokens, sendNotification } from "../helpers";
+import { db, sendNotification } from "../helpers";
 
 /**
  * Triggers when a team document is created, updated, or deleted.
@@ -32,7 +32,18 @@ export const onTeamUpdated = onDocumentWritten(
       return;
     }
 
-    const tokens = await getOrgTokens(orgId);
+    // These are administrative structure alerts. Their existing mobile
+    // destination, /settings/roles, is available only to Owner/Admin roles.
+    const recipients = await db.collection("users")
+      .where("orgId", "==", orgId)
+      .where("isActive", "==", true)
+      .where("role", "in", ["platformOwner", "superAdmin"])
+      .get();
+    const tokens = recipients.docs.flatMap((user) => {
+      const values: unknown = user.data().fcmTokens;
+      return Array.isArray(values) ? values.filter((value): value is string =>
+        typeof value === "string" && value.length > 0) : [];
+    });
 
     await sendNotification(
       tokens,
