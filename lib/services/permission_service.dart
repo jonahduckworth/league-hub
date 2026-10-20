@@ -50,6 +50,7 @@ class PermissionService {
   static const _publicRoutes = {
     '/',
     '/contacts',
+    '/info',
     '/chat',
     '/policy',
     '/announcements',
