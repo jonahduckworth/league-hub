@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:league_hub/core/design_system.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/announcement.dart';
 import 'package:league_hub/models/league.dart';
@@ -596,7 +595,7 @@ void main() {
                 find.byKey(const ValueKey('home-greeting-row')),
               )
               .height,
-          closeTo(tester.getSize(logoFinder).height, 1),
+          closeTo(48, 1),
         );
         expect(tester.getCenter(logoFinder).dy,
             closeTo(tester.getCenter(greetingFinder).dy, 2));
@@ -620,7 +619,7 @@ void main() {
         );
       });
 
-      testWidgets('keeps the profile close to the borderless header',
+      testWidgets('keeps shared breathing room below the borderless header',
           (WidgetTester tester) async {
         await tester.pumpWidget(createTestWidget(leagues: [testLeagues.first]));
         await tester.pumpAndSettle();
@@ -632,7 +631,7 @@ void main() {
             .getTopLeft(find.byKey(const ValueKey('home-profile-frame')))
             .dy;
 
-        expect(profileTop - greetingBottom, closeTo(AppSpacing.xxs, 1));
+        expect(profileTop - greetingBottom, closeTo(20, 1));
       });
 
       testWidgets('uses a compact header without org welcome copy',

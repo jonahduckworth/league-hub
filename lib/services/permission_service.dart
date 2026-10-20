@@ -8,6 +8,9 @@ import '../models/chat_room.dart';
 /// trivially testable. Screens, providers, and route guards should all
 /// delegate to this service instead of scattering role checks inline.
 class PermissionService {
+  bool canManageInfoCentre(AppUser user) => isActiveUser(user) &&
+      isAtLeast(user.role, UserRole.managerAdmin);
+
   const PermissionService();
 
   // ---------------------------------------------------------------------------
@@ -47,6 +50,7 @@ class PermissionService {
   static const _publicRoutes = {
     '/',
     '/contacts',
+    '/info',
     '/chat',
     '/policy',
     '/announcements',

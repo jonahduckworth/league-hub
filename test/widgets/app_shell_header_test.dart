@@ -1,10 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:league_hub/widgets/app_glass.dart';
 import 'package:league_hub/widgets/app_shell_header.dart';
 
 void main() {
   group('AppShellHeader', () {
+    for (final route in ['/', '/schedule', '/contacts', '/info', '/policy/p']) {
+      for (final custom in [false, true]) {
+        testWidgets(
+            'header at $route has no Profile shortcut with custom=$custom',
+            (tester) async {
+          final router = GoRouter(initialLocation: route, routes: [
+            GoRoute(
+                path: route,
+                builder: (_, __) => Scaffold(
+                    body: AppShellHeader(
+                        title: 'Home',
+                        content: custom ? const Text('Welcome') : null))),
+            GoRoute(
+                path: '/profile',
+                builder: (_, __) =>
+                    const Scaffold(body: Text('Member profile'))),
+          ]);
+          addTearDown(router.dispose);
+          await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('Profile'), findsNothing);
+          expect(find.byIcon(Icons.account_circle_outlined), findsNothing);
+          expect(find.text(custom ? 'Welcome' : 'Home'), findsOneWidget);
+        });
+      }
+    }
+
     testWidgets('keeps destination title and league mark borderless',
         (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -92,31 +120,39 @@ void main() {
       expect(find.byType(AppGlassSurface), findsNothing);
     });
 
-    testWidgets('keeps the borderless header stable at maximum text size',
-        (WidgetTester tester) async {
-      await tester.binding.setSurfaceSize(const Size(320, 640));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in [
+      const Size(320, 640),
+      const Size(375, 812),
+      const Size(812, 375)
+    ]) {
+      testWidgets('keeps the header stable at maximum text size on $size',
+          (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        const MediaQuery(
-          data: MediaQueryData(textScaler: TextScaler.linear(3.2)),
-          child: MaterialApp(
-            home: Scaffold(
-              body: AppShellHeader(
-                title: 'Events and tournament announcements',
-                leadingIcon: Icons.campaign_outlined,
-                leadingLabel: 'Junior Prospects Hockey League',
-                showBackButton: true,
+        await tester.pumpWidget(
+          const MediaQuery(
+            data: MediaQueryData(
+                textScaler: TextScaler.linear(3.2), disableAnimations: true),
+            child: MaterialApp(
+              home: Scaffold(
+                body: AppShellHeader(
+                  title: 'Events and tournament announcements',
+                  leadingIcon: Icons.campaign_outlined,
+                  leadingLabel: 'Junior Prospects Hockey League',
+                  showBackButton: true,
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Events and tournament announcements'), findsOneWidget);
-      expect(find.byType(AppHeaderLogoMark), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
+        expect(
+            find.text('Events and tournament announcements'), findsOneWidget);
+        expect(find.byType(AppHeaderLogoMark), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 }

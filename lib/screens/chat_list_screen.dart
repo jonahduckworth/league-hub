@@ -447,6 +447,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               onTap: () => context.push('/chat/new'),
             ),
       header: AppShellHeader(
+        showBackButton: true,
         leadingIcon: Icons.forum_outlined,
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',

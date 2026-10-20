@@ -67,6 +67,7 @@ class _PolicyScreenState extends ConsumerState<PolicyScreen> {
             )
           : null,
       header: AppShellHeader(
+        showBackButton: true,
         leadingIcon: Icons.folder_copy_outlined,
         leadingImageUrl: headerLeague?.logoUrl,
         leadingLabel: headerLeague?.name ?? 'League Hub',

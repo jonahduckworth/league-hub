@@ -274,7 +274,7 @@ void main() {
               .label,
           'Spring League',
         );
-        expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
+        expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
       });
 
       testWidgets('does not display profile summary tile',

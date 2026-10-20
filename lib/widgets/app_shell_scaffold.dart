@@ -7,10 +7,9 @@ import 'app_glass.dart';
 import 'glass_bottom_nav.dart';
 import 'app_shell_header.dart';
 
-// The 40pt header row already includes 12pt of bottom padding. Pull scrollable
-// content into that padding so every primary page keeps the same compact 4pt
-// header-to-content relationship as Home without touching the safe-area inset.
-const double appShellHeaderContentSpacing = -AppSpacing.xs;
+// Keep scrollable content below the shared header's 12pt bottom padding,
+// with another 8pt of breathing room on every shell page.
+const double appShellHeaderContentSpacing = AppSpacing.xs;
 const double appShellBottomNavSpacing = 20;
 const double appShellScrollEndClearance = 40;
 
