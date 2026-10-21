@@ -1,5 +1,7 @@
 {
   "all": false,
-  "targets": ["infoCentreList", "infoCentreUpsert", "infoCentreReveal"],
-  "reason": "Add scoped Info Centre reads, resource editing, and separately authorized password reveal."
+  "targets": [
+    "onTeamUpdated"
+  ],
+  "reason": "Restrict administrative team-change alerts to active Owner/Admin recipients who can open the existing mobile destination."
 }
