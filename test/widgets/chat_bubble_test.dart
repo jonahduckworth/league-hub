@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:league_hub/models/app_user.dart';
 import 'package:league_hub/models/message.dart';
@@ -15,6 +16,7 @@ void main() {
     String? text = 'Hello!',
     List<String>? readBy,
     String? mediaUrl,
+    bool deleted = false,
     Map<String, List<String>> reactions = const {},
   }) =>
       Message(
@@ -24,6 +26,7 @@ void main() {
         senderName: senderName,
         text: text,
         mediaUrl: mediaUrl,
+        deleted: deleted,
         createdAt: testDate,
         readBy: readBy ?? [senderId],
         reactions: reactions,
@@ -270,6 +273,70 @@ void main() {
       expect(find.text('Report message'), findsOneWidget);
       expect(find.text('Report user'), findsOneWidget);
       expect(find.text('Block Bob'), findsOneWidget);
+    });
+
+    testWidgets('long pressing a link can copy the message and still react',
+        (tester) async {
+      const text = 'https://example.com/?game=123&view=home';
+      String? copiedText;
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform,
+          (method) async {
+        if (method.method == 'Clipboard.setData') {
+          copiedText = (method.arguments as Map)['text'] as String;
+        }
+        return null;
+      });
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatBubble(
+              message: makeMessage(text: text),
+              isSelf: false,
+              currentUserId: 'user2',
+              onToggleReaction: (_) {},
+              onReportMessage: () {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.longPress(find.text(text, findRichText: true));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('reaction-picker-thumbsUp')),
+          findsOneWidget);
+      expect(find.text('Report message'), findsOneWidget);
+      await tester.tap(find.text('Copy message'));
+      await tester.pumpAndSettle();
+
+      expect(copiedText, text);
+      expect(find.text('Message copied'), findsOneWidget);
+    });
+
+    testWidgets('removed messages hide their text and have no copy action',
+        (tester) async {
+      const text = 'https://example.com/removed';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatBubble(
+              message: makeMessage(text: text, deleted: true),
+              isSelf: false,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text(text, findRichText: true), findsNothing);
+      await tester.longPress(find.text('This message was deleted'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Copy message'), findsNothing);
     });
 
     testWidgets('does not expose safety actions for own message',

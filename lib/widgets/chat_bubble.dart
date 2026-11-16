@@ -9,6 +9,7 @@ import '../models/message_reaction.dart';
 import '../screens/viewers/image_viewer_screen.dart';
 import 'app_glass.dart';
 import 'avatar_widget.dart';
+import 'linkable_text.dart';
 import 'message_reactions.dart';
 
 class ChatBubble extends StatelessWidget {
@@ -88,8 +89,11 @@ class ChatBubble extends StatelessWidget {
 
   void _showActions(BuildContext context) {
     if (message.deleted) return;
-    showModalBottomSheet(
+    final text = message.text;
+    showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       sheetAnimationStyle: AppMotion.overlayStyle(context),
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.58),
@@ -99,15 +103,18 @@ class ChatBubble extends StatelessWidget {
           child: AppGlassSurface(
             radius: 28,
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: ListView(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
               children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppGlassColors.border,
-                    borderRadius: BorderRadius.circular(2),
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppGlassColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -133,7 +140,33 @@ class ChatBubble extends StatelessWidget {
                   ),
                   const Divider(height: 18, color: AppGlassColors.border),
                 ],
-                if (message.text != null && onEdit != null)
+                if (text != null && text.trim().isNotEmpty)
+                  ListTile(
+                    leading: const Icon(Icons.copy, color: AppGlassColors.aqua),
+                    title: const Text(
+                      'Copy message',
+                      style: TextStyle(
+                        color: AppGlassColors.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      try {
+                        await Clipboard.setData(ClipboardData(text: text));
+                        if (context.mounted) {
+                          AppUtils.showSuccessSnackBar(
+                              context, 'Message copied');
+                        }
+                      } catch (_) {
+                        if (context.mounted) {
+                          AppUtils.showErrorSnackBar(
+                              context, 'Could not copy this message');
+                        }
+                      }
+                    },
+                  ),
+                if (text != null && onEdit != null)
                   ListTile(
                     leading: const Icon(Icons.edit, color: AppGlassColors.aqua),
                     title: const Text(
@@ -258,7 +291,7 @@ class ChatBubble extends StatelessWidget {
           ],
           Flexible(
             child: GestureDetector(
-              onLongPress: () => _showActions(context),
+              onLongPress: isDeleted ? null : () => _showActions(context),
               child: Column(
                 crossAxisAlignment:
                     isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -371,22 +404,27 @@ class ChatBubble extends StatelessWidget {
                               ),
                             ),
                           ),
-                        Text(
-                          isDeleted
-                              ? 'This message was deleted'
-                              : message.text ?? '',
-                          style: TextStyle(
-                            color: isDeleted
-                                ? AppGlassColors.inkMuted
-                                : AppGlassColors.ink,
-                            fontSize: isDeleted ? 13 : 15,
-                            fontWeight:
-                                isDeleted ? FontWeight.w500 : FontWeight.w600,
-                            fontStyle:
-                                isDeleted ? FontStyle.italic : FontStyle.normal,
-                            height: 1.3,
+                        if (isDeleted)
+                          const Text(
+                            'This message was deleted',
+                            style: TextStyle(
+                              color: AppGlassColors.inkMuted,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FontStyle.italic,
+                              height: 1.3,
+                            ),
+                          )
+                        else
+                          LinkableText(
+                            message.text ?? '',
+                            style: const TextStyle(
+                              color: AppGlassColors.ink,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -398,11 +436,11 @@ class ChatBubble extends StatelessWidget {
                       currentUserId: currentUserId!,
                       onReactionTap: (reaction) =>
                           showMessageReactionUsersSheet(
-                            context,
-                            reactions: message.reactions,
-                            initialReaction: reaction,
-                            users: users,
-                          ),
+                        context,
+                        reactions: message.reactions,
+                        initialReaction: reaction,
+                        users: users,
+                      ),
                       onAddReaction: () => _showReactionPicker(context),
                     ),
                   const SizedBox(height: 4),

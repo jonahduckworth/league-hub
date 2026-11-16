@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/league_branding.dart';
+import '../core/utils.dart';
 import '../models/app_user.dart';
 import '../models/hub.dart';
 import '../models/league.dart';
@@ -248,8 +251,17 @@ class _ContactDetailsCard extends StatelessWidget {
 
   const _ContactDetailsCard({required this.user});
 
+  static final _singleEmailAddress =
+      RegExp(r'^[^\s\x00-\x1F\x7F@,;<>]+@[^\s\x00-\x1F\x7F@,;<>]+$');
+  static final _phoneSeparators = RegExp(r'[ ().\-\u00A0\u2010-\u2015\u202F]');
+  static final _dialableNumber = RegExp(r'^\+?[0-9]+$');
+
   @override
   Widget build(BuildContext context) {
+    final email = user.email.trim();
+    final phone = user.phone?.trim() ?? '';
+    final dialNumber = phone.replaceAll(_phoneSeparators, '');
+
     return _ContactSectionCard(
       title: 'Contact',
       child: Column(
@@ -257,14 +269,22 @@ class _ContactDetailsCard extends StatelessWidget {
           _ContactInfoRow(
             icon: Icons.email_outlined,
             label: 'Email address',
-            value: user.email,
+            value: email,
+            copyLabel: email.isEmpty ? null : 'Copy email address',
+            actionUri: _singleEmailAddress.hasMatch(email)
+                ? Uri(scheme: 'mailto', pathSegments: [email])
+                : null,
           ),
-          if (user.phone != null) ...[
+          if (phone.isNotEmpty) ...[
             const SizedBox(height: 14),
             _ContactInfoRow(
               icon: Icons.phone_outlined,
               label: 'Phone',
-              value: user.phone!,
+              value: phone,
+              copyLabel: 'Copy phone number',
+              actionUri: _dialableNumber.hasMatch(dialNumber)
+                  ? Uri(scheme: 'tel', path: dialNumber)
+                  : null,
             ),
           ],
         ],
@@ -311,16 +331,55 @@ class _ContactInfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final String? copyLabel;
+  final Uri? actionUri;
 
   const _ContactInfoRow({
     required this.icon,
     required this.label,
     required this.value,
+    this.copyLabel,
+    this.actionUri,
   });
+
+  Future<void> _open(BuildContext context, Uri uri) async {
+    try {
+      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+    } catch (_) {
+      // Some devices report a missing handler as a platform exception.
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(uri.scheme == 'tel'
+              ? 'Couldn’t open the phone app.'
+              : 'Couldn’t open the email app.'),
+          action:
+              SnackBarAction(label: 'Copy', onPressed: () => _copy(context)),
+        ),
+      );
+  }
+
+  Future<void> _copy(BuildContext context) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: value));
+    } catch (_) {
+      if (context.mounted) {
+        AppUtils.showErrorSnackBar(context, 'Couldn’t copy to the clipboard.');
+      }
+      return;
+    }
+    if (context.mounted) {
+      AppUtils.showSuccessSnackBar(context, 'Copied to clipboard');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final uri = actionUri;
+    final content = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
@@ -348,8 +407,10 @@ class _ContactInfoRow extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 value,
-                style: const TextStyle(
-                  color: AppGlassColors.ink,
+                style: TextStyle(
+                  color: uri == null ? AppGlassColors.ink : AppGlassColors.aqua,
+                  decoration: uri == null ? null : TextDecoration.underline,
+                  decorationColor: AppGlassColors.aqua,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   height: 1.3,
@@ -357,6 +418,35 @@ class _ContactInfoRow extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ],
+    );
+    if (copyLabel == null) return content;
+
+    return Row(
+      children: [
+        Expanded(
+          child: uri == null
+              ? content
+              : TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppGlassColors.aqua,
+                    minimumSize: const Size(0, 48),
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () => _open(context, uri),
+                  child: content,
+                ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: copyLabel,
+          color: AppGlassColors.inkSecondary,
+          onPressed: () => _copy(context),
+          icon: const Icon(Icons.content_copy_outlined, size: 20),
         ),
       ],
     );

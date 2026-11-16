@@ -16,6 +16,7 @@ import '../widgets/app_shell_header.dart';
 import '../widgets/app_shell_scaffold.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/confirmation_dialog.dart';
+import '../widgets/linkable_text.dart';
 
 class AnnouncementDetailScreen extends ConsumerStatefulWidget {
   final String announcementId;
@@ -198,13 +199,15 @@ class _AnnouncementDetailScreenState
                   ),
                 ),
                 const SizedBox(height: 14),
-                Text(
-                  announcement.body,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: AppGlassColors.inkSecondary,
-                    height: 1.65,
-                    fontWeight: FontWeight.w500,
+                SelectionArea(
+                  child: LinkableText(
+                    announcement.body,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: AppGlassColors.inkSecondary,
+                      height: 1.65,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
