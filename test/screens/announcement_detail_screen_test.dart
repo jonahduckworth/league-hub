@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -183,6 +185,82 @@ void main() {
           find.text('Welcome to our league management platform'),
           findsOneWidget,
         );
+      });
+
+      testWidgets('opens a posted link and copies selected announcement text',
+          (tester) async {
+        const url = 'https://example.com/register?a=1&b=2';
+        const secondLink = 'www.example.org';
+        const unsupportedLink = 'ftp://example.com/private';
+        const body = 'Register at ($url).\nSee $secondLink.\n$unsupportedLink';
+        final announcement = Announcement.fromJson({
+          ...pinnedLeagueAnnouncement.toJson(),
+          'body': body,
+        });
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        const launcher = MethodChannel('plugins.flutter.io/url_launcher');
+        final launches = <MethodCall>[];
+        String? clipboard;
+        messenger.setMockMethodCallHandler(launcher, (call) async {
+          launches.add(call);
+          return true;
+        });
+        messenger.setMockMethodCallHandler(SystemChannels.platform,
+            (call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard = call.arguments['text'] as String;
+          }
+          return null;
+        });
+        addTearDown(() {
+          messenger.setMockMethodCallHandler(launcher, null);
+          messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+        });
+
+        await tester.pumpWidget(createTestWidget(
+          announcementId: announcement.id,
+          announcements: [announcement],
+        ));
+        await tester.pumpAndSettle();
+
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.byWidgetPredicate(
+            (widget) => widget is RichText && widget.text.toPlainText() == body,
+          ),
+        );
+        Offset pointInText(String text) {
+          final start = body.indexOf(text);
+          final box = paragraph
+              .getBoxesForSelection(TextSelection(
+                baseOffset: start,
+                extentOffset: start + text.length,
+              ))
+              .first;
+          return paragraph.localToGlobal(box.toRect().center);
+        }
+
+        await tester.tapAt(pointInText(url));
+        await tester.pumpAndSettle();
+        expect(launches.single.method, 'launch');
+        expect(launches.single.arguments['url'], url);
+        expect(launches.single.arguments['useWebView'], isFalse);
+        expect(launches.single.arguments['useSafariVC'], isFalse);
+
+        await tester.tapAt(pointInText(secondLink));
+        await tester.pumpAndSettle();
+        expect(launches.last.arguments['url'], 'https://$secondLink');
+
+        await tester.tapAt(pointInText(unsupportedLink));
+        await tester.pumpAndSettle();
+        expect(launches, hasLength(2));
+
+        await tester.longPressAt(pointInText('Register'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Copy'));
+        await tester.pumpAndSettle();
+        expect(clipboard, 'Register');
+        expect(launches, hasLength(2));
       });
 
       testWidgets('displays author information', (WidgetTester tester) async {
